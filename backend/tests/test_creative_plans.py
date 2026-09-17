@@ -176,3 +176,36 @@ def test_locked_external_asset_is_preserved_but_not_invented():
  assert p.edit.clips[0].model_dump()==current['clips'][0]
  p.edit.clips[1].external_broll=ExternalBroll(start=0,end=2,source_start=0,asset_id='b'*32)
  with pytest.raises(ValueError):creative.validate(p,40,current=current)
+
+
+def test_replanning_preserves_manual_caption_corrections(client,monkeypatch):
+ from backend.schemas import Caption
+ pid=create(client).json()['id'];seed_plan(pid)
+ manual=f'/api/studio/projects/{pid}/manual';base=f'/api/studio/projects/{pid}/creative-plans'
+ edit=Edit(clips=[Clip(start=0,end=10),Clip(start=12,end=20)],captions=[Caption(start=0,end=3,original='Corrected',en='Corrected',zh='已修正')]).model_dump()
+ assert client.put(manual,json={'revision':1,'edit':edit}).status_code==200
+ monkeypatch.setattr(creative.ai,'json_call',lambda *a,**k:proposal())
+ r=client.post(base,json={'revision':2});ident=r.json()['id']
+ creative.run_job(project(pid),{'id':ident})
+ assert client.get(base).json()[0]['result']['edit']['captions']==edit['captions']
+ with connect() as db:db.execute("UPDATE jobs SET status='complete' WHERE project_id=?",(pid,))
+ assert client.post(base+'/'+ident+'/accept',json={'revision':2}).status_code==200
+ assert client.get(manual).json()['edit']['captions']==edit['captions']
+
+
+def test_existing_broll_can_be_retained_but_not_relocated():
+ from backend.manual import ExternalBroll
+ p=proposal();p.edit.clips[0].external_broll=ExternalBroll(asset_id='a'*32,start=0,end=2,source_start=4)
+ current=p.edit.model_dump()
+ creative.validate(p,40,current=current)
+ assert p.edit.clips[0].external_broll.asset_id=='a'*32
+ p.edit.clips[0].start=1
+ with pytest.raises(ValueError):creative.validate(p,40,current=current)
+
+
+def test_intentionally_cleared_captions_are_not_regenerated():
+ from backend.schemas import Caption
+ p=proposal();current=p.edit.model_dump()
+ p.edit.captions=[Caption(start=0,end=2,original='Stale',en='Stale',zh='旧字幕')]
+ creative.validate(p,40,current=current)
+ assert p.edit.captions==[]
