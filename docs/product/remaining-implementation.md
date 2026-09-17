@@ -20,7 +20,7 @@ Deployed to lumen-fix.universalgravity.org. The original VM is out of scope.
 | Manual review | Approve, replace, regenerate and lock; revisions, private assets and prior outputs preserved | Creative replanning preserves locked shot identity, position, fields and global audio/caption settings; legacy recommendation locks still block whole-plan replacement |
 | Director Timeline | Ordered source-time clips, output-time layers, motion, inserts, captions, sound and music automation | Proposed and approved views with pending-clip review; form/SVG editor, not a full drag-and-drop NLE |
 
-Verification: full isolated server regression 161 passed / 1 skipped; later legacy-music schema compatibility test passed locally. Four output ratios rendered with audio. Headless Chrome validated the new editable controls. The skipped paid live-generation test had passed separately earlier. Synthetic/fixture coverage does not prove editorial quality across all customer footage.
+Verification: latest full isolated server regression 222 passed / 4 skipped; subsequent bounded editorial-repair change passed 45 targeted server tests. Four output ratios rendered with audio. Headless Chrome validated the new editable controls. Paid integration tests are opt-in and were not run in this regression. Synthetic/fixture coverage does not prove editorial quality across all customer footage.
 
 Further work is quality depth, broader media catalogues and richer editing automation, not more cosmetic decision labels. Do not describe every PRD item as production-perfect based only on schema/UI presence.
 

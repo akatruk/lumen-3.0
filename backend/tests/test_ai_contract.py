@@ -107,7 +107,8 @@ def test_strict_schema_is_sent_to_provider(context,monkeypatch):
     assert 'emphasis_en' in caption['required']
     assert 'default' not in caption['properties']['emphasis_en']
 
-def test_completed_invalid_analysis_recovers_once(context,monkeypatch):
+@pytest.mark.parametrize('purpose',['director_plan','timeline_proposal','stock_discovery','stock_ranking'])
+def test_completed_invalid_analysis_recovers_once(context,monkeypatch,purpose):
     client=httpx.Client
     calls=[]
     def handler(request):
@@ -115,7 +116,7 @@ def test_completed_invalid_analysis_recovers_once(context,monkeypatch):
         content='invalid' if len(calls)==1 else '{"passed":true,"observations":[],"issues":[]}'
         return httpx.Response(200,json={'choices':[{'message':{'content':content}}],'usage':{'cost':.01}})
     monkeypatch.setattr(ai.httpx,'Client',lambda **kw:client(transport=httpx.MockTransport(handler),**kw))
-    assert ai.json_call('p',context,'Plan',QA,'director_plan').passed
+    assert ai.json_call('p',context,'Plan',QA,purpose).passed
     assert len(calls)==2
     with connect() as db:assert round(db.execute('SELECT SUM(actual) FROM spend').fetchone()[0],2)==.02
 
@@ -153,3 +154,22 @@ def test_repair_obeys_remaining_budget(context,monkeypatch):
     with pytest.raises(ValueError,match='budget_limit'):
         ai.json_call('p',context,'Plan',QA,'director_plan')
     assert len(calls)==1
+
+
+@pytest.mark.parametrize('purpose',['timeline_proposal','stock_discovery','stock_ranking'])
+def test_new_editorial_repairs_are_bounded(context,monkeypatch,purpose):
+    calls=mock_response(monkeypatch,200,{'choices':[{'message':{'content':'invalid'}}],'usage':{'cost':.01}})
+    with pytest.raises(ValueError,match='provider_invalid_analysis'):ai.json_call('p',context,'Plan',QA,purpose)
+    assert len(calls)==2
+
+
+def test_timeline_semantic_validator_can_trigger_repair(context,monkeypatch):
+    calls=mock_response(monkeypatch,200,{'choices':[{'message':{'content':'{"passed":true,"observations":[],"issues":[]}'}}],'usage':{'cost':.01}})
+    checked=[]
+    def validate(result):
+        checked.append(result)
+        if len(checked)==1:
+            error=ValueError('analysis_timestamps_invalid');error.feedback='Use the supplied sample range.';raise error
+    assert ai.json_call('p',context,'Plan',QA,'timeline_proposal',validator=validate).passed
+    assert len(calls)==2
+    assert b'Use the supplied sample range.' in calls[1].content

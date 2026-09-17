@@ -99,7 +99,7 @@ def json_call(project_id, path, prompt, schema, purpose, reference=None, system=
             'errors':[{'type':e['type']} for e in exc.errors(include_input=False,include_context=False)[:12]]}))
         # Only retry completed invalid responses, never ambiguous network failures.
         # The normal reservation enforces the project and daily ceilings again.
-        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning') and not _repair:
+        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking') and not _repair:
             issues=','.join(sorted({e['type'] for e in exc.errors(include_input=False,include_context=False)}))
             event(project_id,'analysis_repair',json.dumps({'purpose':purpose,'attempt':1}))
             return json_call(project_id,path,prompt+'\nThe preceding response failed validation ('+issues+'). Return a complete JSON object strictly matching the schema; use concise fields and valid escaped strings.',schema,purpose,reference=reference,system=system,validator=validator,_repair=True)
@@ -108,7 +108,7 @@ def json_call(project_id, path, prompt, schema, purpose, reference=None, system=
         code=str(exc)
         if code not in {'analysis_timestamps_invalid','analysis_duplicate_ids','analysis_multiple_hooks','provider_invalid_analysis'}:raise
         event(project_id,'analysis_validation',json.dumps({'purpose':purpose,'reason':code}))
-        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning') and not _repair:
+        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking') and not _repair:
             event(project_id,'analysis_repair',json.dumps({'purpose':purpose,'attempt':1}))
             guidance='Check the stated timeline bounds and schema. Preserve complete speech and do not invent missing evidence.'
             if purpose=='director_plan':guidance+=' Use unique recommendation IDs and exactly one valid transfer per recommendation; reference and source timelines are separate.'
