@@ -1,4 +1,4 @@
-# LUMEN 2.0 implementation status — 2026-09-17
+# LUMEN 3.0 implementation status — 2026-09-17
 
 Deployed to lumen-fix.universalgravity.org. The original VM is out of scope.
 

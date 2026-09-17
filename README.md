@@ -4,6 +4,8 @@ English / Simplified Chinese video intelligence and editing studio.
 
 Live application: https://lumen-fix.universalgravity.org/
 
+Product scope: [LUMEN 3.0 requirements](docs/product/LUMEN_3_REQUIREMENTS.md).
+
 ## Workflow
 
 1. Find reference videos through the Douyin/TikHub integration and upload owned footage (up to 7 minutes / 250 MB).
