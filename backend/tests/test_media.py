@@ -46,3 +46,28 @@ def test_caption_lines_are_balanced():
     assert len(lines)==2
     assert all(len(line.split())>=2 for line in lines)
     assert abs(len(lines[0])-len(lines[1]))<=8
+
+@pytest.mark.parametrize('text',[
+    '这里需要提前检查自己的工作证和护照，确保所有证件有效。',
+    '首先了解当地房地产市场，然后比较交通、学校和管理逻辑。',
+    '旅行前核对2026年的签证要求，准备好工作证、护照和机票。',
+])
+def test_chinese_word_boundaries_and_text_preservation(text):
+    from backend.media import caption_chunks
+    cards=caption_chunks(text,'zh')
+    lines=[line for card in cards for line in card.split('\\N')]
+    assert ''.join(lines)==text
+    assert all(len(line)<=16 for line in lines)
+    assert all(not line.startswith(tuple('，。！？；：、）》】')) for line in lines)
+    for term in ['工作证','房地产','管理','逻辑','护照','2026']:
+        if term in text:assert any(term in line for line in lines)
+    assert all(len(card.split('\\N'))<=2 for card in cards)
+
+
+def test_chinese_long_caption_does_not_resplit_words_between_cards():
+    from backend.media import caption_chunks
+    text='这里需要提前检查自己的工作证和护照，确保所有证件有效。'*4
+    cards=caption_chunks(text,'zh')
+    assert len(cards)>1
+    assert ''.join(cards).replace('\\N','')==text
+    assert sum(card.count('工作证') for card in cards)==4

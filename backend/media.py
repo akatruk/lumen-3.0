@@ -104,8 +104,8 @@ def subtitle_text(text, language):
     text=re.sub(r'[{}\\\r\n]',' ',text).strip()
     size=16 if language=='zh' else 34
     if language=='zh':
-        count=max(1,math.ceil(len(text)/size))
-        lines=[text[round(len(text)*i/count):round(len(text)*(i+1)/count)] for i in range(count)]
+        from .caption_layout import chinese_lines
+        lines=chinese_lines(text,size)
     else:
         lines=[]; current=''
         for word in text.split():
@@ -124,6 +124,9 @@ def caption_chunks(raw, language):
     rendered=subtitle_text(cleaned,language)
     lines=rendered.split('\\N')
     if len(lines)<=2: return [rendered]
+    if language=='zh':
+        # Reuse word-safe line boundaries rather than splitting characters again.
+        return ['\\N'.join(lines[i:i+2]) for i in range(0,len(lines),2)]
     tokens=list(cleaned) if language=='zh' else cleaned.split()
     # Balance cards instead of stranding the last word on its own screen.
     groups=math.ceil(len(lines)/2)

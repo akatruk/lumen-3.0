@@ -25,3 +25,4 @@ uvicorn==0.53.0
 
 psycopg==3.2.10
 psycopg-binary==3.2.10
+jieba==0.42.1
