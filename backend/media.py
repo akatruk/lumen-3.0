@@ -241,6 +241,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         else:
             inputs=['-ss',a,'-i',source];filters=['-vf',vf,'-map','0:v:0']
+        if manual and metadata['has_audio'] and clip.get('audio_fade_ms',0):
+            edge=min(clip['audio_fade_ms']/1000,(b-a)/4)
+            filters+=['-af',f'afade=t=in:st=0:d={edge},afade=t=out:st={b-a-edge}:d={edge}']
         args=[*inputs,'-t',b-a,*filters,'-map','0:a:0?',
               '-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000',part]
         ffmpeg(*args,timeout=900)

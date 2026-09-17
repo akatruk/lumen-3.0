@@ -30,6 +30,7 @@ class Clip(Span):
     zoom_end: float | None=Field(default=None,ge=1,le=3)
     x_end: float | None=Field(default=None,ge=0,le=1)
     y_end: float | None=Field(default=None,ge=0,le=1)
+    audio_fade_ms: int=Field(default=0,ge=0,le=100)
     transition: Literal['cut','fade','crossfade','zoom','wipe','circle']='cut'
 
     zoom: float=Field(default=1,ge=1,le=3)
