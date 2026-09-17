@@ -224,6 +224,7 @@ export function ManualEditor({
   const invalidSound=edit.clips.some(c=>(c.sound_effects||[]).some(e=>![e.at,e.gain_db].every(Number.isFinite)||e.at<0||e.at+({chime:.6,click:.08,whoosh:.4}[e.kind])>c.end-c.start||e.gain_db < -36||e.gain_db > -12));
   const invalidMusic=(edit.music?.levels||[]).some((p,i,points)=>!Number.isFinite(p.at)||!Number.isFinite(p.gain_db)||p.at<0||p.at>840||p.gain_db< -40||p.gain_db> -6||(i===0?p.at!==0:p.at<=points[i-1].at));
   const invalidMap=edit.clips.some(c=>c.card?.kind==='map'&&(!(c.card.locations||[]).length||(c.card.locations||[]).some(p=>!p.label.en.trim()||!p.label.zh.trim()||!Number.isFinite(p.latitude)||!Number.isFinite(p.longitude)||Math.abs(p.latitude)>90||Math.abs(p.longitude)>180)));
+  const unapprovedCount = edit.clips.filter(c=>c.approved===false).length;
   const invalid = invalidMusic || invalidMap || invalidEmphasis || invalidAnimation || invalidMilestones || invalidData || invalidSound || invalidAsset || invalidCutaway || invalidCard ||
     edit.clips.some(
       (c) =>
@@ -639,6 +640,7 @@ export function ManualEditor({
       )}
       <label><input type="checkbox" checked={qualityReview} disabled={blocked} onChange={e=>setQualityReview(e.target.checked)}/>{t('Review the finished video with AI and draft improvements if quality is low','使用 AI 复核成片，质量不足时生成改进草案')}</label>
       <p>{t('Review reserves up to $0.50, plus up to two $0.50 planning attempts if a revision is needed, within your project budget. New decisions require review; your finished video is preserved.','复核预留最多 $0.50；需要改进时最多再进行两次各 $0.50 的规划，受项目预算限制。新决策需审核，原成片保留。')}</p>
+      <p role="status">{blocked?t('Wait for the current task to finish.','请等待当前任务完成。'):invalid?t('Correct the validation errors above before saving or rendering.','请先修正上述校验错误再保存或制作。'):unapprovedCount>0?`${t('Shots awaiting approval','待批准镜头')}: ${unapprovedCount}. ${t('Approve each shot, then save your edits.','请逐个批准镜头，然后保存剪辑。')}`:dirty?t('Save your edits to enable rendering.','保存剪辑后即可制作。'):t('All shots approved and saved. Ready to render.','所有镜头已批准并保存，可以制作。')}</p>
       <div className="manual-actions">
         <span role="status">
           {dirty
@@ -670,7 +672,7 @@ export function ManualEditor({
         </button>
         <button
           className="primary"
-          disabled={blocked || invalid || dirty}
+          disabled={blocked || invalid || dirty || unapprovedCount > 0}
           onClick={() => void act(true)}
         >
           {t("Render manual cut", "制作手动版本")}

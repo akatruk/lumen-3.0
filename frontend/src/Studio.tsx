@@ -962,8 +962,8 @@ export function DirectorProject({
               ) : (
                 <>
                   <div className="director-card"><p>{state.plan.summary[lang]}</p><button className="secondary" onClick={()=>setSection("manual")}>{t("Open Director Timeline", "打开导演时间线")}</button></div>
-                  <CreativePlan initialStyle={state.context.creator.style} pid={p.id} revision={state.revision} lang={lang} disabled={dirty||working||busy} onApplied={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);setSection('manual');await onRefresh();}} />
-                  <details><summary>{t('Additional cleanup controls','更多基础调整')}</summary>
+                  <CreativePlan onSave={dirty&&!working&&!busy?save:undefined} disabledReason={dirty?t("Save your plan changes to continue.","请先保存计划更改。") : t("Wait for the current task to finish.","请等待当前任务完成。")} initialStyle={state.context.creator.style} pid={p.id} revision={state.revision} lang={lang} disabled={dirty||working||busy} onApplied={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);setSection('manual');await onRefresh();}} />
+                  <details className="cleanup-controls"><summary>{t('Additional cleanup controls','更多基础调整')}</summary>
                   <DirectorAlternatives onSave={dirty&&!working&&!busy?save:undefined} pid={p.id} revision={state.revision} recs={state.plan.recommendations} locked={decisions.filter(d=>d.locked).map(d=>d.id)} disabled={dirty||working||busy} lang={lang} onApplied={async()=>{const s=await request("/studio/projects/"+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} />
                   {state.plan.recommendations.length === 0 && (
                     <p className="director-card">

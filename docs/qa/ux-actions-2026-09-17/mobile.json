@@ -1,0 +1,11 @@
+{
+  "visiblePrimary": true,
+  "duplicatedAction": true,
+  "disabledExplanation": true,
+  "unapprovedRenderBlocked": true,
+  "uploadInputVisible": true,
+  "uploadReason": true,
+  "noPageOverflow": true,
+  "tabOffset": true,
+  "applyWorks": true
+}

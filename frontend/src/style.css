@@ -45,6 +45,17 @@ button {
   border: 0;
   background: none;
 }
+/* A missing variant must never turn an action into invisible plain text.
+   Low specificity lets navigation, timeline and icon controls keep their styles. */
+:where(.director-project, .director-form, .director-card, .douyin-search) button:where(:not([class])) {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #c5c5cc;
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 600;
+}
+:where(.director-project, .director-form, .director-card, .douyin-search) button:where(:not([class]):hover:not(:disabled)) { background: #edf3fb; }
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;

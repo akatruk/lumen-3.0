@@ -137,3 +137,25 @@ input[type=checkbox], input[type=radio], input[type=range] { accent-color: #0071
   .director-submit { flex-direction: column; align-items: stretch; }
   .director-submit .primary { white-space: normal; }
 }
+
+/* Keep project navigation below the persistent application header. */
+.director-inspector > .director-tabs { top: 68px; z-index: 10; }
+.creative-plan-actions { display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding:18px; margin:18px 0; border:1px solid #bdd4ee; border-radius:14px; background:#edf4ff; }
+.creative-plan-actions > div { flex:1 1 240px; }
+.creative-plan-actions > p { flex-basis:100%; }
+.creative-plan-actions .primary { min-height:48px; font-size:15px; white-space:normal; }
+.cleanup-controls { margin:20px 0; border:1px solid #d2d2d7; border-radius:14px; background:#fff; padding:0 16px; }
+.cleanup-controls > summary { cursor:pointer; padding:16px 0; min-height:48px; font-weight:600; }
+.director-project input:not([type=checkbox]):not([type=radio]):not([type=range]), .director-project select, .director-project textarea { max-width:100%; }
+.director-project fieldset { min-inline-size:0; }
+.director-project label > textarea { display:block; width:100%; margin-top:8px; min-height:96px; }
+.director-card, .manual-clip { overflow-wrap:anywhere; }
+@media(max-width:600px) {
+  .creative-plan-actions { padding:14px; }
+  .creative-plan-actions > button { width:100%; }
+  .director-inspector > .director-tabs { position:static; }
+}
+
+@media(min-width:1051px) { .director-player { top:86px; } }
+.director-project [role=alert] { color:#922d21; background:#fff1ed; border:1px solid #edc1b8; border-radius:10px; padding:12px 14px; }
+.media-library audio { max-width:100%; }
