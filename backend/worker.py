@@ -83,6 +83,9 @@ def render_job(p,payload):
         if manual and not payload.get('quality_review'): raise ValueError('manual_review_required')
         qa=ai.review(pid,render_folder,p['brief'],manual if manual else [r.model_dump() for r in selected])
         result['qa']=qa.model_dump()
+        from .quality_comparison import RUBRIC
+        result['quality_model']=settings.analysis_model
+        result['quality_rubric']=RUBRIC
         score=round(sum(s.value for s in qa.scores)/len(qa.scores),1) if getattr(qa,'scores',None) else None
         result['quality_score']=score
         result['qa_status']='passed' if qa.passed and (score is None or score>=75) else 'needs_review'
@@ -91,6 +94,8 @@ def render_job(p,payload):
         if manual and not payload.get('quality_review'):
             result['qa_status']='manual_review_required'
         else: event(pid,'quality_review_unavailable',safe_error(exc))
+    from .quality_comparison import compare
+    result['quality_comparison']=compare(p.get('result'),result)
     if manual:result['manual_transcript']=manual['captions'] if manual['subtitles'] else []
     # A failed quality review is never published as approved.
     status='complete' if result['qa_status']=='passed' else 'needs_review'

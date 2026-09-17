@@ -73,6 +73,7 @@ export type Project = {
     generated_clips: number;
     qa_status: string;
     quality_score?:number;
+    quality_comparison?:{previous_render_id:string;comparable:boolean;reason:string|null;previous_score?:number;current_score?:number;delta?:number;categories?:{category:string;previous:number;current:number;delta:number}[];regressions?:string[]}|null;
     quality_revision_id?:string;
     quality_revision_blocked?:string;
     qa: { passed: boolean; observations: Text[]; issues: Text[]; scores?:{category:string;value:number;reason:Text}[];revisions?:Text[] } | null;

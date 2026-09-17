@@ -277,7 +277,7 @@ def render_job(p,payload):
         with connect() as db:
             db.lock();current=state(p['id'],db);edit=read(p['id'],db)
             if current['revision']==payload['revision'] and not any(c['locked'] for c in (edit or {}).get('clips',[])) and not any(d['locked'] for d in current['decisions']):
-                feedback=json.dumps({'revisions':result['qa']['revisions'],'render_timeline':result['timeline']},ensure_ascii=False)
+                feedback=json.dumps({'revisions':result['qa']['revisions'],'render_timeline':result['timeline'],'quality_comparison':result.get('quality_comparison')},ensure_ascii=False)
                 ident=queue_plan(db,p['id'],current,'Improve the prior rendered edit using this review. Review timestamps refer to OUTPUT; map back using render_timeline. Preserve correct content. '+feedback)
                 result['quality_revision_id']=ident
             else:result['quality_revision_blocked']='locked_or_changed'
