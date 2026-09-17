@@ -115,3 +115,19 @@ def test_variant_failure_does_not_fail_approved_master(client,monkeypatch):
     assert project(pid)['status']=='complete'
     assert project(pid)['result']['render_id']=='a'*32
     with connect() as db:assert db.execute("SELECT status FROM jobs WHERE kind='platform_variants'").fetchone()[0]=='failed'
+
+
+def test_per_platform_structure_persists_in_job(client):
+    pid=ready(client)
+    response=client.post(f'/api/studio/projects/{pid}/variants',json={'master_id':'a'*32,'reviewed':True,'structures':{'douyin':'comparison','youtube_shorts':'preserve'}})
+    assert response.status_code==200
+    with connect() as db:payload=json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='platform_variants'",(pid,)).fetchone()[0])
+    assert payload['structures']=={'douyin':'comparison','youtube_shorts':'preserve'}
+
+
+def test_reordered_complete_scenes_allowed_unless_preserve_requested():
+    p=variants.Plans(variants=[variants.Variant(platform='tiktok',rationale=Text(en='Test',zh='测试'),title='Title',description='Description',hashtags=[],cta='Save',segments=[{'start':10,'end':20},{'start':0,'end':10}])])
+    variants.validate(p,20,boundaries=[0,10,20],expected=['tiktok'])
+    with pytest.raises(ValueError,match='provider_invalid_analysis'):
+        variants.validate(p,20,boundaries=[0,10,20],expected=['tiktok'],structures={'tiktok':'preserve'})
+    assert p.variants[0].segments[0].start==10

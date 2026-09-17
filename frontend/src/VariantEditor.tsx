@@ -186,6 +186,10 @@ export function VariantEditor({
           </p>
           {draft.segments.map((s, i) => (
             <div className="variant-range" key={i}>
+              <strong>{t('Scene','场景')} {i+1}</strong>
+              <button type="button" disabled={i===0} onClick={()=>setDraft({...draft,segments:[draft.segments[i],...draft.segments.filter((_,j)=>j!==i)]})}>{t('Use as opening','设为开场')}</button>
+              <button type="button" disabled={i===0} onClick={()=>{const next=[...draft.segments];[next[i-1],next[i]]=[next[i],next[i-1]];setDraft({...draft,segments:next})}}>{t('Move earlier','前移')}</button>
+              <button type="button" disabled={i===draft.segments.length-1} onClick={()=>{const next=[...draft.segments];[next[i+1],next[i]]=[next[i],next[i+1]];setDraft({...draft,segments:next})}}>{t('Move later','后移')}</button>
               <label>
                 {t("Start (s)", "开始（秒）")}
                 <input

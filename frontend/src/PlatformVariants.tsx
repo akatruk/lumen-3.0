@@ -29,6 +29,7 @@ type Package = {
 };
 export function PlatformVariants({ p, lang }: { p: Project; lang: Lang }) {
   const t = (en: string, zh: string) => (lang === "zh" ? zh : en);
+  const [structures,setStructures]=useState<Record<string,string>>({douyin:'hook_proof_takeaway',instagram_reels:'preserve',youtube_shorts:'problem_solution',tiktok:'hook_proof_takeaway',xiaohongshu:'comparison'});
   const [limits,setLimits]=useState<Record<string,number>>({douyin:60,instagram_reels:60,youtube_shorts:60,tiktok:60,xiaohongshu:60});
   const [pack, setPack] = useState<Package | null>(null),
     [reviewed, setReviewed] = useState(false),
@@ -74,7 +75,7 @@ export function PlatformVariants({ p, lang }: { p: Project; lang: Lang }) {
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ master_id: p.result?.render_id, reviewed, max_seconds:limits }),
+        body: JSON.stringify({ master_id: p.result?.render_id, reviewed, max_seconds:limits, structures }),
       });
       if (!r.ok) {
         const e = await r.json();
@@ -238,6 +239,7 @@ export function PlatformVariants({ p, lang }: { p: Project; lang: Lang }) {
           )}
           {(!pack || pack.stale || pack.status === "failed") && !running && (
             <>
+              <fieldset disabled={busy}><legend>{t('Story structure per platform','各平台叙事结构')}</legend><div className="director-form-grid">{Object.entries(structures).map(([key,value])=><label key={key}>{names[key]}<select value={value} onChange={e=>setStructures({...structures,[key]:e.target.value})}>{[['preserve',t('Keep master order','保持主版本顺序')],['hook_proof_takeaway',t('Hook → evidence → takeaway','吸引点 → 证据 → 总结')],['problem_solution',t('Problem → solution','问题 → 解决方案')],['comparison',t('Comparison → conclusion','比较 → 结论')]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>)}</div><p>{t('AI selects and orders complete scenes independently. If your footage cannot support a structure, the proposal explains the limitation. Review meaning and continuity before approving.','AI 分别选择并排列完整场景。若素材不支持所选结构，建议将说明限制。批准前请检查含义与连贯性。')}</p></fieldset>
               <fieldset disabled={busy}><legend>{t("Initial version duration limits", "首次生成版本的时长上限")}</legend><div className="director-form-grid">{Object.entries(limits).map(([key,value])=><label key={key}>{names[key]}<select value={value} onChange={e=>setLimits({...limits,[key]:Number(e.target.value)})}>{[30,60,90,180,...(key==='youtube_shorts'?[]:[300,420])].map(n=><option value={n} key={n}>{n}s</option>)}</select></label>)}</div><p>{t("AI selects complete scenes within these limits. You can adjust ranges afterward. YouTube Shorts stays square or vertical and at most 180 seconds.","AI 在这些上限内选择完整场景，之后可手动调整范围。YouTube Shorts 保持方形或竖屏，且不超过 180 秒。")}</p></fieldset>
               <label>
                 <input
