@@ -81,7 +81,8 @@ def edit(pid:str,body:Edit,user=Depends(current_user)):
         if current.get('locked'):raise HTTPException(409,'variant_locked')
         changed=current|body.model_dump(exclude={'package_id','platform'})|{'review_status':'needs_human_review','locked':False,'reviewed_at':None,'rationale':{'en':'Manually edited by the producer. Review the updated cut and copy.','zh':'由制作人手动编辑。请审核更新后的剪辑与文案。'}}
         plans=Plans(variants=[Variant.model_validate({k:v[k] for k in Variant.model_fields if k in v}) for v in [changed if v['platform']==body.platform else v for v in manifest['variants']]])
-        master=p['result'];speech=[span for c in p['analysis']['transcript'] for span in media.remap_span(c['start'],c['end'],master['timeline'])]
+        from .platform_captions import protected_speech
+        master=p['result'];speech=protected_speech(master,p['analysis'])
         boundaries=sorted({0.0,master['metadata']['duration'],*(t for c in p['analysis']['scenes'] for span in media.remap_span(c['start'],c['end'],master['timeline']) for t in span)})
         try:validate(plans,master['metadata']['duration'],speech,p['language'],boundaries,tuple(v['platform'] for v in manifest['variants']))
         except ValueError:raise HTTPException(422,'invalid_variant_edit') from None

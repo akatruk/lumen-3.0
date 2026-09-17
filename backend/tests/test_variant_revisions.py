@@ -70,3 +70,28 @@ def test_legacy_master_cannot_request_caption_removal(client):
     body={k:m['variants'][0][k] for k in ('title','description','hashtags','cta','segments')}
     response=client.post(f'/api/studio/projects/{pid}/variants/edit',json=body|{'package_id':'b'*32,'platform':'douyin','caption_mode':'off'})
     assert response.status_code==422 and response.json()['detail']=='caption_master_required'
+
+
+def test_saved_master_speech_blocks_platform_cut_even_with_captions_off(client):
+    from backend.db import update
+    pid,m=package(client);p=project(pid)
+    master=p['result']|{'captions_enabled':False,'caption_transcript':[{'start':18,'end':22}]}
+    analysis=p['analysis']|{'transcript':[],'scenes':[{'start':0,'end':20},{'start':20,'end':40}]}
+    update(pid,result=master,analysis=analysis)
+    current=m['variants'][0]
+    body={k:current[k] for k in ('title','description','cta','hashtags','segments')}
+    body|={'package_id':'b'*32,'platform':'douyin','segments':[{'start':0,'end':20}]}
+    response=client.post(f'/api/studio/projects/{pid}/variants/edit',json=body)
+    assert response.status_code==422,response.text
+    assert client.get(f'/api/studio/projects/{pid}/variants').json()['status']=='complete'
+    body['segments']=[{'start':0,'end':40}]
+    assert client.post(f'/api/studio/projects/{pid}/variants/edit',json=body).status_code==200
+
+
+def test_master_speech_mapping_handles_reordering_removed_spans_and_legacy():
+    from backend.platform_captions import protected_speech
+    analysis={'transcript':[{'start':11,'end':13},{'start':6,'end':8}]}
+    master={'timeline':[(10,15),(0,5)],'caption_transcript':[{'start':1,'end':3},{'start':11,'end':13}]}
+    assert protected_speech(master,analysis)==[(1,3),(6,8)]
+    assert protected_speech({'timeline':[(0,5)],'manual_transcript':[{'start':1,'end':2}]},{})==[(1,2)]
+    assert protected_speech({'timeline':[(0,5)]},{})==[]

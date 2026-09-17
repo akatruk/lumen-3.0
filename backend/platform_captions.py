@@ -22,3 +22,11 @@ def write(path,master,variant,language,w,h,timeline):
         'font_size':variant.caption_size,'position':variant.caption_position,'color':variant.caption_color}
     media.write_subtitles(path,captions,timeline,language,w,h,style)
     return True
+
+
+def protected_speech(master,analysis):
+    """Map original and saved master speech to master time, even with captions off."""
+    rows=[*analysis.get('transcript',[]),
+          *master.get('caption_transcript',master.get('manual_transcript',[]))]
+    return sorted({span for raw in rows
+                   for span in media.remap_span(raw['start'],raw['end'],master['timeline'])})
