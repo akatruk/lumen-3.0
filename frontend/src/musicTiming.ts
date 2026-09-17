@@ -12,3 +12,11 @@ export function alignedOffset(accents:number[],trackDuration:number,cut:number,c
  const candidates=accents.map(t=>t-cut).filter(t=>t>=0&&t<trackDuration-.1);
  return candidates.length?candidates.reduce((best,t)=>Math.abs(t-current)<Math.abs(best-current)?t:best):null;
 }
+
+export function musicLoopBoundaries(trackDuration:number,offset:number,outputDuration:number):number[]{
+ if(![trackDuration,offset,outputDuration].every(Number.isFinite)||offset<0)return [];
+ const period=trackDuration-offset;
+ if(period<.1||outputDuration<=period)return [];
+ const count=Math.min(80,Math.max(0,Math.ceil(outputDuration/period)-1));
+ return Array.from({length:count},(_,i)=>Number(((i+1)*period).toFixed(6)));
+}

@@ -1,5 +1,6 @@
 """Executable timeline derived from validated, approved source decisions."""
 def compile_timeline(edit):
+    from .sound_effects import DURATIONS
     cursor=0.0;shots=[];titles=[];inserts=[];cutaways=[];effects=[]
     for clip in edit.clips:
         if not clip.approved:continue
@@ -13,7 +14,7 @@ def compile_timeline(edit):
         if clip.external_broll:
             c=clip.external_broll
             cutaways.append({'decision_id':clip.id,'start':round(cursor+c.start,6),'end':round(cursor+c.end,6),'source_start':c.source_start,'source_end':c.source_start+c.end-c.start,'asset_id':c.asset_id,'audio':'base_source','locked':clip.locked})
-        effects.extend(e.model_dump()|{'decision_id':clip.id,'at':round(cursor+e.at,6)} for e in clip.sound_effects)
+        effects.extend(e.model_dump()|{'decision_id':clip.id,'at':round(cursor+e.at,6),'end':round(cursor+e.at+DURATIONS[e.kind],6),'duration':DURATIONS[e.kind]} for e in clip.sound_effects)
         cursor+=length
     captions=[]
     if edit.subtitles:
