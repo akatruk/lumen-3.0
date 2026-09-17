@@ -4,6 +4,10 @@ from pydantic import Field
 from .schemas import Strict
 
 class Presentation(Strict):
+    caption_mode:Literal['inherit','custom','off']='inherit'
+    caption_size:Literal['small','medium','large']='medium'
+    caption_position:Literal['top','bottom']='bottom'
+    caption_color:Literal['white','yellow']='white'
     hook_seconds:float=Field(default=3,ge=0,le=8)
     cta_seconds:float=Field(default=0,ge=0,le=8)
     title_style:Literal['clean','bold','panel']='clean'

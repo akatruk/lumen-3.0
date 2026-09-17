@@ -77,6 +77,7 @@ def edit(pid:str,body:Edit,user=Depends(current_user)):
     owned(pid,user)
     with connect() as db:
         p,manifest,current=locked_state(db,pid,body,user)
+        if body.caption_mode!='inherit' and not p['result'].get('caption_master'):raise HTTPException(422,'caption_master_required')
         if current.get('locked'):raise HTTPException(409,'variant_locked')
         changed=current|body.model_dump(exclude={'package_id','platform'})|{'review_status':'needs_human_review','locked':False,'reviewed_at':None,'rationale':{'en':'Manually edited by the producer. Review the updated cut and copy.','zh':'由制作人手动编辑。请审核更新后的剪辑与文案。'}}
         plans=Plans(variants=[Variant.model_validate({k:v[k] for k in Variant.model_fields if k in v}) for v in [changed if v['platform']==body.platform else v for v in manifest['variants']]])

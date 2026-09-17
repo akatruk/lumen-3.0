@@ -185,7 +185,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 rows.append((a,f'Dialogue: 0,{ass_time(a)},{ass_time(b)},Default,,0,0,0,,{chunk}\n'))
     path.write_text(header+''.join(row for _,row in sorted(rows)),encoding='utf-8')
 
-def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None):
+def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False):
     if manual:
         from .manual import Edit,check
         from .schemas import Caption
@@ -295,12 +295,20 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             args+=['-af',filters_a]
     args+=['-map','0:v:0','-map','0:a:0?','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000','-movflags','+faststart',folder/'result.mp4']
     ffmpeg(*args,timeout=1200)
+    if preserve_caption_master and captions:
+        # Reuse the pre-caption picture and the final processed audio; no second video encode.
+        ffmpeg('-i',input_path,'-i',folder/'result.mp4','-map','0:v:0','-map','1:a:0?',
+               '-c','copy','-movflags','+faststart',folder/'caption-free.mp4',timeout=1200)
     output=probe(folder/'result.mp4')
     expected=sum(b-a for a,b in timeline)
     if abs(output['duration']-expected)>0.6: raise ValueError('output_duration_mismatch')
+    if preserve_caption_master and captions:
+        clean=probe(folder/'caption-free.mp4')
+        if abs(clean['duration']-output['duration'])>.1 or (clean['width'],clean['height'])!=(output['width'],output['height']):raise ValueError('output_duration_mismatch')
+        if output['has_audio'] and not clean['has_audio']:raise ValueError('output_audio_missing')
     ffmpeg('-i',folder/'result.mp4','-v','error','-f','null','-',timeout=600)
     if metadata['has_audio'] and not output['has_audio']: raise ValueError('output_audio_missing')
     for p in [*parts,base,*folder.glob('overlay-*.mp4')]: p.unlink(missing_ok=True)
     from .timeline import compile_timeline
     director_timeline=compile_timeline(Edit.model_validate(manual)) if manual else None
-    return {'director_timeline':director_timeline,'metadata':output,'timeline':timeline,'applied':[r.id for r in recommendations], 'generated_clips':len(brolls or [])}
+    return {'caption_master':bool(preserve_caption_master),'captions_enabled':bool(captions),'caption_style':{k:manual[k] for k in ('font_size','position','color')} if manual else {},'caption_transcript':[c for c in manual['captions']] if manual else [c.model_dump() for c in analysis.transcript],'director_timeline':director_timeline,'metadata':output,'timeline':timeline,'applied':[r.id for r in recommendations], 'generated_clips':len(brolls or [])}

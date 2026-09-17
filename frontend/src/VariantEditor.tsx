@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Lang } from "./types";
 export type EditableVariant = {
+  caption_editable?:boolean; caption_mode?:"inherit"|"custom"|"off"; caption_size?:"small"|"medium"|"large"; caption_position?:"top"|"bottom"; caption_color?:"white"|"yellow";
   hook_seconds?:number; cta_seconds?:number; title_style?:"clean"|"bold"|"panel"; title_position?:"top"|"center";
   platform: string;
   aspect?: "9:16" | "16:9" | "1:1" | "4:5";
@@ -110,6 +111,7 @@ export function VariantEditor({
                 aspect: draft.aspect || "9:16",
                 cover_time: draft.cover_time ?? 1,
                 hook_seconds:draft.hook_seconds??3, cta_seconds:draft.cta_seconds??0, title_style:draft.title_style||"clean", title_position:draft.title_position||"top",
+                caption_mode:draft.caption_mode||"inherit", caption_size:draft.caption_size||"medium", caption_position:draft.caption_position||"bottom", caption_color:draft.caption_color||"white",
                 title: draft.title,
                 description: draft.description,
                 cta: draft.cta,
@@ -132,7 +134,19 @@ export function VariantEditor({
               {(v.platform==='youtube_shorts'?["9:16", "1:1", "4:5"]:["9:16", "16:9", "1:1", "4:5"]).map(a => <option key={a}>{a}</option>)}
             </select>
           </label>
-          <p>{t("The entire reviewed image and its captions are preserved; padding is added when needed.", "完整保留已审核的画面和字幕，必要时添加边框。")}</p>
+          <p>{t("The entire reviewed image is preserved; padding is added when needed.", "完整保留已审核的画面，必要时添加边框。")}</p>
+          {v.caption_editable ? <fieldset disabled={busy}>
+            <legend>{t('Captions for this platform','此平台的字幕')}</legend>
+            <label>{t('Caption mode','字幕模式')}<select value={draft.caption_mode||'inherit'} onChange={e=>setDraft({...draft,caption_mode:e.target.value as EditableVariant['caption_mode']})}>
+              <option value="inherit">{t('Use master settings','使用主版本设置')}</option><option value="custom">{t('Customize','自定义')}</option><option value="off">{t('Off','关闭')}</option>
+            </select></label>
+            {draft.caption_mode==='custom'&&<>
+              <label>{t('Size','大小')}<select value={draft.caption_size||'medium'} onChange={e=>setDraft({...draft,caption_size:e.target.value as EditableVariant['caption_size']})}>{[['small',t('Small','小')],['medium',t('Medium','中')],['large',t('Large','大')]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+              <label>{t('Position','位置')}<select value={draft.caption_position||'bottom'} onChange={e=>setDraft({...draft,caption_position:e.target.value as EditableVariant['caption_position']})}><option value="bottom">{t('Bottom','底部')}</option><option value="top">{t('Top','顶部')}</option></select></label>
+              <label>{t('Color','颜色')}<select value={draft.caption_color||'white'} onChange={e=>setDraft({...draft,caption_color:e.target.value as EditableVariant['caption_color']})}><option value="white">{t('White','白色')}</option><option value="yellow">{t('Yellow','黄色')}</option></select></label>
+            </>}
+            <p>{t('Changes affect Lumen captions only. Text already in the source video stays visible. Check for overlap with your title.','仅修改 Lumen 字幕，原视频自带文字仍会保留。请检查字幕是否与标题重叠。')}</p>
+          </fieldset>:<p>{t('To customize captions, render a new master and create a new platform package. This older master has embedded captions.','如需自定义字幕，请重新制作主版本并创建平台版本包。旧主版本的字幕已嵌入画面。')}</p>}
           <label>
             {t("Cover frame · output second", "封面画面 · 成片秒数")}
             <input type="number" min="0" max="840" step="0.1" required value={draft.cover_time ?? 1} onChange={e => setDraft({...draft,cover_time:Number(e.target.value)})}/>

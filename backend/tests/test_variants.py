@@ -7,7 +7,8 @@ from backend.schemas import Text
 from backend import media
 REAL_PROBE=media.probe
 
-def test_five_platforms_render_and_download(client,tmp_path,monkeypatch):
+@pytest.mark.parametrize('clean_captions',[False,True])
+def test_five_platforms_render_and_download(client,tmp_path,monkeypatch,clean_captions):
     from backend.config import settings
     from backend.tests.test_studio import plan
     pid=create(client).json()['id'];seed_plan(pid)
@@ -17,8 +18,15 @@ def test_five_platforms_render_and_download(client,tmp_path,monkeypatch):
     media.ffmpeg('-f','lavfi','-i','color=blue:s=160x240:d=2:r=12','-f','lavfi','-i','sine=frequency=440:duration=2','-c:v','libx264','-c:a','aac',source)
     analysis=plan();analysis.scenes[0].end=2
     master={'asset_credits':[{'title':'Music','attribution':'Creator · CC BY 4.0'}],'render_id':'a'*32,'timeline':[[0,2]],'metadata':REAL_PROBE(source)}
+    if clean_captions:
+        import shutil
+        from backend.schemas import Caption
+        shutil.copy2(source,folder/'caption-free.mp4')
+        master.update(caption_master=True,captions_enabled=True,caption_transcript=[Caption(start=0,end=2,original='Caption',en='Caption',zh='测试字幕').model_dump()],caption_style={})
     update(pid,result=master,analysis=analysis.model_dump(exclude={'transfers'}),status='complete')
     planned=variants.Plans(variants=[variants.Variant(hook_seconds=.5,cta_seconds=.7,title_style='panel',aspect={'douyin':'9:16','instagram_reels':'4:5','youtube_shorts':'1:1','tiktok':'16:9','xiaohongshu':'9:16'}[p],platform=p,rationale=Text(en='Specific',zh='具体'),title='测试标题',description='测试说明',hashtags=[],cta='保存',segments=[{'start':0,'end':2}]) for p in variants.PLATFORMS])
+    if clean_captions:
+        for v in planned.variants:v.caption_mode='custom';v.caption_color='yellow'
     monkeypatch.setattr(variants.ai,'json_call',lambda *a,**k:planned)
     url=f'/api/studio/projects/{pid}/variants'
     assert client.post(url,json={'master_id':'a'*32,'reviewed':True}).status_code==200
@@ -26,6 +34,7 @@ def test_five_platforms_render_and_download(client,tmp_path,monkeypatch):
     variants.run_job(project(pid),payload)
     result=client.get(url).json()
     assert result['status']=='complete'
+    assert all(v['caption_editable']==clean_captions for v in result['result']['variants'])
     assert client.get(url+'/files/credits.json').json()==master['asset_credits']
     assert {v['platform'] for v in result['result']['variants']}==set(variants.PLATFORMS)
     for name in variants.PLATFORMS:

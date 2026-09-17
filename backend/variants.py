@@ -132,7 +132,7 @@ def run_job(p,payload):
         speech=[span for c in p['analysis']['transcript'] for span in media.remap_span(c['start'],c['end'],master['timeline'])]
         boundaries=sorted({0.0,meta['duration'],*(round(t,3) for c in p['analysis']['scenes'] for span in media.remap_span(c['start'],c['end'],master['timeline']) for t in span)})
         prompt=f'''Create exactly five editorial export variants, one per platform: {PLATFORMS}. This is a HUMAN-REVIEWED MASTER, duration {meta['duration']} seconds, language {p['language']}. Creator profile: {json.dumps(context['creator'],ensure_ascii=False)}. This master ALREADY includes approved edits; never repeat old cuts. Do not infer an empty opening from any earlier source description.
-Use only this master. Preserve its facts, meaningful speech, qualifiers, and ending; never reintroduce removed footage. Segments are time ranges on THIS master, in output order, no duplicates or overlaps. Use ONLY these approved scene boundary timestamps: {boundaries}. Keep complete sentences and self-contained scenes. For short or indivisible content use the whole master rather than arbitrary cuts. ALL titles, descriptions, hashtags and CTA MUST be in language {p['language']} for ALL FIVE platforms. Never choose Chinese merely because the platform is Douyin, and never choose English merely because it is YouTube. Choose title_style (clean/bold/panel), title_position (top/center), hook_seconds (0–8) and cta_seconds (0–8). Avoid covering visible faces, documents or existing text; keep overlays concise. cta_seconds=0 omits the visual CTA but retains publishing copy. On short cuts the hook takes priority if they would overlap. Use aspect 9:16 by default and cover_time on the OUTPUT timeline selecting a clear factual frame. Differentiate the platforms through content-grounded title/hook, description, hashtags and CTA; justify each choice in rationale. Douyin: immediate topic/value; Instagram Reels: share/save-worthy framing; YouTube Shorts: clear searchable promise and self-contained explanation. TikTok: a clear curiosity-driven opening that delivers its promise; Xiaohongshu: practical, save-worthy guidance with a descriptive cover title and specific takeaways. These are editorial defaults, not claims about algorithms. Do not cut inside these speech ranges: {speech}. Titles appear on screen, must be concise and factual. No invented claims, locations, eligibility, returns, metrics or guarantees. Return only Plans schema. No edit recommendations or auto_apply fields.'''
+Use only this master. Preserve its facts, meaningful speech, qualifiers, and ending; never reintroduce removed footage. Segments are time ranges on THIS master, in output order, no duplicates or overlaps. Use ONLY these approved scene boundary timestamps: {boundaries}. Keep complete sentences and self-contained scenes. For short or indivisible content use the whole master rather than arbitrary cuts. ALL titles, descriptions, hashtags and CTA MUST be in language {p['language']} for ALL FIVE platforms. Never choose Chinese merely because the platform is Douyin, and never choose English merely because it is YouTube. Always set caption_mode=inherit; the editor can customize captions after review. Choose title_style (clean/bold/panel), title_position (top/center), hook_seconds (0–8) and cta_seconds (0–8). Avoid covering visible faces, documents or existing text; keep overlays concise. cta_seconds=0 omits the visual CTA but retains publishing copy. On short cuts the hook takes priority if they would overlap. Use aspect 9:16 by default and cover_time on the OUTPUT timeline selecting a clear factual frame. Differentiate the platforms through content-grounded title/hook, description, hashtags and CTA; justify each choice in rationale. Douyin: immediate topic/value; Instagram Reels: share/save-worthy framing; YouTube Shorts: clear searchable promise and self-contained explanation. TikTok: a clear curiosity-driven opening that delivers its promise; Xiaohongshu: practical, save-worthy guidance with a descriptive cover title and specific takeaways. These are editorial defaults, not claims about algorithms. Do not cut inside these speech ranges: {speech}. Titles appear on screen, must be concise and factual. No invented claims, locations, eligibility, returns, metrics or guarantees. Return only Plans schema. No edit recommendations or auto_apply fields.'''
         if payload.get('base_package'):
             planned=[payload['override'] if v['platform']==payload['override']['platform'] else v for v in payload['base_manifest']['variants']]
             plans=Plans(variants=[Variant.model_validate({k:v[k] for k in Variant.model_fields if k in v}) for v in planned])
@@ -160,24 +160,29 @@ Use only this master. Preserve its facts, meaningful speech, qualifiers, and end
             v.hashtags=["#"+clean for tag in v.hashtags if (clean:=re.sub(r"[^\w]","",tag))]
             dest=folder/v.platform;dest.mkdir()
             timeline=[(s.start,s.end) for s in v.segments]
-            result=media.render(source,dest,meta,Analysis.model_validate(p['analysis']),[],p['language'],v.aspect,timeline_override=timeline)
+            from .platform_captions import caption_source, write as write_captions
+            render_source=caption_source(source,master,v)
+            result=media.render(render_source,dest,meta,Analysis.model_validate(p['analysis']),[],p['language'],v.aspect,timeline_override=timeline)
             w,h=DIMENSIONS[v.aspect]
             from .platform_titles import write as write_titles
             ass=dest/'hook.ass'
             write_titles(ass,v,p['language'],w,h,result['metadata']['duration'])
+            filters=[f"ass='{ass}'"]
+            caption_ass=dest/'platform-captions.ass'
+            if write_captions(caption_ass,master,v,p['language'],w,h,timeline):filters.append(f"ass='{caption_ass}'")
             output=folder/(v.platform+'.mp4')
-            media.ffmpeg('-i',dest/'result.mp4','-vf',f"ass='{ass}'",'-c:v','libx264','-preset','fast','-crf','18','-c:a','copy','-movflags','+faststart',output,timeout=1200)
+            media.ffmpeg('-i',dest/'result.mp4','-vf',','.join(filters),'-c:v','libx264','-preset','fast','-crf','18','-c:a','copy','-movflags','+faststart',output,timeout=1200)
             media.ffmpeg('-ss',min(v.cover_time,max(0,result['metadata']['duration']-.1)),'-i',output,'-frames:v','1',folder/(v.platform+'.jpg'))
             actual=media.probe(output)
             if abs(actual['duration']-sum(b-a for a,b in timeline))>.6 or (actual['width'],actual['height'])!=(w,h):raise ValueError('output_duration_mismatch')
             if meta['has_audio'] and not actual['has_audio']:raise ValueError('output_audio_missing')
             rows=[]
-            for caption in master.get('manual_transcript',p['analysis']['transcript']):
+            for caption in master.get('caption_transcript',master.get('manual_transcript',p['analysis']['transcript'])):
                 for a,b in media.remap_span(caption['start'],caption['end'],master['timeline']):
                     for c,d in media.remap_span(a,b,timeline):rows.append((c,d,caption[p['language']] or caption.get('original','')))
             vtt='WEBVTT\n\n'+''.join(f'{stamp(a)} --> {stamp(b)}\n{text.replace(chr(10)," ")}\n\n' for a,b,text in sorted(rows))
             (folder/(v.platform+'.vtt')).write_text(vtt,encoding='utf-8')
-            record=v.model_dump()|{'language':p['language'],'metadata':actual,'review_status':'needs_human_review','locked':False,'publishing':'export_only','master_id':master['render_id']}
+            record=v.model_dump()|{'caption_editable':bool(master.get('caption_master')),'language':p['language'],'metadata':actual,'review_status':'needs_human_review','locked':False,'publishing':'export_only','master_id':master['render_id']}
             (folder/(v.platform+'.json')).write_text(json.dumps(record,ensure_ascii=False,indent=2))
             outputs.append(record)
             shutil.rmtree(dest)

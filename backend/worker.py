@@ -71,7 +71,7 @@ def render_job(p,payload):
         from .assets import validate as validate_assets
         from .manual import Edit
         with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
-    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
+    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id
     if asset_paths:
         used_assets={c['external_broll']['asset_id'] for c in manual['clips'] if c['approved'] and c.get('external_broll')}

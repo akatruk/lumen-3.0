@@ -63,3 +63,10 @@ def test_edit_invalid_ranges_preserves_history_and_other_versions(client):
     assert client.get(url+'/history').status_code==404
     assert client.get(url+'/history/'+'b'*32).status_code==404
     assert client.post(url+'/restore',json={'package_id':'b'*32}).status_code==404
+
+
+def test_legacy_master_cannot_request_caption_removal(client):
+    pid,m=package(client)
+    body={k:m['variants'][0][k] for k in ('title','description','hashtags','cta','segments')}
+    response=client.post(f'/api/studio/projects/{pid}/variants/edit',json=body|{'package_id':'b'*32,'platform':'douyin','caption_mode':'off'})
+    assert response.status_code==422 and response.json()['detail']=='caption_master_required'
