@@ -1,7 +1,7 @@
 """Compare compatible rubric scores; never turn a delta into approval."""
 import math
 CATEGORIES=('hook','clarity','pacing','visuals','audio')
-RUBRIC='editorial-five-v1'
+RUBRIC='editorial-five-v2'
 
 def scores(result):
     qa=result.get('qa')
