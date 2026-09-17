@@ -399,6 +399,9 @@ app.include_router(music_plans_router)
 from .stock import router as stock_router
 app.include_router(stock_router)
 
+from .dubbing import router as dubbing_router
+app.include_router(dubbing_router)
+
 static=ROOT/'frontend'/'dist'
 if static.is_dir():
     app.mount('/',StaticFiles(directory=static,html=True),name='web')

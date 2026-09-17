@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     google_sso_only: bool = True
     openrouter_api_key: str = ''
     analysis_model: str = 'google/gemini-3.8-flash'
+    dubbing_model: str = 'minimax/speech-2.8-hd'
+    dubbing_price_per_million: float = 100.0
     generation_model: str = 'google/veo-3.1-fast'
     lumen_session_secret: str = ''
     lumen_invite_code: str = ''

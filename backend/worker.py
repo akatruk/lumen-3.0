@@ -142,6 +142,9 @@ def run_once():
         elif job['kind']=='timeline_proposal':
             from .timeline_proposals import run_job as timeline_proposal_job
             timeline_proposal_job(p,json.loads(job['payload']))
+        elif job['kind']=='dubbing':
+            from .dubbing import run_job as dubbing_job
+            dubbing_job(p,json.loads(job['payload']))
         elif job['kind']=='director_alternative':
             from .director_revisions import run_job as alternative_job
             alternative_job(p,json.loads(job['payload']))
@@ -153,7 +156,7 @@ def run_once():
     except Exception as exc:
         code=safe_error(exc)
         log.error('Job %s failed: %s (%s)',job['id'],code,type(exc).__name__)
-        if job['kind'] not in ('platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'): update(p['id'],status='failed',stage='failed',error=code)
+        if job['kind'] not in ('dubbing','platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'): update(p['id'],status='failed',stage='failed',error=code)
         event(p['id'],'failed',code)
         state='failed'
     with connect() as db:
@@ -167,7 +170,9 @@ def serve(guard):
     # Do not auto-replay ambiguous paid calls after process death.
     with connect() as db:
         for row in db.execute("SELECT project_id,kind,payload FROM jobs WHERE status='running'"):
-            if row["kind"]=="stock_discover":
+            if row["kind"]=="dubbing":
+                db.execute("UPDATE dubbing_versions SET status='failed',error='worker_interrupted' WHERE id=?",(json.loads(row['payload'])['id'],))
+            elif row["kind"]=="stock_discover":
                 db.execute("UPDATE stock_discoveries SET status='failed',error='worker_interrupted' WHERE id=?",(json.loads(row['payload'])['id'],))
             elif row["kind"]=="stock_import":
                 db.execute("UPDATE stock_imports SET status='failed',error='worker_interrupted' WHERE id=?",(json.loads(row['payload'])['id'],))

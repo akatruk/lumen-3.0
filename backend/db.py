@@ -33,6 +33,8 @@ def init_db():
         ''')
         from .studio import init as init_studio
         init_studio(db)
+        from .dubbing import init as init_dubbing
+        init_dubbing(db)
         from .director_revisions import init as init_director_revisions
         init_director_revisions(db)
         from .variants import init as init_variants

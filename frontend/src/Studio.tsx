@@ -1,3 +1,4 @@
+import { Dubbing } from './Dubbing';
 import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
 import {StatusBadge,TaskProgress,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
@@ -715,6 +716,7 @@ export function DirectorProject({
           <button onClick={() => setError("")}>{t("Dismiss", "关闭")}</button>
         </p>
       )}
+      <Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} />
       <div className="director-layout">
         <section className="director-player">
           <div className="director-tabs">
