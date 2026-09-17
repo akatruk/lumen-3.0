@@ -1,0 +1,5 @@
+# Re-review manually changed shots
+
+The editor previously retained the Approve checkbox when a user changed a shot's render parameters. Changing timing, motion, text, inserts, transitions or effects now clears approval in the draft. New source clips start unapproved. ID, shot-role metadata, approval and lock toggles do not themselves invalidate review; assigning an unchanged value is a no-op. Locked shots ignore other mutations until unlocked. This does not alter global music/caption approval semantics or server API semantics: a submitted approved edit still represents the user's explicit saved choice.
+
+Validation: production TypeScript/Vite build passed. Node checks cover changed fields, no-op values, label changes, reapproval, simultaneous mutation/approval and locked-shot protection. Headless Chrome exercised the actual ManualEditor with fixture API responses: changing a transition cleared Approve, then clicking Approve restored it. Existing saved projects were not modified. No paid AI calls.

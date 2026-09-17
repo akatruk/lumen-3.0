@@ -1,3 +1,4 @@
+import {reviseDecision} from './decisionReview';
 import {MusicPlan} from './MusicPlan';
 import {BeatPreview} from './BeatPreview';
 import {StockLibrary} from './StockLibrary';
@@ -138,7 +139,7 @@ export function ManualEditor({
   function clipChange(i: number, p: Partial<Clip>) {
     if (edit)
       change({
-        clips: edit.clips.map((c, j) => (i === j ? { ...c, ...p } : c)),
+        clips: edit.clips.map((c, j) => (i === j ? reviseDecision(c,p) : c)),
       });
   }
   function captionChange(i: number, p: Partial<Caption>) {
@@ -314,7 +315,7 @@ export function ManualEditor({
                   {t("Inspect", "查看")}
                 </button>
               </div>
-              <div className="manual-actions"><label><input type="checkbox" checked={c.approved!==false} disabled={c.locked} onChange={e=>clipChange(i,{approved:e.target.checked})}/>{t('Approve','批准')}</label><label><input type="checkbox" checked={!!c.locked} disabled={c.approved===false} onChange={e=>clipChange(i,{locked:e.target.checked})}/>{t('Lock','锁定')}</label></div>
+              <p className="muted">{t('Changing this shot’s timing, picture or effects clears its approval. Review and approve it again before rendering.','修改此镜头的时间、画面或效果会取消批准。渲染前请重新审核并批准。')}</p><div className="manual-actions"><label><input type="checkbox" checked={c.approved!==false} disabled={c.locked} onChange={e=>clipChange(i,{approved:e.target.checked})}/>{t('Approve','批准')}</label><label><input type="checkbox" checked={!!c.locked} disabled={c.approved===false} onChange={e=>clipChange(i,{locked:e.target.checked})}/>{t('Lock','锁定')}</label></div>
               <fieldset className="director-fieldset" disabled={c.locked}>
               <label>{t('Shot role','镜头用途')}<select value={c.shot_type||'presenter'} onChange={e=>clipChange(i,{shot_type:e.target.value as Clip['shot_type']})}>{[['presenter',t('Presenter','人物讲解')],['close_up',t('Close-up','特写')],['medium',t('Medium shot','中景')],['broll',t('B-roll / cutaway','补充镜头')],['document',t('Document','文档')],['archive',t('Archival footage','档案影像')],['news',t('News clip','新闻片段')]].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
               <label>{t('Source audio edge smoothing','原声边缘平滑')}<select value={c.audio_fade_ms||0} onChange={e=>clipChange(i,{audio_fade_ms:Number(e.target.value)})}>{[0,10,30,60,100].map(ms=><option key={ms} value={ms}>{ms?`${ms} ms`:t('Off — preserve original audio','关闭 — 保留原声')}</option>)}</select></label>
@@ -374,7 +375,7 @@ export function ManualEditor({
                 clips: [
                   ...edit.clips,
                   {
-                    id: crypto.randomUUID(), approved:true,locked:false,
+                    id: crypto.randomUUID(), approved:false,locked:false,
                     start: 0,
                     end: duration,
                     zoom: 1,
