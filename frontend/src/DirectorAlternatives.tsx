@@ -1,5 +1,5 @@
 import {StatusBadge} from './TaskStatus';
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Lang, Text } from "./types";
 type Rec = {
   id: string;
@@ -45,6 +45,9 @@ export function DirectorAlternatives({
     [instruction, setInstruction] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const decisionInput = useRef<HTMLSelectElement>(null);
+  const instructionInput = useRef<HTMLTextAreaElement>(null);
+  const selectedDecision = recs.find((r) => r.id === target);
   const url = `/api/studio/projects/${pid}/alternatives`;
   async function load() {
     const r = await fetch(url);
@@ -92,6 +95,20 @@ export function DirectorAlternatives({
       setBusy(false);
     }
   }
+  function suggest() {
+    if (disabled || busy || pending || locked.includes(target) || !recs.length) return;
+    if (!selectedDecision) {
+      setError(t("Choose the editing decision you want to change first.", "请先选择要修改的剪辑决策。"));
+      decisionInput.current?.focus();
+      return;
+    }
+    if (instruction.trim().length < 3) {
+      setError(t("Describe what should change using at least 3 characters.", "请使用至少 3 个字符描述需要如何调整。"));
+      instructionInput.current?.focus();
+      return;
+    }
+    void act("", { revision, recommendation_id: selectedDecision.id, instruction: instruction.trim() });
+  }
   return (
     <section
       className="director-card"
@@ -107,8 +124,9 @@ export function DirectorAlternatives({
       <label>
         {t("Decision", "决策")}
         <select
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
+          ref={decisionInput}
+          value={selectedDecision?.id ?? ""}
+          onChange={(e) => { setTarget(e.target.value); setError(""); }}
           disabled={recs.length === 0}
         >
           <option value="">{t("Choose a decision", "选择决策")}</option>
@@ -122,15 +140,17 @@ export function DirectorAlternatives({
           ))}
         </select>
       </label>
+      {recs.length > 0 && !selectedDecision && <p>{t("First choose a decision above, then describe how it should change. This updates one decision, not the whole video.", "请先在上方选择一个决策，再描述修改方式。此操作仅修改一个决策，而非整个视频。")}</p>}
       {recs.length===0 && <p role="status">{t("Decisions will appear after analysis finishes.","分析完成后将显示决策。")}</p>}
       {pending && <p role="status">{t("You can browse decisions while generation runs. Wait for it to finish before requesting another change.","生成期间可以查看决策。请等待完成后再提交新改动。")}</p>}
       {target && locked.includes(target) && <p role="status">{t("This decision is locked. Unlock and save it before requesting changes.","此决策已锁定。请求改动前请先解锁并保存。")}</p>}
       <label>
         {t("What should change?", "需要如何调整？")}
         <textarea
+          ref={instructionInput}
           value={instruction}
           maxLength={1200}
-          onChange={(e) => setInstruction(e.target.value)}
+          onChange={(e) => { setInstruction(e.target.value); setError(""); }}
         />
       </label>
       <button
@@ -138,17 +158,11 @@ export function DirectorAlternatives({
           disabled ||
           busy ||
           pending ||
-          !target ||
-          locked.includes(target) ||
-          instruction.trim().length < 3
+          recs.length === 0 ||
+          locked.includes(target)
         }
-        onClick={() =>
-          void act("", {
-            revision,
-            recommendation_id: target,
-            instruction: instruction.trim(),
-          })
-        }
+        type="button"
+        onClick={suggest}
       >
         {t("Suggest alternative", "生成备选方案")}
       </button>
