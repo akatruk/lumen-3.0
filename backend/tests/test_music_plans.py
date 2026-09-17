@@ -21,12 +21,17 @@ def test_music_proposal_review_lock_and_isolation(client,monkeypatch,tmp_path):
     revision=client.put(url,json={'revision':1,'edit':edit}).json()['revision']
     aid='a'*32
     with connect() as db:db.execute('INSERT INTO studio_assets VALUES(?,?,?,?,?,?,?)',(aid,pid,'b'*32,'Owned music','Owned',json.dumps({'kind':'music','duration':10}),time.time()))
+    monkeypatch.setattr('backend.music_dynamics.enrich',lambda *args:None)
     monkeypatch.setattr(music_plans,'build_reel',lambda *a:tmp_path/'samples.mp4')
     suggestion=music_plans.Suggestion(music=Music(asset_id=aid,levels=[MusicLevel(at=0,gain_db=-30),MusicLevel(at=10,gain_db=-24)]),reason=T,emotional_curve=[T])
-    monkeypatch.setattr(music_plans.ai,'json_call',lambda *a,**k:suggestion)
+    prompts=[]
+    def propose(*args,**kwargs):
+        prompts.append(args[2]);return suggestion
+    monkeypatch.setattr(music_plans.ai,'json_call',propose)
     base=f'/api/studio/projects/{pid}/music-plans'
     response=client.post(base,json={'revision':revision,'asset_ids':[aid]});assert response.status_code==202,response.text
     music_plans.run_job(project(pid),response.json())
+    assert '"output_timeline"' in prompts[0] and 'OUTPUT times' in prompts[0]
     assert client.get(url).json()['edit']['music'] is None
     assert client.get(base).json()[0]['status']=='ready'
     with connect() as db:db.execute("UPDATE jobs SET status='complete' WHERE project_id=?",(pid,))
