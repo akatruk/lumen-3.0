@@ -14,7 +14,9 @@ router=APIRouter(prefix='/api/studio')
 DIMENSIONS={'9:16':(1080,1920),'16:9':(1920,1080),'1:1':(1080,1080),'4:5':(1080,1350)}
 PLATFORMS=('douyin','instagram_reels','youtube_shorts','tiktok','xiaohongshu')
 
-class Variant(Strict):
+from .platform_titles import Presentation
+
+class Variant(Presentation):
     platform: Literal['douyin','instagram_reels','youtube_shorts','tiktok','xiaohongshu']
     aspect: Literal['9:16','16:9','1:1','4:5']='9:16'
     cover_time: float=Field(default=1,ge=0,le=840)
@@ -125,7 +127,7 @@ def run_job(p,payload):
         speech=[span for c in p['analysis']['transcript'] for span in media.remap_span(c['start'],c['end'],master['timeline'])]
         boundaries=sorted({0.0,meta['duration'],*(round(t,3) for c in p['analysis']['scenes'] for span in media.remap_span(c['start'],c['end'],master['timeline']) for t in span)})
         prompt=f'''Create exactly five editorial export variants, one per platform: {PLATFORMS}. This is a HUMAN-REVIEWED MASTER, duration {meta['duration']} seconds, language {p['language']}. Creator profile: {json.dumps(context['creator'],ensure_ascii=False)}. This master ALREADY includes approved edits; never repeat old cuts. Do not infer an empty opening from any earlier source description.
-Use only this master. Preserve its facts, meaningful speech, qualifiers, and ending; never reintroduce removed footage. Segments are time ranges on THIS master, in output order, no duplicates or overlaps. Use ONLY these approved scene boundary timestamps: {boundaries}. Keep complete sentences and self-contained scenes. For short or indivisible content use the whole master rather than arbitrary cuts. ALL titles, descriptions, hashtags and CTA MUST be in language {p['language']} for ALL FIVE platforms. Never choose Chinese merely because the platform is Douyin, and never choose English merely because it is YouTube. Use aspect 9:16 by default and cover_time on the OUTPUT timeline selecting a clear factual frame. Differentiate the platforms through content-grounded title/hook, description, hashtags and CTA; justify each choice in rationale. Douyin: immediate topic/value; Instagram Reels: share/save-worthy framing; YouTube Shorts: clear searchable promise and self-contained explanation. TikTok: a clear curiosity-driven opening that delivers its promise; Xiaohongshu: practical, save-worthy guidance with a descriptive cover title and specific takeaways. These are editorial defaults, not claims about algorithms. Do not cut inside these speech ranges: {speech}. Titles appear on screen, must be concise and factual. No invented claims, locations, eligibility, returns, metrics or guarantees. Return only Plans schema. No edit recommendations or auto_apply fields.'''
+Use only this master. Preserve its facts, meaningful speech, qualifiers, and ending; never reintroduce removed footage. Segments are time ranges on THIS master, in output order, no duplicates or overlaps. Use ONLY these approved scene boundary timestamps: {boundaries}. Keep complete sentences and self-contained scenes. For short or indivisible content use the whole master rather than arbitrary cuts. ALL titles, descriptions, hashtags and CTA MUST be in language {p['language']} for ALL FIVE platforms. Never choose Chinese merely because the platform is Douyin, and never choose English merely because it is YouTube. Choose title_style (clean/bold/panel), title_position (top/center), hook_seconds (0–8) and cta_seconds (0–8). Avoid covering visible faces, documents or existing text; keep overlays concise. cta_seconds=0 omits the visual CTA but retains publishing copy. On short cuts the hook takes priority if they would overlap. Use aspect 9:16 by default and cover_time on the OUTPUT timeline selecting a clear factual frame. Differentiate the platforms through content-grounded title/hook, description, hashtags and CTA; justify each choice in rationale. Douyin: immediate topic/value; Instagram Reels: share/save-worthy framing; YouTube Shorts: clear searchable promise and self-contained explanation. TikTok: a clear curiosity-driven opening that delivers its promise; Xiaohongshu: practical, save-worthy guidance with a descriptive cover title and specific takeaways. These are editorial defaults, not claims about algorithms. Do not cut inside these speech ranges: {speech}. Titles appear on screen, must be concise and factual. No invented claims, locations, eligibility, returns, metrics or guarantees. Return only Plans schema. No edit recommendations or auto_apply fields.'''
         if payload.get('base_package'):
             planned=[payload['override'] if v['platform']==payload['override']['platform'] else v for v in payload['base_manifest']['variants']]
             plans=Plans(variants=[Variant.model_validate({k:v[k] for k in Variant.model_fields if k in v}) for v in planned])
@@ -153,21 +155,9 @@ Use only this master. Preserve its facts, meaningful speech, qualifiers, and end
             timeline=[(s.start,s.end) for s in v.segments]
             result=media.render(source,dest,meta,Analysis.model_validate(p['analysis']),[],p['language'],v.aspect,timeline_override=timeline)
             w,h=DIMENSIONS[v.aspect]
-            # Platform-specific hook typography; leave existing master captions intact.
-            title=media.subtitle_text(v.title,p['language'])
-            colors={'douyin':'&H0059E8FF','instagram_reels':'&H00EFBAFF','youtube_shorts':'&H00FFFFFF','tiktok':'&H00FFFFFF','xiaohongshu':'&H00DDDDFF'}
+            from .platform_titles import write as write_titles
             ass=dest/'hook.ass'
-            ass.write_text(f'''[Script Info]
-ScriptType: v4.00+
-PlayResX: {w}
-PlayResY: {h}
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV
-Style: Default,Noto Sans CJK SC,54,{colors[v.platform]},&H00121212,1,3,1,8,{round(w*.07)},{round(w*.1)},{round(h*.125)}
-[Events]
-Format: Layer, Start, End, Style, Text
-Dialogue: 0,0:00:00.00,{media.ass_time(min(3,result['metadata']['duration']))},Default,{title}
-''',encoding='utf-8')
+            write_titles(ass,v,p['language'],w,h,result['metadata']['duration'])
             output=folder/(v.platform+'.mp4')
             media.ffmpeg('-i',dest/'result.mp4','-vf',f"ass='{ass}'",'-c:v','libx264','-preset','fast','-crf','18','-c:a','copy','-movflags','+faststart',output,timeout=1200)
             media.ffmpeg('-ss',min(v.cover_time,max(0,result['metadata']['duration']-.1)),'-i',output,'-frames:v','1',folder/(v.platform+'.jpg'))

@@ -13,7 +13,9 @@ from .variants import router,owned,Variant,Plans,validate,PLATFORMS
 class Base(Strict):
     package_id: str=Field(pattern=r'^[a-f0-9]{32}$')
     platform: Literal['douyin','instagram_reels','youtube_shorts','tiktok','xiaohongshu']
-class Edit(Base):
+from .platform_titles import Presentation
+
+class Edit(Base,Presentation):
     aspect: Literal['9:16','16:9','1:1','4:5']='9:16'
     cover_time: float=Field(default=1,ge=0,le=840)
     title: str=Field(min_length=1,max_length=80)

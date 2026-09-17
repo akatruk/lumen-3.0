@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Lang } from "./types";
 export type EditableVariant = {
+  hook_seconds?:number; cta_seconds?:number; title_style?:"clean"|"bold"|"panel"; title_position?:"top"|"center";
   platform: string;
   aspect?: "9:16" | "16:9" | "1:1" | "4:5";
   cover_time?: number;
@@ -108,6 +109,7 @@ export function VariantEditor({
                 platform: v.platform,
                 aspect: draft.aspect || "9:16",
                 cover_time: draft.cover_time ?? 1,
+                hook_seconds:draft.hook_seconds??3, cta_seconds:draft.cta_seconds??0, title_style:draft.title_style||"clean", title_position:draft.title_position||"top",
                 title: draft.title,
                 description: draft.description,
                 cta: draft.cta,
@@ -145,6 +147,13 @@ export function VariantEditor({
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             />
           </label>
+          <div className="manual-grid">
+            <label>{t('Title style','标题样式')}<select value={draft.title_style||'clean'} onChange={e=>setDraft({...draft,title_style:e.target.value as EditableVariant['title_style']})}>{[['clean',t('Clean','简洁')],['bold',t('Bold','粗体')],['panel',t('Background panel','背景框')]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+            <label>{t('Title position','标题位置')}<select value={draft.title_position||'top'} onChange={e=>setDraft({...draft,title_position:e.target.value as EditableVariant['title_position']})}><option value="top">{t('Top','顶部')}</option><option value="center">{t('Center','居中')}</option></select></label>
+            <label>{t('Opening title (seconds; 0 = off)','开场标题（秒；0 为关闭）')}<input type="number" min={0} max={8} step={.5} value={draft.hook_seconds??3} onChange={e=>setDraft({...draft,hook_seconds:Number(e.target.value)})}/></label>
+            <label>{t('Closing CTA (seconds; 0 = off)','结尾行动提示（秒；0 为关闭）')}<input type="number" min={0} max={8} step={.5} value={draft.cta_seconds??0} onChange={e=>setDraft({...draft,cta_seconds:Number(e.target.value)})}/></label>
+          </div>
+          <small>{t('These overlays are rendered into this version. Existing master captions stay unchanged. On short cuts, the opening title takes priority over an overlapping CTA.','这些文字将渲染到此版本中，原成片字幕保持不变。短视频中若时间重叠，优先显示开场标题。')}</small>
           <label>
             {t("Description", "发布文案")}
             <textarea

@@ -18,7 +18,7 @@ def test_five_platforms_render_and_download(client,tmp_path,monkeypatch):
     analysis=plan();analysis.scenes[0].end=2
     master={'asset_credits':[{'title':'Music','attribution':'Creator · CC BY 4.0'}],'render_id':'a'*32,'timeline':[[0,2]],'metadata':REAL_PROBE(source)}
     update(pid,result=master,analysis=analysis.model_dump(exclude={'transfers'}),status='complete')
-    planned=variants.Plans(variants=[variants.Variant(aspect={'douyin':'9:16','instagram_reels':'4:5','youtube_shorts':'1:1','tiktok':'16:9','xiaohongshu':'9:16'}[p],platform=p,rationale=Text(en='Specific',zh='具体'),title='测试标题',description='测试说明',hashtags=[],cta='保存',segments=[{'start':0,'end':2}]) for p in variants.PLATFORMS])
+    planned=variants.Plans(variants=[variants.Variant(hook_seconds=.5,cta_seconds=.7,title_style='panel',aspect={'douyin':'9:16','instagram_reels':'4:5','youtube_shorts':'1:1','tiktok':'16:9','xiaohongshu':'9:16'}[p],platform=p,rationale=Text(en='Specific',zh='具体'),title='测试标题',description='测试说明',hashtags=[],cta='保存',segments=[{'start':0,'end':2}]) for p in variants.PLATFORMS])
     monkeypatch.setattr(variants.ai,'json_call',lambda *a,**k:planned)
     url=f'/api/studio/projects/{pid}/variants'
     assert client.post(url,json={'master_id':'a'*32,'reviewed':True}).status_code==200
