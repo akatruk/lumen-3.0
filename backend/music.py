@@ -14,6 +14,7 @@ class Music(Strict):
     fade_in:float=Field(default=1,ge=0,le=10)
     fade_out:float=Field(default=2,ge=0,le=10)
     duck:bool=True
+    loop_fade_ms:int=Field(default=0,ge=0,le=250)
     levels:list[MusicLevel]=Field(default_factory=list,max_length=8)
     locked:bool=False
     @model_validator(mode='after')
@@ -41,12 +42,25 @@ def probe_audio(path):
     mime=next((mime for fmt_name,mime in [('mp3','audio/mpeg'),('wav','audio/wav'),('flac','audio/flac'),('ogg','audio/ogg')] if fmt_name in fmt.get('format_name','').split(',')),'audio/mp4')
     return {'duration':duration,'has_audio':True,'kind':'music','mime':mime,'size':int(fmt['size'])}
 
+def smooth_loop(bed,output_duration,milliseconds):
+    """Soften repeating excerpt edges without shifting beats or video timestamps."""
+    from .media import ffmpeg
+    if not milliseconds:return False
+    length=probe_audio(bed)['duration']
+    if length>=output_duration:return False
+    fade=min(milliseconds/1000,length/4)
+    target=bed.with_name('music-bed-smoothed.wav')
+    ffmpeg('-i',bed,'-af',f'afade=t=in:d={fade},afade=t=out:st={length-fade}:d={fade}','-c:a','pcm_s16le',target)
+    target.replace(bed)
+    return True
+
 def mix(source,track,folder,config,duration,has_audio):
     from .media import ffmpeg
     fade_in=min(config['fade_in'],duration/2);fade_out=min(config['fade_out'],duration/2)
     # Repeat the selected excerpt; trim after looping to exactly the output duration.
     bed=folder/'music-bed.wav'
     ffmpeg('-ss',config['source_start'],'-i',track,'-vn','-map','0:a:0','-ar',48000,'-ac',2,bed)
+    smooth_loop(bed,duration,config.get('loop_fade_ms',0))
     graph=[f"[1:a]atrim=duration={duration},asetpts=PTS-STARTPTS,{gain_filter(config)},afade=t=in:d={fade_in},afade=t=out:st={duration-fade_out}:d={fade_out}[music]"]
     if has_audio:
         graph.append(f'[0:a]aresample=48000,apad,atrim=duration={duration}[original]')

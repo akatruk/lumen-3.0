@@ -28,15 +28,16 @@ def test_music_upload_and_project_isolation(client,tmp_path):
     edit['music']=None;edit['clips'][0]['external_broll']={'asset_id':aid,'start':0,'end':1,'source_start':0}
     assert client.put(url,json={'revision':2,'edit':edit}).status_code==422
 
+@pytest.mark.parametrize('loop_fade_ms',[0,30])
 @pytest.mark.parametrize('has_audio',[True,False])
-def test_music_loop_preserves_video_duration_and_creates_audio(tmp_path,has_audio):
+def test_music_loop_preserves_video_duration_and_creates_audio(tmp_path,has_audio,loop_fade_ms):
     source=tmp_path/'source.mp4';track=tmp_path/'track.wav'
     args=['-f','lavfi','-i','color=red:s=160x240:d=4:r=12']
     if has_audio:args+=['-f','lavfi','-i','sine=frequency=440:duration=4']
     media.ffmpeg(*args,'-c:v','libx264',source)
     media.ffmpeg('-f','lavfi','-i','sine=frequency=220:duration=1',track)
     assert probe_audio(track)['kind']=='music'
-    out=mix(source,track,tmp_path,Music(asset_id='a'*32,source_start=.2).model_dump(),4,has_audio)
+    out=mix(source,track,tmp_path,Music(asset_id='a'*32,source_start=.2,loop_fade_ms=loop_fade_ms).model_dump(),4,has_audio)
     meta=media.probe(out)
     assert meta['has_audio'] and abs(meta['duration']-4)<.2
     _,stats=media.ffmpeg('-ss',2,'-i',out,'-t',.5,'-af','volumedetect','-vn','-f','null','-')
@@ -60,3 +61,28 @@ def test_gain_curve_changes_the_real_rendered_audio(tmp_path):
         _,stats=media.ffmpeg('-ss',at,'-i',output,'-t',.2,'-af','volumedetect','-vn','-f','null','-')
         levels.append(float(re.search(r'mean_volume: ([\-\d.]+)',stats).group(1)))
     assert levels[1]-levels[0]>10
+
+
+def test_loop_edge_smoothing_reduces_seam_without_changing_duration(tmp_path):
+    import wave,struct
+    from backend.music import smooth_loop
+    bed=tmp_path/'music-bed.wav';rate=48000
+    values=[int(14000*(1-2*i/(rate-1))) for i in range(rate)]
+    with wave.open(str(bed),'wb') as w:
+        w.setnchannels(1);w.setsampwidth(2);w.setframerate(rate);w.writeframes(struct.pack('<'+'h'*rate,*values))
+    assert smooth_loop(bed,3,30)
+    with wave.open(str(bed),'rb') as w:
+        assert w.getnframes()==rate
+        actual=struct.unpack('<'+'h'*rate,w.readframes(rate))
+    assert abs(actual[-1]-actual[0])<100
+    assert actual[rate//4]==values[rate//4]
+
+
+def test_non_repeating_music_and_disabled_smoothing_are_unchanged(tmp_path):
+    from backend.music import smooth_loop
+    bed=tmp_path/'music-bed.wav'
+    media.ffmpeg('-f','lavfi','-i','sine=frequency=440:duration=1',bed)
+    original=bed.read_bytes()
+    assert not smooth_loop(bed,3,0)
+    assert not smooth_loop(bed,.5,30)
+    assert bed.read_bytes()==original
