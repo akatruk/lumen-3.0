@@ -130,13 +130,35 @@ def validate_recommendation_reviews(result,analysis):
             raise error
 
 
-def validate_quality_reviews(result,feedback):
+def rendered_edit_signature(edit,approved_only=False):
+    """Compare executable fields, not new IDs, shot labels or review flags."""
+    edit=Edit.model_validate(edit) if isinstance(edit,dict) else edit
+    value=edit.model_dump(exclude={'clips'})
+    if not edit.subtitles or not edit.captions:
+        for key in ('captions','font_size','position','color'):value.pop(key,None)
+        value['subtitles']=False
+    value['clips']=[]
+    for clip in edit.clips:
+        if approved_only and not clip.approved:continue
+        row=clip.model_dump(exclude={'id','approved','locked','shot_type'})
+        for key in ('zoom','x','y'):
+            if row[key+'_end'] is None:row[key+'_end']=row[key]
+        value['clips'].append(row)
+    return value
+
+
+def validate_quality_reviews(result,feedback,current=None):
     expected=set(range(len((feedback or {}).get('revisions',[]))))
     rows=result.quality_revision_reviews
     if len(rows)!=len(expected) or {r.revision_index for r in rows}!=expected:
         error=ValueError('provider_invalid_analysis')
         error.feedback='Return exactly one quality_revision_reviews entry for each quality_feedback.revisions index, with outcome addressed or not_applied and a specific bilingual reason. Return [] if there is no quality feedback.'
         raise error
+    if current is not None and any(r.outcome=='addressed' for r in rows):
+        if rendered_edit_signature(result.edit)==rendered_edit_signature(current,approved_only=True):
+            error=ValueError('provider_invalid_analysis')
+            error.feedback='The proposed render is unchanged from the reviewed approved edit. New IDs, approval flags or shot labels do not fix defects. Mark quality revisions not_applied with an honest explanation, or propose a supported executable correction without changing locked decisions.'
+            raise error
 
 
 def preserve_locked(result,current):
@@ -209,7 +231,7 @@ def run_job(p,payload):
         validate(result,duration,speech,snapshot.get('saved_music'),snapshot.get('current_edit'))
         if snapshot.get('decision_evidence'):validate_evidence(result,snapshot['dna'])
         if snapshot.get('review_recommendations'):validate_recommendation_reviews(result,snapshot['analysis'])
-        validate_quality_reviews(result,snapshot.get('quality_feedback'))
+        validate_quality_reviews(result,snapshot.get('quality_feedback'),snapshot.get('current_edit'))
     prompt='''Build a COMPLETE EXECUTABLE Director Timeline for the owned video. This is a whole edit, not a list of trim suggestions.
 For EACH output clip return exactly one decisions entry with zero-based clip_index, a specific bilingual title,
 observable problem/opportunity in OWNED footage (observation), the concrete executable change matching actual clip fields (change),
@@ -284,7 +306,7 @@ def accept(pid:str,ident:str,body:Accept,user=Depends(current_user)):
         result=validate(Proposal.model_validate_json(row['result']),p['metadata']['duration'],saved_music=snapshot.get('saved_music'),current=current)
         if snapshot.get('decision_evidence'):validate_evidence(result,snapshot['dna'])
         if snapshot.get('review_recommendations'):validate_recommendation_reviews(result,snapshot['analysis'])
-        validate_quality_reviews(result,snapshot.get('quality_feedback'))
+        validate_quality_reviews(result,snapshot.get('quality_feedback'),snapshot.get('current_edit'))
         from .assets import validate as validate_assets
         validate_assets(result.edit,pid,db)
         db.execute('INSERT INTO studio_manual(project_id,config) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET config=excluded.config',(pid,result.edit.model_dump_json()))

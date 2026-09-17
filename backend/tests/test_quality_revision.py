@@ -50,3 +50,33 @@ def test_quality_feedback_coverage_rejects_missing_duplicate_and_invented_items(
     with pytest.raises(ValueError):creative.validate_quality_reviews(value,None)
     value.quality_revision_reviews=[]
     creative.validate_quality_reviews(value,None)
+
+
+def test_quality_fix_cannot_be_only_labels_and_approval_flags():
+    from backend import creative_plans as creative
+    from backend.manual import Edit,Clip
+    current=Edit(clips=[Clip(id='saved',start=0,end=5,approved=True)])
+    proposed=creative.Proposal(reason=T,notes=[],edit=Edit(clips=[
+        Clip(id='new',start=0,end=5,approved=False,shot_type='news',zoom_end=1,x_end=.5,y_end=.5)
+    ]),quality_revision_reviews=[creative.QualityRevisionReview(revision_index=0,outcome='addressed',reason=T)])
+    feedback={'revisions':[T]}
+    with pytest.raises(ValueError,match='provider_invalid_analysis'):
+        creative.validate_quality_reviews(proposed,feedback,current.model_dump())
+    # Disabled caption styling is not a visual correction.
+    proposed.edit.font_size='large'
+    with pytest.raises(ValueError):creative.validate_quality_reviews(proposed,feedback,current.model_dump())
+    # Honest deferral is valid; it does not promise a fix.
+    proposed.quality_revision_reviews[0].outcome='not_applied'
+    creative.validate_quality_reviews(proposed,feedback,current.model_dump())
+    proposed.quality_revision_reviews[0].outcome='addressed'
+    proposed.edit.clips[0].zoom_end=1.2
+    creative.validate_quality_reviews(proposed,feedback,current.model_dump())
+
+
+def test_quality_comparison_ignores_unrendered_pending_shots():
+    from backend import creative_plans as creative
+    from backend.manual import Edit,Clip
+    current=Edit(clips=[Clip(start=0,end=5),Clip(start=10,end=15,approved=False)])
+    result=creative.Proposal(reason=T,notes=[],edit=Edit(clips=[Clip(start=0,end=5,approved=False)]),
+        quality_revision_reviews=[creative.QualityRevisionReview(revision_index=0,outcome='addressed',reason=T)])
+    with pytest.raises(ValueError):creative.validate_quality_reviews(result,{'revisions':[T]},current.model_dump())
