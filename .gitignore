@@ -27,3 +27,6 @@ onboarding-video/voice-candidates/
 ._*
 
 .remotion/
+
+# Rebuild normalized narration from the versioned MP3 masters.
+onboarding-video/public/guide-v5/*.wav

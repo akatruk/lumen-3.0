@@ -15,8 +15,9 @@ export function TutorialVideos({
   const pendingSeek = useRef<{asset: string; time: number} | null>(null);
   const t = (en: string, zh: string) => (lang === "zh" ? zh : en);
   const full = mode === "walkthrough";
-  const info = content[lang];
-  const asset = `/tutorial/lumen-${mode}-${lang}-v4`;
+  const duration = (seconds: number) => `${Math.floor(Math.round(seconds) / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`;
+  const info = content[lang][mode];
+  const asset = `/tutorial/lumen-${mode}-${lang}-v5`;
   return (
     <section
       className={
@@ -29,7 +30,7 @@ export function TutorialVideos({
           {t("LUMEN · VIDEO GUIDE", "LUMEN · 视频指南")}
         </span>
         <h2>
-          {t("From references to your finished video", "从参考视频到你的成片")}
+          {t("Meet Lumen. Then learn the workflow.", "认识 Lumen，掌握完整流程")}
         </h2>
         <p>
           {t(
@@ -44,11 +45,10 @@ export function TutorialVideos({
         aria-label={t("Choose a guide", "选择指南")}
       >
         <button aria-pressed={!full} onClick={() => setMode("guide")}>
-          {t("Quick overview · 10 sec", "快速概览 · 10 秒")}
+          {t("Product presentation", "产品介绍")} · {duration(content[lang].guide.seconds)}
         </button>
         <button aria-pressed={full} onClick={() => setMode("walkthrough")}>
-          {t("Step-by-step", "分步教学")} · {Math.floor(info.seconds / 60)}:
-          {String(Math.floor(info.seconds % 60)).padStart(2, "0")}
+          {t("Full video guide", "完整操作指南")} · {duration(content[lang].walkthrough.seconds)}
         </button>
       </div>
       <video

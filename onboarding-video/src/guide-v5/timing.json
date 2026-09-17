@@ -1,0 +1,1367 @@
+{
+  "en": {
+    "guide": {
+      "frames": 2098,
+      "scenes": [
+        {
+          "id": "promise",
+          "fromFrame": 0,
+          "frames": 474,
+          "audio": "guide-v5/en-promise.wav",
+          "title": "A stronger story.",
+          "lines": [
+            "Your footage",
+            "Reference techniques",
+            "Your final decision"
+          ]
+        },
+        {
+          "id": "director",
+          "fromFrame": 474,
+          "frames": 578,
+          "audio": "guide-v5/en-director.wav",
+          "title": "See the plan. Shape the edit.",
+          "lines": [
+            "Timing & framing",
+            "Captions & visual inserts",
+            "Approve · Replace · Lock"
+          ]
+        },
+        {
+          "id": "control",
+          "fromFrame": 1052,
+          "frames": 474,
+          "audio": "guide-v5/en-control.wav",
+          "title": "Improve with intention.",
+          "lines": [
+            "Relevant B-roll",
+            "Music & sound",
+            "Review before rendering"
+          ]
+        },
+        {
+          "id": "deliver",
+          "fromFrame": 1526,
+          "frames": 572,
+          "audio": "guide-v5/en-deliver.wav",
+          "title": "One story. Five destinations.",
+          "lines": [
+            "Douyin · TikTok · Reels",
+            "Shorts · Xiaohongshu",
+            "Review → Download → Publish"
+          ]
+        }
+      ],
+      "captions": [
+        {
+          "text": "Meet Lumen.",
+          "startMs": 200,
+          "endMs": 1225
+        },
+        {
+          "text": "Turn your footage into a clearer, more purposeful video.",
+          "startMs": 1225,
+          "endMs": 6440
+        },
+        {
+          "text": "Start with your story, learn from reference videos,",
+          "startMs": 6440,
+          "endMs": 11190
+        },
+        {
+          "text": "and keep control of every editing decision.",
+          "startMs": 11190,
+          "endMs": 15195
+        },
+        {
+          "text": "The Director Timeline connects your footage with specific",
+          "startMs": 16000,
+          "endMs": 21056
+        },
+        {
+          "text": "editing ideas: pacing, framing, captions, graphics, and supporting visuals.",
+          "startMs": 21056,
+          "endMs": 27710
+        },
+        {
+          "text": "Review the reasons, adjust the details, and approve only the shots you want.",
+          "startMs": 27710,
+          "endMs": 34451
+        },
+        {
+          "text": "Match library footage to your scene, choose",
+          "startMs": 35267,
+          "endMs": 38459
+        },
+        {
+          "text": "licensed music, or request an AI alternative.",
+          "startMs": 38459,
+          "endMs": 41799
+        },
+        {
+          "text": "Lumen can review the rendered result and propose corrections.",
+          "startMs": 41799,
+          "endMs": 46328
+        },
+        {
+          "text": "You review the changes before making another version.",
+          "startMs": 46328,
+          "endMs": 50262
+        },
+        {
+          "text": "Prepare versions for Douyin, TikTok, Instagram Reels, YouTube Shorts, and Xiaohongshu.",
+          "startMs": 51067,
+          "endMs": 58754
+        },
+        {
+          "text": "Review each cut, cover, caption style, and call to action.",
+          "startMs": 58754,
+          "endMs": 63939
+        },
+        {
+          "text": "Download your files, then publish through your own channels.",
+          "startMs": 63939,
+          "endMs": 69302
+        }
+      ]
+    },
+    "walkthrough": {
+      "frames": 11879,
+      "scenes": [
+        {
+          "id": "start",
+          "fromFrame": 0,
+          "frames": 664,
+          "audio": "guide-v5/en-start.wav",
+          "title": "Start in Video Studio",
+          "lines": [
+            "Approved Google account",
+            "Video Studio",
+            "Interface language ≠ output language"
+          ]
+        },
+        {
+          "id": "references",
+          "fromFrame": 664,
+          "frames": 817,
+          "audio": "guide-v5/en-references.wav",
+          "title": "Choose useful references",
+          "lines": [
+            "Search a topic",
+            "Select 1–5 results",
+            "Learn techniques, not copy footage"
+          ]
+        },
+        {
+          "id": "upload",
+          "fromFrame": 1481,
+          "frames": 862,
+          "audio": "guide-v5/en-upload.wav",
+          "title": "Upload your own footage",
+          "lines": [
+            "Up to 7 minutes · 250 MB",
+            "Project name + editing rights",
+            "Wait for upload completion"
+          ]
+        },
+        {
+          "id": "script",
+          "fromFrame": 2343,
+          "frames": 926,
+          "audio": "guide-v5/en-script.wav",
+          "title": "Script & intended message",
+          "lines": [
+            "Subject: Bangkok apartment tour",
+            "Takeaway: layout, light, kitchen",
+            "Action: book a viewing"
+          ]
+        },
+        {
+          "id": "rules",
+          "fromFrame": 3269,
+          "frames": 1034,
+          "audio": "guide-v5/en-rules.wav",
+          "title": "Brand rules & claims to avoid",
+          "lines": [
+            "Calm, professional tone",
+            "No invented facts or guarantees",
+            "Missing information: do not invent"
+          ]
+        },
+        {
+          "id": "settings",
+          "fromFrame": 4303,
+          "frames": 938,
+          "audio": "guide-v5/en-settings.wav",
+          "title": "Set direction, then analyze",
+          "lines": [
+            "Audience · tone · output language",
+            "Set an AI spending ceiling",
+            "Analyze & build my plan"
+          ]
+        },
+        {
+          "id": "plan",
+          "fromFrame": 5241,
+          "frames": 875,
+          "audio": "guide-v5/en-plan.wav",
+          "title": "Read DNA. Review decisions.",
+          "lines": [
+            "Reference DNA → editing technique",
+            "Decision → source range + reason",
+            "Replace editor timeline & review shots"
+          ]
+        },
+        {
+          "id": "timeline",
+          "fromFrame": 6116,
+          "frames": 934,
+          "audio": "guide-v5/en-timeline.wav",
+          "title": "Edit and approve each shot",
+          "lines": [
+            "Select → edit → approve",
+            "Lock decisions to preserve them",
+            "Save before rendering"
+          ]
+        },
+        {
+          "id": "broll",
+          "fromFrame": 7050,
+          "frames": 994,
+          "audio": "guide-v5/en-broll.wav",
+          "title": "Add meaningful B-roll",
+          "lines": [
+            "Upload or search → import",
+            "Match → preview → replace",
+            "Approve the new decision"
+          ]
+        },
+        {
+          "id": "audio",
+          "fromFrame": 8044,
+          "frames": 937,
+          "audio": "guide-v5/en-audio.wav",
+          "title": "Captions, graphics and music",
+          "lines": [
+            "Correct captions and factual cards",
+            "Select music → set levels and fades",
+            "Preview beat edits; listen after render"
+          ]
+        },
+        {
+          "id": "regenerate",
+          "fromFrame": 8981,
+          "frames": 900,
+          "audio": "guide-v5/en-regenerate.wav",
+          "title": "Ask for a specific alternative",
+          "lines": [
+            "Save → select an unlocked shot",
+            "Describe a concrete improvement",
+            "Review → replace → approve → save"
+          ]
+        },
+        {
+          "id": "quality",
+          "fromFrame": 9881,
+          "frames": 1113,
+          "audio": "guide-v5/en-quality.wav",
+          "title": "Render. Watch. Revise.",
+          "lines": [
+            "Watch the entire master with sound",
+            "Review AI findings and limitations",
+            "Change the plan → render again"
+          ]
+        },
+        {
+          "id": "export",
+          "fromFrame": 10994,
+          "frames": 885,
+          "audio": "guide-v5/en-export.wav",
+          "title": "Review every platform version",
+          "lines": [
+            "Douyin · TikTok · Reels · Shorts · Xiaohongshu",
+            "Review each version and cover",
+            "Download; publish through your account"
+          ]
+        }
+      ],
+      "captions": [
+        {
+          "text": "Sign in with a Google account that has been granted access.",
+          "startMs": 200,
+          "endMs": 5136
+        },
+        {
+          "text": "Open Video Studio.",
+          "startMs": 5136,
+          "endMs": 6641
+        },
+        {
+          "text": "Choose English or Chinese for the interface.",
+          "startMs": 6641,
+          "endMs": 10322
+        },
+        {
+          "text": "Later, choose the output language in your project settings: the",
+          "startMs": 10322,
+          "endMs": 15592
+        },
+        {
+          "text": "interface language and the final video's language are separate choices.",
+          "startMs": 15592,
+          "endMs": 21531
+        },
+        {
+          "text": "Search Douyin for your topic and select one to five useful reference videos.",
+          "startMs": 22333,
+          "endMs": 29326
+        },
+        {
+          "text": "Look for a strong opening, clear explanation, or effective pacing.",
+          "startMs": 29326,
+          "endMs": 35399
+        },
+        {
+          "text": "References teach editing techniques; they are not your footage.",
+          "startMs": 35399,
+          "endMs": 41196
+        },
+        {
+          "text": "If the analyze button asks for a reference,",
+          "startMs": 41196,
+          "endMs": 45152
+        },
+        {
+          "text": "return to step one and select a result.",
+          "startMs": 45152,
+          "endMs": 48741
+        },
+        {
+          "text": "Upload the video you want to improve, up",
+          "startMs": 49567,
+          "endMs": 53204
+        },
+        {
+          "text": "to seven minutes and two hundred fifty megabytes.",
+          "startMs": 53204,
+          "endMs": 57661
+        },
+        {
+          "text": "Name the project and confirm your rights to edit it.",
+          "startMs": 57661,
+          "endMs": 62390
+        },
+        {
+          "text": "Wait for upload completion.",
+          "startMs": 62390,
+          "endMs": 64845
+        },
+        {
+          "text": "Saved progress shows bytes stored on the server.",
+          "startMs": 64845,
+          "endMs": 69210
+        },
+        {
+          "text": "If interrupted, follow the resume or retry message rather than creating duplicate projects.",
+          "startMs": 69210,
+          "endMs": 77486
+        },
+        {
+          "text": "In Script and intended message, explain the subject, audience takeaway, and next action.",
+          "startMs": 78300,
+          "endMs": 85941
+        },
+        {
+          "text": "For example: tour an apartment in Bangkok; show its layout, natural",
+          "startMs": 85941,
+          "endMs": 91759
+        },
+        {
+          "text": "light, and kitchen; end with an invitation to book a viewing.",
+          "startMs": 91759,
+          "endMs": 97055
+        },
+        {
+          "text": "Include exact facts and a full script when available.",
+          "startMs": 97055,
+          "endMs": 101658
+        },
+        {
+          "text": "This field guides the edit; it does not automatically create a new voiceover.",
+          "startMs": 101658,
+          "endMs": 108343
+        },
+        {
+          "text": "Use Brand rules and claims to avoid for tone and factual limits.",
+          "startMs": 109167,
+          "endMs": 115336
+        },
+        {
+          "text": "For example: calm and professional; no invented prices or distances; no guaranteed returns.",
+          "startMs": 115336,
+          "endMs": 124109
+        },
+        {
+          "text": "For citizenship content, avoid promises of approval.",
+          "startMs": 124109,
+          "endMs": 129121
+        },
+        {
+          "text": "For travel, do not invent visa rules.",
+          "startMs": 129121,
+          "endMs": 132688
+        },
+        {
+          "text": "State missing facts explicitly.",
+          "startMs": 132688,
+          "endMs": 135677
+        },
+        {
+          "text": "Never present unrelated B-roll as proof of the featured property or place.",
+          "startMs": 135677,
+          "endMs": 142810
+        },
+        {
+          "text": "Choose your topic, target audience, tone, and output language.",
+          "startMs": 143633,
+          "endMs": 149335
+        },
+        {
+          "text": "Set the project AI spending limit.",
+          "startMs": 149335,
+          "endMs": 152462
+        },
+        {
+          "text": "It is a ceiling, not a fixed price; reference search charges are separate.",
+          "startMs": 152462,
+          "endMs": 159267
+        },
+        {
+          "text": "Click Analyze and build my plan.",
+          "startMs": 159267,
+          "endMs": 162210
+        },
+        {
+          "text": "Wait for the reference analysis and your footage analysis.",
+          "startMs": 162210,
+          "endMs": 167543
+        },
+        {
+          "text": "If analysis fails, your saved video does not need to be uploaded again.",
+          "startMs": 167543,
+          "endMs": 174073
+        },
+        {
+          "text": "Read the reference DNA to understand the techniques being borrowed.",
+          "startMs": 174900,
+          "endMs": 180390
+        },
+        {
+          "text": "Then inspect the proposed Director Timeline against your own footage.",
+          "startMs": 180390,
+          "endMs": 186044
+        },
+        {
+          "text": "Each decision should explain what changes, where, and why.",
+          "startMs": 186044,
+          "endMs": 190796
+        },
+        {
+          "text": "A reference about another subject must not introduce its facts into your video.",
+          "startMs": 190796,
+          "endMs": 197270
+        },
+        {
+          "text": "Accept a suitable plan into the editor, then review the individual shots.",
+          "startMs": 197270,
+          "endMs": 203251
+        },
+        {
+          "text": "Select a shot.",
+          "startMs": 204067,
+          "endMs": 205319
+        },
+        {
+          "text": "Adjust its source range, framing, camera movement, transition, or text.",
+          "startMs": 205319,
+          "endMs": 211672
+        },
+        {
+          "text": "Check the timeline layers for graphics, sound effects, and inserts.",
+          "startMs": 211672,
+          "endMs": 217667
+        },
+        {
+          "text": "Approve the shot when satisfied.",
+          "startMs": 217667,
+          "endMs": 220530
+        },
+        {
+          "text": "Changing its editing settings clears approval.",
+          "startMs": 220530,
+          "endMs": 224646
+        },
+        {
+          "text": "Lock a decision you want to preserve.",
+          "startMs": 224646,
+          "endMs": 227956
+        },
+        {
+          "text": "Save your plan; only approved shots are included in the rendered output.",
+          "startMs": 227956,
+          "endMs": 234398
+        },
+        {
+          "text": "Upload licensed clips in Video and music",
+          "startMs": 235200,
+          "endMs": 238914
+        },
+        {
+          "text": "library, or use the scene's stock search.",
+          "startMs": 238914,
+          "endMs": 242721
+        },
+        {
+          "text": "Import a useful result, then match it to the selected shot.",
+          "startMs": 242721,
+          "endMs": 248199
+        },
+        {
+          "text": "AI reviews sampled portions, not every frame of long assets.",
+          "startMs": 248199,
+          "endMs": 253770
+        },
+        {
+          "text": "Preview the proposed insert, replace the decision, and approve it again.",
+          "startMs": 253770,
+          "endMs": 260455
+        },
+        {
+          "text": "Generated B-roll is an illustration, not verified news or property evidence.",
+          "startMs": 260455,
+          "endMs": 267511
+        },
+        {
+          "text": "Correct caption text and choose its style.",
+          "startMs": 268333,
+          "endMs": 272100
+        },
+        {
+          "text": "Use visual cards only with supplied facts and accurate values.",
+          "startMs": 272100,
+          "endMs": 277661
+        },
+        {
+          "text": "Upload licensed music, select a track, and adjust volume, fades, or ducking.",
+          "startMs": 277661,
+          "endMs": 284477
+        },
+        {
+          "text": "You can request a music suggestion or",
+          "startMs": 284477,
+          "endMs": 287795
+        },
+        {
+          "text": "preview safe cuts aligned to detected accents.",
+          "startMs": 287795,
+          "endMs": 291921
+        },
+        {
+          "text": "These are estimates: listen to the rendered mix before approving the result.",
+          "startMs": 291921,
+          "endMs": 298737
+        },
+        {
+          "text": "Save your changes before asking AI for an alternative.",
+          "startMs": 299567,
+          "endMs": 304256
+        },
+        {
+          "text": "Select an unlocked shot, choose the task, and describe a specific improvement.",
+          "startMs": 304256,
+          "endMs": 311030
+        },
+        {
+          "text": "For example: use a gentle push-in while keeping the speaker's full sentence.",
+          "startMs": 311030,
+          "endMs": 317630
+        },
+        {
+          "text": "Review the proposal before replacing it.",
+          "startMs": 317630,
+          "endMs": 321104
+        },
+        {
+          "text": "No suitable match means the edit stays unchanged.",
+          "startMs": 321104,
+          "endMs": 325359
+        },
+        {
+          "text": "Reapprove changed shots and save again.",
+          "startMs": 325359,
+          "endMs": 328746
+        },
+        {
+          "text": "Render the approved plan.",
+          "startMs": 329567,
+          "endMs": 331959
+        },
+        {
+          "text": "Watch the complete master with sound: check",
+          "startMs": 331959,
+          "endMs": 336074
+        },
+        {
+          "text": "cuts, words, subtitles, overlays, and factual claims.",
+          "startMs": 336074,
+          "endMs": 341147
+        },
+        {
+          "text": "Optional AI review scores five editorial categories and may draft corrections.",
+          "startMs": 341147,
+          "endMs": 348612
+        },
+        {
+          "text": "A proposed fix is not a verified improvement.",
+          "startMs": 348612,
+          "endMs": 352918
+        },
+        {
+          "text": "Read any reasons a correction could not be made.",
+          "startMs": 352918,
+          "endMs": 357512
+        },
+        {
+          "text": "After changing the plan, render again; an existing video does not update automatically.",
+          "startMs": 357512,
+          "endMs": 365838
+        },
+        {
+          "text": "After reviewing the master, prepare the platform package.",
+          "startMs": 366667,
+          "endMs": 371446
+        },
+        {
+          "text": "Check the duration, aspect ratio, opening, captions, cover,",
+          "startMs": 371446,
+          "endMs": 376393
+        },
+        {
+          "text": "and call to action for each version.",
+          "startMs": 376393,
+          "endMs": 379411
+        },
+        {
+          "text": "Review and lock the versions you accept.",
+          "startMs": 379411,
+          "endMs": 382765
+        },
+        {
+          "text": "Download the video and export files.",
+          "startMs": 382765,
+          "endMs": 385784
+        },
+        {
+          "text": "Lumen does not publish to your social accounts automatically.",
+          "startMs": 385784,
+          "endMs": 390898
+        },
+        {
+          "text": "You make the final editorial and publishing decision.",
+          "startMs": 390898,
+          "endMs": 395342
+        }
+      ]
+    }
+  },
+  "zh": {
+    "guide": {
+      "frames": 1687,
+      "scenes": [
+        {
+          "id": "promise",
+          "fromFrame": 0,
+          "frames": 390,
+          "audio": "guide-v5/zh-promise.wav",
+          "title": "让故事更有力量",
+          "lines": [
+            "自有素材",
+            "参考剪辑方法",
+            "由你最终决定"
+          ]
+        },
+        {
+          "id": "director",
+          "fromFrame": 390,
+          "frames": 410,
+          "audio": "guide-v5/zh-director.wav",
+          "title": "看懂计划，掌控剪辑",
+          "lines": [
+            "时长与构图",
+            "字幕与视觉插入",
+            "批准 · 替换 · 锁定"
+          ]
+        },
+        {
+          "id": "control",
+          "fromFrame": 800,
+          "frames": 429,
+          "audio": "guide-v5/zh-control.wav",
+          "title": "每次修改都有依据",
+          "lines": [
+            "相关的补充镜头",
+            "音乐与音效",
+            "先审核，再制作"
+          ]
+        },
+        {
+          "id": "deliver",
+          "fromFrame": 1229,
+          "frames": 458,
+          "audio": "guide-v5/zh-deliver.wav",
+          "title": "一个故事，五个平台",
+          "lines": [
+            "抖音 · TikTok · Reels",
+            "Shorts · 小红书",
+            "审核 → 下载 → 自行发布"
+          ]
+        }
+      ],
+      "captions": [
+        {
+          "text": "认识 Lumen，让你的素材变",
+          "startMs": 200,
+          "endMs": 2929
+        },
+        {
+          "text": "成表达更清晰、更有重点的视频。",
+          "startMs": 2929,
+          "endMs": 5657
+        },
+        {
+          "text": "从自己的故事出发，借鉴参考视频的剪辑",
+          "startMs": 5657,
+          "endMs": 8931
+        },
+        {
+          "text": "方法，同时保留每一个编辑决定的控制权。",
+          "startMs": 8931,
+          "endMs": 12387
+        },
+        {
+          "text": "导演时间线把你的素材与具体的剪辑建议连接起",
+          "startMs": 13200,
+          "endMs": 17412
+        },
+        {
+          "text": "来，包括节奏、构图、字幕、图形和补充画面。",
+          "startMs": 17412,
+          "endMs": 21623
+        },
+        {
+          "text": "查看修改理由，调整细节，只批准你需要的镜头。",
+          "startMs": 21623,
+          "endMs": 26035
+        },
+        {
+          "text": "为场景匹配素材库画面，选择获授权的音",
+          "startMs": 26867,
+          "endMs": 30103
+        },
+        {
+          "text": "乐，或请求 AI 提供另一种方案。",
+          "startMs": 30103,
+          "endMs": 33159
+        },
+        {
+          "text": "Lumen 可以检查渲染后的成片并提出修改建议。",
+          "startMs": 33159,
+          "endMs": 37474
+        },
+        {
+          "text": "制作新版本前，由你审核这些修改。",
+          "startMs": 37474,
+          "endMs": 40350
+        },
+        {
+          "text": "为抖音、TikTok、Instagram Reels",
+          "startMs": 41167,
+          "endMs": 45208
+        },
+        {
+          "text": "、YouTube Shorts 和小红书准备不同版本。",
+          "startMs": 45208,
+          "endMs": 49405
+        },
+        {
+          "text": "检查每个版本的剪辑、封面、字幕样式和行动引导。",
+          "startMs": 49405,
+          "endMs": 52980
+        },
+        {
+          "text": "下载文件，再通过你自己的账号发布。",
+          "startMs": 52980,
+          "endMs": 55622
+        }
+      ]
+    },
+    "walkthrough": {
+      "frames": 8592,
+      "scenes": [
+        {
+          "id": "start",
+          "fromFrame": 0,
+          "frames": 518,
+          "audio": "guide-v5/zh-start.wav",
+          "title": "从视频工作室开始",
+          "lines": [
+            "已授权的谷歌账号",
+            "视频工作室",
+            "界面语言 ≠ 成片语言"
+          ]
+        },
+        {
+          "id": "references",
+          "fromFrame": 518,
+          "frames": 583,
+          "audio": "guide-v5/zh-references.wav",
+          "title": "选择有用的参考视频",
+          "lines": [
+            "搜索主题",
+            "选择一到五个结果",
+            "学习方法，不复制素材"
+          ]
+        },
+        {
+          "id": "upload",
+          "fromFrame": 1101,
+          "frames": 609,
+          "audio": "guide-v5/zh-upload.wav",
+          "title": "上传自己的素材",
+          "lines": [
+            "最多七分钟 · 250 MB",
+            "项目名称与编辑权限",
+            "等待上传完成"
+          ]
+        },
+        {
+          "id": "script",
+          "fromFrame": 1710,
+          "frames": 671,
+          "audio": "guide-v5/zh-script.wav",
+          "title": "脚本与预期表达",
+          "lines": [
+            "主题：曼谷公寓介绍",
+            "重点：户型、采光、厨房",
+            "行动：预约看房"
+          ]
+        },
+        {
+          "id": "rules",
+          "fromFrame": 2381,
+          "frames": 725,
+          "audio": "guide-v5/zh-rules.wav",
+          "title": "品牌要求与禁用表述",
+          "lines": [
+            "冷静、专业的语气",
+            "不编造事实，不作保证",
+            "缺少信息：不要编造"
+          ]
+        },
+        {
+          "id": "settings",
+          "fromFrame": 3106,
+          "frames": 631,
+          "audio": "guide-v5/zh-settings.wav",
+          "title": "设置方向，开始分析",
+          "lines": [
+            "受众 · 语气 · 成片语言",
+            "设置 AI 支出上限",
+            "分析并创建剪辑计划"
+          ]
+        },
+        {
+          "id": "plan",
+          "fromFrame": 3737,
+          "frames": 646,
+          "audio": "guide-v5/zh-plan.wav",
+          "title": "查看 DNA，审核剪辑建议",
+          "lines": [
+            "参考 DNA → 剪辑方法",
+            "剪辑决定 → 原片范围与理由",
+            "替换编辑器时间线并审核镜头"
+          ]
+        },
+        {
+          "id": "timeline",
+          "fromFrame": 4383,
+          "frames": 664,
+          "audio": "guide-v5/zh-timeline.wav",
+          "title": "编辑并批准每个镜头",
+          "lines": [
+            "选择 → 编辑 → 批准",
+            "锁定需要保留的决定",
+            "渲染前保存"
+          ]
+        },
+        {
+          "id": "broll",
+          "fromFrame": 5047,
+          "frames": 740,
+          "audio": "guide-v5/zh-broll.wav",
+          "title": "添加有意义的补充画面",
+          "lines": [
+            "上传或搜索 → 导入",
+            "匹配 → 预览 → 替换",
+            "批准新的剪辑决定"
+          ]
+        },
+        {
+          "id": "audio",
+          "fromFrame": 5787,
+          "frames": 745,
+          "audio": "guide-v5/zh-audio.wav",
+          "title": "字幕、图形与音乐",
+          "lines": [
+            "校正字幕与事实卡片",
+            "选择音乐 → 调整音量和淡入淡出",
+            "预览节拍调整，渲染后试听"
+          ]
+        },
+        {
+          "id": "regenerate",
+          "fromFrame": 6532,
+          "frames": 672,
+          "audio": "guide-v5/zh-regenerate.wav",
+          "title": "提出具体的修改要求",
+          "lines": [
+            "保存 → 选择未锁定镜头",
+            "描述具体的改善目标",
+            "审核 → 替换 → 批准 → 保存"
+          ]
+        },
+        {
+          "id": "quality",
+          "fromFrame": 7204,
+          "frames": 743,
+          "audio": "guide-v5/zh-quality.wav",
+          "title": "制作、观看、修改",
+          "lines": [
+            "打开声音，完整观看成片",
+            "审核 AI 发现的问题与限制",
+            "修改计划 → 重新制作"
+          ]
+        },
+        {
+          "id": "export",
+          "fromFrame": 7947,
+          "frames": 645,
+          "audio": "guide-v5/zh-export.wav",
+          "title": "审核每个平台的版本",
+          "lines": [
+            "抖音 · TikTok · Reels · Shorts · 小红书",
+            "逐个审核版本与封面",
+            "下载后通过自己的账号发布"
+          ]
+        }
+      ],
+      "captions": [
+        {
+          "text": "使用已获授权的谷歌账号登录，打开视频工作室。",
+          "startMs": 200,
+          "endMs": 5222
+        },
+        {
+          "text": "你可以把界面切换为英文或中文。",
+          "startMs": 5222,
+          "endMs": 8646
+        },
+        {
+          "text": "之后在项目设置中选择成片语言。",
+          "startMs": 8646,
+          "endMs": 12070
+        },
+        {
+          "text": "界面语言与最终视频语言是两个独立的设置。",
+          "startMs": 12070,
+          "endMs": 16635
+        },
+        {
+          "text": "在抖音搜索与你的主题相关的视",
+          "startMs": 17467,
+          "endMs": 20049
+        },
+        {
+          "text": "频，选择一到五个有价值的参考。",
+          "startMs": 20049,
+          "endMs": 22816
+        },
+        {
+          "text": "重点看开头是否吸引人、解释是否清晰、节奏是否合适。",
+          "startMs": 22816,
+          "endMs": 27428
+        },
+        {
+          "text": "参考用于学习剪辑方法，不是你的原片。",
+          "startMs": 27428,
+          "endMs": 30749
+        },
+        {
+          "text": "如果分析按钮提示缺少参考，请",
+          "startMs": 30749,
+          "endMs": 33331
+        },
+        {
+          "text": "回到第一步，选中一个搜索结果。",
+          "startMs": 33331,
+          "endMs": 36098
+        },
+        {
+          "text": "上传你想改善的原片，时长最多",
+          "startMs": 36900,
+          "endMs": 39576
+        },
+        {
+          "text": "七分钟，文件最多二百五十兆。",
+          "startMs": 39576,
+          "endMs": 42252
+        },
+        {
+          "text": "填写项目名称，并确认你拥有编辑权限。",
+          "startMs": 42252,
+          "endMs": 45692
+        },
+        {
+          "text": "等待上传完成。",
+          "startMs": 45692,
+          "endMs": 47030
+        },
+        {
+          "text": "保存进度表示服务器已经收到的数据。",
+          "startMs": 47030,
+          "endMs": 50279
+        },
+        {
+          "text": "如果上传中断，请按照界面的继续或",
+          "startMs": 50279,
+          "endMs": 53337
+        },
+        {
+          "text": "重试提示操作，避免重复创建项目。",
+          "startMs": 53337,
+          "endMs": 56395
+        },
+        {
+          "text": "在脚本与预期表达中，写清主题、希",
+          "startMs": 57200,
+          "endMs": 60363
+        },
+        {
+          "text": "望观众记住什么，以及看完后做什么。",
+          "startMs": 60363,
+          "endMs": 63724
+        },
+        {
+          "text": "例如，介绍曼谷的一套公寓，展示户型、",
+          "startMs": 63724,
+          "endMs": 67282
+        },
+        {
+          "text": "采光和厨房，结尾邀请观众预约看房。",
+          "startMs": 67282,
+          "endMs": 70642
+        },
+        {
+          "text": "有完整脚本和准确数据时，也请一并填写。",
+          "startMs": 70642,
+          "endMs": 74398
+        },
+        {
+          "text": "这个字段用于指导剪辑，不会自动生成新的配音。",
+          "startMs": 74398,
+          "endMs": 78747
+        },
+        {
+          "text": "在品牌要求与禁用表述中，说明语气和事实边界。",
+          "startMs": 79567,
+          "endMs": 84153
+        },
+        {
+          "text": "例如，保持冷静专业，不编造价格或距离，不承诺保证收益。",
+          "startMs": 84153,
+          "endMs": 89781
+        },
+        {
+          "text": "国籍相关内容不要承诺一定获批",
+          "startMs": 89781,
+          "endMs": 92700
+        },
+        {
+          "text": "；旅行内容不要编造签证规定。",
+          "startMs": 92700,
+          "endMs": 95618
+        },
+        {
+          "text": "缺少的数据要明确说明。",
+          "startMs": 95618,
+          "endMs": 97911
+        },
+        {
+          "text": "不要把无关的补充画面当作所介绍房产或地点的证据。",
+          "startMs": 97911,
+          "endMs": 102914
+        },
+        {
+          "text": "选择主题、目标受众、语气和成片语",
+          "startMs": 103733,
+          "endMs": 106874
+        },
+        {
+          "text": "言，设置项目 AI 费用上限。",
+          "startMs": 106874,
+          "endMs": 109818
+        },
+        {
+          "text": "这是支出上限，不是固定报价；参考搜索费用单独计算。",
+          "startMs": 109818,
+          "endMs": 114724
+        },
+        {
+          "text": "点击分析并创建剪辑计划，等待参考分析和原片分析完成。",
+          "startMs": 114724,
+          "endMs": 119827
+        },
+        {
+          "text": "如果分析失败，已保存的视频不需要重新上传。",
+          "startMs": 119827,
+          "endMs": 123949
+        },
+        {
+          "text": "先查看参考视频的 DNA，理解借鉴了哪些剪辑方法。",
+          "startMs": 124767,
+          "endMs": 129563
+        },
+        {
+          "text": "再对照自己的素材检查导演时间线。",
+          "startMs": 129563,
+          "endMs": 132632
+        },
+        {
+          "text": "每个决定都应该说明改什么、在哪里改、为什么改。",
+          "startMs": 132632,
+          "endMs": 137045
+        },
+        {
+          "text": "不同主题的参考视频不能把它的事实带进你的内容。",
+          "startMs": 137045,
+          "endMs": 141457
+        },
+        {
+          "text": "把合适的计划加入编辑器，然后逐个审核镜头。",
+          "startMs": 141457,
+          "endMs": 145486
+        },
+        {
+          "text": "选中一个镜头，调整原片范围、",
+          "startMs": 146300,
+          "endMs": 149286
+        },
+        {
+          "text": "构图、镜头运动、转场或文字。",
+          "startMs": 149286,
+          "endMs": 152273
+        },
+        {
+          "text": "通过时间线图层检查图形、音效和插入画面。",
+          "startMs": 152273,
+          "endMs": 156539
+        },
+        {
+          "text": "满意后批准镜头。",
+          "startMs": 156539,
+          "endMs": 158246
+        },
+        {
+          "text": "修改剪辑参数会取消之前的批准。",
+          "startMs": 158246,
+          "endMs": 161445
+        },
+        {
+          "text": "需要保留的决定可以锁定。",
+          "startMs": 161445,
+          "endMs": 164005
+        },
+        {
+          "text": "保存计划；渲染只包含已批准的镜头。",
+          "startMs": 164005,
+          "endMs": 167631
+        },
+        {
+          "text": "在视频与音乐素材库上传获授权的视",
+          "startMs": 168433,
+          "endMs": 171640
+        },
+        {
+          "text": "频，或使用当前场景的素材搜索。",
+          "startMs": 171640,
+          "endMs": 174647
+        },
+        {
+          "text": "导入合适的结果，再匹配到所选镜头。",
+          "startMs": 174647,
+          "endMs": 178054
+        },
+        {
+          "text": "AI 检查的是采样片段，不是长素材的每一帧。",
+          "startMs": 178054,
+          "endMs": 182464
+        },
+        {
+          "text": "预览建议的插入画面，替换决定，并重新批准。",
+          "startMs": 182464,
+          "endMs": 186673
+        },
+        {
+          "text": "生成的补充镜头是示意画面，不",
+          "startMs": 186673,
+          "endMs": 189479
+        },
+        {
+          "text": "是经过核实的新闻或房产证据。",
+          "startMs": 189479,
+          "endMs": 192285
+        },
+        {
+          "text": "校正字幕文字并选择样式。",
+          "startMs": 193100,
+          "endMs": 195608
+        },
+        {
+          "text": "图形卡片只使用已提供的事实和准确数值。",
+          "startMs": 195608,
+          "endMs": 199578
+        },
+        {
+          "text": "上传获授权的音乐，选择曲目，调整",
+          "startMs": 199578,
+          "endMs": 202922
+        },
+        {
+          "text": "音量、淡入淡出或自动压低背景音乐。",
+          "startMs": 202922,
+          "endMs": 206474
+        },
+        {
+          "text": "你也可以请求音乐建议，或预览",
+          "startMs": 206474,
+          "endMs": 209400
+        },
+        {
+          "text": "与检测到的重音对齐的安全切点。",
+          "startMs": 209400,
+          "endMs": 212534
+        },
+        {
+          "text": "这些都是估计结果，批准前请试听渲染后的混音。",
+          "startMs": 212534,
+          "endMs": 217131
+        },
+        {
+          "text": "请求 AI 提供替代方案前，先保存修改。",
+          "startMs": 217933,
+          "endMs": 221858
+        },
+        {
+          "text": "选择一个未锁定的镜头，选择任务，写出具体要求。",
+          "startMs": 221858,
+          "endMs": 226371
+        },
+        {
+          "text": "例如，在保留说话者完整句子的前提下，加入轻微推近。",
+          "startMs": 226371,
+          "endMs": 231276
+        },
+        {
+          "text": "替换前先审核方案。",
+          "startMs": 231276,
+          "endMs": 233042
+        },
+        {
+          "text": "如果没有合适匹配，原剪辑会保持不变。",
+          "startMs": 233042,
+          "endMs": 236574
+        },
+        {
+          "text": "对修改后的镜头重新批准并保存。",
+          "startMs": 236574,
+          "endMs": 239517
+        },
+        {
+          "text": "制作已批准的计划。",
+          "startMs": 240333,
+          "endMs": 242130
+        },
+        {
+          "text": "打开声音，完整观看主版本，检查切点",
+          "startMs": 242130,
+          "endMs": 245525
+        },
+        {
+          "text": "、讲话、字幕、叠加画面和事实表述。",
+          "startMs": 245525,
+          "endMs": 248919
+        },
+        {
+          "text": "可选的 AI 评审会给五个编辑",
+          "startMs": 248919,
+          "endMs": 251914
+        },
+        {
+          "text": "维度打分，并可能起草修改方案。",
+          "startMs": 251914,
+          "endMs": 254909
+        },
+        {
+          "text": "提出修复不等于已经改善；也要阅读无法修改的原因。",
+          "startMs": 254909,
+          "endMs": 259701
+        },
+        {
+          "text": "修改计划后需要重新制作，已有视频不会自动更新。",
+          "startMs": 259701,
+          "endMs": 264293
+        },
+        {
+          "text": "审核主版本后，生成平台导出包。",
+          "startMs": 265100,
+          "endMs": 268172
+        },
+        {
+          "text": "逐个检查各版本的时长、画幅、",
+          "startMs": 268172,
+          "endMs": 271039
+        },
+        {
+          "text": "开头、字幕、封面和行动引导。",
+          "startMs": 271039,
+          "endMs": 273906
+        },
+        {
+          "text": "审核并锁定你认可的版本，再下载视频和导出文件。",
+          "startMs": 273906,
+          "endMs": 278616
+        },
+        {
+          "text": "Lumen 不会自动发布到你的社交账号。",
+          "startMs": 278616,
+          "endMs": 282712
+        },
+        {
+          "text": "最终的编辑和发布决定由你作出。",
+          "startMs": 282712,
+          "endMs": 285783
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,410 @@
+[
+  {
+    "kind": "guide",
+    "id": "promise",
+    "title": {
+      "en": "A stronger story.",
+      "zh": "让故事更有力量"
+    },
+    "text": {
+      "en": "Meet Lumen. Turn your footage into a clearer, more purposeful video. Start with your story, learn from reference videos, and keep control of every editing decision.",
+      "zh": "认识 Lumen，让你的素材变成表达更清晰、更有重点的视频。从自己的故事出发，借鉴参考视频的剪辑方法，同时保留每一个编辑决定的控制权。"
+    },
+    "lines": {
+      "en": [
+        "Your footage",
+        "Reference techniques",
+        "Your final decision"
+      ],
+      "zh": [
+        "自有素材",
+        "参考剪辑方法",
+        "由你最终决定"
+      ]
+    }
+  },
+  {
+    "kind": "guide",
+    "id": "director",
+    "title": {
+      "en": "See the plan. Shape the edit.",
+      "zh": "看懂计划，掌控剪辑"
+    },
+    "text": {
+      "en": "The Director Timeline connects your footage with specific editing ideas: pacing, framing, captions, graphics, and supporting visuals. Review the reasons, adjust the details, and approve only the shots you want.",
+      "zh": "导演时间线把你的素材与具体的剪辑建议连接起来，包括节奏、构图、字幕、图形和补充画面。查看修改理由，调整细节，只批准你需要的镜头。"
+    },
+    "lines": {
+      "en": [
+        "Timing & framing",
+        "Captions & visual inserts",
+        "Approve · Replace · Lock"
+      ],
+      "zh": [
+        "时长与构图",
+        "字幕与视觉插入",
+        "批准 · 替换 · 锁定"
+      ]
+    }
+  },
+  {
+    "kind": "guide",
+    "id": "control",
+    "title": {
+      "en": "Improve with intention.",
+      "zh": "每次修改都有依据"
+    },
+    "text": {
+      "en": "Match library footage to your scene, choose licensed music, or request an AI alternative. Lumen can review the rendered result and propose corrections. You review the changes before making another version.",
+      "zh": "为场景匹配素材库画面，选择获授权的音乐，或请求 AI 提供另一种方案。Lumen 可以检查渲染后的成片并提出修改建议。制作新版本前，由你审核这些修改。"
+    },
+    "lines": {
+      "en": [
+        "Relevant B-roll",
+        "Music & sound",
+        "Review before rendering"
+      ],
+      "zh": [
+        "相关的补充镜头",
+        "音乐与音效",
+        "先审核，再制作"
+      ]
+    }
+  },
+  {
+    "kind": "guide",
+    "id": "deliver",
+    "title": {
+      "en": "One story. Five destinations.",
+      "zh": "一个故事，五个平台"
+    },
+    "text": {
+      "en": "Prepare versions for Douyin, TikTok, Instagram Reels, YouTube Shorts, and Xiaohongshu. Review each cut, cover, caption style, and call to action. Download your files, then publish through your own channels.",
+      "zh": "为抖音、TikTok、Instagram Reels、YouTube Shorts 和小红书准备不同版本。检查每个版本的剪辑、封面、字幕样式和行动引导。下载文件，再通过你自己的账号发布。"
+    },
+    "lines": {
+      "en": [
+        "Douyin · TikTok · Reels",
+        "Shorts · Xiaohongshu",
+        "Review → Download → Publish"
+      ],
+      "zh": [
+        "抖音 · TikTok · Reels",
+        "Shorts · 小红书",
+        "审核 → 下载 → 自行发布"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "start",
+    "title": {
+      "en": "Start in Video Studio",
+      "zh": "从视频工作室开始"
+    },
+    "text": {
+      "en": "Sign in with a Google account that has been granted access. Open Video Studio. Choose English or Chinese for the interface. Later, choose the output language in your project settings: the interface language and the final video's language are separate choices.",
+      "zh": "使用已获授权的谷歌账号登录，打开视频工作室。你可以把界面切换为英文或中文。之后在项目设置中选择成片语言。界面语言与最终视频语言是两个独立的设置。"
+    },
+    "lines": {
+      "en": [
+        "Approved Google account",
+        "Video Studio",
+        "Interface language ≠ output language"
+      ],
+      "zh": [
+        "已授权的谷歌账号",
+        "视频工作室",
+        "界面语言 ≠ 成片语言"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "references",
+    "title": {
+      "en": "Choose useful references",
+      "zh": "选择有用的参考视频"
+    },
+    "text": {
+      "en": "Search Douyin for your topic and select one to five useful reference videos. Look for a strong opening, clear explanation, or effective pacing. References teach editing techniques; they are not your footage. If the analyze button asks for a reference, return to step one and select a result.",
+      "zh": "在抖音搜索与你的主题相关的视频，选择一到五个有价值的参考。重点看开头是否吸引人、解释是否清晰、节奏是否合适。参考用于学习剪辑方法，不是你的原片。如果分析按钮提示缺少参考，请回到第一步，选中一个搜索结果。"
+    },
+    "lines": {
+      "en": [
+        "Search a topic",
+        "Select 1–5 results",
+        "Learn techniques, not copy footage"
+      ],
+      "zh": [
+        "搜索主题",
+        "选择一到五个结果",
+        "学习方法，不复制素材"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "upload",
+    "title": {
+      "en": "Upload your own footage",
+      "zh": "上传自己的素材"
+    },
+    "text": {
+      "en": "Upload the video you want to improve, up to seven minutes and two hundred fifty megabytes. Name the project and confirm your rights to edit it. Wait for upload completion. Saved progress shows bytes stored on the server. If interrupted, follow the resume or retry message rather than creating duplicate projects.",
+      "zh": "上传你想改善的原片，时长最多七分钟，文件最多二百五十兆。填写项目名称，并确认你拥有编辑权限。等待上传完成。保存进度表示服务器已经收到的数据。如果上传中断，请按照界面的继续或重试提示操作，避免重复创建项目。"
+    },
+    "lines": {
+      "en": [
+        "Up to 7 minutes · 250 MB",
+        "Project name + editing rights",
+        "Wait for upload completion"
+      ],
+      "zh": [
+        "最多七分钟 · 250 MB",
+        "项目名称与编辑权限",
+        "等待上传完成"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "script",
+    "title": {
+      "en": "Script & intended message",
+      "zh": "脚本与预期表达"
+    },
+    "text": {
+      "en": "In Script and intended message, explain the subject, audience takeaway, and next action. For example: tour an apartment in Bangkok; show its layout, natural light, and kitchen; end with an invitation to book a viewing. Include exact facts and a full script when available. This field guides the edit; it does not automatically create a new voiceover.",
+      "zh": "在脚本与预期表达中，写清主题、希望观众记住什么，以及看完后做什么。例如，介绍曼谷的一套公寓，展示户型、采光和厨房，结尾邀请观众预约看房。有完整脚本和准确数据时，也请一并填写。这个字段用于指导剪辑，不会自动生成新的配音。"
+    },
+    "lines": {
+      "en": [
+        "Subject: Bangkok apartment tour",
+        "Takeaway: layout, light, kitchen",
+        "Action: book a viewing"
+      ],
+      "zh": [
+        "主题：曼谷公寓介绍",
+        "重点：户型、采光、厨房",
+        "行动：预约看房"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "rules",
+    "title": {
+      "en": "Brand rules & claims to avoid",
+      "zh": "品牌要求与禁用表述"
+    },
+    "text": {
+      "en": "Use Brand rules and claims to avoid for tone and factual limits. For example: calm and professional; no invented prices or distances; no guaranteed returns. For citizenship content, avoid promises of approval. For travel, do not invent visa rules. State missing facts explicitly. Never present unrelated B-roll as proof of the featured property or place.",
+      "zh": "在品牌要求与禁用表述中，说明语气和事实边界。例如，保持冷静专业，不编造价格或距离，不承诺保证收益。国籍相关内容不要承诺一定获批；旅行内容不要编造签证规定。缺少的数据要明确说明。不要把无关的补充画面当作所介绍房产或地点的证据。"
+    },
+    "lines": {
+      "en": [
+        "Calm, professional tone",
+        "No invented facts or guarantees",
+        "Missing information: do not invent"
+      ],
+      "zh": [
+        "冷静、专业的语气",
+        "不编造事实，不作保证",
+        "缺少信息：不要编造"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "settings",
+    "title": {
+      "en": "Set direction, then analyze",
+      "zh": "设置方向，开始分析"
+    },
+    "text": {
+      "en": "Choose your topic, target audience, tone, and output language. Set the project AI spending limit. It is a ceiling, not a fixed price; reference search charges are separate. Click Analyze and build my plan. Wait for the reference analysis and your footage analysis. If analysis fails, your saved video does not need to be uploaded again.",
+      "zh": "选择主题、目标受众、语气和成片语言，设置项目 AI 费用上限。这是支出上限，不是固定报价；参考搜索费用单独计算。点击分析并创建剪辑计划，等待参考分析和原片分析完成。如果分析失败，已保存的视频不需要重新上传。"
+    },
+    "lines": {
+      "en": [
+        "Audience · tone · output language",
+        "Set an AI spending ceiling",
+        "Analyze & build my plan"
+      ],
+      "zh": [
+        "受众 · 语气 · 成片语言",
+        "设置 AI 支出上限",
+        "分析并创建剪辑计划"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "plan",
+    "title": {
+      "en": "Read DNA. Review decisions.",
+      "zh": "查看 DNA，审核剪辑建议"
+    },
+    "text": {
+      "en": "Read the reference DNA to understand the techniques being borrowed. Then inspect the proposed Director Timeline against your own footage. Each decision should explain what changes, where, and why. A reference about another subject must not introduce its facts into your video. Accept a suitable plan into the editor, then review the individual shots.",
+      "zh": "先查看参考视频的 DNA，理解借鉴了哪些剪辑方法。再对照自己的素材检查导演时间线。每个决定都应该说明改什么、在哪里改、为什么改。不同主题的参考视频不能把它的事实带进你的内容。把合适的计划加入编辑器，然后逐个审核镜头。"
+    },
+    "lines": {
+      "en": [
+        "Reference DNA → editing technique",
+        "Decision → source range + reason",
+        "Replace editor timeline & review shots"
+      ],
+      "zh": [
+        "参考 DNA → 剪辑方法",
+        "剪辑决定 → 原片范围与理由",
+        "替换编辑器时间线并审核镜头"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "timeline",
+    "title": {
+      "en": "Edit and approve each shot",
+      "zh": "编辑并批准每个镜头"
+    },
+    "text": {
+      "en": "Select a shot. Adjust its source range, framing, camera movement, transition, or text. Check the timeline layers for graphics, sound effects, and inserts. Approve the shot when satisfied. Changing its editing settings clears approval. Lock a decision you want to preserve. Save your plan; only approved shots are included in the rendered output.",
+      "zh": "选中一个镜头，调整原片范围、构图、镜头运动、转场或文字。通过时间线图层检查图形、音效和插入画面。满意后批准镜头。修改剪辑参数会取消之前的批准。需要保留的决定可以锁定。保存计划；渲染只包含已批准的镜头。"
+    },
+    "lines": {
+      "en": [
+        "Select → edit → approve",
+        "Lock decisions to preserve them",
+        "Save before rendering"
+      ],
+      "zh": [
+        "选择 → 编辑 → 批准",
+        "锁定需要保留的决定",
+        "渲染前保存"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "broll",
+    "title": {
+      "en": "Add meaningful B-roll",
+      "zh": "添加有意义的补充画面"
+    },
+    "text": {
+      "en": "Upload licensed clips in Video and music library, or use the scene's stock search. Import a useful result, then match it to the selected shot. AI reviews sampled portions, not every frame of long assets. Preview the proposed insert, replace the decision, and approve it again. Generated B-roll is an illustration, not verified news or property evidence.",
+      "zh": "在视频与音乐素材库上传获授权的视频，或使用当前场景的素材搜索。导入合适的结果，再匹配到所选镜头。AI 检查的是采样片段，不是长素材的每一帧。预览建议的插入画面，替换决定，并重新批准。生成的补充镜头是示意画面，不是经过核实的新闻或房产证据。"
+    },
+    "lines": {
+      "en": [
+        "Upload or search → import",
+        "Match → preview → replace",
+        "Approve the new decision"
+      ],
+      "zh": [
+        "上传或搜索 → 导入",
+        "匹配 → 预览 → 替换",
+        "批准新的剪辑决定"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "audio",
+    "title": {
+      "en": "Captions, graphics and music",
+      "zh": "字幕、图形与音乐"
+    },
+    "text": {
+      "en": "Correct caption text and choose its style. Use visual cards only with supplied facts and accurate values. Upload licensed music, select a track, and adjust volume, fades, or ducking. You can request a music suggestion or preview safe cuts aligned to detected accents. These are estimates: listen to the rendered mix before approving the result.",
+      "zh": "校正字幕文字并选择样式。图形卡片只使用已提供的事实和准确数值。上传获授权的音乐，选择曲目，调整音量、淡入淡出或自动压低背景音乐。你也可以请求音乐建议，或预览与检测到的重音对齐的安全切点。这些都是估计结果，批准前请试听渲染后的混音。"
+    },
+    "lines": {
+      "en": [
+        "Correct captions and factual cards",
+        "Select music → set levels and fades",
+        "Preview beat edits; listen after render"
+      ],
+      "zh": [
+        "校正字幕与事实卡片",
+        "选择音乐 → 调整音量和淡入淡出",
+        "预览节拍调整，渲染后试听"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "regenerate",
+    "title": {
+      "en": "Ask for a specific alternative",
+      "zh": "提出具体的修改要求"
+    },
+    "text": {
+      "en": "Save your changes before asking AI for an alternative. Select an unlocked shot, choose the task, and describe a specific improvement. For example: use a gentle push-in while keeping the speaker's full sentence. Review the proposal before replacing it. No suitable match means the edit stays unchanged. Reapprove changed shots and save again.",
+      "zh": "请求 AI 提供替代方案前，先保存修改。选择一个未锁定的镜头，选择任务，写出具体要求。例如，在保留说话者完整句子的前提下，加入轻微推近。替换前先审核方案。如果没有合适匹配，原剪辑会保持不变。对修改后的镜头重新批准并保存。"
+    },
+    "lines": {
+      "en": [
+        "Save → select an unlocked shot",
+        "Describe a concrete improvement",
+        "Review → replace → approve → save"
+      ],
+      "zh": [
+        "保存 → 选择未锁定镜头",
+        "描述具体的改善目标",
+        "审核 → 替换 → 批准 → 保存"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "quality",
+    "title": {
+      "en": "Render. Watch. Revise.",
+      "zh": "制作、观看、修改"
+    },
+    "text": {
+      "en": "Render the approved plan. Watch the complete master with sound: check cuts, words, subtitles, overlays, and factual claims. Optional AI review scores five editorial categories and may draft corrections. A proposed fix is not a verified improvement. Read any reasons a correction could not be made. After changing the plan, render again; an existing video does not update automatically.",
+      "zh": "制作已批准的计划。打开声音，完整观看主版本，检查切点、讲话、字幕、叠加画面和事实表述。可选的 AI 评审会给五个编辑维度打分，并可能起草修改方案。提出修复不等于已经改善；也要阅读无法修改的原因。修改计划后需要重新制作，已有视频不会自动更新。"
+    },
+    "lines": {
+      "en": [
+        "Watch the entire master with sound",
+        "Review AI findings and limitations",
+        "Change the plan → render again"
+      ],
+      "zh": [
+        "打开声音，完整观看成片",
+        "审核 AI 发现的问题与限制",
+        "修改计划 → 重新制作"
+      ]
+    }
+  },
+  {
+    "kind": "walkthrough",
+    "id": "export",
+    "title": {
+      "en": "Review every platform version",
+      "zh": "审核每个平台的版本"
+    },
+    "text": {
+      "en": "After reviewing the master, prepare the platform package. Check the duration, aspect ratio, opening, captions, cover, and call to action for each version. Review and lock the versions you accept. Download the video and export files. Lumen does not publish to your social accounts automatically. You make the final editorial and publishing decision.",
+      "zh": "审核主版本后，生成平台导出包。逐个检查各版本的时长、画幅、开头、字幕、封面和行动引导。审核并锁定你认可的版本，再下载视频和导出文件。Lumen 不会自动发布到你的社交账号。最终的编辑和发布决定由你作出。"
+    },
+    "lines": {
+      "en": [
+        "Douyin · TikTok · Reels · Shorts · Xiaohongshu",
+        "Review each version and cover",
+        "Download; publish through your account"
+      ],
+      "zh": [
+        "抖音 · TikTok · Reels · Shorts · 小红书",
+        "逐个审核版本与封面",
+        "下载后通过自己的账号发布"
+      ]
+    }
+  }
+]

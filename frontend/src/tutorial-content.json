@@ -1,96 +1,230 @@
 {
   "en": {
-    "seconds": 95.26666666666667,
-    "chapters": [
-      {
-        "id": "discover",
-        "start": 0.0,
-        "title": "Find references",
-        "text": "Sign in with your approved Google account. In Video Studio, search Douyin and select one to five references."
-      },
-      {
-        "id": "owned",
-        "start": 12.2,
-        "title": "Add your footage",
-        "text": "Upload your own vertical video, thirty seconds to three minutes long. Add a project name and script, and confirm your permission to edit the footage."
-      },
-      {
-        "id": "profile",
-        "start": 23.966666666666665,
-        "title": "Set creator profile",
-        "text": "Choose your topic and content language. Describe your audience, tone, and brand rules. Set your AI spending limit, then build the plan."
-      },
-      {
-        "id": "review",
-        "start": 37.766666666666666,
-        "title": "Review the plan",
-        "text": "Read the reference analysis, then open Director Timeline. Check each suggestion against your footage. Approve useful changes, lock decisions, and save the plan."
-      },
-      {
-        "id": "alternative",
-        "start": 52.6,
-        "title": "Try an alternative",
-        "text": "For a different approach, choose an unlocked decision and describe what should change. Review the AI alternative before replacing the decision. Your other choices stay intact."
-      },
-      {
-        "id": "master",
-        "start": 67.26666666666667,
-        "title": "Review the master",
-        "text": "Render the approved plan and watch the master preview. Check the picture, speech, and subtitles yourself. Changes to the plan require a new render."
-      },
-      {
-        "id": "export",
-        "start": 81.26666666666667,
-        "title": "Export platform versions",
-        "text": "Open Platform versions to create Douyin, Instagram Reels, and YouTube Shorts exports. Review each version, then download the package. Lumen does not publish automatically."
-      }
-    ]
+    "guide": {
+      "seconds": 69.93333333333334,
+      "chapters": [
+        {
+          "id": "promise",
+          "title": "A stronger story.",
+          "text": "Meet Lumen. Turn your footage into a clearer, more purposeful video. Start with your story, learn from reference videos, and keep control of every editing decision.",
+          "start": 0.0
+        },
+        {
+          "id": "director",
+          "title": "See the plan. Shape the edit.",
+          "text": "The Director Timeline connects your footage with specific editing ideas: pacing, framing, captions, graphics, and supporting visuals. Review the reasons, adjust the details, and approve only the shots you want.",
+          "start": 15.8
+        },
+        {
+          "id": "control",
+          "title": "Improve with intention.",
+          "text": "Match library footage to your scene, choose licensed music, or request an AI alternative. Lumen can review the rendered result and propose corrections. You review the changes before making another version.",
+          "start": 35.06666666666667
+        },
+        {
+          "id": "deliver",
+          "title": "One story. Five destinations.",
+          "text": "Prepare versions for Douyin, TikTok, Instagram Reels, YouTube Shorts, and Xiaohongshu. Review each cut, cover, caption style, and call to action. Download your files, then publish through your own channels.",
+          "start": 50.86666666666667
+        }
+      ]
+    },
+    "walkthrough": {
+      "seconds": 395.96666666666664,
+      "chapters": [
+        {
+          "id": "start",
+          "title": "Start in Video Studio",
+          "text": "Sign in with a Google account that has been granted access. Open Video Studio. Choose English or Chinese for the interface. Later, choose the output language in your project settings: the interface language and the final video's language are separate choices.",
+          "start": 0.0
+        },
+        {
+          "id": "references",
+          "title": "Choose useful references",
+          "text": "Search Douyin for your topic and select one to five useful reference videos. Look for a strong opening, clear explanation, or effective pacing. References teach editing techniques; they are not your footage. If the analyze button asks for a reference, return to step one and select a result.",
+          "start": 22.133333333333333
+        },
+        {
+          "id": "upload",
+          "title": "Upload your own footage",
+          "text": "Upload the video you want to improve, up to seven minutes and two hundred fifty megabytes. Name the project and confirm your rights to edit it. Wait for upload completion. Saved progress shows bytes stored on the server. If interrupted, follow the resume or retry message rather than creating duplicate projects.",
+          "start": 49.36666666666667
+        },
+        {
+          "id": "script",
+          "title": "Script & intended message",
+          "text": "In Script and intended message, explain the subject, audience takeaway, and next action. For example: tour an apartment in Bangkok; show its layout, natural light, and kitchen; end with an invitation to book a viewing. Include exact facts and a full script when available. This field guides the edit; it does not automatically create a new voiceover.",
+          "start": 78.1
+        },
+        {
+          "id": "rules",
+          "title": "Brand rules & claims to avoid",
+          "text": "Use Brand rules and claims to avoid for tone and factual limits. For example: calm and professional; no invented prices or distances; no guaranteed returns. For citizenship content, avoid promises of approval. For travel, do not invent visa rules. State missing facts explicitly. Never present unrelated B-roll as proof of the featured property or place.",
+          "start": 108.96666666666667
+        },
+        {
+          "id": "settings",
+          "title": "Set direction, then analyze",
+          "text": "Choose your topic, target audience, tone, and output language. Set the project AI spending limit. It is a ceiling, not a fixed price; reference search charges are separate. Click Analyze and build my plan. Wait for the reference analysis and your footage analysis. If analysis fails, your saved video does not need to be uploaded again.",
+          "start": 143.43333333333334
+        },
+        {
+          "id": "plan",
+          "title": "Read DNA. Review decisions.",
+          "text": "Read the reference DNA to understand the techniques being borrowed. Then inspect the proposed Director Timeline against your own footage. Each decision should explain what changes, where, and why. A reference about another subject must not introduce its facts into your video. Accept a suitable plan into the editor, then review the individual shots.",
+          "start": 174.7
+        },
+        {
+          "id": "timeline",
+          "title": "Edit and approve each shot",
+          "text": "Select a shot. Adjust its source range, framing, camera movement, transition, or text. Check the timeline layers for graphics, sound effects, and inserts. Approve the shot when satisfied. Changing its editing settings clears approval. Lock a decision you want to preserve. Save your plan; only approved shots are included in the rendered output.",
+          "start": 203.86666666666667
+        },
+        {
+          "id": "broll",
+          "title": "Add meaningful B-roll",
+          "text": "Upload licensed clips in Video and music library, or use the scene's stock search. Import a useful result, then match it to the selected shot. AI reviews sampled portions, not every frame of long assets. Preview the proposed insert, replace the decision, and approve it again. Generated B-roll is an illustration, not verified news or property evidence.",
+          "start": 235.0
+        },
+        {
+          "id": "audio",
+          "title": "Captions, graphics and music",
+          "text": "Correct caption text and choose its style. Use visual cards only with supplied facts and accurate values. Upload licensed music, select a track, and adjust volume, fades, or ducking. You can request a music suggestion or preview safe cuts aligned to detected accents. These are estimates: listen to the rendered mix before approving the result.",
+          "start": 268.1333333333333
+        },
+        {
+          "id": "regenerate",
+          "title": "Ask for a specific alternative",
+          "text": "Save your changes before asking AI for an alternative. Select an unlocked shot, choose the task, and describe a specific improvement. For example: use a gentle push-in while keeping the speaker's full sentence. Review the proposal before replacing it. No suitable match means the edit stays unchanged. Reapprove changed shots and save again.",
+          "start": 299.3666666666667
+        },
+        {
+          "id": "quality",
+          "title": "Render. Watch. Revise.",
+          "text": "Render the approved plan. Watch the complete master with sound: check cuts, words, subtitles, overlays, and factual claims. Optional AI review scores five editorial categories and may draft corrections. A proposed fix is not a verified improvement. Read any reasons a correction could not be made. After changing the plan, render again; an existing video does not update automatically.",
+          "start": 329.3666666666667
+        },
+        {
+          "id": "export",
+          "title": "Review every platform version",
+          "text": "After reviewing the master, prepare the platform package. Check the duration, aspect ratio, opening, captions, cover, and call to action for each version. Review and lock the versions you accept. Download the video and export files. Lumen does not publish to your social accounts automatically. You make the final editorial and publishing decision.",
+          "start": 366.46666666666664
+        }
+      ]
+    }
   },
   "zh": {
-    "seconds": 75.53333333333333,
-    "chapters": [
-      {
-        "id": "discover",
-        "start": 0.0,
-        "title": "寻找参考",
-        "text": "使用已获授权的谷歌账号登录。在视频工作室搜索抖音，选择一到五个参考视频。参考素材只用于学习剪辑方法。"
-      },
-      {
-        "id": "owned",
-        "start": 10.366666666666667,
-        "title": "上传自有素材",
-        "text": "上传三十秒到三分钟的自有竖屏视频。填写项目名称和脚本，并确认你拥有素材的编辑权限。"
-      },
-      {
-        "id": "profile",
-        "start": 19.066666666666666,
-        "title": "设置创作者风格",
-        "text": "选择主题和内容语言，填写目标受众、表达风格与品牌要求。设置费用上限，然后点击分析并生成计划。"
-      },
-      {
-        "id": "review",
-        "start": 29.433333333333334,
-        "title": "审核剪辑计划",
-        "text": "先查看参考视频分析，再打开剪辑计划。对照自有素材逐条检查建议，批准有用的改动，锁定需要保留的决策，并保存计划。"
-      },
-      {
-        "id": "alternative",
-        "start": 41.1,
-        "title": "尝试备选方案",
-        "text": "想换一种剪法？选择未锁定的决策，说明修改方向，再生成备选方案。确认合适后替换，其他决策保持不变。"
-      },
-      {
-        "id": "master",
-        "start": 51.86666666666667,
-        "title": "检查主版本",
-        "text": "制作已批准的计划，然后观看主版本预览。亲自检查画面、语音和字幕。计划修改后，需要重新制作才能更新成片。"
-      },
-      {
-        "id": "export",
-        "start": 63.833333333333336,
-        "title": "导出平台版本",
-        "text": "打开平台版本，生成抖音、Instagram Reels 和 YouTube Shorts 三种导出版本。逐一审核后下载完整包。系统不会自动发布。"
-      }
-    ]
+    "guide": {
+      "seconds": 56.233333333333334,
+      "chapters": [
+        {
+          "id": "promise",
+          "title": "让故事更有力量",
+          "text": "认识 Lumen，让你的素材变成表达更清晰、更有重点的视频。从自己的故事出发，借鉴参考视频的剪辑方法，同时保留每一个编辑决定的控制权。",
+          "start": 0.0
+        },
+        {
+          "id": "director",
+          "title": "看懂计划，掌控剪辑",
+          "text": "导演时间线把你的素材与具体的剪辑建议连接起来，包括节奏、构图、字幕、图形和补充画面。查看修改理由，调整细节，只批准你需要的镜头。",
+          "start": 13.0
+        },
+        {
+          "id": "control",
+          "title": "每次修改都有依据",
+          "text": "为场景匹配素材库画面，选择获授权的音乐，或请求 AI 提供另一种方案。Lumen 可以检查渲染后的成片并提出修改建议。制作新版本前，由你审核这些修改。",
+          "start": 26.666666666666668
+        },
+        {
+          "id": "deliver",
+          "title": "一个故事，五个平台",
+          "text": "为抖音、TikTok、Instagram Reels、YouTube Shorts 和小红书准备不同版本。检查每个版本的剪辑、封面、字幕样式和行动引导。下载文件，再通过你自己的账号发布。",
+          "start": 40.96666666666667
+        }
+      ]
+    },
+    "walkthrough": {
+      "seconds": 286.4,
+      "chapters": [
+        {
+          "id": "start",
+          "title": "从视频工作室开始",
+          "text": "使用已获授权的谷歌账号登录，打开视频工作室。你可以把界面切换为英文或中文。之后在项目设置中选择成片语言。界面语言与最终视频语言是两个独立的设置。",
+          "start": 0.0
+        },
+        {
+          "id": "references",
+          "title": "选择有用的参考视频",
+          "text": "在抖音搜索与你的主题相关的视频，选择一到五个有价值的参考。重点看开头是否吸引人、解释是否清晰、节奏是否合适。参考用于学习剪辑方法，不是你的原片。如果分析按钮提示缺少参考，请回到第一步，选中一个搜索结果。",
+          "start": 17.266666666666666
+        },
+        {
+          "id": "upload",
+          "title": "上传自己的素材",
+          "text": "上传你想改善的原片，时长最多七分钟，文件最多二百五十兆。填写项目名称，并确认你拥有编辑权限。等待上传完成。保存进度表示服务器已经收到的数据。如果上传中断，请按照界面的继续或重试提示操作，避免重复创建项目。",
+          "start": 36.7
+        },
+        {
+          "id": "script",
+          "title": "脚本与预期表达",
+          "text": "在脚本与预期表达中，写清主题、希望观众记住什么，以及看完后做什么。例如，介绍曼谷的一套公寓，展示户型、采光和厨房，结尾邀请观众预约看房。有完整脚本和准确数据时，也请一并填写。这个字段用于指导剪辑，不会自动生成新的配音。",
+          "start": 57.0
+        },
+        {
+          "id": "rules",
+          "title": "品牌要求与禁用表述",
+          "text": "在品牌要求与禁用表述中，说明语气和事实边界。例如，保持冷静专业，不编造价格或距离，不承诺保证收益。国籍相关内容不要承诺一定获批；旅行内容不要编造签证规定。缺少的数据要明确说明。不要把无关的补充画面当作所介绍房产或地点的证据。",
+          "start": 79.36666666666666
+        },
+        {
+          "id": "settings",
+          "title": "设置方向，开始分析",
+          "text": "选择主题、目标受众、语气和成片语言，设置项目 AI 费用上限。这是支出上限，不是固定报价；参考搜索费用单独计算。点击分析并创建剪辑计划，等待参考分析和原片分析完成。如果分析失败，已保存的视频不需要重新上传。",
+          "start": 103.53333333333333
+        },
+        {
+          "id": "plan",
+          "title": "查看 DNA，审核剪辑建议",
+          "text": "先查看参考视频的 DNA，理解借鉴了哪些剪辑方法。再对照自己的素材检查导演时间线。每个决定都应该说明改什么、在哪里改、为什么改。不同主题的参考视频不能把它的事实带进你的内容。把合适的计划加入编辑器，然后逐个审核镜头。",
+          "start": 124.56666666666666
+        },
+        {
+          "id": "timeline",
+          "title": "编辑并批准每个镜头",
+          "text": "选中一个镜头，调整原片范围、构图、镜头运动、转场或文字。通过时间线图层检查图形、音效和插入画面。满意后批准镜头。修改剪辑参数会取消之前的批准。需要保留的决定可以锁定。保存计划；渲染只包含已批准的镜头。",
+          "start": 146.1
+        },
+        {
+          "id": "broll",
+          "title": "添加有意义的补充画面",
+          "text": "在视频与音乐素材库上传获授权的视频，或使用当前场景的素材搜索。导入合适的结果，再匹配到所选镜头。AI 检查的是采样片段，不是长素材的每一帧。预览建议的插入画面，替换决定，并重新批准。生成的补充镜头是示意画面，不是经过核实的新闻或房产证据。",
+          "start": 168.23333333333332
+        },
+        {
+          "id": "audio",
+          "title": "字幕、图形与音乐",
+          "text": "校正字幕文字并选择样式。图形卡片只使用已提供的事实和准确数值。上传获授权的音乐，选择曲目，调整音量、淡入淡出或自动压低背景音乐。你也可以请求音乐建议，或预览与检测到的重音对齐的安全切点。这些都是估计结果，批准前请试听渲染后的混音。",
+          "start": 192.9
+        },
+        {
+          "id": "regenerate",
+          "title": "提出具体的修改要求",
+          "text": "请求 AI 提供替代方案前，先保存修改。选择一个未锁定的镜头，选择任务，写出具体要求。例如，在保留说话者完整句子的前提下，加入轻微推近。替换前先审核方案。如果没有合适匹配，原剪辑会保持不变。对修改后的镜头重新批准并保存。",
+          "start": 217.73333333333332
+        },
+        {
+          "id": "quality",
+          "title": "制作、观看、修改",
+          "text": "制作已批准的计划。打开声音，完整观看主版本，检查切点、讲话、字幕、叠加画面和事实表述。可选的 AI 评审会给五个编辑维度打分，并可能起草修改方案。提出修复不等于已经改善；也要阅读无法修改的原因。修改计划后需要重新制作，已有视频不会自动更新。",
+          "start": 240.13333333333333
+        },
+        {
+          "id": "export",
+          "title": "审核每个平台的版本",
+          "text": "审核主版本后，生成平台导出包。逐个检查各版本的时长、画幅、开头、字幕、封面和行动引导。审核并锁定你认可的版本，再下载视频和导出文件。Lumen 不会自动发布到你的社交账号。最终的编辑和发布决定由你作出。",
+          "start": 264.9
+        }
+      ]
+    }
   }
 }

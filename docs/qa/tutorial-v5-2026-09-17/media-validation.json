@@ -1,0 +1,42 @@
+[
+  {
+    "file": "lumen-guide-en-v5.mp4",
+    "duration": 69.994667,
+    "size": 4250604,
+    "width": 1920,
+    "height": 1080,
+    "video": "h264",
+    "audio": "aac",
+    "full_decode": "passed"
+  },
+  {
+    "file": "lumen-walkthrough-en-v5.mp4",
+    "duration": 396.010667,
+    "size": 22708380,
+    "width": 1920,
+    "height": 1080,
+    "video": "h264",
+    "audio": "aac",
+    "full_decode": "passed"
+  },
+  {
+    "file": "lumen-guide-zh-v5.mp4",
+    "duration": 56.277333,
+    "size": 3487588,
+    "width": 1920,
+    "height": 1080,
+    "video": "h264",
+    "audio": "aac",
+    "full_decode": "passed"
+  },
+  {
+    "file": "lumen-walkthrough-zh-v5.mp4",
+    "duration": 286.442667,
+    "size": 16949160,
+    "width": 1920,
+    "height": 1080,
+    "video": "h264",
+    "audio": "aac",
+    "full_decode": "passed"
+  }
+]

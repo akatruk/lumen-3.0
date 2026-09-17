@@ -1,0 +1,82 @@
+{
+  "media": [
+    {
+      "file": "lumen-guide-en-v5.mp4",
+      "status": 200,
+      "type": "video/mp4",
+      "size": "4250604",
+      "range_status": 206
+    },
+    {
+      "file": "lumen-guide-en-v5.jpg",
+      "status": 200,
+      "type": "image/jpeg",
+      "size": "65242"
+    },
+    {
+      "file": "lumen-guide-en-v5.vtt",
+      "status": 200,
+      "type": "text/vtt; charset=utf-8",
+      "size": "1231"
+    },
+    {
+      "file": "lumen-guide-zh-v5.mp4",
+      "status": 200,
+      "type": "video/mp4",
+      "size": "3487588",
+      "range_status": 206
+    },
+    {
+      "file": "lumen-guide-zh-v5.jpg",
+      "status": 200,
+      "type": "image/jpeg",
+      "size": "63147"
+    },
+    {
+      "file": "lumen-guide-zh-v5.vtt",
+      "status": 200,
+      "type": "text/vtt; charset=utf-8",
+      "size": "1281"
+    },
+    {
+      "file": "lumen-walkthrough-en-v5.mp4",
+      "status": 200,
+      "type": "video/mp4",
+      "size": "22708380",
+      "range_status": 206
+    },
+    {
+      "file": "lumen-walkthrough-en-v5.jpg",
+      "status": 200,
+      "type": "image/jpeg",
+      "size": "68524"
+    },
+    {
+      "file": "lumen-walkthrough-en-v5.vtt",
+      "status": 200,
+      "type": "text/vtt; charset=utf-8",
+      "size": "6776"
+    },
+    {
+      "file": "lumen-walkthrough-zh-v5.mp4",
+      "status": 200,
+      "type": "video/mp4",
+      "size": "16949160",
+      "range_status": 206
+    },
+    {
+      "file": "lumen-walkthrough-zh-v5.jpg",
+      "status": 200,
+      "type": "image/jpeg",
+      "size": "68306"
+    },
+    {
+      "file": "lumen-walkthrough-zh-v5.vtt",
+      "status": 200,
+      "type": "text/vtt; charset=utf-8",
+      "size": "6602"
+    }
+  ],
+  "frontend": "index-CRNIpg4h.js",
+  "health": "ok"
+}
