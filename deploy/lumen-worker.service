@@ -1,0 +1,26 @@
+[Unit]
+Description=Lumen durable video worker
+After=network.target lumen-web.service
+
+[Service]
+User=lumen
+Group=lumen
+WorkingDirectory=/opt/lumen-rebuild
+EnvironmentFile=/opt/lumen-rebuild/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/lumen-rebuild/venv/bin/python -m backend.worker
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/lumen-rebuild/data
+UMask=0077
+MemoryMax=2200M
+CPUQuota=180%
+TasksMax=100
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

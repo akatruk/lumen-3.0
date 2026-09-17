@@ -1,0 +1,24 @@
+[Unit]
+Description=Lumen Studio API and web
+After=network.target
+
+[Service]
+User=lumen
+Group=lumen
+WorkingDirectory=/opt/lumen-rebuild
+EnvironmentFile=/opt/lumen-rebuild/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/lumen-rebuild/venv/bin/uvicorn backend.app:app --host 127.0.0.1 --port 8018 --no-access-log --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/lumen-rebuild/data
+UMask=0077
+MemoryMax=800M
+TasksMax=100
+
+[Install]
+WantedBy=multi-user.target

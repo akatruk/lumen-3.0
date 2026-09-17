@@ -1,0 +1,98 @@
+[
+  {
+    "file": "lumen-guide-en-v4.mp4",
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1920,
+        "height": 1080,
+        "nb_frames": "300",
+        "side_data_list": [
+          {}
+        ]
+      },
+      {
+        "codec_name": "aac",
+        "nb_frames": "470"
+      }
+    ],
+    "format": {
+      "duration": "10.000000",
+      "size": "1712102"
+    }
+  },
+  {
+    "file": "lumen-guide-zh-v4.mp4",
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1920,
+        "height": 1080,
+        "nb_frames": "300",
+        "side_data_list": [
+          {}
+        ]
+      },
+      {
+        "codec_name": "aac",
+        "nb_frames": "470"
+      }
+    ],
+    "format": {
+      "duration": "10.000000",
+      "size": "1581277"
+    }
+  },
+  {
+    "file": "lumen-walkthrough-zh-v4.mp4",
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1920,
+        "height": 1080,
+        "nb_frames": "2266",
+        "side_data_list": [
+          {}
+        ]
+      },
+      {
+        "codec_name": "aac",
+        "nb_frames": "3542"
+      }
+    ],
+    "format": {
+      "duration": "75.533333",
+      "size": "5308090"
+    }
+  },
+  {
+    "file": "lumen-walkthrough-en-v4.mp4",
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "width": 1920,
+        "height": 1080,
+        "nb_frames": "2858",
+        "side_data_list": [
+          {}
+        ]
+      },
+      {
+        "codec_name": "aac",
+        "nb_frames": "4467"
+      }
+    ],
+    "format": {
+      "duration": "95.266667",
+      "size": "6393116"
+    }
+  }
+]

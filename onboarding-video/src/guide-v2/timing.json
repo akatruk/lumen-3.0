@@ -1,0 +1,454 @@
+{
+  "en": {
+    "frames": 2858,
+    "scenes": [
+      {
+        "id": "discover",
+        "fromFrame": 0,
+        "frames": 366,
+        "audio": "guide-v2/en-discover.wav"
+      },
+      {
+        "id": "owned",
+        "fromFrame": 366,
+        "frames": 353,
+        "audio": "guide-v2/en-owned.wav"
+      },
+      {
+        "id": "profile",
+        "fromFrame": 719,
+        "frames": 414,
+        "audio": "guide-v2/en-profile.wav"
+      },
+      {
+        "id": "review",
+        "fromFrame": 1133,
+        "frames": 445,
+        "audio": "guide-v2/en-review.wav"
+      },
+      {
+        "id": "alternative",
+        "fromFrame": 1578,
+        "frames": 440,
+        "audio": "guide-v2/en-alternative.wav"
+      },
+      {
+        "id": "master",
+        "fromFrame": 2018,
+        "frames": 420,
+        "audio": "guide-v2/en-master.wav"
+      },
+      {
+        "id": "export",
+        "fromFrame": 2438,
+        "frames": 420,
+        "audio": "guide-v2/en-export.wav"
+      }
+    ],
+    "captions": [
+      {
+        "text": "Sign in with your approved Google account.",
+        "startMs": 200,
+        "endMs": 4730,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "In Video Studio, search Douyin and select one to five references.",
+        "startMs": 4730,
+        "endMs": 11739,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Upload your own vertical video, thirty seconds to three minutes long.",
+        "startMs": 12400,
+        "endMs": 17614,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Add a project name and script, and",
+        "startMs": 17614,
+        "endMs": 20183,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "confirm your permission to edit the footage.",
+        "startMs": 20183,
+        "endMs": 23507,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Choose your topic and content language.",
+        "startMs": 24167,
+        "endMs": 28015,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Describe your audience, tone, and brand rules.",
+        "startMs": 28015,
+        "endMs": 32554,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Set your AI spending limit, then build the plan.",
+        "startMs": 32554,
+        "endMs": 37290,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Read the reference analysis, then open Director Timeline.",
+        "startMs": 37967,
+        "endMs": 43078,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Check each suggestion against your footage.",
+        "startMs": 43078,
+        "endMs": 46933,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Approve useful changes, lock decisions, and save the plan.",
+        "startMs": 46933,
+        "endMs": 52134,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "For a different approach, choose an",
+        "startMs": 52800,
+        "endMs": 55646,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "unlocked decision and describe what should change.",
+        "startMs": 55646,
+        "endMs": 59712,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Review the AI alternative before replacing the decision.",
+        "startMs": 59712,
+        "endMs": 64266,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Your other choices stay intact.",
+        "startMs": 64266,
+        "endMs": 66787,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Render the approved plan and watch the master preview.",
+        "startMs": 67467,
+        "endMs": 72434,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Check the picture, speech, and subtitles yourself.",
+        "startMs": 72434,
+        "endMs": 77034,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Changes to the plan require a new render.",
+        "startMs": 77034,
+        "endMs": 80806,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Open Platform versions to create Douyin,",
+        "startMs": 81467,
+        "endMs": 84643,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Instagram Reels, and YouTube Shorts exports.",
+        "startMs": 84643,
+        "endMs": 88136,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Review each version, then download the package.",
+        "startMs": 88136,
+        "endMs": 91868,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Lumen does not publish automatically.",
+        "startMs": 91868,
+        "endMs": 94806,
+        "timestampMs": null,
+        "confidence": null
+      }
+    ],
+    "quickCaptions": [
+      {
+        "text": "Choose references.",
+        "startMs": 200,
+        "endMs": 2406,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Upload your footage.",
+        "startMs": 2406,
+        "endMs": 4858,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Review your master.",
+        "startMs": 4858,
+        "endMs": 7187,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "Export three versions.",
+        "startMs": 7187,
+        "endMs": 9884,
+        "timestampMs": null,
+        "confidence": null
+      }
+    ]
+  },
+  "zh": {
+    "frames": 2266,
+    "scenes": [
+      {
+        "id": "discover",
+        "fromFrame": 0,
+        "frames": 311,
+        "audio": "guide-v2/zh-discover.wav"
+      },
+      {
+        "id": "owned",
+        "fromFrame": 311,
+        "frames": 261,
+        "audio": "guide-v2/zh-owned.wav"
+      },
+      {
+        "id": "profile",
+        "fromFrame": 572,
+        "frames": 311,
+        "audio": "guide-v2/zh-profile.wav"
+      },
+      {
+        "id": "review",
+        "fromFrame": 883,
+        "frames": 350,
+        "audio": "guide-v2/zh-review.wav"
+      },
+      {
+        "id": "alternative",
+        "fromFrame": 1233,
+        "frames": 323,
+        "audio": "guide-v2/zh-alternative.wav"
+      },
+      {
+        "id": "master",
+        "fromFrame": 1556,
+        "frames": 359,
+        "audio": "guide-v2/zh-master.wav"
+      },
+      {
+        "id": "export",
+        "fromFrame": 1915,
+        "frames": 351,
+        "audio": "guide-v2/zh-export.wav"
+      }
+    ],
+    "captions": [
+      {
+        "text": "使用已获授权的谷歌账号登录。",
+        "startMs": 200,
+        "endMs": 2917,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "在视频工作室搜索抖音，选择一到五个参考视频。",
+        "startMs": 2917,
+        "endMs": 7187,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "参考素材只用于学习剪辑方法。",
+        "startMs": 7187,
+        "endMs": 9903,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "上传三十秒到三分钟的自有竖屏视频。",
+        "startMs": 10567,
+        "endMs": 13903,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "填写项目名称和脚本，并确认你拥有素材的编辑权限。",
+        "startMs": 13903,
+        "endMs": 18614,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "选择主题和内容语言，填写目标",
+        "startMs": 19267,
+        "endMs": 22220,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "受众、表达风格与品牌要求。",
+        "startMs": 22220,
+        "endMs": 24962,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "设置费用上限，然后点击分析并生成计划。",
+        "startMs": 24962,
+        "endMs": 28970,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "先查看参考视频分析，再打开剪辑计划。",
+        "startMs": 29633,
+        "endMs": 33233,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "对照自有素材逐条检查建议，批准有用的",
+        "startMs": 33233,
+        "endMs": 36833,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "改动，锁定需要保留的决策，并保存计划。",
+        "startMs": 36833,
+        "endMs": 40633,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "想换一种剪法？",
+        "startMs": 41300,
+        "endMs": 42773,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "选择未锁定的决策，说明修改方向，再生成备选方案。",
+        "startMs": 42773,
+        "endMs": 47823,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "确认合适后替换，其他决策保持不变。",
+        "startMs": 47823,
+        "endMs": 51399,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "制作已批准的计划，然后观看主版本预览。",
+        "startMs": 52067,
+        "endMs": 56272,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "亲自检查画面、语音和字幕。",
+        "startMs": 56272,
+        "endMs": 59149,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "计划修改后，需要重新制作才能更新成片。",
+        "startMs": 59149,
+        "endMs": 63354,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "打开平台版本，生成抖音、Insta",
+        "startMs": 64033,
+        "endMs": 66639,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "gram Reels 和 YouTu",
+        "startMs": 66639,
+        "endMs": 69398,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "be Shorts 三种导出版本。",
+        "startMs": 69398,
+        "endMs": 72003,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "逐一审核后下载完整包。",
+        "startMs": 72003,
+        "endMs": 73689,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "系统不会自动发布。",
+        "startMs": 73689,
+        "endMs": 75069,
+        "timestampMs": null,
+        "confidence": null
+      }
+    ],
+    "quickCaptions": [
+      {
+        "text": "选好参考，上传自己的视频。",
+        "startMs": 200,
+        "endMs": 2805,
+        "timestampMs": null,
+        "confidence": null
+      },
+      {
+        "text": "审核剪辑计划，再导出三种平台版本。",
+        "startMs": 2805,
+        "endMs": 6212,
+        "timestampMs": null,
+        "confidence": null
+      }
+    ]
+  }
+}

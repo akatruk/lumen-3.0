@@ -1,0 +1,39 @@
+"""Characterization probes: passing means the audited gap is reproduced."""
+import json
+from pathlib import Path
+from backend.tests.test_studio import client,create,seed_plan,plan
+from backend.db import connect,project
+from backend.config import settings
+from backend.worker import run_once
+
+
+def test_zero_recommendations_cannot_export(client):
+ pid=create(client).json()['id'];seed_plan(pid);p=plan().model_dump();p['recommendations']=[];p['transfers']=[]
+ with connect() as db:db.execute('UPDATE studio_projects SET plan=?,decisions=? WHERE project_id=?',(json.dumps(p),'[]',pid))
+ r=client.post('/api/studio/projects/'+pid+'/render',json={'revision':1})
+ assert r.status_code==422 and r.json()['detail']=='no_approved_changes'
+
+
+def test_manual_cut_inside_speech_is_accepted(client):
+ pid=create(client).json()['id'];ds=seed_plan(pid);p=plan().model_dump();p['transcript']=[dict(start=1,end=8,original='This is a full sentence.',en='This is a full sentence.',zh='这是一个完整句子。')]
+ with connect() as db:
+  db.execute('UPDATE studio_projects SET plan=? WHERE project_id=?',(json.dumps(p),pid))
+  db.execute('UPDATE projects SET metadata=? WHERE id=?',(json.dumps(dict(duration=40,has_audio=True)),pid))
+ ds[0].update(start=3,end=5,approved=True)
+ r=client.put('/api/studio/projects/'+pid+'/plan',json={'revision':1,'decisions':ds});assert r.status_code==200
+ assert client.post('/api/studio/projects/'+pid+'/render',json={'revision':2}).status_code==200
+
+
+def test_platform_setup_failure_stays_queued(client,monkeypatch):
+ pid=create(client).json()['id'];seed_plan(pid);master=dict(render_id='a'*32,metadata=dict(duration=40),timeline=[[0,40]])
+ with connect() as db:db.execute('UPDATE projects SET result=? WHERE id=?',(json.dumps(master),pid))
+ url='/api/studio/projects/'+pid+'/variants'
+ assert client.post(url,json={'master_id':'a'*32,'reviewed':True}).status_code==200
+ mkdir=Path.mkdir
+ def fail(path,*a,**k):
+  if 'packages' in path.parts:raise OSError('simulated storage allocation failure')
+  return mkdir(path,*a,**k)
+ monkeypatch.setattr(Path,'mkdir',fail)
+ run_once()
+ with connect() as db:assert db.execute("SELECT status FROM jobs WHERE kind='platform_variants'").fetchone()[0]=='failed'
+ assert client.get(url).json()['status']=='queued'

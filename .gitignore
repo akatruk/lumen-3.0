@@ -1,0 +1,27 @@
+.env
+.env.*
+!.env.example
+.venv*/
+__pycache__/
+.pytest_cache/
+data/
+frontend/node_modules/
+frontend/dist/
+access.txt
+*.log
+frontend/*.tsbuildinfo
+docs/qa/*.mp4
+docs/qa/*report.json
+onboarding-video/node_modules/
+onboarding-video/out/
+onboarding-video/.cache/
+onboarding-video/public/*.aiff
+
+onboarding-video/voice-candidates/
+
+# Required public-domain map geometry; runtime data remains ignored.
+!backend/data/
+!backend/data/README.md
+!backend/data/ne_110m_land.geojson
+.DS_Store
+._*

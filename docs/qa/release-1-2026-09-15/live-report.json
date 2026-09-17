@@ -1,0 +1,231 @@
+{
+  "directory": "/tmp/lumen-r1-live-f2c5zcc2",
+  "checks": [
+    {
+      "name": "search",
+      "passed": true
+    },
+    {
+      "name": "owned project created",
+      "passed": true
+    },
+    {
+      "name": "reference DNA and director plan",
+      "passed": true
+    },
+    {
+      "name": "owned and reference separated",
+      "passed": true
+    },
+    {
+      "name": "no auto approvals",
+      "passed": true
+    },
+    {
+      "name": "save approved locked decision",
+      "passed": true
+    },
+    {
+      "name": "render approved plan",
+      "passed": true
+    },
+    {
+      "name": "master rendered",
+      "passed": true
+    },
+    {
+      "name": "download",
+      "passed": true
+    },
+    {
+      "name": "owned source immutable",
+      "passed": true
+    }
+  ],
+  "project_id": "83e476c68f744f2284d19edc1b6145ef",
+  "analysis_error": null,
+  "dna_count": 1,
+  "plan": {
+    "summary": {
+      "en": "A 32-second synthetic text card sequence displaying travel titles over black backgrounds, preceded by six seconds of black frames.",
+      "zh": "一段32秒的黑底文字合成视频，前6秒为黑屏，随后展示两段清晨散步提示文字。"
+    },
+    "strongest_moment": {
+      "en": "The transition to the route instruction at 00:16 setting a clear walking starting point.",
+      "zh": "00:16处切入具体路线说明，清晰指示了步行起点。"
+    },
+    "audience": {
+      "en": "Viewers seeking peaceful morning walking route suggestions.",
+      "zh": "寻找清晨平静散步路线建议的观众。"
+    },
+    "scores": [
+      {
+        "category": "hook",
+        "value": 20,
+        "reason": {
+          "en": "The first 6 seconds are completely blank, failing to engage viewers.",
+          "zh": "前6秒完全黑屏无内容，缺乏有效开场。"
+        }
+      },
+      {
+        "category": "clarity",
+        "value": 70,
+        "reason": {
+          "en": "Text statements are clear, minimal, and easily readable.",
+          "zh": "文字表意清晰明了，极简且易于阅读。"
+        }
+      },
+      {
+        "category": "pacing",
+        "value": 30,
+        "reason": {
+          "en": "Extended holds on static text and the dead opening drag pacing.",
+          "zh": "开篇黑屏冗长且静态文字停留时间过长，节奏偏慢。"
+        }
+      },
+      {
+        "category": "visuals",
+        "value": 25,
+        "reason": {
+          "en": "Static typography on black with no real-world scenic footage.",
+          "zh": "全片仅为黑底静态文字排版，缺乏真实风景画面。"
+        }
+      },
+      {
+        "category": "audio",
+        "value": 10,
+        "reason": {
+          "en": "Silent with no voiceover, ambient sound, or music.",
+          "zh": "全片无声，缺少旁白、环境音或背景音乐。"
+        }
+      }
+    ],
+    "scenes": [
+      {
+        "start": 0.0,
+        "end": 6.0,
+        "title": {
+          "en": "Black Screen Opening",
+          "zh": "开场黑屏"
+        },
+        "observation": {
+          "en": "Six seconds of silent black video frames.",
+          "zh": "持续6秒的静音黑屏画面。"
+        },
+        "role": "context"
+      },
+      {
+        "start": 6.0,
+        "end": 16.0,
+        "title": {
+          "en": "Quiet Morning Title Card",
+          "zh": "清晨散步提示卡"
+        },
+        "observation": {
+          "en": "Text displays 'A QUIET MORNING / Walk through the park'.",
+          "zh": "屏幕显示文字：'A QUIET MORNING / Walk through the park'。"
+        },
+        "role": "hook"
+      },
+      {
+        "start": 16.0,
+        "end": 32.0,
+        "title": {
+          "en": "Walking Route Title Card",
+          "zh": "散步路线起点卡"
+        },
+        "observation": {
+          "en": "Text displays 'THE WALKING ROUTE / Start at the main gate'.",
+          "zh": "屏幕显示文字：'THE WALKING ROUTE / Start at the main gate'。"
+        },
+        "role": "proof"
+      }
+    ],
+    "transcript": [],
+    "recommendations": [
+      {
+        "start": 0.0,
+        "end": 6.0,
+        "id": "rec_trim_lead",
+        "title": {
+          "en": "Cut Blank Opening",
+          "zh": "剪除开篇空白"
+        },
+        "evidence": {
+          "en": "The video starts with 6.0 seconds of uninformative black frames.",
+          "zh": "视频前6.0秒为无信息的黑屏等待。"
+        },
+        "improvement": {
+          "en": "Remove the first 6 seconds so the first informative text card displays instantly.",
+          "zh": "删去前6秒黑屏，使首张主题文字卡立即呈现。"
+        },
+        "category": "hook",
+        "confidence": 0.95,
+        "auto_apply": false,
+        "action": "remove",
+        "generation_prompt": ""
+      }
+    ],
+    "uncertainties": [
+      {
+        "en": "Intended final audio track or ambient soundscape was not provided.",
+        "zh": "未提供预期的音频音轨或环境背景声。"
+      }
+    ],
+    "transfers": [
+      {
+        "recommendation_id": "rec_trim_lead",
+        "reference_id": "7623278807222373659",
+        "reference_start": 0.0,
+        "reference_end": 4.9,
+        "method": {
+          "en": "Immediate visual engagement without empty frames at the start.",
+          "zh": "开头立即进入主题展示，不留空白帧。"
+        },
+        "fit": {
+          "en": "Removing the 6-second black space brings immediate focus to the title card.",
+          "zh": "删去6秒黑屏可让观众即刻看到散步主题卡片。"
+        }
+      }
+    ]
+  },
+  "render_error": null,
+  "result": {
+    "metadata": {
+      "duration": 26.0,
+      "width": 360,
+      "height": 640,
+      "has_audio": false,
+      "size": 51279,
+      "codec": "h264"
+    },
+    "timeline": [
+      [
+        6.0,
+        32.0
+      ]
+    ],
+    "applied": [
+      "rec_trim_lead"
+    ],
+    "generated_clips": 0,
+    "render_id": "1f38035c1e91468cbbb67bcb207c5135",
+    "qa": {
+      "passed": true,
+      "observations": [
+        {
+          "en": "The initial 6-second black frame was cleanly trimmed, starting immediately on 'A QUIET MORNING'.",
+          "zh": "开篇6秒黑屏已精准去除，成片直接展示“A QUIET MORNING”。"
+        },
+        {
+          "en": "Text cards and factual content are fully preserved across the 26-second render without glitches.",
+          "zh": "两段文字卡与事实信息完整保留，全片26秒无任何视觉瑕疵。"
+        }
+      ],
+      "issues": []
+    },
+    "qa_status": "passed",
+    "plan_revision": 2
+  },
+  "cost": 0.0244425
+}

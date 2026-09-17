@@ -1,0 +1,236 @@
+{
+  "directory": "/tmp/lumen-pg-live-5zd1f2e6",
+  "qa_schema": "live_9e025ffe99314071a20fd5cd7a1af80e",
+  "checks": [
+    {
+      "name": "search",
+      "passed": true
+    },
+    {
+      "name": "owned project created",
+      "passed": true
+    },
+    {
+      "name": "reference DNA and director plan",
+      "passed": true
+    },
+    {
+      "name": "owned and reference separated",
+      "passed": true
+    },
+    {
+      "name": "no auto approvals",
+      "passed": true
+    },
+    {
+      "name": "executable recommendation exists",
+      "passed": true
+    },
+    {
+      "name": "save approved locked decision",
+      "passed": true
+    },
+    {
+      "name": "render approved plan",
+      "passed": true
+    },
+    {
+      "name": "master rendered",
+      "passed": true
+    },
+    {
+      "name": "download",
+      "passed": true
+    },
+    {
+      "name": "owned source immutable",
+      "passed": true
+    }
+  ],
+  "project_id": "af98feb5660f4f79baaac48272d61bef",
+  "analysis_error": null,
+  "dna_count": 1,
+  "plan": {
+    "summary": {
+      "en": "A minimal 32-second sequence featuring an initial black screen followed by two static text cards describing a quiet park morning walk.",
+      "zh": "一段32秒的极简序列，前6秒为黑屏，随后呈现两段关于公园清晨散步的纯文字卡片。"
+    },
+    "strongest_moment": {
+      "en": "The transition at 00:06 where the first title appears against the dark background.",
+      "zh": "第6秒处首段标题在黑色背景上显现的切换瞬间。"
+    },
+    "audience": {
+      "en": "Viewers seeking calm morning walking routes and simple routine planning.",
+      "zh": "寻找清晨散步路线与简明晨间规划的观众。"
+    },
+    "scores": [
+      {
+        "category": "hook",
+        "value": 38,
+        "reason": {
+          "en": "The prolonged black screen at the start delays viewer engagement.",
+          "zh": "开头过长的黑屏延缓了对观众的吸引。"
+        }
+      },
+      {
+        "category": "clarity",
+        "value": 58,
+        "reason": {
+          "en": "On-screen text is legible and straightforward.",
+          "zh": "画面文字清晰易读且表意直接。"
+        }
+      },
+      {
+        "category": "pacing",
+        "value": 42,
+        "reason": {
+          "en": "Static cards linger for extended periods without motion.",
+          "zh": "静态文字卡片停留时间较长且缺乏动态。"
+        }
+      },
+      {
+        "category": "visuals",
+        "value": 40,
+        "reason": {
+          "en": "Graphic layout is plain monochrome text without scenery.",
+          "zh": "纯单色文字排版，无具体实景画面。"
+        }
+      },
+      {
+        "category": "audio",
+        "value": 45,
+        "reason": {
+          "en": "The video lacks ambient morning sound or background audio.",
+          "zh": "视频缺乏晨间环境音或背景音轨。"
+        }
+      }
+    ],
+    "scenes": [
+      {
+        "start": 0.0,
+        "end": 6.0,
+        "title": {
+          "en": "Empty Opening",
+          "zh": "空白开场"
+        },
+        "observation": {
+          "en": "Solid black frame with no visual or audio elements.",
+          "zh": "纯黑画面，无视音频内容。"
+        },
+        "role": "hook"
+      },
+      {
+        "start": 6.0,
+        "end": 16.0,
+        "title": {
+          "en": "Title Card",
+          "zh": "主题文字"
+        },
+        "observation": {
+          "en": "White text reading 'A QUIET MORNING / Walk through the park'.",
+          "zh": "白字显示“A QUIET MORNING / Walk through the park”。"
+        },
+        "role": "context"
+      },
+      {
+        "start": 16.0,
+        "end": 32.0,
+        "title": {
+          "en": "Route Directive",
+          "zh": "路线指引"
+        },
+        "observation": {
+          "en": "Centered text reading 'THE WALKING ROUTE / Start at the main gate'.",
+          "zh": "居中文字显示“THE WALKING ROUTE / Start at the main gate”。"
+        },
+        "role": "context"
+      }
+    ],
+    "transcript": [],
+    "recommendations": [
+      {
+        "start": 0.0,
+        "end": 6.0,
+        "id": "rec_trim_lead",
+        "title": {
+          "en": "Cut Blank Opening",
+          "zh": "裁切开头空白"
+        },
+        "evidence": {
+          "en": "Six seconds of uninformative black screen delay the topic introduction.",
+          "zh": "前6秒无信息的黑屏延误了主题呈现。"
+        },
+        "improvement": {
+          "en": "Remove the initial empty duration to display the title immediately.",
+          "zh": "移除开头空档，使片名文字即刻显现。"
+        },
+        "category": "hook",
+        "confidence": 0.82,
+        "auto_apply": false,
+        "action": "remove",
+        "generation_prompt": ""
+      }
+    ],
+    "uncertainties": [
+      {
+        "en": "Absence of location footage or environmental audio in the source media.",
+        "zh": "原素材中缺少地点实景与环境声音。"
+      }
+    ],
+    "transfers": [
+      {
+        "recommendation_id": "rec_trim_lead",
+        "reference_id": "7648161053474010987",
+        "reference_start": 0.0,
+        "reference_end": 2.0,
+        "method": {
+          "en": "Engage viewers immediately from the initial frame without empty lead time.",
+          "zh": "从第一帧起立刻切入主体，不留空白垫场时间。"
+        },
+        "fit": {
+          "en": "Cutting the initial blank delay delivers core information promptly.",
+          "zh": "剪除开头空白能更迅速传递核心信息。"
+        }
+      }
+    ]
+  },
+  "render_error": null,
+  "result": {
+    "metadata": {
+      "duration": 26.0,
+      "width": 360,
+      "height": 640,
+      "has_audio": false,
+      "size": 51279,
+      "codec": "h264"
+    },
+    "timeline": [
+      [
+        6.0,
+        32.0
+      ]
+    ],
+    "applied": [
+      "rec_trim_lead"
+    ],
+    "generated_clips": 0,
+    "render_id": "48f05c98f00d4aad91f024795111d940",
+    "qa": {
+      "passed": true,
+      "observations": [
+        {
+          "en": "The 6-second empty black opening was removed, presenting the opening title card immediately at 00:00.",
+          "zh": "开头的6秒黑屏已被移除，片名文字卡在00:00立即呈现。"
+        },
+        {
+          "en": "Both informative text cards are preserved with clear typography and original durations.",
+          "zh": "两段信息文字卡均得以保留，字体排版清晰且时长与原片一致。"
+        }
+      ],
+      "issues": []
+    },
+    "qa_status": "passed",
+    "plan_revision": 2
+  },
+  "cost": 0.02202975
+}

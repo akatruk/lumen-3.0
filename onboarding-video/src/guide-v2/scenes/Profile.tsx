@@ -1,0 +1,2 @@
+import {Card,Row,Button,tr,Lang} from '../shared';
+export const Profile=({lang}:{lang:Lang})=><Card title={tr(lang,'Creator & brand profile','创作者与品牌风格')}><Row label={tr(lang,'Topic / audience','主题 / 目标受众')} value={tr(lang,'Travel · independent travellers','旅行 · 自由行旅客')}/><Row label={tr(lang,'Voice & style','表达风格')} value={tr(lang,'Calm, useful, factual','自然、实用、准确')}/><Row label={tr(lang,'Content language / spending limit','内容语言 / 费用上限')} value={tr(lang,'English · $5 limit','简体中文 · $5 上限')}/><Button>{tr(lang,'Analyze & build my plan','分析并生成计划')}</Button></Card>;

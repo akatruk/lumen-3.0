@@ -1,0 +1,139 @@
+{
+  "text": " Choose References.  Upload your footage.  Review your master.  Export three versions.",
+  "usage": {
+    "seconds": 10,
+    "cost": 7.5e-05
+  },
+  "task": "transcribe",
+  "language": "en",
+  "duration": 10,
+  "segments": [
+    {
+      "id": 0,
+      "seek": 0,
+      "start": 0.27,
+      "end": 2.41,
+      "text": " Choose References.",
+      "tokens": [
+        21661,
+        36889,
+        2667,
+        13
+      ],
+      "temperature": 0,
+      "avg_logprob": -0.3223723743867595,
+      "compression_ratio": 0.7037037037037037,
+      "no_speech_prob": 0
+    },
+    {
+      "id": 0,
+      "seek": 2,
+      "start": 2.85,
+      "end": 4.59,
+      "text": " Upload your footage.",
+      "tokens": [
+        624,
+        21132,
+        345,
+        428,
+        9556,
+        13
+      ],
+      "temperature": 0,
+      "avg_logprob": -0.07617933886649553,
+      "compression_ratio": 0.7241379310344828,
+      "no_speech_prob": 0
+    },
+    {
+      "id": 0,
+      "seek": 4,
+      "start": 4.8,
+      "end": 6.84,
+      "text": " Review your master.",
+      "tokens": [
+        19954,
+        428,
+        4505,
+        13
+      ],
+      "temperature": 0,
+      "avg_logprob": -0.3694072713454564,
+      "compression_ratio": 0.7142857142857143,
+      "no_speech_prob": 0
+    },
+    {
+      "id": 0,
+      "seek": 7,
+      "start": 7.23,
+      "end": 9.23,
+      "text": " Export three versions.",
+      "tokens": [
+        50130,
+        1045,
+        9606,
+        13
+      ],
+      "temperature": 0,
+      "avg_logprob": -0.37833800081474084,
+      "compression_ratio": 0.7419354838709677,
+      "no_speech_prob": 0
+    }
+  ],
+  "words": [
+    {
+      "word": " Choose",
+      "start": 0.27,
+      "end": 0.5500000011920929
+    },
+    {
+      "word": " References.",
+      "start": 0.5500000011920929,
+      "end": 1.9500000011920928
+    },
+    {
+      "word": " Upload",
+      "start": 2.85,
+      "end": 3.410000002384186
+    },
+    {
+      "word": " your",
+      "start": 3.410000002384186,
+      "end": 3.510000026226044
+    },
+    {
+      "word": " footage.",
+      "start": 3.510000026226044,
+      "end": 4.269999957084655
+    },
+    {
+      "word": " Review",
+      "start": 4.8,
+      "end": 5.279999989271164
+    },
+    {
+      "word": " your",
+      "start": 5.279999989271164,
+      "end": 5.759999978542328
+    },
+    {
+      "word": " master.",
+      "start": 5.759999978542328,
+      "end": 6.439999985694885
+    },
+    {
+      "word": " Export",
+      "start": 7.23,
+      "end": 7.790000002384186
+    },
+    {
+      "word": " three",
+      "start": 7.790000002384186,
+      "end": 8.430000047683716
+    },
+    {
+      "word": " versions.",
+      "start": 8.430000047683716,
+      "end": 9.529999952316285
+    }
+  ]
+}

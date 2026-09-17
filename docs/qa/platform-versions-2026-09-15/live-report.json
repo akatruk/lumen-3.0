@@ -1,0 +1,119 @@
+{
+  "package": {
+    "project_id": "af98feb5660f4f79baaac48272d61bef",
+    "master_id": "48f05c98f00d4aad91f024795111d940",
+    "package_id": "7305b3fcc9e54eddabbad855b4621386",
+    "status": "complete",
+    "result": {
+      "master_id": "48f05c98f00d4aad91f024795111d940",
+      "plan_revision": 2,
+      "variants": [
+        {
+          "platform": "douyin",
+          "rationale": {
+            "en": "Focuses directly on the morning park walk route for quick practical value.",
+            "zh": "聚焦清晨公园徒步路线，直接传达核心实用信息。"
+          },
+          "title": "Quiet Morning Park Walk",
+          "description": "A calm morning walk through the park starting at the main gate.",
+          "hashtags": [
+            "#MorningWalk",
+            "#ParkWalk",
+            "#WalkingRoute"
+          ],
+          "cta": "Follow for simple walking routes.",
+          "segments": [
+            {
+              "start": 0.0,
+              "end": 26.0
+            }
+          ],
+          "language": "en",
+          "metadata": {
+            "duration": 26.0,
+            "width": 1080,
+            "height": 1920,
+            "has_audio": false,
+            "size": 165080,
+            "codec": "h264"
+          },
+          "review_status": "needs_human_review",
+          "publishing": "export_only",
+          "master_id": "48f05c98f00d4aad91f024795111d940"
+        },
+        {
+          "platform": "instagram_reels",
+          "rationale": {
+            "en": "Frames the route as a peaceful morning routine to save for later.",
+            "zh": "以宁静的晨间漫步为主题，适于收藏参考。"
+          },
+          "title": "Start Your Morning in the Park",
+          "description": "Plan a quiet morning walk. Begin your route right at the main gate.",
+          "hashtags": [
+            "#MorningRoutine",
+            "#ParkWalk",
+            "#CalmWalk",
+            "#WalkingRoute"
+          ],
+          "cta": "Save this walking route for your next morning out.",
+          "segments": [
+            {
+              "start": 0.0,
+              "end": 26.0
+            }
+          ],
+          "language": "en",
+          "metadata": {
+            "duration": 26.0,
+            "width": 1080,
+            "height": 1920,
+            "has_audio": false,
+            "size": 164824,
+            "codec": "h264"
+          },
+          "review_status": "needs_human_review",
+          "publishing": "export_only",
+          "master_id": "48f05c98f00d4aad91f024795111d940"
+        },
+        {
+          "platform": "youtube_shorts",
+          "rationale": {
+            "en": "Presents a clear, searchable walking guide starting at the main gate.",
+            "zh": "采用清晰可检索的标题，呈现完整的徒步起点指引。"
+          },
+          "title": "Quiet Morning Park Walking Route Guide",
+          "description": "Simple park walking route guide: begin your walk at the main gate for a quiet morning.",
+          "hashtags": [
+            "#Walk",
+            "#MorningWalk",
+            "#ParkGuide",
+            "#WalkingRoute"
+          ],
+          "cta": "Subscribe for more calm walking guides.",
+          "segments": [
+            {
+              "start": 0.0,
+              "end": 26.0
+            }
+          ],
+          "language": "en",
+          "metadata": {
+            "duration": 26.0,
+            "width": 1080,
+            "height": 1920,
+            "has_audio": false,
+            "size": 165855,
+            "codec": "h264"
+          },
+          "review_status": "needs_human_review",
+          "publishing": "export_only",
+          "master_id": "48f05c98f00d4aad91f024795111d940"
+        }
+      ],
+      "publishing": "export_only",
+      "human_review_required": true
+    }
+  },
+  "cost": 0.04705650000000001,
+  "master_unchanged": true
+}

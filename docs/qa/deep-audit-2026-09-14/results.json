@@ -1,0 +1,133 @@
+{
+  "data_dir": "/tmp/lumen-flow-audit-su251582",
+  "checks": [
+    "live Douyin search",
+    "import queued",
+    "duplicate import same project",
+    "cannot delete active project",
+    "real analysis ready",
+    "preview available",
+    "invalid recommendation rejected",
+    "render queued",
+    "duplicate render rejected",
+    "real render available",
+    "download MP4",
+    "original immutable",
+    "other user denied ",
+    "other user denied /media/source",
+    "other user denied /media/original",
+    "other user denied /media/result"
+  ],
+  "pid": "9a5c9d05a2db4f26bb2788efef3068cc",
+  "analysis_status": "ready",
+  "error": null,
+  "selected": [
+    "rec_norm_audio"
+  ],
+  "recommendations": [
+    {
+      "start": 13.0,
+      "end": 17.0,
+      "id": "rec_broll_melt",
+      "title": {
+        "en": "Add Close-up of Coffee Drip",
+        "zh": "增加咖啡滴落特写"
+      },
+      "evidence": {
+        "en": "The waterfall effect is shown in a static medium shot.",
+        "zh": "瀑布下滴的流速较慢，单一中景镜头略显单一。"
+      },
+      "improvement": {
+        "en": "Insert a macro close-up highlighting the boundary layer diffusion.",
+        "zh": "补充咖啡溶入水中的微距特写以强化视觉美感。"
+      },
+      "category": "broll",
+      "confidence": 0.72,
+      "auto_apply": false,
+      "action": "generate_broll",
+      "generation_prompt": "Cinematic macro shot of dark coffee cascading from a clear ice sphere into clean transparent water, subtle fluid swirls, high-end cocktail bar atmosphere, soft warm bokeh."
+    },
+    {
+      "start": 0.0,
+      "end": 21.533,
+      "id": "rec_norm_audio",
+      "title": {
+        "en": "Balance Audio Levels",
+        "zh": "均衡背景音乐响度"
+      },
+      "evidence": {
+        "en": "Background music levels fluctuate slightly across cuts.",
+        "zh": "背景歌曲伴奏在各镜头间的响度存在轻微起伏。"
+      },
+      "improvement": {
+        "en": "Apply normalization to ensure consistent loudness throughout.",
+        "zh": "统一整段视频的音频电平，提升听觉舒适度。"
+      },
+      "category": "audio",
+      "confidence": 0.8,
+      "auto_apply": false,
+      "action": "normalize_audio",
+      "generation_prompt": ""
+    },
+    {
+      "start": 4.0,
+      "end": 6.0,
+      "id": "rec_pace_cut",
+      "title": {
+        "en": "Trim Emptying Water Step",
+        "zh": "微调倒水停顿"
+      },
+      "evidence": {
+        "en": "Draining the water takes several seconds without added information.",
+        "zh": "倾倒未冻冰水的过程稍显冗长，节奏偏缓。"
+      },
+      "improvement": {
+        "en": "Trim redundant frames to accelerate the transition to coffee pouring.",
+        "zh": "适当裁剪倒水冗余帧数，加快进入灌注咖啡环节。"
+      },
+      "category": "pacing",
+      "confidence": 0.65,
+      "auto_apply": false,
+      "action": "remove",
+      "generation_prompt": ""
+    }
+  ],
+  "render_status": "complete",
+  "result": {
+    "metadata": {
+      "duration": 21.566667,
+      "width": 576,
+      "height": 1024,
+      "has_audio": true,
+      "size": 5073736,
+      "codec": "h264"
+    },
+    "timeline": [
+      [
+        0,
+        21.533333
+      ]
+    ],
+    "applied": [
+      "rec_norm_audio"
+    ],
+    "generated_clips": 0,
+    "render_id": "88d8629b958348139903dd441001a804",
+    "qa": {
+      "passed": true,
+      "observations": [
+        {
+          "en": "Audio levels remain balanced throughout without clipping or abrupt jumps.",
+          "zh": "音频响度整体均衡，未出现爆音或突兀波动。"
+        },
+        {
+          "en": "Video pacing, visual elements, and burned-in subtitles match the source reference accurately.",
+          "zh": "视频节奏、视觉元素及内嵌字幕均与原片保持一致。"
+        }
+      ],
+      "issues": []
+    },
+    "qa_status": "passed"
+  },
+  "cost": 0.01951275
+}

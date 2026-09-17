@@ -1,0 +1,153 @@
+{
+  "checks": [
+    "approve and lock queued",
+    "approval and lock persisted",
+    "review does not reencode media",
+    "locked edit rejected",
+    "single variant edit queued",
+    "edited package complete",
+    "only edited video changed",
+    "other approvals preserved",
+    "edited version needs review",
+    "old file still accessible",
+    "history retained",
+    "restore succeeds",
+    "restore returns original files",
+    "review instagram_reels",
+    "review youtube_shorts",
+    "all variants approved",
+    "no additional AI spend"
+  ],
+  "approved_package": "572d7810e6ad467fb32cc6750316adb4",
+  "edited_package": "e6c4b008ffa54e2d87e70a7361b4f2a3",
+  "final_package": {
+    "project_id": "af98feb5660f4f79baaac48272d61bef",
+    "master_id": "48f05c98f00d4aad91f024795111d940",
+    "package_id": "10e2914c5b8844f5b2684d0c93434423",
+    "status": "complete",
+    "result": {
+      "master_id": "48f05c98f00d4aad91f024795111d940",
+      "plan_revision": 2,
+      "variants": [
+        {
+          "platform": "douyin",
+          "rationale": {
+            "en": "Focuses directly on the morning park walk route for quick practical value.",
+            "zh": "聚焦清晨公园徒步路线，直接传达核心实用信息。"
+          },
+          "title": "Quiet Morning Park Walk",
+          "description": "A calm morning walk through the park starting at the main gate.",
+          "hashtags": [
+            "#MorningWalk",
+            "#ParkWalk",
+            "#WalkingRoute"
+          ],
+          "cta": "Follow for simple walking routes.",
+          "segments": [
+            {
+              "start": 0.0,
+              "end": 26.0
+            }
+          ],
+          "language": "en",
+          "metadata": {
+            "duration": 26.0,
+            "width": 1080,
+            "height": 1920,
+            "has_audio": false,
+            "size": 165080,
+            "codec": "h264"
+          },
+          "review_status": "approved",
+          "publishing": "export_only",
+          "master_id": "48f05c98f00d4aad91f024795111d940",
+          "locked": true,
+          "reviewed_at": 1789456195.779467
+        },
+        {
+          "platform": "instagram_reels",
+          "rationale": {
+            "en": "Manually edited by the producer. Review the updated cut and copy.",
+            "zh": "由制作人手动编辑。请审核更新后的剪辑与文案。"
+          },
+          "title": "Park Walk: Start at the Main Gate",
+          "description": "Plan a quiet morning walk. Begin your route right at the main gate.",
+          "hashtags": [
+            "#MorningRoutine",
+            "#ParkWalk",
+            "#CalmWalk",
+            "#WalkingRoute"
+          ],
+          "cta": "Save this walking route for your next morning out.",
+          "segments": [
+            {
+              "start": 10.0,
+              "end": 26.0
+            }
+          ],
+          "language": "en",
+          "metadata": {
+            "duration": 16.0,
+            "width": 1080,
+            "height": 1920,
+            "has_audio": false,
+            "size": 105255,
+            "codec": "h264"
+          },
+          "review_status": "approved",
+          "locked": true,
+          "publishing": "export_only",
+          "master_id": "48f05c98f00d4aad91f024795111d940",
+          "reviewed_at": 1789456234.0451884
+        },
+        {
+          "platform": "youtube_shorts",
+          "rationale": {
+            "en": "Presents a clear, searchable walking guide starting at the main gate.",
+            "zh": "采用清晰可检索的标题，呈现完整的徒步起点指引。"
+          },
+          "title": "Quiet Morning Park Walking Route Guide",
+          "description": "Simple park walking route guide: begin your walk at the main gate for a quiet morning.",
+          "hashtags": [
+            "#Walk",
+            "#MorningWalk",
+            "#ParkGuide",
+            "#WalkingRoute"
+          ],
+          "cta": "Subscribe for more calm walking guides.",
+          "segments": [
+            {
+              "start": 0.0,
+              "end": 26.0
+            }
+          ],
+          "language": "en",
+          "metadata": {
+            "duration": 26.0,
+            "width": 1080,
+            "height": 1920,
+            "has_audio": false,
+            "size": 165855,
+            "codec": "h264"
+          },
+          "review_status": "approved",
+          "publishing": "export_only",
+          "master_id": "48f05c98f00d4aad91f024795111d940",
+          "locked": true,
+          "reviewed_at": 1789456234.2013075
+        }
+      ],
+      "publishing": "export_only",
+      "human_review_required": false,
+      "parent_package": "7a8839c68b2e45c590c469403c694c90",
+      "revision_action": "review",
+      "scene_boundaries": [
+        0.0,
+        10.0,
+        26.0
+      ]
+    },
+    "stale": false
+  },
+  "cost": 0.04705650000000001
+}

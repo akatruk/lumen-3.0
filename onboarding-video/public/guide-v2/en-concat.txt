@@ -1,0 +1,7 @@
+file 'en-discover-padded.wav'
+file 'en-owned-padded.wav'
+file 'en-profile-padded.wav'
+file 'en-review-padded.wav'
+file 'en-alternative-padded.wav'
+file 'en-master-padded.wav'
+file 'en-export-padded.wav'

@@ -1,0 +1,34 @@
+{
+  "proposal_id": "8829e6a09d4d4879b91189e9244d9a1e",
+  "status": "passed",
+  "provider_cost": 0.022469250000000003,
+  "checks": [
+    "real AI proposal",
+    "plan unchanged before acceptance",
+    "explicit acceptance increments revision",
+    "changed decision needs review",
+    "existing master preserved"
+  ],
+  "recommendation": {
+    "start": 6.0,
+    "end": 16.0,
+    "id": "rec_trim_lead",
+    "title": {
+      "en": "Front-load Opening Title Card",
+      "zh": "前置开篇主题卡"
+    },
+    "evidence": {
+      "en": "Six seconds of initial black frames delay delivery of the opening topic.",
+      "zh": "开篇前6秒黑屏延缓了主题信息的传达。"
+    },
+    "improvement": {
+      "en": "Move the first text card to the front to establish the topic immediately while preserving text content.",
+      "zh": "将首张文字卡片移至开头，在完整保留文案的同时实现即时切入。"
+    },
+    "category": "hook",
+    "confidence": 0.65,
+    "auto_apply": false,
+    "action": "move_to_front",
+    "generation_prompt": ""
+  }
+}

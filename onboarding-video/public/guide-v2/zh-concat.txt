@@ -1,0 +1,7 @@
+file 'zh-discover-padded.wav'
+file 'zh-owned-padded.wav'
+file 'zh-profile-padded.wav'
+file 'zh-review-padded.wav'
+file 'zh-alternative-padded.wav'
+file 'zh-master-padded.wav'
+file 'zh-export-padded.wav'
