@@ -9,7 +9,7 @@ Deployed to lumen-fix.universalgravity.org. The original VM is out of scope.
 | Camera motion | Zoom, push/pull, pan/reframe with start/end coordinates | No subject tracking |
 | Transitions | Cuts, fade, cross dissolve, zoom, wipe, circle mask | Moving tail/head blend across the cut; brief visual retiming (at most 133 ms displacement), unchanged clip durations and audio |
 | Visual inserts | Numbers, comparisons, animated charts, rankings, timelines, world-location maps | Exact facts and map coordinates must be supplied; no invented data |
-| B-roll | Automatic scene-grounded AI query planning and Commons metadata search, import with source credits, semantic matching of private library samples, generated illustrative inserts, preview and replacement | Generation is illustration, not authentic archive/news footage |
+| B-roll | Automatic scene-grounded AI query planning and Commons metadata search with scene-relevance ranking and weak-match filtering, import with source credits, semantic matching of private library samples, generated illustrative inserts, preview and replacement | Generation is illustration, not authentic archive/news footage |
 | Subtitles | EN/ZH transcript, word-aware Chinese line/card wrapping, phrase emphasis, layout/style controls and overlays | No claim of perfect transcription or automatic fact verification |
 | Music | Licensed uploads, AI selection using track-wide acoustic dynamics, adaptive listening samples and approved output timeline, volume curve, fades, ducking, rhythm estimates, track alignment and reviewable multi-cut beat alignment | Cut shifts are bounded and skip speech, locks, overlays and discontinuous source cuts |
 | Sound effects | Timed chime/click/whoosh accents in real render | Limited built-in palette |

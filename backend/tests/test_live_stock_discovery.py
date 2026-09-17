@@ -15,13 +15,14 @@ def test_live_scene_search(client):
     ass=folder/'test.ass'
     media.write_subtitles(ass,[Caption(start=0,end=40,original='EARTH ROTATION',en='EARTH ROTATION',zh='地球自转')],[(0,40)],'en',320,568)
     media.ffmpeg('-f','lavfi','-i','color=blue:s=320x568:r=12:d=40','-vf',f"ass='{ass}'",'-c:v','libx264','-preset','veryfast',folder/'analysis.mp4')
-    with connect() as db:db.execute('UPDATE projects SET budget=.5 WHERE id=?',(pid,))
+    with connect() as db:db.execute('UPDATE projects SET budget=2 WHERE id=?',(pid,))
     base=f'/api/studio/projects/{pid}/stock'
     response=client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']})
     assert response.status_code==202,response.text
     assert worker.run_once()
     item=client.get(base+'/discoveries').json()[0]
     assert item['status']=='ready',item
+    assert item['result']['ranking_status']=='complete',item['result']
     assert item['result']['queries'] and item['result']['hits'],item['result']
     with connect() as db:spent=db.execute('SELECT SUM(actual) FROM spend WHERE project_id=?',(pid,)).fetchone()[0]
     print('LIVE_DISCOVERY_OK',json.dumps({'queries':[q['query'] for q in item['result']['queries']],'candidates':len(item['result']['hits']),'cost':spent}))

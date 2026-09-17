@@ -15,7 +15,12 @@ def test_scene_discovery_searches_deduplicates_and_preserves_edit(client,monkeyp
     pid,url,edit,revision=setup(client);base=f'/api/studio/projects/{pid}/stock'
     plan=stock_discovery.SearchPlan(rationale=T,queries=[{'query':'ocean','purpose':T},{'query':'sea waves','purpose':T}],cautions=[T])
     prompts=[]
-    def model(*args,**kw):prompts.append(args[2]);return plan
+    def model(*args,**kw):
+        prompts.append(args[2])
+        if args[4]=='stock_ranking':
+            from backend.stock_ranking import Ranking,CandidateReview
+            return Ranking(reviews=[CandidateReview(page_id=page()['pageid'],score=85,suitability='illustration',reason=T)])
+        return plan
     monkeypatch.setattr(ai,'json_call',model);queries=[]
     def search(**kw):queries.append(kw['gsrsearch']);return [page()]
     monkeypatch.setattr(stock,'query',search)
@@ -26,6 +31,8 @@ def test_scene_discovery_searches_deduplicates_and_preserves_edit(client,monkeyp
     assert len(queries)==2 and len(result['result']['hits'])==1
     hit=result['result']['hits'][0]
     assert 'media_url' not in hit and hit['purpose']==T
+    assert hit['relevance']['score']==85 and result['result']['ranking_status']=='complete'
+    assert len(prompts)==2
     assert 'transcript' in prompts[0] and 'clip' in prompts[0]
     assert client.get(url).json()['edit']==edit
     assert project(pid)['status']=='ready'
@@ -54,3 +61,31 @@ def test_discovery_rejects_stale_locked_and_foreign_scene(client):
     app.dependency_overrides[current_user]=lambda:{'id':'other','email':'other@example.com'}
     assert client.get(base+'/discoveries').status_code==404
     assert client.post(base+'/discover',json=body).status_code==404
+
+
+def test_ranking_failure_returns_explicit_unranked_results(client,monkeypatch):
+    pid,url,edit,revision=setup(client);base=f'/api/studio/projects/{pid}/stock'
+    def model(*args,**kwargs):
+        if args[4]=='stock_ranking':raise ValueError('budget_limit')
+        return stock_discovery.SearchPlan(rationale=T,queries=[{'query':'ocean','purpose':T}],cautions=[])
+    monkeypatch.setattr(ai,'json_call',model)
+    monkeypatch.setattr(stock,'query',lambda **kw:[page()])
+    assert client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']}).status_code==202
+    assert worker.run_once()
+    result=client.get(base+'/discoveries').json()[0]['result']
+    assert result['ranking_status']=='unavailable' and len(result['hits'])==1
+    assert 'relevance' not in result['hits'][0]
+    assert client.get(url).json()['edit']==edit
+
+
+def test_all_candidates_can_be_rejected_without_changing_edit(client,monkeypatch):
+    from backend.stock_ranking import Ranking,CandidateReview
+    pid,url,edit,revision=setup(client);base=f'/api/studio/projects/{pid}/stock'
+    def model(*args,**kwargs):
+        if args[4]=='stock_ranking':return Ranking(reviews=[CandidateReview(page_id=page()['pageid'],score=0,suitability='reject',reason=T)])
+        return stock_discovery.SearchPlan(rationale=T,queries=[{'query':'ocean','purpose':T}],cautions=[])
+    monkeypatch.setattr(ai,'json_call',model);monkeypatch.setattr(stock,'query',lambda **kw:[page()])
+    client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']});assert worker.run_once()
+    result=client.get(base+'/discoveries').json()[0]['result']
+    assert result['ranking_status']=='complete' and result['excluded_count']==1 and not result['hits']
+    assert client.get(url).json()['edit']==edit
