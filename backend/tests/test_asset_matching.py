@@ -22,6 +22,7 @@ def test_visual_library_match_is_scoped_reviewed_and_bounded(client,monkeypatch,
  monkeypatch.setattr(asset_matching,'build_reel',lambda *args:'sample-reel.mp4')
  def fake_ai(*args,**kwargs):
   assert kwargs['reference']=='sample-reel.mp4'
+  assert kwargs['reference_label']=='CANDIDATE SAMPLE REEL'
   assert 'CANDIDATE SAMPLE REEL' in args[2]
   return result
  monkeypatch.setattr(proposals.ai,'json_call',fake_ai)
@@ -83,3 +84,15 @@ def test_four_second_match_is_allowed_but_unseen_gap_is_not():
  proposals.validate_proposal(result,snapshot,'target',40)
  result.clip.external_broll.source_start=16
  with pytest.raises(ValueError,match='analysis_timestamps_invalid'):proposals.validate_proposal(result,snapshot,'target',40)
+
+
+def test_single_clip_edit_preserves_manually_corrected_speech_boundaries():
+ clip=Clip(id='target',start=0,end=10)
+ caption={'start':3,'end':6,'original':'Corrected speech','en':'Corrected speech','zh':'修正后的讲话'}
+ snapshot={'mode':'edit','edit':{'clips':[clip.model_dump()],'captions':[caption]},'transcript':[]}
+ result=proposals.Proposal(clip=clip.model_copy(deep=True),reason={'en':'Trim','zh':'剪辑'})
+ result.clip.start=4
+ with pytest.raises(ValueError,match='analysis_timestamps_invalid'):
+  proposals.validate_proposal(result,snapshot,'target',10)
+ result.clip.start=3
+ proposals.validate_proposal(result,snapshot,'target',10)

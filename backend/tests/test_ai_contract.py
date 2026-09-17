@@ -173,3 +173,19 @@ def test_timeline_semantic_validator_can_trigger_repair(context,monkeypatch):
     assert ai.json_call('p',context,'Plan',QA,'timeline_proposal',validator=validate).passed
     assert len(calls)==2
     assert b'Use the supplied sample range.' in calls[1].content
+
+
+def test_candidate_role_is_preserved_during_bounded_repair(context,monkeypatch):
+    import json
+    requests=mock_response(monkeypatch,200,{'choices':[{'message':{'content':json.dumps({'passed':True,'observations':[],'issues':[]})},'finish_reason':'stop'}],'usage':{'cost':0}})
+    attempts=[]
+    def validate(result):
+        attempts.append(result)
+        if len(attempts)==1:raise ValueError('provider_invalid_analysis')
+    ai.json_call('p',context,'Match library video',QA,'timeline_proposal',reference=context,
+                 reference_label='CANDIDATE SAMPLE REEL',validator=validate)
+    assert len(requests)==2
+    for request in requests:
+        parts=json.loads(request.content)['messages'][1]['content']
+        assert parts[1]['text']=='CANDIDATE SAMPLE REEL'
+        assert parts[3]['text']=='VIDEO TO ANALYZE / REVIEW'
