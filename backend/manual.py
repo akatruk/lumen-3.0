@@ -147,9 +147,10 @@ def beat_preview(pid:str,body:BeatPreview,user=Depends(current_user)):
         metadata=json.loads(row['metadata']);rhythm=metadata.get('rhythm')
         if not rhythm:raise HTTPException(422,'analyze_rhythm_first')
         speech=[Caption.model_validate(c) for c in s['plan'].get('transcript',[])]+edit.captions
-        proposal,changes=propose(edit,rhythm['accents'],metadata['duration'],speech)
+        skipped=[]
+        proposal,changes=propose(edit,rhythm['accents'],metadata['duration'],speech,skipped)
         check(proposal,p['metadata']['duration'])
-    return {'revision':body.revision,'edit':proposal.model_dump(),'changes':changes}
+    return {'revision':body.revision,'edit':proposal.model_dump(),'changes':changes,'skipped':skipped}
 
 @router.post('/projects/{pid}/manual/render')
 def render(pid:str,body:Render,request:Request,user=Depends(current_user)):

@@ -58,3 +58,24 @@ def test_beat_edit_renders_with_unchanged_total_duration(tmp_path):
     result=media.render(source,tmp_path,media.probe(source),plan(),[],'en','original',manual=proposal.model_dump(),asset_paths={'a'*32:track})
     assert abs(result['metadata']['duration']-6)<.2
     assert result['metadata']['has_audio']
+
+
+def test_already_aligned_cuts_are_not_moved_to_neighbouring_beats():
+    original=edit();skipped=[]
+    result,changes=propose(original,[2,2.2,4.01,4.2],10,[],skipped)
+    assert result==original and changes==[]
+    assert [s['reason'] for s in skipped]==['already_aligned','already_aligned']
+
+
+def test_accepting_then_repeating_alignment_is_stable():
+    first,changes=propose(edit(),[2.2,2.4,4.1,4.3],10,[])
+    assert len(changes)==2
+    for clip in first.clips:clip.approved=True
+    repeated,changes=propose(first,[2.2,2.4,4.1,4.3],10,[])
+    assert repeated==first and changes==[]
+
+
+def test_preview_explains_speech_and_lock_constraints():
+    original=edit();original.clips[2].locked=True;skipped=[]
+    propose(original,[2.2,4.1],10,[Caption(start=1.8,end=2.3,original='speech',en='speech',zh='讲话')],skipped)
+    assert [s['reason'] for s in skipped]==['speech','locked']
