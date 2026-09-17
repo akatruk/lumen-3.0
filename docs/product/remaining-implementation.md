@@ -7,7 +7,7 @@ Deployed to lumen-fix.universalgravity.org. The original VM is out of scope.
 | Shot selection | Source ranges, presenter/close-up/medium/B-roll/document/archive/news roles, owned media library inserts | Commons footage search/import is available; commercial news/archive catalogues are not integrated |
 | Cutting/pacing | Trim, duration, reorder, speech-safe AI plans; creator pacing preferences | Targets cannot override complete speech or missing footage |
 | Camera motion | Zoom, push/pull, pan/reframe with start/end coordinates | No subject tracking |
-| Transitions | Cuts, fade, cross dissolve, zoom, wipe, circle mask | Additional transitions blend from a held outgoing frame |
+| Transitions | Cuts, fade, cross dissolve, zoom, wipe, circle mask | Moving tail/head blend across the cut; brief visual retiming (at most 133 ms displacement), unchanged clip durations and audio |
 | Visual inserts | Numbers, comparisons, animated charts, rankings, timelines, world-location maps | Exact facts and map coordinates must be supplied; no invented data |
 | B-roll | Commons discovery/import with source credits, semantic matching of private library samples, generated illustrative inserts, preview and replacement | Generation is illustration, not authentic archive/news footage |
 | Subtitles | EN/ZH transcript, phrase emphasis, layout/style controls and overlays | No claim of perfect transcription or automatic fact verification |
