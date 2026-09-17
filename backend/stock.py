@@ -57,6 +57,8 @@ def candidate(page):
             'media_url':chosen['src'],'duration':duration,'width':chosen.get('width'),'height':chosen['height']}
 
 def init(db):
+    from .stock_discovery import init as init_discovery
+    init_discovery(db)
     db.execute('CREATE TABLE IF NOT EXISTS stock_results(id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,data TEXT NOT NULL,created REAL NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS stock_imports(id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,result_id TEXT NOT NULL,status TEXT NOT NULL,asset_id TEXT,error TEXT,created REAL NOT NULL,UNIQUE(project_id,result_id))')
 
@@ -163,3 +165,6 @@ def run_job(p,payload):
         raise ValueError(code) from None
     finally:
         for name in ('source.webm','asset.mp4'):(folder/name).unlink(missing_ok=True)
+
+# Register scene discovery on the same private router.
+from . import stock_discovery

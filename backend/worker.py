@@ -128,6 +128,9 @@ def run_once():
         elif job['kind']=='music_plan':
             from .music_plans import run_job as music_job
             music_job(p,json.loads(job['payload']))
+        elif job['kind']=='stock_discover':
+            from .stock_discovery import run_job as discovery_job
+            discovery_job(p,json.loads(job['payload']))
         elif job['kind']=='stock_import':
             from .stock import run_job as stock_job
             stock_job(p,json.loads(job['payload']))
@@ -145,7 +148,7 @@ def run_once():
     except Exception as exc:
         code=safe_error(exc)
         log.error('Job %s failed: %s (%s)',job['id'],code,type(exc).__name__)
-        if job['kind'] not in ('platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import'): update(p['id'],status='failed',stage='failed',error=code)
+        if job['kind'] not in ('platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'): update(p['id'],status='failed',stage='failed',error=code)
         event(p['id'],'failed',code)
         state='failed'
     with connect() as db:
@@ -159,7 +162,9 @@ def serve(guard):
     # Do not auto-replay ambiguous paid calls after process death.
     with connect() as db:
         for row in db.execute("SELECT project_id,kind,payload FROM jobs WHERE status='running'"):
-            if row["kind"]=="stock_import":
+            if row["kind"]=="stock_discover":
+                db.execute("UPDATE stock_discoveries SET status='failed',error='worker_interrupted' WHERE id=?",(json.loads(row['payload'])['id'],))
+            elif row["kind"]=="stock_import":
                 db.execute("UPDATE stock_imports SET status='failed',error='worker_interrupted' WHERE id=?",(json.loads(row['payload'])['id'],))
             elif row["kind"]=="music_plan":
                 db.execute("UPDATE music_plans SET status='failed' WHERE project_id=? AND status='queued'",(row[0],))
