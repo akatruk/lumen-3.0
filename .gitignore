@@ -25,3 +25,5 @@ onboarding-video/voice-candidates/
 !backend/data/ne_110m_land.geojson
 .DS_Store
 ._*
+
+.remotion/
