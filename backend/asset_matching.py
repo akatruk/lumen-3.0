@@ -1,4 +1,5 @@
 """Bounded, labeled samples for reviewable matching of private library footage."""
+import math
 from .assets import path
 from .media import ffmpeg,write_subtitles
 from .schemas import Caption
@@ -6,6 +7,16 @@ from .schemas import Caption
 def sample_ranges(duration):
     length=min(2.0,duration)
     return [{'start':round(s,3),'end':round(min(duration,s+length),3)} for s in sorted({0.0,max(0.0,(duration-length)/2),max(0.0,duration-length)})]
+
+def video_ranges(duration,target_duration):
+    """At most five coherent windows; cover short assets, spread across longer ones."""
+    if not math.isfinite(duration) or not math.isfinite(target_duration) or min(duration,target_duration)<=0:
+        raise ValueError('invalid_duration')
+    length=min(4.0,duration,target_duration)
+    if duration<=5*length:
+        count=max(1,math.ceil(duration/length))
+        return [{'start':round(i*duration/count,3),'end':round((i+1)*duration/count,3)} for i in range(count)]
+    return [{'start':round(i*(duration-length)/4,3),'end':round(i*(duration-length)/4+length,3)} for i in range(5)]
 
 def build_reel(pid,candidates,folder):
     folder.mkdir(parents=True,exist_ok=True);parts=[]

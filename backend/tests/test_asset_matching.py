@@ -52,12 +52,34 @@ def test_match_rejects_unseen_ranges_and_unrelated_changes():
 @pytest.mark.skipif(not shutil.which('ffmpeg'),reason='FFmpeg required')
 def test_candidate_reel_contains_bounded_labeled_samples(tmp_path,monkeypatch):
  from backend.config import settings
- from backend.asset_matching import build_reel,sample_ranges
+ from backend.asset_matching import build_reel,video_ranges
  from backend.media import ffmpeg,probe
  monkeypatch.setattr(settings,'data_dir',tmp_path)
  pid='b'*32;ident='a'*32;folder=tmp_path/pid/'assets';folder.mkdir(parents=True)
  ffmpeg('-f','lavfi','-i','color=blue:s=320x240:d=6:r=12','-c:v','libx264','-f','mp4',folder/ident)
- candidates=[{'id':ident,'label':'A1','duration':6,'samples':sample_ranges(6)}]
+ candidates=[{'id':ident,'label':'A1','duration':6,'samples':video_ranges(6,40)}]
  reel=build_reel(pid,candidates,tmp_path/'reel')
  assert abs(probe(reel)['duration']-6)<.2
- assert 'A1 | source 2.00-4.00s' in (tmp_path/'reel'/'sample-1.ass').read_text()
+ assert 'A1 | source 3.00-6.00s' in (tmp_path/'reel'/'sample-1.ass').read_text()
+
+@pytest.mark.parametrize('duration,target',[(.1,1),(2,40),(6,40),(19,40),(20,40),(21,40),(420,40),(60,1)])
+def test_video_samples_are_bounded_and_cover_short_assets(duration,target):
+ from backend.asset_matching import video_ranges
+ spans=video_ranges(duration,target)
+ assert 1<=len(spans)<=5
+ assert spans[0]['start']==0 and spans[-1]['end']==duration
+ assert all(0<=s['start']<s['end']<=duration and s['end']-s['start']<=min(4,target)+.001 for s in spans)
+ assert sum(s['end']-s['start'] for s in spans)<=20.001
+ if duration<=5*min(4,target):
+  assert all(a['end']==b['start'] for a,b in zip(spans,spans[1:]))
+
+
+def test_four_second_match_is_allowed_but_unseen_gap_is_not():
+ from backend.asset_matching import video_ranges
+ clip=Clip(id='target',start=0,end=40)
+ snapshot={'mode':'library_broll','edit':{'clips':[clip.model_dump()]},'candidates':[{'id':'a'*32,'samples':video_ranges(60,40)}]}
+ result=proposals.Proposal(clip=clip.model_copy(deep=True),reason={'en':'Match','zh':'匹配'})
+ result.clip.external_broll=ExternalBroll(asset_id='a'*32,start=1,end=5,source_start=14)
+ proposals.validate_proposal(result,snapshot,'target',40)
+ result.clip.external_broll.source_start=16
+ with pytest.raises(ValueError,match='analysis_timestamps_invalid'):proposals.validate_proposal(result,snapshot,'target',40)
