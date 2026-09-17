@@ -25,8 +25,5 @@ def test_low_quality_drafts_preserve_render_and_respect_locks(client,monkeypatch
     assert client.get(url).json()['edit']==edit
     with connect() as db:
         drafts=db.execute('SELECT * FROM creative_plans WHERE project_id=?',(pid,)).fetchall()
-    if locked:
-        assert not drafts and current['quality_revision_blocked']=='locked_or_changed'
-    else:
-        assert len(drafts)==1 and current['quality_revision_id']==drafts[0]['id']
-        assert json.loads(drafts[0]['snapshot'])['current_edit']==edit
+    assert len(drafts)==1 and current['quality_revision_id']==drafts[0]['id']
+    assert json.loads(drafts[0]['snapshot'])['current_edit']==edit

@@ -133,3 +133,46 @@ def test_unavailable_generation_cannot_be_claimed_as_implemented():
  p=proposal();p.recommendation_reviews[0].outcome='implemented'
  with pytest.raises(ValueError):
   creative.validate_recommendation_reviews(p,{'recommendations':[{'id':'cut','action':'generate_broll','start':2,'end':4}]})
+
+
+def test_locked_shot_survives_generation_and_acceptance(client,monkeypatch):
+ pid=create(client).json()['id'];seed_plan(pid)
+ manual=f'/api/studio/projects/{pid}/manual';base=f'/api/studio/projects/{pid}/creative-plans'
+ edit=Edit(clips=[Clip(id='anchor',start=0,end=10,approved=True,locked=True),Clip(id='other',start=12,end=20)],normalize=False,subtitles=False).model_dump()
+ assert client.put(manual,json={'revision':1,'edit':edit}).status_code==200
+ def response(*args,**kwargs):
+  p=proposal();p.edit.clips[0]=Clip.model_validate(edit['clips'][0]);p.edit.clips[1].zoom_end=1.3
+  p.edit.normalize=True;p.edit.subtitles=True
+  return p
+ monkeypatch.setattr(creative.ai,'json_call',response)
+ r=client.post(base,json={'revision':2});assert r.status_code==202,r.text
+ ident=r.json()['id'];creative.run_job(project(pid),{'id':ident})
+ with connect() as db:db.execute("UPDATE jobs SET status='complete' WHERE project_id=?",(pid,))
+ r=client.post(base+'/'+ident+'/accept',json={'revision':2});assert r.status_code==200,r.text
+ saved=client.get(manual).json()['edit']
+ assert saved['clips'][0]==edit['clips'][0]
+ assert saved['clips'][1]['zoom_end']==1.3 and not saved['clips'][1]['approved']
+ assert saved['normalize'] is False and saved['subtitles'] is False
+
+@pytest.mark.parametrize('change',['remove','move','trim','text','asset'])
+def test_locked_shot_cannot_be_rewritten(change):
+ p=proposal();p.edit.clips[0].id='anchor';p.edit.clips[0].locked=True;p.edit.clips[0].approved=True
+ current=p.edit.model_dump()
+ if change=='remove':p.edit.clips.pop(0)
+ elif change=='move':p.edit.clips.reverse()
+ elif change=='trim':p.edit.clips[0].end=9
+ elif change=='text':p.edit.clips[0].text='changed'
+ else:
+  from backend.manual import ExternalBroll
+  p.edit.clips[0].external_broll=ExternalBroll(start=0,end=2,source_start=0,asset_id='a'*32)
+ with pytest.raises(ValueError,match='provider_invalid_analysis'):creative.validate(p,40,current=current)
+
+
+def test_locked_external_asset_is_preserved_but_not_invented():
+ from backend.manual import ExternalBroll
+ p=proposal();p.edit.clips[0].id='anchor';p.edit.clips[0].locked=True;p.edit.clips[0].approved=True
+ p.edit.clips[0].external_broll=ExternalBroll(start=0,end=2,source_start=0,asset_id='a'*32)
+ current=p.edit.model_dump();creative.validate(p,40,current=current)
+ assert p.edit.clips[0].model_dump()==current['clips'][0]
+ p.edit.clips[1].external_broll=ExternalBroll(start=0,end=2,source_start=0,asset_id='b'*32)
+ with pytest.raises(ValueError):creative.validate(p,40,current=current)
