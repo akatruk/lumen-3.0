@@ -524,10 +524,12 @@ export function DirectorProject({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [section, setSection] = useState("plan"),
-    [mode, setMode] = useState("source");
+    [mode, setMode] = useState(p.result ? "result" : "source");
   const video = useRef<HTMLVideoElement>(null),
     editing = useRef(false);
-  const pendingSeek = useRef<number | null>(null);
+  const pendingSeek = useRef<{start:number;end:number} | null>(null);
+  const momentEnd = useRef<number|null>(null);
+  const [momentNotice,setMomentNotice] = useState("");
   const draftKey = "lumen-plan-draft:" + p.id;
   const hydrated = useRef(false);
   useEffect(() => {
@@ -637,15 +639,29 @@ export function DirectorProject({
       setBusy(false);
     }
   }
-  function seek(n: number) {
-    pendingSeek.current = n;
-    if (mode === "source" && video.current && video.current.readyState >= 1) {
-      video.current.currentTime = n;
-      pendingSeek.current = null;
-    }
-    setMode("source");
-    video.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  function playMoment() {
+    const player=video.current, range=pendingSeek.current;
+    if(mode!=="source"||!player||!range||player.readyState<1)return;
+    pendingSeek.current=null;
+    const end=Math.min(range.end,Number.isFinite(player.duration)?player.duration:range.end);
+    player.currentTime=Math.min(range.start,Math.max(0,end-.01));
+    momentEnd.current=end;
+    player.scrollIntoView({behavior:"smooth",block:"center"});
+    player.focus({preventScroll:true});
+    void player.play().catch(()=>{
+      if(video.current===player)setMomentNotice(t("Playback did not start. Press Play in the video above to watch this moment.","播放未启动，请点击上方视频的播放按钮查看此片段。"));
+    });
   }
+  function seek(start:number,end:number) {
+    if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start){
+      setMomentNotice(t("Enter a valid start and end time first.","请先输入有效的开始和结束时间。"));return;
+    }
+    pendingSeek.current={start,end};
+    setMomentNotice(`${t("Selected moment","所选片段")}: ${start.toFixed(1)}–${end.toFixed(1)}s`);
+    setMode("source");
+    playMoment();
+  }
+  function switchPreview(next:string){pendingSeek.current=null;momentEnd.current=null;setMomentNotice("");setMode(next);}
   const stages: Record<string, string> = {
     queued: t("Queued", "排队中"),
     preparing: t("Preparing your footage", "准备自有素材"),
@@ -704,18 +720,19 @@ export function DirectorProject({
           <div className="director-tabs">
             <button
               aria-pressed={mode === "source"}
-              onClick={() => setMode("source")}
+              onClick={() => switchPreview("source")}
             >
               {t("Owned source", "自有原片")}
             </button>
             <button
               disabled={!p.result}
               aria-pressed={mode === "result"}
-              onClick={() => setMode("result")}
+              onClick={() => switchPreview("result")}
             >
               {t("Master preview", "主版本预览")}
             </button>
           </div>
+          <p className="preview-context" role="status"><strong>{mode==="source"?t("Original footage — no edits shown","原始素材 — 未显示剪辑"):t("Rendered master — saved result","已制作主版本 — 已保存结果")}</strong><br/>{mode==="source"?t("Use Master preview to see the rendered changes.","请切换到主版本预览查看制作后的改动。"):t("New plan changes appear here only after rendering again.","新计划的改动需重新制作后才会显示在这里。")}</p>
           {p.metadata?.preview_ready ? (
             <video
               key={
@@ -725,14 +742,11 @@ export function DirectorProject({
               controls
               playsInline
               src={`/api/projects/${p.id}/media/${mode}`}
-              onLoadedMetadata={() => {
-                if (
-                  mode === "source" &&
-                  video.current &&
-                  pendingSeek.current !== null
-                ) {
-                  video.current.currentTime = pendingSeek.current;
-                  pendingSeek.current = null;
+              tabIndex={0}
+              onLoadedMetadata={playMoment}
+              onTimeUpdate={e=>{
+                if(momentEnd.current!==null&&e.currentTarget.currentTime>=momentEnd.current){
+                  e.currentTarget.pause();momentEnd.current=null;
                 }
               }}
               onError={() => setError("media_error")}
@@ -742,6 +756,7 @@ export function DirectorProject({
               {t("Preparing your video preview…", "正在准备预览…")}
             </p>
           )}
+          {momentNotice&&<p role="status">{momentNotice}</p>}
           {!working && !p.error && <p><StatusBadge status={p.status}>{p.status==='complete'?t('Completed successfully','已成功完成'):p.status==='needs_review'?t('Video created — review required','视频已生成 — 需要审核'):t('Analysis complete — review decisions','分析已完成 — 请审核决策')}</StatusBadge></p>}
           {working && (
             <TaskProgress title={stages[p.stage] || t("Processing", "处理中")} percent={p.progress} detail={t("Your source is saved. This page updates automatically.","原片已保存，页面会自动更新。")}/>
@@ -1070,7 +1085,7 @@ export function DirectorProject({
                           </label>
                           <button
                             className="secondary"
-                            onClick={() => seek(d.start)}
+                            onClick={() => seek(d.start,d.end)}
                           >
                             {t("View moment", "查看片段")}
                           </button>
