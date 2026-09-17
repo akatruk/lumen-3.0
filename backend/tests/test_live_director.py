@@ -1,7 +1,9 @@
 """Opt-in real AI analysis → editable plan → approved rendered output.
 
 Synthetic footage only. Dedicated QA schema; at most the existing bounded repair
-per analysis stage and one render review. No generated footage or customer data.
+per analysis stage and one render review. Set LUMEN_LIVE_REVISION=1 to execute
+the queued low-score revision draft too, with a $2 project budget instead of $1.
+No generated footage or customer data. The revision remains unaccepted.
 """
 import os,json
 import pytest
@@ -13,7 +15,8 @@ REAL_PROBE=media.probe
 
 @pytest.mark.skipif(os.environ.get('LUMEN_LIVE_DIRECTOR')!='1',reason='Paid real director test requires opt-in')
 def test_live_analysis_plan_and_render(client,monkeypatch):
-    pid=create(client,budget=1,language='en',script='A synthetic packing tutorial: pack light, choose one bag, check documents. Improve pacing using the reference structure. No spoken audio.').json()['id']
+    revise=os.environ.get('LUMEN_LIVE_REVISION')=='1'
+    pid=create(client,budget=2 if revise else 1,language='en',script='A synthetic packing tutorial: pack light, choose one bag, check documents. Improve pacing using the reference structure. No spoken audio.').json()['id']
     monkeypatch.setattr(media,'probe',REAL_PROBE)
     folder=settings.data_dir/pid
     from backend.schemas import Caption
@@ -38,10 +41,20 @@ def test_live_analysis_plan_and_render(client,monkeypatch):
     assert client.post(base+'/manual/render',json={'revision':response.json()['revision'],'quality_review':True}).status_code==200
     assert worker.run_once()
     output=project(pid)
+    revision_draft=None
+    if revise and output['result'].get('quality_revision_id'):
+        assert worker.run_once()
+        revision_draft=next(item for item in client.get(base+'/creative-plans').json() if item['id']==output['result']['quality_revision_id'])
     with connect() as db:
         spend=[dict(r) for r in db.execute('SELECT purpose,amount,actual FROM spend WHERE project_id=?',(pid,))]
         events=[dict(r) for r in db.execute('SELECT kind,detail FROM events WHERE project_id=?',(pid,))]
-    (folder/'live-report.json').write_text(json.dumps({'result':output['result'],'proposal':proposed,'spend':spend,'events':events},ensure_ascii=False))
+    (folder/'live-report.json').write_text(json.dumps({'result':output['result'],'proposal':proposed,'revision_draft':revision_draft,'spend':spend,'events':events},ensure_ascii=False))
+    if revision_draft is not None:
+        assert revision_draft['status']=='ready',revision_draft.get('error')
+        responses=revision_draft['result']['quality_revision_reviews']
+        assert {r['revision_index'] for r in responses}==set(range(len(output['result']['qa']['revisions'])))
+        assert client.get(base+'/manual').json()['edit']==saved['edit']
+        assert project(pid)['result']['render_id']==output['result']['render_id']
     assert output['status'] in ('complete','needs_review'),output['error']
     assert output['result']['qa_status']!='unavailable'
     path=folder/'renders'/output['result']['render_id']/'result.mp4'

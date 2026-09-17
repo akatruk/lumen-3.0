@@ -80,3 +80,27 @@ def test_quality_comparison_ignores_unrendered_pending_shots():
     result=creative.Proposal(reason=T,notes=[],edit=Edit(clips=[Clip(start=0,end=5,approved=False)]),
         quality_revision_reviews=[creative.QualityRevisionReview(revision_index=0,outcome='addressed',reason=T)])
     with pytest.raises(ValueError):creative.validate_quality_reviews(result,{'revisions':[T]},current.model_dump())
+
+
+def test_unchanged_quality_draft_cannot_replace_saved_approved_edit(client):
+    from backend import creative_plans as creative
+    from backend.manual import Edit
+    pid=create(client).json()['id'];seed_plan(pid)
+    url=f'/api/studio/projects/{pid}/manual'
+    saved=client.get(url).json()['edit']
+    assert client.put(url,json={'revision':1,'edit':saved}).status_code==200
+    with connect() as db:
+        state=studio.state(pid,db)
+        ident=creative.queue_plan(db,pid,state,quality_feedback={'revisions':[T]})
+        snapshot=json.loads(db.execute('SELECT snapshot FROM creative_plans WHERE id=?',(ident,)).fetchone()[0])
+        snapshot.update(decision_evidence=False,review_recommendations=False)
+        result=creative.Proposal(reason=T,notes=[],edit=Edit.model_validate(saved),quality_revision_reviews=[creative.QualityRevisionReview(revision_index=0,outcome='not_applied',reason=T)])
+        for clip in result.edit.clips:clip.approved=False
+        db.execute("UPDATE creative_plans SET status='ready',result=?,snapshot=? WHERE id=?",(result.model_dump_json(),json.dumps(snapshot),ident))
+        db.execute("UPDATE jobs SET status='complete' WHERE project_id=?",(pid,))
+    base=f'/api/studio/projects/{pid}/creative-plans'
+    assert client.get(base).json()[0]['unchanged_quality_revision'] is True
+    response=client.post(base+'/'+ident+'/accept',json={'revision':2})
+    assert response.status_code==422 and response.json()['detail']=='no_quality_change'
+    assert client.get(url).json()['edit']==saved
+    assert client.get(url).json()['revision']==2

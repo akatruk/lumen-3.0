@@ -60,6 +60,7 @@ def listing(pid:str,user=Depends(current_user)):
     for item in items:
         snapshot=json.loads(item.pop('snapshot'))
         item['quality_revisions']=(snapshot.get('quality_feedback') or {}).get('revisions',[])
+        item['unchanged_quality_revision']=bool(item['result'] and unchanged_quality_revision(Edit.model_validate(item['result']['edit']),snapshot))
         if item['result']:
             item['style_audit']=measure(Edit.model_validate(item['result']['edit']),snapshot.get('style',snapshot.get('context',{}).get('creator',{}).get('style',{})))
             item['audit']=audit_edit(Edit.model_validate(item['result']['edit']),p['metadata']['duration'])
@@ -145,6 +146,12 @@ def rendered_edit_signature(edit,approved_only=False):
             if row[key+'_end'] is None:row[key+'_end']=row[key]
         value['clips'].append(row)
     return value
+
+
+def unchanged_quality_revision(edit,snapshot):
+    current=snapshot.get('current_edit')
+    return bool(snapshot.get('quality_feedback') and current is not None and
+                rendered_edit_signature(edit)==rendered_edit_signature(current,approved_only=True))
 
 
 def validate_quality_reviews(result,feedback,current=None):
@@ -307,6 +314,7 @@ def accept(pid:str,ident:str,body:Accept,user=Depends(current_user)):
         if snapshot.get('decision_evidence'):validate_evidence(result,snapshot['dna'])
         if snapshot.get('review_recommendations'):validate_recommendation_reviews(result,snapshot['analysis'])
         validate_quality_reviews(result,snapshot.get('quality_feedback'),snapshot.get('current_edit'))
+        if unchanged_quality_revision(result.edit,snapshot):raise HTTPException(422,'no_quality_change')
         from .assets import validate as validate_assets
         validate_assets(result.edit,pid,db)
         db.execute('INSERT INTO studio_manual(project_id,config) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET config=excluded.config',(pid,result.edit.model_dump_json()))
