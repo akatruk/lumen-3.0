@@ -1,4 +1,5 @@
-export type Lang = "en" | "zh";
+export type ContentLang = "en" | "zh";
+export type Lang = ContentLang | "ru";
 export type Text = { en: string; zh: string };
 export type Recommendation = {
   id: string;
@@ -54,7 +55,7 @@ export type Project = {
   id: string;
   title: string;
   brief: string;
-  language: Lang;
+  language: ContentLang;
   aspect: string;
   auto_render: boolean;
   generative: boolean;

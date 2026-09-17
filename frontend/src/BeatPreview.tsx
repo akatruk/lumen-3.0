@@ -1,9 +1,10 @@
+import { translate } from './locale';
 import {useState} from 'react';
 import type {Lang} from './types';
 import type {Edit} from './ManualEditor';
 type Preview={skipped?:{cut_index:number;reason:string}[];revision:number;edit:Edit;changes:{from_output:number;to_output:number}[]};
 export function BeatPreview({pid,revision,lang,disabled,onPreview}:{pid:string;revision:number;lang:Lang;disabled:boolean;onPreview:(edit:Edit)=>void}){
- const t=(en:string,zh:string)=>lang==='zh'?zh:en;
+ const t=(en: string, zh: string) => translate(lang, en, zh);
  const [result,setResult]=useState<Preview|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  async function preview(){setBusy(true);setError('');setResult(null);try{const r=await fetch(`/api/studio/projects/${pid}/manual/beat-preview`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision})});if(!r.ok){const d=await r.json();throw Error(d.detail==='analyze_rhythm_first'?t('Analyze this music track’s rhythm first.','请先分析此音乐的节奏。'):d.detail==='approve_shots_first'?t('Review and approve all shots, then save first.','请先审核并批准所有镜头，然后保存。'):t('Save your current plan and selected music first.','请先保存当前计划和选定音乐。'))}setResult(await r.json())}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  const reasons:Record<string,string>={already_aligned:t('Already aligned','已对齐'),locked:t('Locked shot','镜头已锁定'),timed_layers:t('Timed overlays or effects','含定时叠加或音效'),source_or_transition:t('Non-adjacent source or transition','原片不连续或存在转场'),speech:t('Speech would be affected','会影响讲话'),short_shot:t('Shot would become too short','镜头会过短'),no_nearby_accent:t('No nearby accent','附近没有重音')};

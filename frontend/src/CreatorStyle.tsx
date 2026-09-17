@@ -1,8 +1,9 @@
+import { translate } from './locale';
 import type {Lang} from './types';
 export type Style={structure:string;pacing:string;presenter_percent:number;visuals:string};
 export const defaultStyle:Style={structure:'preserve',pacing:'balanced',presenter_percent:60,visuals:'balanced'};
 export function CreatorStyle({value,onChange,lang}:{value:Style;onChange:(v:Style)=>void;lang:Lang}){
- const t=(en:string,zh:string)=>lang==='zh'?zh:en;
+ const t=(en: string, zh: string) => translate(lang, en, zh);
  return <fieldset><legend>{t('Editing style','剪辑风格')}</legend>
  <label>{t('Story structure','叙事结构')}<select value={value.structure} onChange={e=>onChange({...value,structure:e.target.value})}>
  <option value="preserve">{t('Preserve chronology','保留原有顺序')}</option>

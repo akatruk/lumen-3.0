@@ -1,3 +1,4 @@
+import { translate, contentLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
 import { useEffect, useRef, useState } from "react";
 import type { Lang, Text } from "./types";
@@ -39,7 +40,7 @@ export function DirectorAlternatives({
   onApplied: () => Promise<void>;
   onSave?: () => Promise<void>;
 }) {
-  const t = (en: string, zh: string) => (lang === "zh" ? zh : en);
+  const t = (en: string, zh: string) => translate(lang, en, zh);
   const [items, setItems] = useState<Proposal[]>([]),
     [target, setTarget] = useState(""),
     [instruction, setInstruction] = useState(""),
@@ -134,7 +135,7 @@ export function DirectorAlternatives({
             <option key={r.id} value={r.id}>
               {r.action === "normalize_audio"
                 ? t("Normalize overall audio loudness", "统一整体音量")
-                : r.title[lang]}
+                : r.title[contentLanguage(lang)]}
               {locked.includes(r.id) ? " 🔒" : ""}
             </option>
           ))}
@@ -202,7 +203,7 @@ export function DirectorAlternatives({
               <h4>
                 {item.proposal.recommendation.action === "normalize_audio"
                   ? t("Normalize overall audio loudness", "统一整体音量")
-                  : item.proposal.recommendation.title[lang]}
+                  : item.proposal.recommendation.title[contentLanguage(lang)]}
               </h4>
               <p>
                 {item.proposal.recommendation.action === "normalize_audio"
@@ -210,14 +211,14 @@ export function DirectorAlternatives({
                       "Adjusts overall mixed-track loudness only.",
                       "仅调整混合音轨的整体音量。",
                     )
-                  : item.proposal.recommendation.improvement[lang]}
+                  : item.proposal.recommendation.improvement[contentLanguage(lang)]}
               </p>
               <p>
                 {item.proposal.recommendation.start.toFixed(1)}–
                 {item.proposal.recommendation.end.toFixed(1)}s ·{" "}
                 {item.proposal.recommendation.action}
               </p>
-              <p>{item.proposal.transfer.fit[lang]}</p>
+              <p>{item.proposal.transfer.fit[contentLanguage(lang)]}</p>
             </>
           )}
           {item.status === "ready" &&

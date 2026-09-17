@@ -1,3 +1,4 @@
+import { translate, contentLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
 import { VariantEditor } from "./VariantEditor";
 import { useEffect, useState } from "react";
@@ -28,7 +29,7 @@ type Package = {
   } | null;
 };
 export function PlatformVariants({ p, lang }: { p: Project; lang: Lang }) {
-  const t = (en: string, zh: string) => (lang === "zh" ? zh : en);
+  const t = (en: string, zh: string) => translate(lang, en, zh);
   const [structures,setStructures]=useState<Record<string,string>>({douyin:'hook_proof_takeaway',instagram_reels:'preserve',youtube_shorts:'problem_solution',tiktok:'hook_proof_takeaway',xiaohongshu:'comparison'});
   const [limits,setLimits]=useState<Record<string,number>>({douyin:60,instagram_reels:60,youtube_shorts:60,tiktok:60,xiaohongshu:60});
   const [pack, setPack] = useState<Package | null>(null),
@@ -313,7 +314,7 @@ export function PlatformVariants({ p, lang }: { p: Project; lang: Lang }) {
                   key={displayed.package_id + v.platform}
                 >
                   <h3>{names[v.platform]}</h3>
-                  <p>{v.rationale[lang]}</p>
+                  <p>{v.rationale[contentLanguage(lang)]}</p>
                   <video
                     controls
                     playsInline

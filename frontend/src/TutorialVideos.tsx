@@ -1,3 +1,4 @@
+import { translate, contentLanguage } from './locale';
 import { useRef, useState } from "react";
 import type { Lang } from "./types";
 import content from "./tutorial-content.json";
@@ -13,11 +14,11 @@ export function TutorialVideos({
   );
   const video = useRef<HTMLVideoElement>(null);
   const pendingSeek = useRef<{asset: string; time: number} | null>(null);
-  const t = (en: string, zh: string) => (lang === "zh" ? zh : en);
+  const t = (en: string, zh: string) => translate(lang, en, zh);
   const full = mode === "walkthrough";
   const duration = (seconds: number) => `${Math.floor(Math.round(seconds) / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`;
   const info = content[lang][mode];
-  const asset = `/tutorial/lumen-${mode}-${lang}-v5`;
+  const asset = `/tutorial/lumen-${mode}-${contentLanguage(lang)}-v5`;
   return (
     <section
       className={
@@ -45,10 +46,10 @@ export function TutorialVideos({
         aria-label={t("Choose a guide", "选择指南")}
       >
         <button aria-pressed={!full} onClick={() => setMode("guide")}>
-          {t("Product presentation", "产品介绍")} · {duration(content[lang].guide.seconds)}
+          {t("Product presentation", "产品介绍")} · {duration(content[contentLanguage(lang)].guide.seconds)}
         </button>
         <button aria-pressed={full} onClick={() => setMode("walkthrough")}>
-          {t("Full video guide", "完整操作指南")} · {duration(content[lang].walkthrough.seconds)}
+          {t("Full video guide", "完整操作指南")} · {duration(content[contentLanguage(lang)].walkthrough.seconds)}
         </button>
       </div>
       <video
@@ -74,8 +75,8 @@ export function TutorialVideos({
         <track
           kind="captions"
           src={asset + ".vtt"}
-          srcLang={lang}
-          label={lang === "zh" ? "简体中文" : "English"}
+          srcLang={contentLanguage(lang)}
+          label={contentLanguage(lang) === "zh" ? "简体中文" : "English"}
         />
       </video>
       <div className="tutorial-links">

@@ -1,10 +1,11 @@
+import { translate } from './locale';
 import {useState} from 'react';
 import {alignedOffset} from './musicTiming';
 import type {Asset} from './MediaLibrary';
 import type {Lang} from './types';
 export type Music={asset_id:string;source_start:number;gain_db:number;fade_in:number;fade_out:number;duck:boolean;loop_fade_ms?:number;locked?:boolean;levels?:{at:number;gain_db:number}[]};
 export function MusicEditor({value,assets,lang,disabled,onChange,pid,onAnalyzed,firstCut}:{pid:string;onAnalyzed:()=>Promise<void>;firstCut:number|null;value:Music|null;assets:Asset[];lang:Lang;disabled:boolean;onChange:(v:Music|null)=>void}){
- const t=(en:string,zh:string)=>lang==='zh'?zh:en;
+ const t=(en: string, zh: string) => translate(lang, en, zh);
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
  const selected=assets.find(a=>a.id===value?.asset_id),rhythm=selected?.metadata.rhythm;
  const offset=value&&rhythm&&firstCut!==null?alignedOffset(rhythm.accents,selected!.metadata.duration,firstCut,value.source_start):null;

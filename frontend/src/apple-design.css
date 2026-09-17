@@ -159,3 +159,10 @@ input[type=checkbox], input[type=radio], input[type=range] { accent-color: #0071
 @media(min-width:1051px) { .director-player { top:86px; } }
 .director-project [role=alert] { color:#922d21; background:#fff1ed; border:1px solid #edc1b8; border-radius:10px; padding:12px 14px; }
 .media-library audio { max-width:100%; }
+
+/* All three interface languages remain directly selectable on desktop and mobile. */
+.locale-select { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: inherit; }
+.locale-select select { min-width: 106px; width: auto; max-width: 180px; padding: 8px 25px 8px 8px; font: inherit; font-size: 13px; color: inherit; background-color: transparent; border: 1px solid var(--line, #d9dde4); border-radius: 8px; }
+.sidebar-footer .locale-select { width: 100%; margin-bottom: 12px; }
+.sidebar-footer .locale-select select { flex: 1; }
+@media (max-width: 600px) { .topbar-right .edition { display: none; } .topbar-right .locale-select { gap: 4px; } .topbar-right .locale-select select { min-width: 96px; max-width: 120px; } }

@@ -1,3 +1,5 @@
+import { LanguageSelect } from './LanguageSelect';
+import { translate, contentLanguage, readLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
 import { TutorialVideos } from "./TutorialVideos";
 import React, {
@@ -116,7 +118,7 @@ function ErrorBox({ error }: { error: string }) {
 }
 function App() {
   const [lang, setLang] = useState<Lang>(
-    (localStorage.getItem("lumen_language") as Lang) === "zh" ? "zh" : "en",
+    readLanguage(localStorage.getItem("lumen_language")),
   );
   const t = (k: string) => (words[lang] as Record<string, string>)[k] || k;
   const [user, setUser] = useState<{ email: string } | null>(null),
@@ -240,7 +242,7 @@ function App() {
             <div className="workspace-name">
               <span className="workspace-avatar">L</span>
               <div>
-                Lumen Workspace<small>{t("private")}</small>
+                {translate(lang, "Lumen Workspace", "Lumen Workspace")}<small>{t("private")}</small>
               </div>
               <LockKeyhole size={13} />
             </div>
@@ -251,7 +253,7 @@ function App() {
               <Plus size={18} />
               {t("newProject")}
             </button>
-            <div className="nav-label">WORKSPACE</div>
+            <div className="nav-label">{translate(lang, "WORKSPACE", "WORKSPACE")}</div>
             <nav>
               {[
                 ["studio", ScanLine],
@@ -283,14 +285,7 @@ function App() {
               <small>{t("draftDesc")}</small>
             </div>
             <div className="sidebar-footer">
-              <button
-                className="language-button"
-                onClick={() => setLang(lang === "en" ? "zh" : "en")}
-              >
-                <Globe size={16} />
-                {lang === "en" ? "English" : "简体中文"}
-                <span>{lang === "en" ? "中文" : "EN"}</span>
-              </button>
+              <LanguageSelect lang={lang} onChange={setLang} />
               <div className="account">
                 <div className="avatar">{user.email[0].toUpperCase()}</div>
                 <span title={user.email}>{user.email}</span>
@@ -322,13 +317,7 @@ function App() {
               </div>
               <div className="topbar-right">
                 <span className="edition">STUDIO / 01</span>
-                <button
-                  className="icon"
-                  aria-label={t("language")}
-                  onClick={() => setLang(lang === "en" ? "zh" : "en")}
-                >
-                  <Globe size={18} />
-                </button>
+                <LanguageSelect lang={lang} onChange={setLang} />
               </div>
             </header>
             {error && (
@@ -446,7 +435,7 @@ function Auth({
           <span>lumen.</span>
         </div>
         <div className="auth-copy">
-          <span className="eyebrow">VIDEO INTELLIGENCE STUDIO</span>
+          <span className="eyebrow">{translate(lang, "VIDEO INTELLIGENCE STUDIO", "VIDEO INTELLIGENCE STUDIO")}</span>
           <h1>{t("welcome")}</h1>
           <p>{t("authDesc")}</p>
         </div>
@@ -460,39 +449,27 @@ function Auth({
           <i className="orbit-dot" />
         </div>
         <footer>
-          ENGLISH &nbsp; / &nbsp; 中文<span>01 — SEE THE POSSIBILITIES</span>
+          ENGLISH &nbsp; / &nbsp; 中文 &nbsp; / &nbsp; РУССКИЙ<span>{translate(lang, "01 — SEE THE POSSIBILITIES", "01 — SEE THE POSSIBILITIES")}</span>
         </footer>
       </section>
       <section className="auth-form">
-        <button
-          className="language-button auth-lang"
-          onClick={() => setLang(lang === "en" ? "zh" : "en")}
-        >
-          <Globe size={17} />
-          {lang === "en" ? "中文" : "English"}
-        </button>
+        <LanguageSelect lang={lang} onChange={setLang} className="auth-lang" />
         <form
           onSubmit={(e) => {
             e.preventDefault();
             if (ready) window.location.assign("/api/auth/google");
           }}
         >
-          <span className="eyebrow">LUMEN WORKSPACE</span>
+          <span className="eyebrow">{translate(lang, "LUMEN WORKSPACE", "LUMEN WORKSPACE")}</span>
           <h2>{t("signIn")}</h2>
           <p>
-            {lang === "en"
-              ? "A private workspace. Sign in with your approved Google account."
-              : "私人工作空间。请使用已获授权的 Google 帐号登录。"}
+            {translate(lang, "A private workspace. Sign in with your approved Google account.", "私人工作空间。请使用已获授权的 Google 帐号登录。")}
           </p>
           {authError && (
             <p role="alert">
-              {lang === "en"
-                ? authError === "access_denied"
-                  ? "This Google account does not have access. Choose an approved account."
-                  : "Google sign-in could not be completed. Please try again."
-                : authError === "access_denied"
-                  ? "此 Google 帐号没有访问权限。请选择已获授权的帐号。"
-                  : "Google 登录未完成，请重试。"}
+              {authError === "access_denied"
+                ? translate(lang, "This Google account does not have access. Choose an approved account.", "此 Google 帐号没有访问权限。请选择已获授权的帐号。")
+                : translate(lang, "Google sign-in could not be completed. Please try again.", "Google 登录未完成，请重试。")}
             </p>
           )}
           <button className="primary" disabled={!ready}>
@@ -501,16 +478,14 @@ function Auth({
             ) : (
               <>
                 <span aria-hidden="true">G</span>
-                {lang === "en" ? "Continue with Google" : "使用 Google 登录"}
+                {translate(lang, "Continue with Google", "使用 Google 登录")}
                 <ArrowRight size={18} />
               </>
             )}
           </button>
           {loaded && !ready && (
             <p role="status">
-              {lang === "en"
-                ? "Google sign-in is being configured. Please check back shortly."
-                : "Google 登录正在配置中，请稍后再试。"}
+              {translate(lang, "Google sign-in is being configured. Please check back shortly.", "Google 登录正在配置中，请稍后再试。")}
             </p>
           )}
         </form>
@@ -547,7 +522,7 @@ function Home({
       <DouyinSearch lang={lang} onImported={open} />
       <section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow">LUMEN VIDEO STUDIO</span>
+          <span className="eyebrow">{translate(lang, "LUMEN VIDEO STUDIO", "LUMEN VIDEO STUDIO")}</span>
           <h1>{t("hero")}</h1>
           <p>{t("intro")}</p>
           <div className="hero-caption">
@@ -666,8 +641,8 @@ function Home({
         )}
       </section>
       <footer className="page-footer">
-        <span>LUMEN / VIDEO INTELLIGENCE</span>
-        <span>ENGLISH · 中文</span>
+        <span>{translate(lang, "LUMEN / VIDEO INTELLIGENCE", "LUMEN / VIDEO INTELLIGENCE")}</span>
+        <span>ENGLISH · 中文 · РУССКИЙ</span>
       </footer>
     </div>
   );
@@ -699,7 +674,7 @@ function ProjectCard({ p, onClick }: { p: Summary; onClick: () => void }) {
         <div className="project-card-meta">
           <span>
             {new Date(p.created * 1000).toLocaleDateString(
-              lang === "zh" ? "zh-CN" : "en-GB",
+              lang === "ru" ? "ru-RU" : lang === "zh" ? "zh-CN" : "en-GB",
               { month: "short", day: "numeric" },
             )}{" "}
             · {p.language.toUpperCase()}
@@ -724,7 +699,7 @@ function Library({
   open: (id: string) => void;
   newProject: () => void;
 }) {
-  const { t } = useL();
+  const { t, lang } = useL();
   const [q, setQ] = useState("");
   const filtered = items.filter((p) =>
     p.title.toLowerCase().includes(q.toLowerCase()),
@@ -733,7 +708,7 @@ function Library({
     <div className="page library">
       <div className="section-title">
         <div>
-          <span className="eyebrow">LUMEN LIBRARY</span>
+          <span className="eyebrow">{translate(lang, "LUMEN LIBRARY", "LUMEN LIBRARY")}</span>
           <h1>
             {t("library")}
             <span className="count">{items.length}</span>
@@ -851,7 +826,7 @@ function UploadModal({
     >
       <div className="modal-header">
         <div>
-          <span className="eyebrow">A NEW STORY</span>
+          <span className="eyebrow">{translate(lang, "A NEW STORY", "A NEW STORY")}</span>
           <h2>{t("newProject")}</h2>
         </div>
         <button
@@ -917,7 +892,7 @@ function UploadModal({
           <div className="form-row">
             <label>
               {t("outputLang")}
-              <select name="language" defaultValue={lang} disabled={busy}>
+              <select name="language" defaultValue={contentLanguage(lang)} disabled={busy}>
                 <option value="en">English</option>
                 <option value="zh">简体中文</option>
               </select>
@@ -1022,7 +997,7 @@ function RecommendationCard({
     <article className={"recommendation " + (checked ? "chosen" : "")}>
       <div className="rec-top">
         <input
-          aria-label={r.title[lang]}
+          aria-label={r.title[contentLanguage(lang)]}
           type="checkbox"
           checked={checked}
           disabled={disabled}
@@ -1038,14 +1013,14 @@ function RecommendationCard({
       </div>
       <details>
         <summary>
-          <h3>{r.title[lang]}</h3>
+          <h3>{r.title[contentLanguage(lang)]}</h3>
           <ChevronDown size={18} />
         </summary>
         <div className="rec-details">
           <span className="detail-label">{t("evidence")}</span>
-          <p>{r.evidence[lang]}</p>
+          <p>{r.evidence[contentLanguage(lang)]}</p>
           <span className="detail-label">{t("improvement")}</span>
-          <p>{r.improvement[lang]}</p>
+          <p>{r.improvement[contentLanguage(lang)]}</p>
           <button className="text-button" onClick={() => seek(r.start)}>
             <Play size={14} />
             {t("seek")}
@@ -1287,7 +1262,7 @@ function ProjectView({
                   a.scenes.map((s, i) => (
                     <button
                       key={i}
-                      title={`${fmt(s.start)} · ${s.title[lang]}`}
+                      title={`${fmt(s.start)} · ${s.title[contentLanguage(lang)]}`}
                       onClick={() => seek(s.start)}
                       style={{
                         left: `${(s.start / duration) * 100}%`,
@@ -1379,13 +1354,13 @@ function ProjectView({
               {p.result.qa?.issues.map((v, i) => (
                 <p className="qa-issue" key={i}>
                   <AlertCircle size={15} />
-                  {v[lang]}
+                  {v[contentLanguage(lang)]}
                 </p>
               ))}
               {p.result.qa?.observations.map((v, i) => (
                 <p key={i}>
                   <Check size={14} />
-                  {v[lang]}
+                  {v[contentLanguage(lang)]}
                 </p>
               ))}
               {!p.result.qa && <p>{t("reviewUnavailableDesc")}</p>}
@@ -1460,7 +1435,7 @@ function ProjectView({
           ) : tab === "recommendations" ? (
             <>
               <div className="inspector-intro">
-                <span className="eyebrow">THE NEXT CUT</span>
+                <span className="eyebrow">{translate(lang, "THE NEXT CUT", "THE NEXT CUT")}</span>
                 <h2>{t("editPlan")}</h2>
                 <p>{t("editDesc")}</p>
                 <button
@@ -1529,14 +1504,14 @@ function ProjectView({
             </>
           ) : tab === "overview" ? (
             <div className="overview-content">
-              <span className="eyebrow">THE BIG PICTURE</span>
+              <span className="eyebrow">{translate(lang, "THE BIG PICTURE", "THE BIG PICTURE")}</span>
               <h2>{t("overview")}</h2>
-              <p className="analysis-summary">{a.summary[lang]}</p>
+              <p className="analysis-summary">{a.summary[contentLanguage(lang)]}</p>
               <div className="insight green">
                 <Lightbulb size={20} />
                 <div>
                   <h3>{t("strongest")}</h3>
-                  <p>{a.strongest_moment[lang]}</p>
+                  <p>{a.strongest_moment[contentLanguage(lang)]}</p>
                 </div>
               </div>
               <h3 className="subheading">{t("editorial")}</h3>
@@ -1552,7 +1527,7 @@ function ProjectView({
                       <strong>{s.value}</strong>
                       <ChevronDown size={14} />
                     </summary>
-                    <p>{s.reason[lang]}</p>
+                    <p>{s.reason[contentLanguage(lang)]}</p>
                   </details>
                 ))}
               </div>
@@ -1560,7 +1535,7 @@ function ProjectView({
                 <Target size={20} />
                 <div>
                   <h3>{t("audience")}</h3>
-                  <p>{a.audience[lang]}</p>
+                  <p>{a.audience[contentLanguage(lang)]}</p>
                 </div>
               </div>
               {a.uncertainties.length > 0 && (
@@ -1570,7 +1545,7 @@ function ProjectView({
                     {t("uncertainties")}
                   </h3>
                   {a.uncertainties.map((u, i) => (
-                    <p key={i}>{u[lang]}</p>
+                    <p key={i}>{u[contentLanguage(lang)]}</p>
                   ))}
                 </div>
               )}
@@ -1587,8 +1562,8 @@ function ProjectView({
                     <span className="scene-meta">
                       {fmt(s.start)}—{fmt(s.end)} <b>{t(s.role)}</b>
                     </span>
-                    <h3>{s.title[lang]}</h3>
-                    <p>{s.observation[lang]}</p>
+                    <h3>{s.title[contentLanguage(lang)]}</h3>
+                    <p>{s.observation[contentLanguage(lang)]}</p>
                   </div>
                   <Play size={16} />
                 </button>
@@ -1610,8 +1585,8 @@ function ProjectView({
                   >
                     <span>{fmt(c.start)}</span>
                     <div>
-                      <p>{c[lang]}</p>
-                      {c.original !== c[lang] && <small>{c.original}</small>}
+                      <p>{c[contentLanguage(lang)]}</p>
+                      {c.original !== c[contentLanguage(lang)] && <small>{c.original}</small>}
                     </div>
                   </button>
                 ))
@@ -1649,7 +1624,7 @@ function Confirm({
   onClose: () => void;
   onConfirm: () => Promise<void>;
 }) {
-  const { t } = useL();
+  const { t, lang } = useL();
   const ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -1679,7 +1654,7 @@ function Confirm({
   );
 }
 function Workspace() {
-  const { t } = useL();
+  const { t, lang } = useL();
   const [caps, setCaps] = useState<{
     analysis: boolean;
     generation: boolean;
@@ -1694,7 +1669,7 @@ function Workspace() {
   }, []);
   return (
     <div className="page settings-page">
-      <span className="eyebrow">LUMEN WORKSPACE</span>
+      <span className="eyebrow">{translate(lang, "LUMEN WORKSPACE", "LUMEN WORKSPACE")}</span>
       <h1>{t("settings")}</h1>
       <p className="muted">{t("workspaceDesc")}</p>
       {error && <ErrorBox error={error} />}

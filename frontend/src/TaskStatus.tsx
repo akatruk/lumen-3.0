@@ -1,3 +1,4 @@
+import { translate } from './locale';
 import {useEffect,useState,type ReactNode} from 'react';
 import type {Lang} from './types';
 export function statusTone(status:string){
@@ -16,7 +17,7 @@ export function TaskProgress({title,percent,detail}:{title:string;percent?:numbe
  return <div className="task-progress" role="status" aria-live="polite"><div className="task-progress-heading"><StatusBadge status="processing">{title}</StatusBadge>{value!==undefined&&<strong>{value}%</strong>}</div><div className={`task-progress-track ${value===undefined?'is-indeterminate':''}`} role="progressbar" aria-label={title} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}><i style={value===undefined?undefined:{width:`${value}%`}}/></div>{detail&&<p>{detail}</p>}</div>
 }
 export function UploadProgress({percent,lang,bytes,total,mbps}:{percent:number;lang:Lang;bytes?:number;total?:number;mbps?:number}){
- const t=(en:string,zh:string)=>lang==='zh'?zh:en;
+ const t=(en: string, zh: string) => translate(lang, en, zh);
  const [lastChange,setLastChange]=useState(Date.now()),[now,setNow]=useState(Date.now());
  useEffect(()=>{setLastChange(Date.now())},[percent,bytes]);
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer)},[]);

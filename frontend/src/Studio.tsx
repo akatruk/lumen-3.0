@@ -1,3 +1,4 @@
+import { translate, contentLanguage } from './locale';
 import { Dubbing } from './Dubbing';
 import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
 import {StatusBadge,TaskProgress,UploadProgress} from './TaskStatus';
@@ -114,10 +115,10 @@ const labels: Record<string, [string, string]> = {
   ],
 };
 function message(code: string, lang: Lang) {
-  return (labels[code] || [
+  return translate(lang, ...(labels[code] || [
     "The operation failed. Try again; your source is preserved.",
     "操作失败，请重试。原始素材已保留。",
-  ])[lang === "zh" ? 1 : 0];
+  ]) as [string, string]);
 }
 async function request(path: string, init?: RequestInit) {
   const r = await fetch("/api" + path, init);
@@ -147,8 +148,7 @@ export function StudioCreate({
   userKey: string;
   onCreated: (id: string) => void;
 }) {
-  const zh = lang === "zh",
-    t = (en: string, cn: string) => (zh ? cn : en);
+  const t = (en: string, cn: string) => translate(lang, en, cn);
   const cache = "lumen-reference-draft:" + userKey;
   const [refs, setRefs] = useState<Hit[]>(() => {
     try {
@@ -223,7 +223,7 @@ export function StudioCreate({
   return (
     <div className="director-create page">
       <header className="director-intro">
-        <span className="eyebrow">LUMEN / DIRECTOR STUDIO</span>
+        <span className="eyebrow">{translate(lang, "LUMEN / DIRECTOR STUDIO", "LUMEN / DIRECTOR STUDIO")}</span>
         <h1>
           {t(
             "Learn the technique. Tell your story.",
@@ -367,7 +367,7 @@ export function StudioCreate({
               </label>
               <label>
                 {t("Caption language", "字幕语言")}
-                <select name="language" defaultValue={lang}>
+                <select name="language" defaultValue={contentLanguage(lang)}>
                   <option value="en">English</option>
                   <option value="zh">简体中文</option>
                 </select>
@@ -518,7 +518,7 @@ export function DirectorProject({
   onBack: () => void;
   onRefresh: () => Promise<void>;
 }) {
-  const t = (en: string, zh: string) => (lang === "zh" ? zh : en);
+  const t = (en: string, zh: string) => translate(lang, en, zh);
   const [state, setState] = useState<State | null>(null),
     [decisions, setDecisions] = useState<Decision[]>([]),
     [dirty, setDirty] = useState(false),
@@ -691,7 +691,7 @@ export function DirectorProject({
       </button>
       <header className="director-project-header">
         <div>
-          <span className="eyebrow">DIRECTOR STUDIO</span>
+          <span className="eyebrow">{translate(lang, "DIRECTOR STUDIO", "DIRECTOR STUDIO")}</span>
           <h1>{p.title}</h1>
           <p>
             {t(
@@ -716,6 +716,7 @@ export function DirectorProject({
           <button onClick={() => setError("")}>{t("Dismiss", "关闭")}</button>
         </p>
       )}
+      {lang === 'ru' && <p className="muted">{t('Generated analysis is displayed in English.','AI 分析文本以英语显示。')}</p>}
       <Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} />
       <div className="director-layout">
         <section className="director-player">
@@ -802,18 +803,18 @@ export function DirectorProject({
                   : t("This cut needs human review.", "此版本需要人工复核。")}
               </p>
               {p.result.quality_score!==undefined&&<p><strong>{t('AI editorial score','AI 编辑评分')}: {p.result.quality_score}/100</strong> · {t('Review target: 75. This is not an engagement prediction.','审核目标：75。此分数不预测传播效果。')}</p>}
-              {p.result.qa?.scores?.map(score=><p key={score.category}>{score.category}: {score.value}/100 · {score.reason[lang]}</p>)}
-              {p.result.qa?.revisions?.map((revision,i)=><p key={`revision-${i}`}><strong>{t('Suggested correction','建议修改')}:</strong> {revision[lang]}</p>)}
+              {p.result.qa?.scores?.map(score=><p key={score.category}>{score.category}: {score.value}/100 · {score.reason[contentLanguage(lang)]}</p>)}
+              {p.result.qa?.revisions?.map((revision,i)=><p key={`revision-${i}`}><strong>{t('Suggested correction','建议修改')}:</strong> {revision[contentLanguage(lang)]}</p>)}
               {p.result.quality_comparison&&<section className="director-card"><h3>{t('Compared with the previous render','与上一版成片比较')}</h3>{p.result.quality_comparison.comparable?<><p><strong>{p.result.quality_comparison.previous_score} → {p.result.quality_comparison.current_score}/100</strong> · {t('Score change','评分变化')}: {(p.result.quality_comparison.delta||0)>0?'+':''}{p.result.quality_comparison.delta}</p><table><thead><tr><th>{t('Criterion','指标')}</th><th>{t('Previous','上一版')}</th><th>{t('Current','当前版')}</th><th>{t('Change','变化')}</th></tr></thead><tbody>{p.result.quality_comparison.categories?.map(c=><tr key={c.category}><td>{({hook:t('Hook','吸引力'),clarity:t('Clarity','清晰度'),pacing:t('Pacing','节奏'),visuals:t('Visuals','画面'),audio:t('Audio','声音')} as Record<string,string>)[c.category]||c.category}</td><td>{c.previous}</td><td>{c.current}</td><td style={{color:c.delta<0?'#9d2626':c.delta>0?'#166039':undefined}}>{c.delta>0?'+':''}{c.delta}</td></tr>)}</tbody></table>{!!p.result.quality_comparison.regressions?.length&&<p>{t('Some criteria scored lower. Check them before approving this version.','部分指标评分下降，请在批准此版本前检查。')}</p>}<small>{t('Separate AI reviews can vary. A higher score is not proof of a better edit or a prediction of engagement.','独立 AI 评估可能存在波动。更高评分不证明剪辑更好，也不预测传播效果。')}</small></>:<p>{t('Scores cannot be compared: one review is missing, or the evaluator/rubric is different or unknown.','无法比较评分：某版缺少评估，或评估模型、标准不同或未知。')}</p>}</section>}
               {p.result.quality_revision_id&&<p>{t('An improvement draft has been requested. Review it in Editing decisions from your Video DNA.','已请求生成改进草案，请在基于视频 DNA 的剪辑决策中审核。')}</p>}
               {p.result.quality_revision_blocked&&<p>{t('Drafting was skipped because decisions are locked or the plan changed. Review suggestions remain available.','因决策已锁定或计划已更改，未自动生成草案。您仍可查看改进建议。')}</p>}
               {p.result.qa?.issues.map((x, i) => (
-                <p key={i}>{x[lang]}</p>
+                <p key={i}>{x[contentLanguage(lang)]}</p>
               ))}
               <ul>
                 {p.result.applied.map((id) => (
                   <li key={id}>
-                    {(p.result?.plan_revision === state?.revision ? state?.plan?.recommendations.find((r) => r.id === id)?.title[lang] : null) || id}
+                    {(p.result?.plan_revision === state?.revision ? state?.plan?.recommendations.find((r) => r.id === id)?.title[contentLanguage(lang)] : null) || id}
                   </li>
                 ))}
               </ul>
@@ -828,7 +829,7 @@ export function DirectorProject({
             {[
               ["plan", t("Director Timeline", "剪辑计划")],
               ["manual", t("Manual editor", "手动剪辑")],
-              ["dna", "Video DNA"],
+              ["dna", t("Video DNA", "视频 DNA")],
               ["profile", t("Creator profile", "创作者风格")],
               ["platforms", t("Platform versions", "平台版本")],
             ].map(([key, label]) => (
@@ -893,14 +894,14 @@ export function DirectorProject({
                           preload="none"
                           src={`/api/studio/projects/${p.id}/references/${r.aweme_id}`}
                         />
-                        <p>{dna.analysis.summary[lang]}</p>
+                        <p>{dna.analysis.summary[contentLanguage(lang)]}</p>
                         {dna.analysis.shots.map((s, i) => (
                           <details key={i}>
                             <summary>
                               {s.start.toFixed(1)}–{s.end.toFixed(1)}s ·{" "}
-                              {s.observation[lang]}
+                              {s.observation[contentLanguage(lang)]}
                             </summary>
-                            <p>{s.reusable_method[lang]}</p>
+                            <p>{s.reusable_method[contentLanguage(lang)]}</p>
                             {Object.entries(s)
                               .filter(
                                 ([k, v]) =>
@@ -940,13 +941,13 @@ export function DirectorProject({
                                       )[k]
                                     }
                                   </strong>
-                                  : {(v as Text)[lang]}
+                                  : {(v as Text)[contentLanguage(lang)]}
                                 </p>
                               ))}
                           </details>
                         ))}
                         {dna.analysis.uncertainties.map((v, i) => (
-                          <p key={i}>{v[lang]}</p>
+                          <p key={i}>{v[contentLanguage(lang)]}</p>
                         ))}
                       </>
                     ) : (
@@ -978,7 +979,7 @@ export function DirectorProject({
                 </p>
               ) : (
                 <>
-                  <div className="director-card"><p>{state.plan.summary[lang]}</p><button className="secondary" onClick={()=>setSection("manual")}>{t("Open Director Timeline", "打开导演时间线")}</button></div>
+                  <div className="director-card"><p>{state.plan.summary[contentLanguage(lang)]}</p><button className="secondary" onClick={()=>setSection("manual")}>{t("Open Director Timeline", "打开导演时间线")}</button></div>
                   <CreativePlan onSave={dirty&&!working&&!busy?save:undefined} disabledReason={dirty?t("Save your plan changes to continue.","请先保存计划更改。") : t("Wait for the current task to finish.","请等待当前任务完成。")} initialStyle={state.context.creator.style} pid={p.id} revision={state.revision} lang={lang} disabled={dirty||working||busy} onApplied={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);setSection('manual');await onRefresh();}} />
                   <details className="cleanup-controls"><summary>{t('Additional cleanup controls','更多基础调整')}</summary>
                   <DirectorAlternatives onSave={dirty&&!working&&!busy?save:undefined} pid={p.id} revision={state.revision} recs={state.plan.recommendations} locked={decisions.filter(d=>d.locked).map(d=>d.id)} disabled={dirty||working||busy} lang={lang} onApplied={async()=>{const s=await request("/studio/projects/"+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} />
@@ -1001,13 +1002,13 @@ export function DirectorProject({
                         className="director-card director-decision"
                         key={r.id}
                       >
-                        <h3>{r.action==="normalize_audio"?t("Normalize overall audio loudness","统一整体音量"):r.title[lang]}</h3>
-                        <p>{r.action==="normalize_audio"?t("Adjusts overall mixed-track loudness. Does not separate or rebalance voice and music.","调整混合音轨的整体音量，不分离或重新平衡人声与音乐。"):r.improvement[lang]}</p>
+                        <h3>{r.action==="normalize_audio"?t("Normalize overall audio loudness","统一整体音量"):r.title[contentLanguage(lang)]}</h3>
+                        <p>{r.action==="normalize_audio"?t("Adjusts overall mixed-track loudness. Does not separate or rebalance voice and music.","调整混合音轨的整体音量，不分离或重新平衡人声与音乐。"):r.improvement[contentLanguage(lang)]}</p>
                         <p>
                           <strong>
                             {t("Evidence in your footage", "自有素材依据")}:
                           </strong>{" "}
-                          {r.evidence[lang]}
+                          {r.evidence[contentLanguage(lang)]}
                         </p>
                         {transfer && (
                           <details>
@@ -1017,8 +1018,8 @@ export function DirectorProject({
                                 "为什么采用此参考方法",
                               )}
                             </summary>
-                            <p>{transfer.method[lang]}</p>
-                            <p>{transfer.fit[lang]}</p>
+                            <p>{transfer.method[contentLanguage(lang)]}</p>
+                            <p>{transfer.fit[contentLanguage(lang)]}</p>
                             <a
                               href={
                                 state.context.references.find(

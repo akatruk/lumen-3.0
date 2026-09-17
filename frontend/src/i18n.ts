@@ -1,4 +1,5 @@
-export const words = {
+import { translateRecord } from './locale';
+const bilingualWords = {
   en: {
     studio: "Video studio",
     library: "Your projects",
@@ -487,4 +488,5 @@ export const words = {
     workspaceDesc: "你的创作工作空间已准备就绪。",
   },
 };
+export const words = { ...bilingualWords, ru: translateRecord('ru', bilingualWords.en, bilingualWords.zh) };
 export type Word = keyof typeof words.en;

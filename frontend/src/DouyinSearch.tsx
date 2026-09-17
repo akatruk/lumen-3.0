@@ -1,3 +1,4 @@
+import { translate, contentLanguage, translateRecord } from './locale';
 import { useState, useRef, useEffect } from "react";
 import {
   Search,
@@ -157,7 +158,7 @@ export function DouyinSearch({
   onSelect?: (hit: Hit) => void;
   selectedIds?: string[];
 }) {
-  const c = copy[lang];
+  const c = translateRecord(lang, copy.en, copy.zh);
   const [keyword, setKeyword] = useState(""),
     [sort, setSort] = useState("1"),
     [days, setDays] = useState("0"),
@@ -167,10 +168,10 @@ export function DouyinSearch({
     [selected, setSelected] = useState<Hit | null>(null);
   const submitted = useRef({ keyword: "", sort: "1", publish_time: 0 });
   const describe = (e: string) =>
-    (errors[e] || [
+    translate(lang, ...(errors[e] || [
       "Something went wrong. Please retry.",
       "操作失败，请重试。",
-    ])[lang === "zh" ? 1 : 0];
+    ]) as [string, string]);
   async function search(more = false) {
     setBusy(true);
     setError("");
@@ -210,8 +211,8 @@ export function DouyinSearch({
     <section className="douyin-search" aria-label={c.search}>
       <div className="douyin-heading">
         <span className="eyebrow">DOUYIN / 抖音</span>
-        <h2>{onSelect ? (lang === "zh" ? "寻找参考视频" : "Find your references") : c.title}</h2>
-        <p>{onSelect ? (lang === "zh" ? "选择值得借鉴的节奏、结构和画面表达。" : "Choose examples with useful pacing, structure and visual storytelling.") : c.intro}</p>
+        <h2>{onSelect ? (translate(lang, "Find your references", "寻找参考视频")) : c.title}</h2>
+        <p>{onSelect ? (translate(lang, "Choose examples with useful pacing, structure and visual storytelling.", "选择值得借鉴的节奏、结构和画面表达。")) : c.intro}</p>
       </div>
       <form
         className="douyin-query"
@@ -238,7 +239,7 @@ export function DouyinSearch({
         </button>
         <div className="douyin-filters">
           <select
-            aria-label={lang === "zh" ? "排序方式" : "Sort results"}
+            aria-label={translate(lang, "Sort results", "排序方式")}
             value={sort}
             onChange={(e) => setSort(e.target.value)}
             disabled={busy}
@@ -248,7 +249,7 @@ export function DouyinSearch({
             <option value="2">{c.latest}</option>
           </select>
           <select
-            aria-label={lang === "zh" ? "发布时间" : "Publication date"}
+            aria-label={translate(lang, "Publication date", "发布时间")}
             value={days}
             onChange={(e) => setDays(e.target.value)}
             disabled={busy}
@@ -305,7 +306,7 @@ export function DouyinSearch({
                   <div className="douyin-card-meta">
                     <span>
                       <Heart size={14} />
-                      {new Intl.NumberFormat(lang === "zh" ? "zh-CN" : "en", {
+                      {new Intl.NumberFormat(lang === "ru" ? "ru-RU" : lang === "zh" ? "zh-CN" : "en", {
                         notation: "compact",
                         maximumFractionDigits: 1,
                       }).format(hit.likes)}
@@ -328,12 +329,8 @@ export function DouyinSearch({
                   >
                     {onSelect
                       ? selectedIds.includes(hit.aweme_id)
-                        ? lang === "zh"
-                          ? "已添加"
-                          : "Added"
-                        : lang === "zh"
-                          ? "添加为参考"
-                          : "Add reference"
+                        ? translate(lang, "Added", "已添加")
+                        : translate(lang, "Add reference", "添加为参考")
                       : c.use}
                     <ArrowRight size={16} />
                   </button>
@@ -378,7 +375,7 @@ function ImportDialog({
   onImported: (id: string) => void;
   describe: (s: string) => string;
 }) {
-  const c = copy[lang],
+  const c = translateRecord(lang, copy.en, copy.zh),
     ref = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -454,7 +451,7 @@ function ImportDialog({
           <div className="douyin-import-options">
             <label>
               {c.language}
-              <select name="language" defaultValue={lang}>
+              <select name="language" defaultValue={contentLanguage(lang)}>
                 <option value="en">English</option>
                 <option value="zh">简体中文</option>
               </select>

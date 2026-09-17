@@ -1,3 +1,4 @@
+import { translate } from './locale';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Languages, Volume2, Download } from 'lucide-react';
 import type { Lang } from './types';
@@ -10,7 +11,7 @@ const names: Record<Language, string> = { ru: 'Русский', en: 'English', z
 const active = (v: Version) => !['ready', 'failed'].includes(v.status);
 
 export function Dubbing({ pid, lang, masterId }: { pid: string; lang: Lang; masterId?: string }) {
-  const t = (en: string, zh: string) => lang === 'zh' ? zh : en;
+  const t = (en: string, zh: string) => translate(lang, en, zh);
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Catalog | null>(null);
   const [language, setLanguage] = useState<Language>('ru');

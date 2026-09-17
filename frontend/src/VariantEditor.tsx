@@ -1,3 +1,4 @@
+import { translate } from './locale';
 import { useState } from "react";
 import type { Lang } from "./types";
 export type EditableVariant = {
@@ -27,7 +28,7 @@ export function VariantEditor({
   disabled: boolean;
   onAction: (action: string, data: Record<string, unknown>) => Promise<boolean>;
 }) {
-  const t = (en: string, zh: string) => (lang === "zh" ? zh : en);
+  const t = (en: string, zh: string) => translate(lang, en, zh);
   const [editing, setEditing] = useState(false),
     [draft, setDraft] = useState(v),
     [tags, setTags] = useState(v.hashtags.join(" "));
@@ -184,7 +185,7 @@ export function VariantEditor({
             <input value={tags} onChange={(e) => setTags(e.target.value)} />
           </label>
           <label>
-            CTA
+            {t('Call to action','行动号召')}
             <input
               required
               maxLength={160}
