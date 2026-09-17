@@ -74,6 +74,7 @@ export function ManualEditor({
     [selected, setSelected] = useState(0),
     [before, setBefore] = useState(false),
     [time, setTime] = useState(0);
+  const [matchRequest,setMatchRequest]=useState<{clipId:string;assetIds:string[];instruction:string;nonce:number}|null>(null);
   const [qualityReview,setQualityReview]=useState(true);
   const video = useRef<HTMLVideoElement>(null),
     pending = useRef<number | null>(null);
@@ -253,7 +254,7 @@ export function ManualEditor({
       <button className="secondary" disabled={blocked||dirty||edit.clips.some(c=>c.locked)} onClick={async()=>{setBusy(true);setError('');try{const r=await fetch(base+'/from-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision})});if(!r.ok)throw Error(t('Save or reload the latest plan first.','请先保存或重新加载最新计划。'));const data=await r.json();setEdit(data.edit);setDirty(true);setSelected(0);}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>{t('Build timeline from approved AI edits','根据已批准的 AI 改动建立时间线')}</button>
       <MediaLibrary pid={pid} lang={lang} assets={assets} onChanged={loadAssets}/>
       <MusicPlan pid={pid} revision={revision} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked||dirty||!!edit.music?.locked} onApplied={async()=>{sessionStorage.removeItem(draftKey);await load();await onSaved()}}/>
-      <StockLibrary pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[lang]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
+      <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[lang]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
       {edit.music&&<BeatPreview pid={pid} revision={revision} lang={lang} disabled={blocked||dirty} onPreview={value=>{setEdit(value);setDirty(true)}}/>}
       <MusicEditor pid={pid} onAnalyzed={loadAssets} firstCut={edit.clips.filter(c=>c.approved!==false).length>1?(()=>{const c=edit.clips.find(c=>c.approved!==false)!;return c.end-c.start})():null} value={edit.music||null} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked} onChange={music=>change({music})}/>
       <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={setSelected} />
@@ -396,7 +397,7 @@ export function ManualEditor({
           )}
         </p>
       </details>
-      <TimelineRegenerate assets={assets.filter(a=>a.metadata.kind!=='music')} pid={pid} revision={revision} clipId={clip.id} locked={clip.locked} disabled={blocked||dirty} lang={lang} onApplied={async()=>{sessionStorage.removeItem(draftKey);await load();await onSaved()}} />
+      <TimelineRegenerate matchRequest={matchRequest} assets={assets.filter(a=>a.metadata.kind!=='music')} pid={pid} revision={revision} clipId={clip.id} locked={clip.locked} disabled={blocked||dirty} lang={lang} onApplied={async()=>{sessionStorage.removeItem(draftKey);await load();await onSaved()}} />
       <div className="manual-preview">
         <div className="manual-actions">
           <strong>
