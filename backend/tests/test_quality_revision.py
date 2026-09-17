@@ -26,4 +26,27 @@ def test_low_quality_drafts_preserve_render_and_respect_locks(client,monkeypatch
     with connect() as db:
         drafts=db.execute('SELECT * FROM creative_plans WHERE project_id=?',(pid,)).fetchall()
     assert len(drafts)==1 and current['quality_revision_id']==drafts[0]['id']
-    assert json.loads(drafts[0]['snapshot'])['current_edit']==edit
+    snapshot=json.loads(drafts[0]['snapshot'])
+    assert snapshot['current_edit']==edit
+    assert snapshot['quality_feedback']['revisions']==[T]
+    assert snapshot['quality_feedback']['render_id']=='a'*32
+    assert snapshot['quality_feedback']['output_timeline']['tracks']['video'][0]['locked']==locked
+    listed=client.get(f'/api/studio/projects/{pid}/creative-plans').json()[0]
+    assert listed['quality_revisions']==[T]
+
+
+def test_quality_feedback_coverage_rejects_missing_duplicate_and_invented_items():
+    from backend import creative_plans as creative
+    from backend.tests.test_creative_plans import proposal
+    value=proposal();feedback={'revisions':[T,T]}
+    with pytest.raises(ValueError,match='provider_invalid_analysis'):
+        creative.validate_quality_reviews(value,feedback)
+    row=lambda index:creative.QualityRevisionReview(revision_index=index,outcome='not_applied',reason=T)
+    for indices in ([0,0],[0,2],[0]):
+        value.quality_revision_reviews=[row(i) for i in indices]
+        with pytest.raises(ValueError):creative.validate_quality_reviews(value,feedback)
+    value.quality_revision_reviews=[row(0),row(1)]
+    creative.validate_quality_reviews(value,feedback)
+    with pytest.raises(ValueError):creative.validate_quality_reviews(value,None)
+    value.quality_revision_reviews=[]
+    creative.validate_quality_reviews(value,None)

@@ -35,7 +35,12 @@ class RecommendationReview(Strict):
     recommendation_id:str
     outcome:Literal['implemented','not_applied']
     reason:Text
+class QualityRevisionReview(Strict):
+    revision_index:int=Field(ge=0,le=7)
+    outcome:Literal['addressed','not_applied']
+    reason:Text
 class Proposal(Strict):
+    quality_revision_reviews:list[QualityRevisionReview]=Field(default_factory=list,max_length=8)
     recommendation_reviews:list[RecommendationReview]=Field(default_factory=list,max_length=12)
     decisions:list[CreativeDecision]=Field(default_factory=list,max_length=40)
     reason:Text
@@ -54,6 +59,7 @@ def listing(pid:str,user=Depends(current_user)):
         items=[dict(r)|{'result':json.loads(r['result']) if r['result'] else None} for r in db.execute('SELECT id,revision,status,result,error,snapshot FROM creative_plans WHERE project_id=? ORDER BY created DESC LIMIT 10',(pid,))]
     for item in items:
         snapshot=json.loads(item.pop('snapshot'))
+        item['quality_revisions']=(snapshot.get('quality_feedback') or {}).get('revisions',[])
         if item['result']:
             item['style_audit']=measure(Edit.model_validate(item['result']['edit']),snapshot.get('style',snapshot.get('context',{}).get('creator',{}).get('style',{})))
             item['audit']=audit_edit(Edit.model_validate(item['result']['edit']),p['metadata']['duration'])
@@ -70,12 +76,13 @@ def generate(pid:str,body:Generate,request:Request,user=Depends(current_user)):
         ident=queue_plan(db,pid,s,body.instruction,body.style)
     return {'id':ident}
 
-def queue_plan(db,pid,state,instruction='',style=None):
+def queue_plan(db,pid,state,instruction='',style=None,quality_feedback=None):
     ident=uuid.uuid4().hex
     snapshot={'context':state['context'],'dna':state['dna'],'analysis':state['plan'],'instruction':instruction,'decision_evidence':True,'review_recommendations':True}
     snapshot['style']=(style or Style.model_validate(state['context'].get('creator',{}).get('style',{}))).model_dump()
     snapshot['editorial_brief']=brief(snapshot['style'])
     current=read(pid,db)
+    snapshot['quality_feedback']=quality_feedback
     snapshot['saved_music']=(current or {}).get('music')
     snapshot['current_edit']=current
     db.execute('INSERT INTO creative_plans VALUES(?,?,?,?,?,?,?,?)',(ident,pid,state['revision'],json.dumps(snapshot,ensure_ascii=False),'queued',None,None,time.time()))
@@ -121,6 +128,15 @@ def validate_recommendation_reviews(result,analysis):
             error=ValueError('provider_invalid_analysis')
             error.feedback=f'Recommendation {rec["id"]} claims implemented, but its {action} operation is absent from edit. Implement it safely or mark not_applied and explain the constraint; do not add unsafe edits merely to pass validation.'
             raise error
+
+
+def validate_quality_reviews(result,feedback):
+    expected=set(range(len((feedback or {}).get('revisions',[]))))
+    rows=result.quality_revision_reviews
+    if len(rows)!=len(expected) or {r.revision_index for r in rows}!=expected:
+        error=ValueError('provider_invalid_analysis')
+        error.feedback='Return exactly one quality_revision_reviews entry for each quality_feedback.revisions index, with outcome addressed or not_applied and a specific bilingual reason. Return [] if there is no quality feedback.'
+        raise error
 
 
 def preserve_locked(result,current):
@@ -193,6 +209,7 @@ def run_job(p,payload):
         validate(result,duration,speech,snapshot.get('saved_music'),snapshot.get('current_edit'))
         if snapshot.get('decision_evidence'):validate_evidence(result,snapshot['dna'])
         if snapshot.get('review_recommendations'):validate_recommendation_reviews(result,snapshot['analysis'])
+        validate_quality_reviews(result,snapshot.get('quality_feedback'))
     prompt='''Build a COMPLETE EXECUTABLE Director Timeline for the owned video. This is a whole edit, not a list of trim suggestions.
 For EACH output clip return exactly one decisions entry with zero-based clip_index, a specific bilingual title,
 observable problem/opportunity in OWNED footage (observation), the concrete executable change matching actual clip fields (change),
@@ -208,6 +225,13 @@ verifiable improvements over many preservation decisions. If no supported change
 honestly in notes; do not force decorative effects or imply unavailable music or footage has been added.
 Compare hook, narrative structure, pace, framing, visual support, captions and audio to DNA. Choose appropriate substantive edits,
 not a generic list of trims and loudness normalization. Do not add effects merely to fill categories. Explain limitations in notes.
+When quality_feedback is present, resolve each quality_feedback.revisions item, indexed from zero.
+Return quality_revision_reviews with exactly one entry per item: addressed only when the proposed executable edit
+actually remedies it, otherwise not_applied with the precise reason (locked shot, preserved caption correction,
+missing asset, unsupported audio operation, or uncertainty). State the change and source/output location in reason.
+These are proposed fixes, not verified improvements: another rendered review is needed. Never claim a fixed defect
+from an unchanged label. Use quality_feedback.output_timeline for output-to-source mapping; render_timeline is legacy source ranges.
+No quality_feedback means quality_revision_reviews=[]. Prioritize final-render defects over initial suggestions when they conflict.
 First resolve the diagnosed problems in analysis.recommendations, using scores, strongest_moment and reference transfers to prioritize.
 Return recommendation_reviews with exactly one entry for EVERY recommendation id: outcome implemented or not_applied,
 and a concise bilingual reason. An implemented remove must exclude the ENTIRE suggested source interval from both clips and cutaways;
@@ -260,6 +284,7 @@ def accept(pid:str,ident:str,body:Accept,user=Depends(current_user)):
         result=validate(Proposal.model_validate_json(row['result']),p['metadata']['duration'],saved_music=snapshot.get('saved_music'),current=current)
         if snapshot.get('decision_evidence'):validate_evidence(result,snapshot['dna'])
         if snapshot.get('review_recommendations'):validate_recommendation_reviews(result,snapshot['analysis'])
+        validate_quality_reviews(result,snapshot.get('quality_feedback'))
         from .assets import validate as validate_assets
         validate_assets(result.edit,pid,db)
         db.execute('INSERT INTO studio_manual(project_id,config) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET config=excluded.config',(pid,result.edit.model_dump_json()))
