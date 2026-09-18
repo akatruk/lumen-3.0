@@ -55,6 +55,18 @@ await test('AI soundtrack select and apply',async({page,button,tool,expand,write
 await test('upload music shortcut and media upload',async({page,button,tool,expand,writes})=>{
  await tool('Audio');await expand();await button('Upload music').click();assert.equal(await button('Materials',page.locator('.ws-tools')).getAttribute('aria-pressed'),'true');const lib=page.locator('.media-library');await page.waitForFunction(()=>document.querySelector('.media-library select')?.value==='music');await lib.locator('input[type=file]').setInputFiles({name:'qa.wav',mimeType:'audio/wav',buffer:Buffer.from('qa fixture')});await lib.getByLabel('Source / license attribution').fill('QA owned');await lib.getByLabel('I have permission to use this footage.').check();await button('Upload to library',lib).click();await page.getByText('Uploaded successfully — ready to use').waitFor();assert(writes.some(w=>w.path.endsWith('/upload/asset')));
 });
+await test('voiceover becomes persistent final output',async({page,button,tool,data,writes})=>{
+ await tool('Audio');const versions=page.locator('.dubbing-version');
+ assert(await button('Use in final video',versions.nth(1)).isDisabled());
+ await button('Use in final video',versions.first()).click();
+ assert(writes.some(w=>w.path.endsWith('/dubbing/final')&&w.body.version_id==='c'.repeat(32)));
+ await page.waitForFunction(()=>document.querySelector('.ws-ready-player video')?.getAttribute('src')?.includes('/dubbing/'));
+ assert.match(await page.locator('.ws-preview-heading').innerText(),/Finished video.*Russian male/);
+ await page.reload();await page.locator('.ws-ready-player video').waitFor();await page.waitForFunction(()=>document.querySelector('.ws-ready-player video')?.getAttribute('src')?.includes('/dubbing/'));
+ await tool('Audio');assert(await page.getByText('Used in final video',{exact:true}).isVisible());
+ await button('Use original edit audio').click();await page.waitForFunction(()=>document.querySelector('.ws-ready-player video')?.getAttribute('src')?.includes('/media/result'));
+ assert.equal(data.dubbing.final_version_id,'master');
+});
 await test('voice sample and translated version submission',async({page,button,tool,writes})=>{
  await tool('Audio');await page.getByRole('combobox',{name:/^Voiceover language/}).selectOption('en');await button('Preview voice').click();assert(writes.some(w=>w.path.endsWith('/dubbing')&&w.body.kind==='sample'));await button('Create dubbed version').click();assert(writes.some(w=>w.path.endsWith('/dubbing')&&w.body.kind==='video'));assert.equal(writes.at(-1).body.language,'en');
 });

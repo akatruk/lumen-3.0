@@ -79,6 +79,9 @@ def test_job_preserves_master_and_serves_owned_output(client, monkeypatch):
     ident = client.post(url, json=body()).json()['id']
     assert run_once()
     assert project(pid)['result'] == before
+    assert client.get(f'/api/projects/{pid}/media/result').content == b'dubbed video'
+    assert client.get(f'/api/projects/{pid}/media/master').content == b'original master'
+    assert client.get(url).json()['final_version_id'] == ident
     assert client.get(url).json()['versions'][0]['status'] == 'ready'
     assert client.get(url + f'/{ident}/files/video.mp4').content == b'dubbed video'
     assert 'attachment' in client.get(url + f'/{ident}/files/video.mp4?download=true').headers['content-disposition']
@@ -106,6 +109,8 @@ def test_failure_preserves_project_and_exposes_retry_reason(client, monkeypatch)
     assert version['status'] == 'failed' and version['error'] == 'dubbing_speech_too_long'
     after = project(pid)
     assert after['result'] == before['result'] and after['status'] == before['status']
+    assert client.get(url).json()['final_version_id']=='master'
+    assert client.get(f'/api/projects/{pid}/media/result').content==b'original master'
     assert client.post(url, json=body()).status_code == 202
 
 
@@ -134,6 +139,8 @@ def test_sample_reuse_and_voices(client, monkeypatch):
     run_once()
     assert client.post(url, json=body(kind='sample', master_id='')).json()['id'] == ident
     assert len(calls) == 1 and calls[0][0] == audio.SAMPLES['ru']
+    assert client.get(url).json()['final_version_id']=='master'
+    assert client.get(f'/api/projects/{pid}/media/result').content==b'original master'
     assert client.get(url + f'/{ident}/files/sample.mp3').content == b'audio sample'
     assert client.get(url + f'/{ident}/files/video.mp4').status_code == 404
 
@@ -233,3 +240,62 @@ def test_transcription_never_retries_uncertain_network_failure(tmp_path, monkeyp
     with pytest.raises(TimeoutError):
         audio.transcribe_master('pid', {'metadata': {'duration': 4}}, tmp_path)
     assert len(calls) == 1
+
+
+def ready_delivery(pid, *, master=MASTER, kind='video', status='ready'):
+    ident = uuid.uuid4().hex
+    with connect() as db:
+        db.execute('INSERT INTO dubbing_versions(id,project_id,request_id,master_id,language,voice,kind,status,snapshot,created) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                   (ident,pid,uuid.uuid4().hex,master,'ru','ru-male',kind,status,json.dumps({'model':settings.dubbing_model}),1))
+    folder=settings.data_dir/pid/'dubbing'/ident
+    folder.mkdir(parents=True)
+    (folder/'video.mp4').write_bytes(b'chosen voiceover')
+    return ident
+
+
+def test_final_selection_persists_restores_master_and_rejects_stale(client, monkeypatch):
+    pid=setup(client,monkeypatch)
+    url=f'/api/studio/projects/{pid}/dubbing'
+    ident=ready_delivery(pid)
+    selection={'master_id':MASTER,'version_id':ident}
+    assert client.get(url).json()['final_version_id']=='master'
+    assert client.put(url+'/final',json=selection).status_code==200
+    assert client.get(url).json()['final_version_id']==ident
+    assert client.get(f'/api/projects/{pid}/media/result').content==b'chosen voiceover'
+    assert client.get(f'/api/projects/{pid}/media/master').content==b'original master'
+    assert client.put(url+'/final',json=selection|{'version_id':'master'}).status_code==200
+    assert client.get(f'/api/projects/{pid}/media/result').content==b'original master'
+    # Reusing an already generated video still applies the requested voice, without another paid job.
+    assert client.post(url,json=body()).json()['id']==ident
+    assert client.get(url).json()['final_version_id']==ident
+    new_master='c'*32
+    before=project(pid)['result']
+    with connect() as db:
+        db.execute('UPDATE projects SET result=? WHERE id=?',(json.dumps(before|{'render_id':new_master}),pid))
+    folder=settings.data_dir/pid/'renders'/new_master
+    folder.mkdir(parents=True)
+    (folder/'result.mp4').write_bytes(b'new edit')
+    assert client.get(url).json()['final_version_id']=='master'
+    assert client.get(f'/api/projects/{pid}/media/result').content==b'new edit'
+    assert client.put(url+'/final',json=selection).status_code==409
+    assert client.put(url+'/final',json=selection|{'master_id':new_master}).status_code==409
+    # Historical voiceovers remain accessible, but cannot replace the new edit.
+    assert client.get(url+f'/{ident}/files/video.mp4').content==b'chosen voiceover'
+
+
+def test_final_selection_ownership_readiness_and_missing_files(client, monkeypatch):
+    pid=setup(client,monkeypatch)
+    url=f'/api/studio/projects/{pid}/dubbing'
+    for kind,status in [('sample','ready'),('video','queued'),('video','failed')]:
+        ident=ready_delivery(pid,kind=kind,status=status)
+        assert client.put(url+'/final',json={'master_id':MASTER,'version_id':ident}).status_code==404
+    ident=ready_delivery(pid)
+    (settings.data_dir/pid/'dubbing'/ident/'video.mp4').unlink()
+    assert client.put(url+'/final',json={'master_id':MASTER,'version_id':ident}).status_code==404
+    other=setup(client,monkeypatch)
+    ident=ready_delivery(other)
+    assert client.put(url+'/final',json={'master_id':MASTER,'version_id':ident}).status_code==404
+    app.dependency_overrides[current_user]=lambda:{'id':'v'}
+    assert client.put(url+'/final',json={'master_id':MASTER,'version_id':'master'}).status_code==404
+    assert client.get(f'/api/projects/{pid}/media/result').status_code==404
+    assert client.get(f'/api/projects/{pid}/media/master').status_code==404

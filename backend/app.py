@@ -340,19 +340,27 @@ def media_file(pid:str,kind:str,user=Depends(current_user)):
     p=project(pid,user['id'])
     if not p: raise HTTPException(404,'not_found')
     files={'source':('analysis.mp4','video/mp4'),'original':('source','application/octet-stream'),'poster':('poster.jpg','image/jpeg'),
-           'result':('result.mp4','video/mp4'),'captions':('captions.ass','text/plain')}
+           'result':('result.mp4','video/mp4'),'master':('result.mp4','video/mp4'),'captions':('captions.ass','text/plain')}
     if kind not in files: raise HTTPException(404,'not_found')
-    if kind in ('result','captions') and not p['result']: raise HTTPException(404,'not_ready')
+    if kind in ('result','master','captions') and not p['result']: raise HTTPException(404,'not_ready')
     name,mime=files[kind]
     folder=settings.data_dir/pid
-    if kind in ('result','captions'):
+    if kind in ('result','master','captions'):
         render_id=p['result'].get('render_id','')
         if not re.fullmatch(r'[a-f0-9]{32}',render_id): raise HTTPException(404,'not_ready')
         folder=folder/'renders'/render_id
+    if kind == 'result':
+        from .final_output import current
+        with connect() as db:
+            selected = current(db, pid, p['result'].get('render_id', ''))
+        if selected:
+            folder = settings.data_dir / pid / 'dubbing' / selected['id']
+            name = 'video.mp4'
     path=folder/name
     if not path.is_file(): raise HTTPException(404,'not_ready')
-    return FileResponse(path,media_type=mime,filename=('lumen-'+pid[:8]+'.mp4') if kind=='result' else None,
-                        content_disposition_type='inline' if kind not in ('original','captions') else 'attachment')
+    return FileResponse(path,media_type=mime,filename=('lumen-'+pid[:8]+'.mp4') if kind in ('result','master') else None,
+                        content_disposition_type='inline' if kind not in ('original','captions') else 'attachment',
+                        headers={'Cache-Control':'no-store'} if kind=='result' else None)
 
 @app.delete('/api/projects/{pid}')
 def delete_project(pid:str,user=Depends(current_user)):

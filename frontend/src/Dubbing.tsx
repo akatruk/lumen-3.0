@@ -3,15 +3,17 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Languages, Volume2, Download } from 'lucide-react';
 import type { Lang } from './types';
 import { TaskProgress } from './TaskStatus';
+import { workspaceText } from './ProjectWorkspace';
 
 type Language = 'ru' | 'en' | 'zh';
 type Version = { id: string; master_id: string; language: Language; voice: string; kind: 'sample' | 'video'; status: string; progress: number; error: string | null; stale: boolean; result: { duration: number } | null };
-type Catalog = { voices: { id: string; language: Language; name: string }[]; versions: Version[]; blocked_reason: string | null; needs_transcription?: boolean; busy: boolean; master_id: string; remaining_budget: number; max_cost: number; sample_max_cost: number };
+type Catalog = { final_version_id?: string; voices: { id: string; language: Language; name: string }[]; versions: Version[]; blocked_reason: string | null; needs_transcription?: boolean; busy: boolean; master_id: string; remaining_budget: number; max_cost: number; sample_max_cost: number };
 const names: Record<Language, string> = { ru: 'Русский', en: 'English', zh: '中文' };
 const active = (v: Version) => !['ready', 'failed'].includes(v.status);
 
-export function Dubbing({ pid, lang, masterId, embedded=false, onPreview }: { pid: string; lang: Lang; masterId?: string; embedded?:boolean; onPreview?:(url:string,label:string)=>void }) {
+export function Dubbing({ pid, lang, masterId, embedded=false, onPreview, onFinalChange }: { pid: string; lang: Lang; masterId?: string; embedded?:boolean; onPreview?:(url:string,label:string)=>void; onFinalChange?:()=>void }) {
   const t = (en: string, zh: string) => translate(lang, en, zh);
+  const w = (ru:string,en:string,zh:string) => workspaceText(lang,ru,en,zh);
   const [open, setOpen] = useState(embedded);
   const [data, setData] = useState<Catalog | null>(null);
   const [language, setLanguage] = useState<Language>('ru');
@@ -77,6 +79,18 @@ export function Dubbing({ pid, lang, masterId, embedded=false, onPreview }: { pi
     } catch (e) { setError(e instanceof Error ? e.message : 'dubbing_failed'); }
     finally { submitting.current = false; setBusy(false); }
   }
+  async function useAsFinal(versionId:string) {
+    if (submitting.current || !data) return;
+    submitting.current = true; setBusy(true); setError('');
+    try {
+      const response = await fetch(url+'/final', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({master_id:data.master_id,version_id:versionId})});
+      const result = await response.json();
+      if (!response.ok) throw Error(typeof result.detail==='string' ? result.detail : 'final_selection_failed');
+      setData(previous=>previous ? {...previous,final_version_id:result.final_version_id} : previous);
+      onFinalChange?.();
+    } catch(e) { setError(e instanceof Error ? e.message : 'final_selection_failed'); }
+    finally { submitting.current=false; setBusy(false); }
+  }
   const file = (v: Version, name: string) => `${url}/${v.id}/files/${name}`;
   const running = data?.versions.find(active);
   const sample = data?.versions.find(v => v.kind === 'sample' && v.voice === voice && v.status === 'ready');
@@ -89,7 +103,7 @@ export function Dubbing({ pid, lang, masterId, embedded=false, onPreview }: { pi
     </button>}
     {open && <div id={panelId} className="director-card" role="region" aria-label={t('Change voiceover', '更换配音')}>
       <h3>{t('Create a translated voiceover', '创建翻译配音')}</h3>
-      <p>{t('Choose a language and an AI voice. Create a separate version of the rendered Master; your original video stays available.', '选择语言和 AI 声音，基于已制作的主版本创建独立配音版本，原视频保持可用。')}</p>
+      <p>{w('Выберите язык и голос, затем создайте озвучку. Когда она будет готова, финальное видео и обычная кнопка скачивания будут использовать её. Монтаж до озвучки останется в «Версиях».','Choose a language and voice, then create the voiceover. Once ready, the finished video and main download will use it. The edit before voiceover stays available in Versions.','选择语言和声音并创建配音。完成后，成片和主下载按钮将使用新配音。配音前的剪辑仍可在版本中访问。')}</p>
       <p className="dubbing-notice">{t('This version replaces all original audio, including mixed music and background sounds. It does not clone the speaker or change lip movements. Existing text inside the picture stays unchanged.', '此版本会替换全部原音轨，包括混合的音乐与环境声。不克隆原说话者声音，也不改变口型。画面内原有文字保持不变。')}</p>
       {loadError && <p role="alert">{t('Could not refresh voiceover status. Reconnecting…', '无法刷新配音状态，正在重连…')}</p>}
       {!data ? <p role="status">{t('Loading voices…', '正在加载声音…')}</p> : <>
@@ -114,12 +128,14 @@ export function Dubbing({ pid, lang, masterId, embedded=false, onPreview }: { pi
         </button>
         {running && <TaskProgress title={stage(running.status)} percent={running.progress} />}
         {!running && data.busy && <p role="status">{explain('job_already_running')}</p>}
-        {error && <p role="alert">{explain(error)}</p>}
+        {error && <p role="alert">{error==='final_selection_failed' ? w('Не удалось выбрать финальную версию. Попробуйте ещё раз.','Could not select the final version. Please retry.','无法选择最终版本，请重试。') : explain(error)}</p>}
+        {data.final_version_id && data.final_version_id!=='master' && <button className="secondary" disabled={unavailable} onClick={()=>void useAsFinal('master')}>{w('Вернуть звук монтажа до озвучки','Use original edit audio','使用配音前剪辑的声音')}</button>}
         {!running && currentFailure && <p role="alert">{explain(currentFailure.error || 'dubbing_failed')} {t('Use Preview voice or Create dubbed version to retry with the selected voice.', '可使用试听或创建配音版本按钮，以所选声音重试。')}</p>}
         {data.versions.filter(v => v.kind === 'video' && v.status === 'ready').map(v => <article className="dubbing-version" key={v.id}>
           <h4>{names[v.language]} · {data.voices.find(voice => voice.id === v.voice)?.name || v.voice}</h4>
           {v.stale && <p>{t('Created from an earlier Master. It is still available to play and download.', '基于较早的主版本创建，仍可播放和下载。')}</p>}
           <p>{t('AI voiceover — review pronunciation and timing before sharing.', 'AI 配音 — 分享前请检查发音和时序。')}</p>
+          {data.final_version_id===v.id ? <p className="dubbing-final-status" role="status">{w('Используется в финальном видео','Used in final video','已用于最终视频')}</p> : <button className="primary" disabled={unavailable||v.stale} onClick={()=>void useAsFinal(v.id)}>{w('Использовать в финальном видео','Use in final video','用于最终视频')}</button>}
           {onPreview?<button className="secondary" onClick={()=>onPreview(file(v,'video.mp4'),`${names[v.language]} · ${v.voice}`)}>{t('Play','播放')} · {names[v.language]}</button>:<video controls preload="none" src={file(v,'video.mp4')} aria-label={`${names[v.language]} ${t('dubbed version','配音版本')}`} />}
           <div className="dubbing-downloads"><a className="primary" href={file(v, 'video.mp4') + '?download=true'}><Download size={16} aria-hidden="true" /> {t('Download dubbed video', '下载配音视频')}</a>
           <a className="secondary" href={file(v, 'subtitles.vtt') + '?download=true'}>{t('Download translated subtitles', '下载译文字幕')}</a></div>

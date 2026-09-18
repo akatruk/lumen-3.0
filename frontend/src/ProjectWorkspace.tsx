@@ -41,6 +41,7 @@ type WorkspaceContextValue = {
   draftActive: boolean;
   showDraft: () => void;
   seekSource: (start: number, end?: number) => void;
+  refreshFinal: () => void;
   previewVersion: (url: string, label: string) => void;
 };
 const Context = createContext<WorkspaceContextValue | null>(null);
@@ -74,6 +75,10 @@ export function ProjectWorkspace({
     [loadError, setLoadError] = useState(false),
     [draftActive, setDraftActive] = useState(false),
     [custom, setCustom] = useState<Version | null>(null);
+  const [finalVoiceState, setFinalVoice] = useState<{id:string; label:string; masterId:string} | null>(null);
+  const finalVoice = finalVoiceState?.masterId === p.result?.render_id ? finalVoiceState : null;
+  const [finalRefresh, setFinalRefresh] = useState(0);
+  const finalIdentity = useRef<string | null>(null);
   const [previewTarget, setPreviewTarget] = useState<HTMLDivElement | null>(
       null,
     ),
@@ -96,13 +101,14 @@ export function ProjectWorkspace({
       ? [
           {
             id: "result",
-            label: w("Готовый ролик", "Finished video", "已完成视频"),
-            url: base + "result",
+            label: w("Готовый ролик", "Finished video", "已完成视频") + (finalVoice ? ` · ${finalVoice.label}` : ''),
+            url: finalVoice ? `/api/studio/projects/${p.id}/dubbing/${finalVoice.id}/files/video.mp4` : base + "result?v=" + (p.result.render_id || ''),
             download: base + "result",
             detail: `${fmt(p.result.metadata.duration)} · ${p.result.metadata.width} × ${p.result.metadata.height}`,
           },
         ]
       : []),
+    ...(p.result && finalVoice ? [{id:'master',label:w('Монтаж до озвучки','Edit before voiceover','配音前的剪辑'),url:base+'master?v='+p.result.render_id,download:base+'master',detail:w('Звук сохранённого монтажа','Audio from the rendered edit','已渲染剪辑的声音')}] : []),
     ...dubs,
     {
       id: "source",
@@ -134,6 +140,14 @@ export function ProjectWorkspace({
         if (!r.ok) throw Error();
         const d = await r.json();
         if (alive) {
+          const finalId = d.final_version_id || 'master';
+          const finalVersion = d.final_version || d.versions.find((v:{id:string})=>v.id===finalId);
+          const identity = `${d.master_id}:${finalId}`;
+          if (finalIdentity.current !== null && finalIdentity.current !== identity) {
+            switchVersion('result');
+          }
+          finalIdentity.current = identity;
+          setFinalVoice(finalVersion && finalId!=='master' ? {id:finalVersion.id,masterId:d.master_id,label:`${({ru:'Русский',en:'English',zh:'中文'} as Record<string,string>)[finalVersion.language] || finalVersion.language} · ${d.voices.find((v:{id:string})=>v.id===finalVersion.voice)?.name || finalVersion.voice}`} : null);
           setDubs(
             d.versions
               .filter(
@@ -169,7 +183,7 @@ export function ProjectWorkspace({
       controller.abort();
       clearInterval(timer);
     };
-  }, [p.id, p.studio, p.result?.render_id, lang]);
+  }, [p.id, p.studio, p.result?.render_id, lang, finalRefresh]);
   function switchVersion(id: string) {
     player.current?.pause();
     pending.current = null;
@@ -256,6 +270,7 @@ export function ProjectWorkspace({
           setDraftActive(true);
         },
         seekSource,
+        refreshFinal: () => { switchVersion('result'); setFinalRefresh(n=>n+1); },
         previewVersion: (url, label) => {
           setCustom({
             id: url,

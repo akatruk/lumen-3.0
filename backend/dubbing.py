@@ -15,6 +15,7 @@ from .db import connect, enqueue, reserve, event
 from .schemas import Strict
 from .studio import owned
 from . import dubbing_audio as audio
+from . import final_output
 
 router = APIRouter(prefix='/api/studio')
 ERRORS = {'dubbing_no_speech', 'dubbing_clipped_speech', 'dubbing_overlapping_speech',
@@ -30,6 +31,8 @@ def init(db):
         kind TEXT NOT NULL, status TEXT NOT NULL, progress INTEGER NOT NULL DEFAULT 0,
         snapshot TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL,
         UNIQUE(project_id,request_id))''')
+
+    final_output.init(db)
 
 
 class Create(Strict):
@@ -70,12 +73,40 @@ def listing(pid: str, user=Depends(current_user)):
         versions = [public(r, master.get('render_id')) for r in db.execute(
             'SELECT * FROM dubbing_versions WHERE project_id=? ORDER BY created DESC LIMIT 30', (pid,))]
         busy = bool(db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone())
-    return {'versions': versions, 'voices': [{'id': k, 'language': v['language'], 'name': v['name']} for k, v in audio.VOICES.items()],
+        selected = final_output.current(db, pid, master.get('render_id', ''))
+    return {'final_version_id': selected['id'] if selected else 'master',
+            'final_version': public(selected, master.get('render_id')) if selected else None, 'versions': versions, 'voices': [{'id': k, 'language': v['language'], 'name': v['name']} for k, v in audio.VOICES.items()],
             'blocked_reason': reason, 'busy': busy, 'master_id': master.get('render_id', ''),
             'needs_transcription': needs_transcription,
             'max_cost': round((1.5 if needs_transcription else .50) + audio.speech_reservation(audio.MAX_CHARACTERS), 2),
             'sample_max_cost': max(audio.speech_reservation(len(t)) for t in audio.SAMPLES.values()),
             'remaining_budget': max(0, p['budget'] - p['cost'])}
+
+
+class FinalSelection(Strict):
+    master_id: str = Field(pattern=r'^[a-f0-9]{32}$')
+    version_id: str = Field(pattern=r'^(?:master|[a-f0-9]{32})$')
+
+
+@router.put('/projects/{pid}/dubbing/final')
+def choose_final(pid: str, body: FinalSelection, user=Depends(current_user)):
+    with connect() as db:
+        db.lock()
+        p = owned(pid, user)
+        if (p['result'] or {}).get('render_id') != body.master_id:
+            raise HTTPException(409, 'master_changed')
+        if body.version_id != 'master':
+            row = db.execute('SELECT * FROM dubbing_versions WHERE id=? AND project_id=?',
+                             (body.version_id, pid)).fetchone()
+            if not row or row['kind'] != 'video' or row['status'] != 'ready':
+                raise HTTPException(404, 'not_ready')
+            if row['master_id'] != body.master_id:
+                raise HTTPException(409, 'master_changed')
+            if not (settings.data_dir / pid / 'dubbing' / row['id'] / 'video.mp4').is_file():
+                raise HTTPException(404, 'not_ready')
+        final_output.select(db, pid, body.master_id, body.version_id)
+    event(pid, 'final_output_selected', body.version_id)
+    return {'final_version_id': body.version_id}
 
 
 @router.post('/projects/{pid}/dubbing', status_code=202)
@@ -104,6 +135,8 @@ def create(pid: str, body: Create, request: Request, user=Depends(current_user))
         if body.kind == 'video' and (not p['result'] or p['result'].get('render_id') != master_id):
             raise HTTPException(409, 'master_changed')
         if cached and json.loads(cached['snapshot']).get('model') == settings.dubbing_model:
+            if body.kind == 'video':
+                final_output.select(db, pid, master_id, cached['id'])
             return {'id': cached['id']}
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
@@ -188,7 +221,12 @@ def run_job(p, payload):
             audio.write_vtt(folder / 'subtitles.vtt', phrases)
             result['phrase_count'] = len(phrases)
         with connect() as db:
+            db.lock()
             db.execute("UPDATE dubbing_versions SET status='ready',progress=100,result=? WHERE id=?", (json.dumps(result), ident))
+            if row['kind'] == 'video':
+                latest = db.execute('SELECT result FROM projects WHERE id=?', (p['id'],)).fetchone()
+                if latest and json.loads(latest['result'] or '{}').get('render_id') == row['master_id']:
+                    final_output.select(db, p['id'], row['master_id'], ident)
         event(p['id'], 'dubbing_ready', json.dumps({'id': ident, 'language': row['language'], 'kind': row['kind']}))
     except Exception as exc:
         code = str(exc) if str(exc) in ERRORS else 'dubbing_failed'

@@ -12,6 +12,7 @@ module.exports=async function setup(browser){
   if(path.includes('/media/')||path.endsWith('/media')||path.endsWith('/video.mp4'))return route.fulfill(process.env.WORKSPACE_MEDIA?{path:process.env.WORKSPACE_MEDIA,contentType:'video/mp4'}:{status:204});
   if(method!=='GET'){
    const body=req.headers()['content-type']?.includes('json')?req.postDataJSON():null;writes.push({path,method,body});
+   if(path===root+'/dubbing/final'){data.dubbing.final_version_id=body.version_id;return route.fulfill({json:{final_version_id:body.version_id}})}
    if(path===root+'/manual'&&method==='PUT'){data.manual.edit=body.edit;revised();return route.fulfill({json:data.manual})}
    if(path===root+'/manual/from-plan')return route.fulfill({json:{...data.manual,edit:{...data.manual.edit,clips:[{...data.manual.edit.clips[0],start:0,end:2},{...data.manual.edit.clips[1],start:4,end:12}]}}});
    if(path===root+'/manual/beat-preview')return route.fulfill({json:{revision:data.manual.revision,edit:data.manual.edit,changes:[],skipped:[]}});
