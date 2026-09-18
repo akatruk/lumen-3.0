@@ -272,7 +272,7 @@ export function ManualEditor({
     edit.captions.some(
       (c) => c.start < 0 || c.end > duration || c.end <= c.start,
     ) ||
-    (edit.subtitles && !edit.captions.length);
+    (edit.subtitles && (!edit.captions.length || edit.captions.some(c=>![c.en,c.zh,c.original].some(text=>text.trim()))));
   return (
     <section
       className="director-card manual-editor"
@@ -299,7 +299,7 @@ export function ManualEditor({
       <MusicPlan onUploadMusic={()=>{workspace?.setTask('materials');requestAnimationFrame(()=>mediaLibrary.current?.openMusicUpload())}} currentMusic={edit.music} pid={pid} revision={revision} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked||dirty||!!edit.music?.locked} onApplied={async()=>{sessionStorage.removeItem(draftKey);await load();await onSaved()}}/>
       </div>
       <div hidden={task!=="materials"}>
-      <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[contentLanguage(lang)]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
+      <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;workspace?.setTask('effects');setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[contentLanguage(lang)]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
       </div>
       <div hidden={task!=="audio"}>
       {edit.music&&<BeatPreview pid={pid} revision={revision} lang={lang} disabled={blocked||dirty} onPreview={value=>{setEdit(value);setDirty(true)}}/>}
@@ -354,7 +354,13 @@ export function ManualEditor({
                   aria-pressed={selected === i}
                   onClick={() => {
                     setSelected(i);
-                    video.current?.pause();
+                    workspace?.showDraft();
+                    pending.current=c.start;
+                    if(video.current){
+                      video.current.pause();
+                      video.current.currentTime=c.start;
+                      if(video.current.readyState>=1)pending.current=null;
+                    }
                     setTime(c.start);
                   }}
                 >
@@ -363,7 +369,7 @@ export function ManualEditor({
               </div>
               </details><p className="muted">{w('Изменения снимают подтверждение сцены.','Changes clear this scene’s approval.','修改后需要重新批准场景。')}</p><div className="manual-actions"><label><input type="checkbox" checked={c.approved!==false} disabled={c.locked} onChange={e=>clipChange(i,{approved:e.target.checked})}/>{t('Approve','批准')}</label><label><input type="checkbox" checked={!!c.locked} disabled={c.approved===false} onChange={e=>clipChange(i,{locked:e.target.checked})}/>{t('Lock','锁定')}</label></div>
               <fieldset className="director-fieldset" disabled={c.locked}>
-              {task==='effects'&&<div className="ws-effect-presets"><button type="button" onClick={()=>clipChange(i,{zoom:1,zoom_end:1.2})}>{w('Плавное приближение','Gentle zoom','缓慢放大')}</button><button type="button" onClick={()=>clipChange(i,{transition:'crossfade'})}>{w('Растворение','Cross dissolve','叠化')}</button><button type="button" onClick={()=>clipChange(i,{zoom:1,zoom_end:1,transition:'cut'})}>{w('Без движения','No motion','静止画面')}</button></div>}
+              {task==='effects'&&<div className="ws-effect-presets"><button type="button" onClick={()=>clipChange(i,{zoom:1,zoom_end:1.2})}>{w('Плавное приближение','Gentle zoom','缓慢放大')}</button><button type="button" disabled={i===0} onClick={()=>clipChange(i,{transition:'crossfade'})}>{w('Растворение','Cross dissolve','叠化')}</button><button type="button" onClick={()=>clipChange(i,{zoom:1,zoom_end:1,transition:'cut'})}>{w('Без движения','No motion','静止画面')}</button></div>}
               <details><summary>{w('Роль сцены и края звука','Scene role and audio edges','场景用途与声音边缘')}</summary><label>{t('Shot role','镜头用途')}<select value={c.shot_type||'presenter'} onChange={e=>clipChange(i,{shot_type:e.target.value as Clip['shot_type']})}>{[['presenter',t('Presenter','人物讲解')],['close_up',t('Close-up','特写')],['medium',t('Medium shot','中景')],['broll',t('B-roll / cutaway','补充镜头')],['document',t('Document','文档')],['archive',t('Archival footage','档案影像')],['news',t('News clip','新闻片段')]].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
               <label>{t('Source audio edge smoothing','原声边缘平滑')}<select value={c.audio_fade_ms||0} onChange={e=>clipChange(i,{audio_fade_ms:Number(e.target.value)})}>{[0,10,30,60,100].map(ms=><option key={ms} value={ms}>{ms?`${ms} ms`:t('Off — preserve original audio','关闭 — 保留原声')}</option>)}</select></label>
               <small>{t('Short fades at both clip edges reduce clicks. They affect the whole source mix, including speech; they do not restore a broken musical phrase. Timing is unchanged.','片段首尾短淡化可减少爆音。它影响包括人声在内的全部原声，不能修复被截断的音乐乐句。时间轴不变。')}</small>
@@ -413,7 +419,7 @@ export function ManualEditor({
               <VisualCardEditor card={c.card||null} duration={c.end-c.start} lang={lang} onChange={card=>clipChange(i,{card})}/>
               </details>
               <details open={task==='effects'}><summary>{t('Camera motion: end framing','镜头运动：结束构图')}</summary><p>{t('The camera moves smoothly from the initial framing above to these end values. Matching values keep the camera still.','镜头从上方初始构图平滑移动至下方结束构图。数值相同则保持静止。')}</p><div className="manual-grid">{(['zoom_end','x_end','y_end'] as const).map((key,j)=><label key={key}>{[t('End zoom','结束缩放'),t('End horizontal position','结束水平位置'),t('End vertical position','结束垂直位置')][j]}<input type="range" min={j===0?1:0} max={j===0?3:1} step="0.05" value={c[key]??[c.zoom,c.x,c.y][j]} onChange={e=>clipChange(i,{[key]:Number(e.target.value)})}/><output>{(c[key]??[c.zoom,c.x,c.y][j]).toFixed(2)}</output></label>)}</div></details>
-              <label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade">{t('Cross dissolve','叠化')}</option><option value="zoom">{t('Zoom transition','缩放转场')}</option><option value="wipe">{t('Wipe left','向左擦除')}</option><option value="circle">{t('Circle mask','圆形遮罩')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>
+              <label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade" disabled={i===0}>{t('Cross dissolve','叠化')}</option><option value="zoom" disabled={i===0}>{t('Zoom transition','缩放转场')}</option><option value="wipe" disabled={i===0}>{t('Wipe left','向左擦除')}</option><option value="circle" disabled={i===0}>{t('Circle mask','圆形遮罩')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>{i===0&&<small>{w('У первой сцены нет входящего перехода. Можно использовать затухание через чёрный.','The first scene has no incoming transition. You can use a fade through black.','第一个镜头没有入场转场，可以使用黑场淡入淡出。')}</small>}
               </fieldset>
             </article>
           ))}

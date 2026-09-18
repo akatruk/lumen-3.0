@@ -116,6 +116,20 @@ def summary(pid:str,user=Depends(current_user)):
                  for name,table in [('creative','creative_plans'),('music','music_plans'),('individual','timeline_proposals')]}
     return summarize(Edit.model_validate(edit),p['metadata']['duration'])|{'revision':s['revision'],'pending_proposals':pending}
 
+@router.get('/projects/{pid}/plan-summary')
+def plan_summary(pid:str,user=Depends(current_user)):
+    from .studio import owned,state
+    from .render_summary import summarize
+    p=owned(pid,user)
+    with connect() as db:
+        s=state(pid,db)
+        if not s or not s['plan']:raise HTTPException(409,'plan_changed')
+        pending={name:db.execute(f"SELECT COUNT(*) FROM {table} WHERE project_id=? AND status='ready'",(pid,)).fetchone()[0]
+                 for name,table in [('creative','creative_plans'),('music','music_plans'),('individual','timeline_proposals'),('alternatives','director_proposals')]}
+    # Same approved recommendation conversion used by the editor import.
+    data=from_plan(pid,Render(revision=s['revision']),user)
+    return summarize(Edit.model_validate(data['edit']),p['metadata']['duration'])|{'revision':data['revision'],'pending_proposals':pending}
+
 @router.put('/projects/{pid}/manual')
 def save(pid:str,body:Save,user=Depends(current_user)):
     from .studio import owned

@@ -209,11 +209,15 @@ function App() {
     setNav(false);
   };
   const logout = async () => {
-    await api("/logout", { method: "POST" });
-    setUser(null);
-    setPid(null);
-    setProject(null);
-    setItems([]);
+    try {
+      await api("/logout", { method: "POST" });
+      setUser(null);
+      setPid(null);
+      setProject(null);
+      setItems([]);
+    } catch (e) {
+      setError((e as Error).message);
+    }
   };
   return (
     <Locale.Provider value={{ lang, t }}>

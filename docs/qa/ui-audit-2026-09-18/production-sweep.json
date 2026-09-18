@@ -1,0 +1,174 @@
+{
+  "errors": [],
+  "failed_requests": [],
+  "views": [
+    {
+      "name": "studio",
+      "overflow": false,
+      "visible_buttons": 9,
+      "alerts": []
+    },
+    {
+      "name": "studio mobile",
+      "overflow": false,
+      "visible_buttons": 10,
+      "alerts": []
+    },
+    {
+      "name": "library",
+      "overflow": false,
+      "visible_buttons": 15,
+      "alerts": []
+    },
+    {
+      "name": "library mobile",
+      "overflow": false,
+      "visible_buttons": 16,
+      "alerts": []
+    },
+    {
+      "name": "workspace",
+      "overflow": false,
+      "visible_buttons": 9,
+      "alerts": []
+    },
+    {
+      "name": "workspace mobile",
+      "overflow": false,
+      "visible_buttons": 10,
+      "alerts": []
+    },
+    {
+      "name": "guide",
+      "overflow": false,
+      "visible_buttons": 22,
+      "alerts": []
+    },
+    {
+      "name": "guide mobile",
+      "overflow": false,
+      "visible_buttons": 23,
+      "alerts": []
+    },
+    {
+      "name": "Edit",
+      "overflow": false,
+      "visible_buttons": 41,
+      "alerts": []
+    },
+    {
+      "name": "Edit mobile",
+      "overflow": false,
+      "visible_buttons": 42,
+      "alerts": []
+    },
+    {
+      "name": "Subtitles",
+      "overflow": false,
+      "visible_buttons": 57,
+      "alerts": []
+    },
+    {
+      "name": "Subtitles mobile",
+      "overflow": false,
+      "visible_buttons": 58,
+      "alerts": []
+    },
+    {
+      "name": "Audio",
+      "overflow": false,
+      "visible_buttons": 61,
+      "alerts": []
+    },
+    {
+      "name": "Audio mobile",
+      "overflow": false,
+      "visible_buttons": 62,
+      "alerts": []
+    },
+    {
+      "name": "Effects",
+      "overflow": false,
+      "visible_buttons": 43,
+      "alerts": []
+    },
+    {
+      "name": "Effects mobile",
+      "overflow": false,
+      "visible_buttons": 44,
+      "alerts": []
+    },
+    {
+      "name": "Materials",
+      "overflow": false,
+      "visible_buttons": 37,
+      "alerts": []
+    },
+    {
+      "name": "Materials mobile",
+      "overflow": false,
+      "visible_buttons": 38,
+      "alerts": []
+    },
+    {
+      "name": "Review",
+      "overflow": false,
+      "visible_buttons": 42,
+      "alerts": []
+    },
+    {
+      "name": "Review mobile",
+      "overflow": false,
+      "visible_buttons": 43,
+      "alerts": []
+    },
+    {
+      "name": "Director Timeline",
+      "overflow": false,
+      "visible_buttons": 42,
+      "alerts": []
+    },
+    {
+      "name": "Director Timeline mobile",
+      "overflow": false,
+      "visible_buttons": 43,
+      "alerts": []
+    },
+    {
+      "name": "Video DNA",
+      "overflow": false,
+      "visible_buttons": 34,
+      "alerts": []
+    },
+    {
+      "name": "Video DNA mobile",
+      "overflow": false,
+      "visible_buttons": 35,
+      "alerts": []
+    },
+    {
+      "name": "Creator profile",
+      "overflow": false,
+      "visible_buttons": 34,
+      "alerts": []
+    },
+    {
+      "name": "Creator profile mobile",
+      "overflow": false,
+      "visible_buttons": 35,
+      "alerts": []
+    },
+    {
+      "name": "Platform versions",
+      "overflow": false,
+      "visible_buttons": 35,
+      "alerts": []
+    },
+    {
+      "name": "Platform versions mobile",
+      "overflow": false,
+      "visible_buttons": 36,
+      "alerts": []
+    }
+  ]
+}

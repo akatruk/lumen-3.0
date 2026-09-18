@@ -1,0 +1,26 @@
+[
+  {
+    "name": "navigation project search and language persistence",
+    "pass": true
+  },
+  {
+    "name": "mobile navigation open close and workspace",
+    "pass": true
+  },
+  {
+    "name": "new project search reference preview upload submit",
+    "pass": true
+  },
+  {
+    "name": "guide mode and chapter seeking",
+    "pass": true
+  },
+  {
+    "name": "logout failure is visible and does not crash",
+    "pass": true
+  },
+  {
+    "name": "logout success and Google sign-in launch",
+    "pass": true
+  }
+]

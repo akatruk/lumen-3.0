@@ -1,3 +1,4 @@
+import {PlanRenderReview} from './PlanRenderReview';
 import {useWorkspace, workspaceText} from './ProjectWorkspace';
 import { translate, contentLanguage } from './locale';
 import { Dubbing } from './Dubbing';
@@ -1009,19 +1010,8 @@ export function DirectorProject({
                     >
                       {t("Save plan", "保存计划")}
                     </button>
-                    <button
-                      className="primary"
-                      disabled={
-                        dirty ||
-                        manualDirty ||
-                        busy ||
-                        working ||
-                        !decisions.some((x) => x.approved)
-                      }
-                      onClick={render}
-                    >
-                      {t("Render approved plan", "制作已批准计划")}
-                    </button>
+                    <PlanRenderReview pid={p.id} revision={state.revision} lang={lang} disabled={dirty||manualDirty||busy||working||!decisions.some(x=>x.approved)} onRender={render}/>
+
                   </footer>
                   <p className="director-note">
                     {t(

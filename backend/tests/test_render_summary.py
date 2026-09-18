@@ -49,3 +49,32 @@ def test_pending_proposals_are_not_applied_and_summary_is_owned(client):
     assert client.get(url).json()['edit'] == edit
     app.dependency_overrides[current_user]=lambda:{'id':'other','email':'other@example.com'}
     assert client.get(url+'/summary').status_code == 404
+
+
+def test_cleanup_summary_uses_approved_recommendations_not_manual_edit(client):
+    from backend.db import connect
+    import json
+    pid=create(client).json()['id'];seed_plan(pid)
+    url=f'/api/studio/projects/{pid}'
+    edit=client.get(url+'/manual').json()['edit'];edit['clips'][0]['zoom']=2
+    client.put(url+'/manual',json={'revision':1,'edit':edit})
+    with connect() as db:
+        db.execute('UPDATE studio_projects SET decisions=? WHERE project_id=?',(json.dumps([{'id':'cut','approved':True,'locked':False,'start':2,'end':4}]),pid))
+    response=client.get(url+'/plan-summary')
+    assert response.status_code == 200
+    data=response.json()
+    assert data['revision'] == 2
+    assert data['output_duration'] == 38
+    assert data['removed_ranges'] == [[2,4]]
+    assert all('reframe' not in c['operations'] for c in data['clips'])
+    with connect() as db:
+        assert not db.execute("SELECT 1 FROM jobs WHERE project_id=? AND kind='studio_render'",(pid,)).fetchone()
+
+
+def test_cleanup_summary_requires_plan_and_ownership(client):
+    from backend.auth import current_user
+    from backend.app import app
+    pid=create(client).json()['id'];url=f'/api/studio/projects/{pid}/plan-summary'
+    assert client.get(url).status_code == 409
+    app.dependency_overrides[current_user]=lambda:{'id':'other','email':'other@example.com'}
+    assert client.get(url).status_code == 404
