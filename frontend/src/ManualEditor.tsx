@@ -1,3 +1,4 @@
+import {RenderSummary,type RenderSummaryData} from './RenderSummary';
 import {createPortal} from 'react-dom';
 import {useWorkspace, workspaceText} from './ProjectWorkspace';
 import type {ReactNode} from 'react';
@@ -82,6 +83,15 @@ export function ManualEditor({
   const task=workspace?.task||'edit';
   const w=(r:string,e:string,z:string)=>workspaceText(lang,r,e,z);
   const portal=(node:ReactNode,target:HTMLElement|null|undefined)=>target?createPortal(node,target):node;
+  const [renderSummary,setRenderSummary]=useState<RenderSummaryData|null>(null);
+  const [summaryError,setSummaryError]=useState(false);
+  const summaryRequest=useRef(0);
+  async function loadRenderSummary(){
+    const request=++summaryRequest.current;
+    setRenderSummary(null);setSummaryError(false);
+    try{const r=await fetch(base+'/summary');if(!r.ok)throw Error();const data=await r.json();if(request===summaryRequest.current)setRenderSummary(data)}
+    catch{if(request===summaryRequest.current)setSummaryError(true)}
+  }
   const reviewDialog=useRef<HTMLDialogElement>(null);
   const reviewOpener=useRef<HTMLElement|null>(null);
   const mediaLibrary = useRef<MediaLibraryHandle>(null);
@@ -719,12 +729,12 @@ export function ManualEditor({
         <button
           className="primary"
           disabled={blocked || invalid || dirty || unapprovedCount > 0}
-          onClick={() => {reviewOpener.current=document.activeElement as HTMLElement;reviewDialog.current?.showModal()}}
+          onClick={() => {reviewOpener.current=document.activeElement as HTMLElement;reviewDialog.current?.showModal();void loadRenderSummary()}}
         >
           {w("Проверить и создать версию","Review and create version","审核并创建版本")}
         </button>
       </div>,workspace?.actionsTarget)}
-      <dialog className="ws-versions" ref={reviewDialog} onClose={()=>reviewOpener.current?.focus()}><h2>{w('Проверка перед сборкой','Review before rendering','制作前审核')}</h2><p>{edit.clips.length} {w('сцен','scenes','个场景')} · {w('Субтитры','Subtitles','字幕')}: {edit.subtitles?w('включены','on','开启'):w('выключены','off','关闭')}</p><p>{w('Готовая версия останется доступна. Новый ролик использует сохранённые настройки монтажа.','Your finished version stays available. The new video uses your saved edit settings.','已完成版本仍保留，新视频将使用已保存的剪辑设置。')}</p><p>{qualityReview?w('Включена платная AI-проверка: до $0.50 за проверку и до двух попыток улучшения по $0.50 в пределах бюджета проекта.','AI review is enabled: up to $0.50 for review and up to two $0.50 improvement attempts within the project budget.','已启用 AI 审核：审核最多 $0.50，改进最多两次、每次 $0.50，受项目预算限制。'):w('AI-проверка выключена. Монтаж не вызывает AI.','AI review is off. Rendering makes no AI calls.','AI 审核已关闭，制作不调用 AI。')}</p><div className="manual-actions"><button onClick={()=>reviewDialog.current?.close()}>{w('Вернуться','Back','返回')}</button><button className="primary" disabled={blocked||invalid||dirty||unapprovedCount>0} onClick={()=>{reviewDialog.current?.close();void act(true)}}>{w('Создать версию','Create version','创建版本')}</button></div></dialog>
+      <dialog className="ws-versions" ref={reviewDialog} onClose={()=>reviewOpener.current?.focus()}><h2>{w('Что изменится в видео','What will change in this video','视频将有哪些变化')}</h2>{renderSummary?.revision===revision?<RenderSummary data={renderSummary} lang={lang}/>:<div role="status"><p>{summaryError?w('Не удалось загрузить сводку. Попробуйте ещё раз.','Could not load the summary. Try again.','无法加载摘要，请重试。'):renderSummary?w('Монтаж изменился. Закройте окно и обновите редактор перед созданием видео.','The edit changed. Close this dialog and reload the editor before rendering.','剪辑已更改，请关闭窗口并刷新编辑器。'):w('Загружаем сохранённый план…','Loading the saved plan…','正在加载已保存的计划…')}</p>{summaryError&&<button onClick={()=>void loadRenderSummary()}>{w('Повторить','Retry','重试')}</button>}</div>}<p>{w('Готовая версия останется доступна. Новый ролик использует сохранённые настройки монтажа.','Your finished version stays available. The new video uses your saved edit settings.','已完成版本仍保留，新视频将使用已保存的剪辑设置。')}</p><p>{qualityReview?w('Включена платная AI-проверка: до $0.50 за проверку и до двух попыток улучшения по $0.50 в пределах бюджета проекта.','AI review is enabled: up to $0.50 for review and up to two $0.50 improvement attempts within the project budget.','已启用 AI 审核：审核最多 $0.50，改进最多两次、每次 $0.50，受项目预算限制。'):w('AI-проверка выключена. Монтаж не вызывает AI.','AI review is off. Rendering makes no AI calls.','AI 审核已关闭，制作不调用 AI。')}</p><div className="manual-actions"><button onClick={()=>reviewDialog.current?.close()}>{w('Вернуться к редактированию','Back to editing','返回编辑')}</button><button className="primary" disabled={blocked||invalid||dirty||unapprovedCount>0||renderSummary?.revision!==revision} onClick={()=>{reviewDialog.current?.close();void act(true)}}>{w('Создать видео с этими изменениями','Create video with these changes','按这些更改创建视频')}</button></div></dialog>
     </section>
   );
 }

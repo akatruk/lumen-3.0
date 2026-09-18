@@ -103,6 +103,19 @@ def get(pid:str,user=Depends(current_user)):
     from .timeline import compile_timeline
     return {'revision':s['revision'],'edit':edit,'saved':saved,'timeline':compile_timeline(Edit.model_validate(edit))}
 
+@router.get('/projects/{pid}/manual/summary')
+def summary(pid:str,user=Depends(current_user)):
+    from .studio import owned,state
+    from .render_summary import summarize
+    p=owned(pid,user)
+    with connect() as db:
+        db.lock()
+        s=state(pid,db);edit=read(pid,db)
+        if edit is None:raise HTTPException(422,'save_manual_first')
+        pending={name:db.execute(f"SELECT COUNT(*) FROM {table} WHERE project_id=? AND status='ready'",(pid,)).fetchone()[0]
+                 for name,table in [('creative','creative_plans'),('music','music_plans'),('individual','timeline_proposals')]}
+    return summarize(Edit.model_validate(edit),p['metadata']['duration'])|{'revision':s['revision'],'pending_proposals':pending}
+
 @router.put('/projects/{pid}/manual')
 def save(pid:str,body:Save,user=Depends(current_user)):
     from .studio import owned

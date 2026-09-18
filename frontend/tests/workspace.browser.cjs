@@ -65,6 +65,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         else if (path === "/api/projects") json = [data.project];
         else if (path === `/api/projects/${pid}`) json = data.project;
         else if (path === `/api/studio/projects/${pid}`) json = data.studio;
+        else if (path.endsWith("/manual/summary")) json = {revision:data.manual.revision,source_duration:12,output_duration:12,removed_seconds:0,removed_ranges:[],near_original:false,captions:0,music:false,normalize:false,global_operations:[],pending_proposals:{creative:3,music:0,individual:0},clips:data.manual.edit.clips.map((c,i)=>({...c,source_start:c.start,source_end:c.end,operations:i===0?['motion']:[]}))};
         else if (path.endsWith("/manual")) json = data.manual;
         else if (path.endsWith("/dubbing")) json = data.dubbing;
         return route.fulfill({ json });
@@ -150,11 +151,14 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           writes.filter((r) => r.path.endsWith("/render")).length,
           0,
         );
+        await page.locator('.render-summary').waitFor();
+        assert.match(await page.locator('.render-summary').innerText(), /Неприменённые предложения AI: 3/);
+        assert.match(await page.locator('.render-summary').innerText(), /Движение камеры/);
         assert.equal(writes[0].body.edit.clips[0].zoom_end, 1.2);
         assert.equal(writes[0].body.edit.subtitles, false);
         assert.equal(writes[0].path, `/api/studio/projects/${pid}/manual`);
         await page
-          .getByRole("button", { name: "Создать версию", exact: true })
+          .getByRole("button", { name: "Создать видео с этими изменениями", exact: true })
           .click();
         assert.equal(writes.at(-1).body.revision, 2);
         assert.equal(

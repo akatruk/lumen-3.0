@@ -796,3 +796,9 @@
     display: none;
   }
 }
+
+.render-summary .error-box { display: block; }
+.render-summary .error-box p { margin: 8px 0 0; }
+.render-summary h3 { margin: 20px 0 8px; }
+.render-summary li { margin-bottom: 10px; overflow-wrap: anywhere; }
+.render-summary details { margin: 16px 0; }
