@@ -26,3 +26,9 @@ npm run build --prefix frontend
 Optional WORKSPACE_MEDIA=/absolute/path/to/video.mp4 supplies playable media to the intercepted fixture. Without it, media requests return 204; these tests cover UI/API wiring rather than codec playback. WORKSPACE_URL overrides the Vite address.
 
 Deployment: static frontend only; no database migration, no project edits, no AI generation and no service restart required. The previous six feature commits already deployed on this host are included in the main-branch merge, preserving voiceovers, locale selection, music and Douyin previews.
+
+## Production verification
+
+Merged to origin/main: implementation commit 3d980ec. Static release published to lumen-fix.universalgravity.org. Backup: /opt/lumen-rebuild/backups/project-workspace-20260918-094718. Deployed index and JS/CSS bytes match the local production build: index-Bsc-PrKZ.js and index-CUrgdRk2.css. Both services remained active; no restarts.
+
+Authenticated browser verification passed for all seven existing projects. test11 original rendered video and selected voiceover both played. The selected voiceover download returned HTTP 206 video/mp4 with attachment disposition for a range request. Six mobile tool sections fit 390 px. No application JavaScript errors and no API writes during browser checks. Temporary administrative QA sessions revoked. No renders, voice generation or project edits were submitted to production.
