@@ -287,7 +287,6 @@ function App() {
               <small>{t("draftDesc")}</small>
             </div>
             <div className="sidebar-footer">
-              <LanguageSelect lang={lang} onChange={setLang} />
               <div className="account">
                 <div className="avatar">{user.email[0].toUpperCase()}</div>
                 <span title={user.email}>{user.email}</span>
