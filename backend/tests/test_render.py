@@ -106,3 +106,16 @@ def test_external_library_asset_renders_only_during_insert(tmp_path):
  def pixel(t):return subprocess.check_output(['ffmpeg','-v','error','-ss',str(t),'-i',str(tmp_path/'result.mp4'),'-vf','scale=1:1','-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'])
  assert pixel(.5)[0]>180 and pixel(1.5)[1]>180 and pixel(2.5)[0]>180
  assert result['director_timeline']['tracks']['cutaways'][0]['asset_id']==ident
+
+@pytest.mark.skipif(not shutil.which('ffmpeg'),reason='FFmpeg required')
+def test_short_camera_move_reaches_target_then_holds_real_pixels(tmp_path):
+    import subprocess
+    src=tmp_path/'motion-duration.mp4'
+    ffmpeg('-f','lavfi','-i','color=red:s=320x240:d=8:r=30','-vf','drawbox=x=160:y=0:w=160:h=240:color=lime:t=fill','-c:v','libx264',src)
+    a=Analysis(summary=T,strongest_moment=T,audience=T,scores=[dict(category='clarity',value=50,reason=T)],scenes=[dict(start=0,end=8,title=T,observation=T,role='context')],transcript=[],recommendations=[],uncertainties=[])
+    result=render(src,tmp_path,probe(src),a,[],'en','original',manual={'clips':[{'start':0,'end':8,'zoom':1,'zoom_end':2,'x':1,'x_end':1,'motion_seconds':2}]})
+    def pixel(t):return subprocess.check_output(['ffmpeg','-v','error','-ss',str(t),'-i',str(tmp_path/'result.mp4'),'-vf','crop=10:10:20:100,scale=1:1','-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','-'])
+    assert pixel(.1)[0]>180
+    assert pixel(2.1)[1]>180 and pixel(6)[1]>180
+    assert abs(result['metadata']['duration']-8)<.2
+    assert result['director_timeline']['tracks']['video'][0]['motion']['duration']==2

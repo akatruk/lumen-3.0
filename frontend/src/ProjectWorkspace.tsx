@@ -38,6 +38,9 @@ type WorkspaceContextValue = {
   previewTarget: HTMLDivElement | null;
   scenesTarget: HTMLDivElement | null;
   actionsTarget: HTMLDivElement | null;
+  deliveryTarget: HTMLDivElement | null;
+  renderId?: string;
+  finalAudioId?: string;
   draftActive: boolean;
   showDraft: () => void;
   seekSource: (start: number, end?: number) => void;
@@ -84,6 +87,7 @@ export function ProjectWorkspace({
     ),
     [scenesTarget, setScenesTarget] = useState<HTMLDivElement | null>(null),
     [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(null);
+  const [deliveryTarget,setDeliveryTarget]=useState<HTMLDivElement|null>(null);
   const comparison = useRef<Version | null>(null);
   const [mediaError, setMediaError] = useState(false);
   const [playNotice, setPlayNotice] = useState("");
@@ -269,6 +273,9 @@ export function ProjectWorkspace({
         previewTarget,
         scenesTarget,
         actionsTarget,
+        deliveryTarget,
+        renderId:p.result?.render_id,
+        finalAudioId:finalVoice?.id,
         draftActive,
         showDraft: () => {
           player.current?.pause();
@@ -356,6 +363,7 @@ export function ProjectWorkspace({
                 <span>{w("Сравнить", "Compare", "对比")}</span>
               </button>
             </div>
+            <div ref={setDeliveryTarget} className="ws-delivery-status"/>
             <div hidden={draftActive} className="ws-ready-player">
               {p.metadata?.preview_ready ? (
                 <video

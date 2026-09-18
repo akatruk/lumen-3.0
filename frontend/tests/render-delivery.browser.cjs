@@ -1,0 +1,25 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const assert=require('node:assert/strict');
+const setup=require('./ui-audit-helper.cjs');
+(async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
+ const {page,data,goto,tool,button,draft,errors,writes}=await setup(browser);
+ data.manual.delivery={render_id:data.project.result.render_id,picture_pending:true,rendered_scenes:1,unapproved_scenes:1,separate_audio:true};
+ await goto();
+ await page.getByText('Edits are not in the final video yet',{exact:true}).waitFor();
+ await page.getByText('Voiceover or music was updated separately; that does not apply picture edits.',{exact:true}).waitFor();
+ await button('Review edits and create a version').click();
+ await page.locator('dialog[open]').waitFor();
+ assert.equal(writes.length,0);
+ await button('Back to editing').click();
+ await tool('Effects');await button('Gentle zoom').click();
+ assert.equal((await draft()).clips[0].motion_seconds,4);
+ const duration=page.getByRole('spinbutton',{name:'Camera movement duration, seconds',exact:true});
+ assert.equal(await duration.inputValue(),'4');
+ await duration.fill('2');assert.equal((await draft()).clips[0].motion_seconds,2);
+ await button('Discard edits').click();
+ data.manual.delivery.picture_pending=false;
+ await page.reload();await button('Review and create version').waitFor();
+ assert.equal(await page.getByText('Edits are not in the final video yet',{exact:true}).count(),0);
+ assert.deepEqual(errors,[]);
+ console.log('PASS stale picture + separate audio status, direct review, duration preset/control, current render clears warning');
+ }finally{await browser.close()}})().catch(e=>{console.error(e);process.exit(1)});

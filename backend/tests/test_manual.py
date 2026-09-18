@@ -131,3 +131,13 @@ def test_cutaway_timing_compiles_and_invalid_source_is_rejected():
  assert (insert['start'],insert['end'],insert['source_start'],insert['audio'])==(1,2,0,'base_source')
  edit.clips[0].cutaway.source_start=10
  with pytest.raises(Exception):check(edit,10)
+
+
+def test_render_rejects_partial_approval_instead_of_silently_omitting_scenes(client):
+ pid=create(client).json()['id'];seed_plan(pid);url=f'/api/studio/projects/{pid}/manual'
+ edit=manual();edit['clips'][1]['approved']=False
+ assert client.put(url,json={'revision':1,'edit':edit}).status_code==200
+ response=client.post(url+'/render',json={'revision':2})
+ assert response.status_code==422 and response.json()['detail']=='approve_shots_first'
+ with connect() as db:
+  assert not db.execute("SELECT 1 FROM jobs WHERE project_id=? AND kind='studio_render'",(pid,)).fetchone()

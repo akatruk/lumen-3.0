@@ -24,5 +24,6 @@ def summarize(edit, duration):
         'global_operations': audit['global_operations'], 'near_original': near_original,
         'captions': len(timeline['tracks']['captions']), 'music': bool(edit.music),
         'normalize': edit.normalize,
+        'slow_motion_scenes': [i+1 for i,c in enumerate(edit.clips) if 'motion' in audit['clips'][i]['operations'] and min(c.end-c.start,c.motion_seconds or c.end-c.start)>12],
         'clips': [shot | {'operations': row['operations']} for shot, row in zip(timeline['tracks']['video'], audit['clips'])],
     }

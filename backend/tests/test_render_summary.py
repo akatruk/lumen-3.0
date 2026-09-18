@@ -78,3 +78,15 @@ def test_cleanup_summary_requires_plan_and_ownership(client):
     assert client.get(url).status_code == 409
     app.dependency_overrides[current_user]=lambda:{'id':'other','email':'other@example.com'}
     assert client.get(url).status_code == 404
+
+
+def test_review_summary_does_not_silently_drop_scenes_waiting_for_approval(client):
+    pid=create(client).json()['id'];seed_plan(pid)
+    url=f'/api/studio/projects/{pid}/manual'
+    edit=client.get(url).json()['edit']
+    edit['clips'][0].update(approved=False,zoom_end=1.2,motion_seconds=4)
+    assert client.put(url,json={'revision':1,'edit':edit}).status_code==200
+    data=client.get(url+'/summary').json()
+    assert data['output_duration']==40 and data['unapproved_scenes']==1
+    assert data['clips'][0]['operations']==['motion']
+    assert client.post(url+'/render',json={'revision':2}).status_code==422

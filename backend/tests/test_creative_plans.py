@@ -26,7 +26,7 @@ def test_whole_plan_is_reviewed_then_renderable_only_after_approval(client,monke
  assert len(saved['edit']['clips'])==2 and not any(c['approved'] for c in saved['edit']['clips'])
  assert saved['edit']['clips'][0]['zoom_end']==1.2
  assert client.post(manual+'/render',json={'revision':2}).status_code==422
- saved['edit']['clips'][0]['approved']=True
+ for clip in saved['edit']['clips']:clip['approved']=True
  assert client.put(manual,json={'revision':2,'edit':saved['edit']}).status_code==200
  assert client.post(manual+'/render',json={'revision':3}).status_code==200
  assert client.post(base+'/'+ident+'/accept',json={'revision':1}).status_code==409

@@ -909,3 +909,9 @@
 .review-scene + .review-scene { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dbe3ef; }
 .review-scene { overflow-wrap: anywhere; }
 .review-preflight .manual-actions { flex-wrap: wrap; }
+
+.ws-delivery-status:empty { display: none; }
+.ws-delivery-warning { padding: 12px 16px; margin: 8px 0; border: 1px solid #edd399; border-radius: 12px; background: #fff9eb; color: #73511c; font-size: 14px; line-height: 1.5; }
+.ws-delivery-status .ws-delivery-warning { margin: 0 20px 16px; }
+.ws-delivery-warning p { margin: 6px 0; }
+.ws-delivery-warning button { margin-top: 6px; }

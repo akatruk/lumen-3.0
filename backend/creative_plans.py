@@ -146,6 +146,7 @@ def rendered_edit_signature(edit,approved_only=False):
         row=clip.model_dump(exclude={'id','approved','locked','shot_type'})
         for key in ('zoom','x','y'):
             if row[key+'_end'] is None:row[key+'_end']=row[key]
+        row['motion_seconds']=min(clip.end-clip.start,clip.motion_seconds or clip.end-clip.start) if any(row[key]!=row[key+'_end'] for key in ('zoom','x','y')) else None
         value['clips'].append(row)
     return value
 

@@ -7,6 +7,7 @@ def compile_timeline(edit):
         length=clip.end-clip.start
         row={'id':clip.id,'start':round(cursor,6),'end':round(cursor+length,6),'source_start':clip.start,'source_end':clip.end,
              'shot_type':clip.shot_type,'locked':clip.locked,'motion':{'from':[clip.zoom,clip.x,clip.y],'to':[clip.zoom_end if clip.zoom_end is not None else clip.zoom,clip.x_end if clip.x_end is not None else clip.x,clip.y_end if clip.y_end is not None else clip.y]},'transition':clip.transition,'audio_fade_ms':clip.audio_fade_ms}
+        row['motion']['duration']=min(length,clip.motion_seconds or length)
         shots.append(row)
         if clip.text:titles.append({'decision_id':clip.id,'start':row['start'],'end':row['end'],'text':clip.text})
         if clip.card:inserts.append(clip.card.model_dump()|{'decision_id':clip.id,'start':round(cursor+clip.card.start,6),'end':round(cursor+clip.card.end,6)})
@@ -30,5 +31,5 @@ def motion_filter(clip,width,height,length):
     y0=clip['y'];y1=clip.get('y_end') if clip.get('y_end') is not None else y0
     if (z0,x0,y0)==(z1,x1,y1):
         return f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
-    n=max(1,round(length*30)-1);progress=f'min(on/{n},1)'
+    n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1);progress=f'min(on/{n},1)'
     return f"fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({x0}+({x1}-{x0})*{progress})':y='(ih-ih/zoom)*({y0}+({y1}-{y0})*{progress})':d=1:s={width}x{height}:fps=30,"

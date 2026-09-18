@@ -27,6 +27,7 @@ type Clip = {
   card?:VisualCard|null;
   id?: string; approved?: boolean; locked?: boolean;
   shot_type?: 'presenter'|'close_up'|'medium'|'broll'|'document'|'archive'|'news';
+  motion_seconds?:number|null;
   zoom_end?: number|null; x_end?: number|null; y_end?: number|null;
   transition?: 'cut'|'fade'|'crossfade'|'zoom'|'wipe'|'circle';
   start: number;
@@ -87,6 +88,7 @@ export function ManualEditor({
   const portal=(node:ReactNode,target:HTMLElement|null|undefined)=>target?createPortal(node,target):node;
   const [renderSummary,setRenderSummary]=useState<RenderSummaryData|null>(null);
   const [summaryError,setSummaryError]=useState(false);
+  const [delivery,setDelivery]=useState<{render_id?:string;picture_pending:boolean|null;rendered_scenes:number|null;unapproved_scenes:number;separate_audio:boolean}|null>(null);
   const summaryRequest=useRef(0);
   async function loadRenderSummary(){
     const request=++summaryRequest.current;
@@ -124,6 +126,7 @@ export function ManualEditor({
       try {
         draft = JSON.parse(sessionStorage.getItem(draftKey) || "null");
       } catch {}
+      setDelivery(data.delivery||null);
       setEdit(draft?.edit || data.edit);
       setRevision(draft?.revision || data.revision);
       setDirty(!!draft || !data.saved);
@@ -163,6 +166,7 @@ export function ManualEditor({
   }, [selected, edit?.clips[selected]?.start]);
   useEffect(()=>{if(workspace&&!workspace.draftActive)video.current?.pause()},[workspace?.draftActive]);
   useEffect(()=>{onDirtyChange?.(dirty)},[dirty,onDirtyChange]);
+  useEffect(()=>{let live=true;fetch(base).then(r=>r.ok?r.json():null).then(data=>{if(live)setDelivery(data?.delivery||null)}).catch(()=>{if(live)setDelivery(null)});return()=>{live=false}},[pid,revision,workspace?.renderId,workspace?.finalAudioId]);
   useEffect(()=>{if(edit&&!dirty&&serverRevision!==undefined&&serverRevision!==revision)void load()},[serverRevision]);
   const blocked = disabled || busy;
   function change(p: Partial<Edit>, preview = true) {
@@ -244,8 +248,9 @@ export function ManualEditor({
         <button onClick={() => void load()}>{t("Reload", "重新加载")}</button>
       </section>
     );
+  function openReview(){reviewOpener.current=document.activeElement as HTMLElement;reviewDialog.current?.showModal();if(!dirty)void loadRenderSummary()}
   const clip = edit.clips[selected] || edit.clips[0];
-  const progress=Math.max(0,Math.min(1,(time-clip.start)/(clip.end-clip.start)));
+  const progress=Math.max(0,Math.min(1,(time-clip.start)/Math.min(clip.end-clip.start,clip.motion_seconds||clip.end-clip.start)));
   const frameZoom=clip.zoom+((clip.zoom_end??clip.zoom)-clip.zoom)*progress;
   const frameX=clip.x+((clip.x_end??clip.x)-clip.x)*progress;
   const frameY=clip.y+((clip.y_end??clip.y)-clip.y)*progress;
@@ -272,6 +277,7 @@ export function ManualEditor({
         c.start < 0 ||
         c.end > duration ||
         c.end - c.start < 0.08 ||
+        (c.motion_seconds!=null&&(!Number.isFinite(c.motion_seconds)||c.motion_seconds<.08||c.motion_seconds>840)) ||
         !Number.isFinite(c.zoom) || c.zoom < 1 || c.zoom > 3 ||
         !Number.isFinite(c.x) || c.x < 0 || c.x > 1 ||
         !Number.isFinite(c.y) || c.y < 0 || c.y > 1,
@@ -311,7 +317,7 @@ export function ManualEditor({
             <article className="manual-clip" hidden={!!workspace&&selected!==i} key={c.id||i}>
 <p className="inspector-review-hint">{w('Изменения снимают подтверждение сцены.','Changes clear this scene’s approval.','修改后需要重新批准场景。')}</p><div className="manual-actions inspector-review"><label><input type="checkbox" checked={c.approved!==false} disabled={c.locked} onChange={e=>clipChange(i,{approved:e.target.checked})}/>{t('Approve','批准')}</label><label><input type="checkbox" checked={!!c.locked} disabled={c.approved===false} onChange={e=>clipChange(i,{locked:e.target.checked})}/>{t('Lock','锁定')}</label></div>
               <fieldset className="director-fieldset" disabled={c.locked}>
-              {task==='effects'&&<EffectPresets lang={lang} first={i===0} zoom={c.zoom} zoomEnd={c.zoom_end} x={c.x} y={c.y} xEnd={c.x_end} yEnd={c.y_end} transition={c.transition} onChange={patch=>clipChange(i,patch)}/>}
+              {task==='effects'&&<EffectPresets lang={lang} duration={c.end-c.start} motionSeconds={c.motion_seconds} first={i===0} zoom={c.zoom} zoomEnd={c.zoom_end} x={c.x} y={c.y} xEnd={c.x_end} yEnd={c.y_end} transition={c.transition} onChange={patch=>clipChange(i,patch)}/>}
               <details className="inspector-framing" open={task==='edit'}><summary>{w('Границы и кадрирование','Timing and framing','时间与构图')}</summary><div className="manual-grid ws-framing-grid">
                 {(["start", "end", "zoom", "x", "y"] as const).map((key) => (
                   <label key={key} className={key==='start'||key==='end'?'inspector-time':'inspector-slider'}>
@@ -345,6 +351,9 @@ export function ManualEditor({
                 ))}
               </div></details>
               <details className="inspector-motion" open={task==='effects'}><summary>{t('Camera motion: end framing','镜头运动：结束构图')}</summary><p>{t('The camera moves smoothly from the initial framing above to these end values. Matching values keep the camera still.','镜头从上方初始构图平滑移动至下方结束构图。数值相同则保持静止。')}</p><div className="manual-grid">{(['zoom_end','x_end','y_end'] as const).map((key,j)=><label key={key}>{[t('End zoom','结束缩放'),t('End horizontal position','结束水平位置'),t('End vertical position','结束垂直位置')][j]}<input type="range" min={j===0?1:0} max={j===0?3:1} step="0.05" value={c[key]??[c.zoom,c.x,c.y][j]} onChange={e=>clipChange(i,{[key]:Number(e.target.value)})}/><output>{(c[key]??[c.zoom,c.x,c.y][j]).toFixed(2)}</output></label>)}</div></details>
+              <label>{w('Длительность движения камеры, сек','Camera movement duration, seconds','镜头运动时长（秒）')}<input type="number" min="0.08" max={c.end-c.start} step="0.1" value={Math.min(c.end-c.start,c.motion_seconds||c.end-c.start)} onChange={e=>clipChange(i,{motion_seconds:Number(e.target.value)})}/></label>
+              <p>{w('После движения кадр удерживается до конца сцены.','After the move, the framing holds until the scene ends.','运动完成后，构图保持到场景结束。')}</p>
+              {Math.min(c.end-c.start,c.motion_seconds||c.end-c.start)>12&&(c.zoom_end??c.zoom)!==c.zoom&&<p className="ws-delivery-warning">{w('Движение растянуто на длинную сцену и может быть едва заметно.','The move spans a long scene and may be barely noticeable.','运动跨越较长场景，可能难以察觉。')} <button onClick={()=>clipChange(i,{motion_seconds:Math.min(4,c.end-c.start)})}>{w('Приближение за 4 секунды','Zoom over 4 seconds','4 秒内缩放')}</button></p>}
               <section className="inspector-transition"><label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade" disabled={i===0}>{t('Cross dissolve','叠化')}</option><option value="zoom" disabled={i===0}>{t('Zoom transition','缩放转场')}</option><option value="wipe" disabled={i===0}>{t('Wipe left','向左擦除')}</option><option value="circle" disabled={i===0}>{t('Circle mask','圆形遮罩')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>{i===0&&<small>{w('У первой сцены нет входящего перехода. Можно использовать затухание через чёрный.','The first scene has no incoming transition. You can use a fade through black.','第一个镜头没有入场转场，可以使用黑场淡入淡出。')}</small>}</section>
               <details className="inspector-text"><summary>{w('Текст на сцене','Scene text','镜头文字')}{c.text&&<span className="inspector-dot"/>}</summary><label>
                 {t("Text overlay for this clip", "此片段的叠加文字")}
@@ -715,6 +724,9 @@ export function ManualEditor({
       <p>{t('Review reserves up to $0.50, plus up to two $0.50 planning attempts if a revision is needed, within your project budget. New decisions require review; your finished video is preserved.','复核预留最多 $0.50；需要改进时最多再进行两次各 $0.50 的规划，受项目预算限制。新决策需审核，原成片保留。')}</p>
       </details>
       <p role="status">{blocked?t('Wait for the current task to finish.','请等待当前任务完成。'):invalid?t('Correct the validation errors above before saving or rendering.','请先修正上述校验错误再保存或制作。'):unapprovedCount>0?`${t('Shots awaiting approval','待批准镜头')}: ${unapprovedCount}. ${t('Approve each shot, then save your edits.','请逐个批准镜头，然后保存剪辑。')}`:dirty?t('Save your edits to enable rendering.','保存剪辑后即可制作。'):t('All shots approved and saved. Ready to render.','所有镜头已批准并保存，可以制作。')}</p>
+      {workspace?.deliveryTarget&&portal(<>
+        {(dirty||delivery?.picture_pending)&&<div className="ws-delivery-warning" role="status"><strong>{w('Правки ещё не в финальном видео','Edits are not in the final video yet','更改尚未包含在最终视频中')}</strong><p>{dirty?w('Есть несохранённый черновик. Финальное видео остаётся прежним до создания новой версии.','There is an unsaved draft. The final video stays unchanged until you create a new version.','存在未保存草稿，创建新版本前最终视频保持不变。'):w('Сохранённое изображение отличается от готового видео. Сохранение настроек не запускает рендер.','The saved picture edit differs from the finished video. Saving settings does not render it.','已保存画面剪辑与成片不同。')}</p>{delivery?.separate_audio&&<p>{w('Озвучка или музыка обновлены отдельно; это не применяет монтаж изображения.','Voiceover or music was updated separately; that does not apply picture edits.','配音或音乐已单独更新，但不会应用画面剪辑。')}</p>}<button onClick={openReview}>{w('Проверить правки и создать версию','Review edits and create a version','审核更改并创建版本')}</button></div>}
+      </>,workspace.deliveryTarget)}
       {task!=="review" && portal(<div className="manual-actions ws-edit-actions">
         <span role="status">
           {blocked?w('Дождитесь завершения задачи','Wait for the current task','请等待当前任务完成'):invalid?w('Исправьте ошибки настроек','Correct the settings errors','请修正设置错误'):unapprovedCount>0?`${w('Сцен для проверки','Scenes to review','待审核场景')}: ${unapprovedCount}`:dirty?t("Unsaved manual edits", "手动剪辑尚未保存"):t("Saved state", "已保存状态")}
@@ -744,7 +756,7 @@ export function ManualEditor({
         </button>
         <button
           className="primary"
-          onClick={() => {reviewOpener.current=document.activeElement as HTMLElement;reviewDialog.current?.showModal();if(!dirty)void loadRenderSummary()}}
+          onClick={openReview}
         >
           {w("Проверить и создать версию","Review and create version","审核并创建版本")}
         </button>
@@ -761,7 +773,7 @@ export function ManualEditor({
           <button disabled={blocked||!!c.locked} onClick={()=>clipChange(i,{approved:true})}>{w('Подтвердить сцену','Approve scene','批准场景')} {i+1}</button></div>
         </div>)}
       </section>}
-      {dirty?<section className="review-preflight"><p>{w('Есть несохранённые изменения. Сохраните их, чтобы проверить точный состав новой версии. Видео пока не создаётся.','There are unsaved changes. Save them to review exactly what the new version will contain. This does not create a video.','存在未保存更改。保存后查看新版本的准确内容，此操作不会创建视频。')}</p><button disabled={blocked||invalid} onClick={async()=>{if(await act(false)!==null)await loadRenderSummary()}}>{w('Сохранить и обновить сводку','Save and refresh summary','保存并更新摘要')}</button></section>:renderSummary?.revision===revision?<RenderSummary data={renderSummary} lang={lang}/>:<div role="status"><p>{summaryError?w('Не удалось загрузить сводку. Попробуйте ещё раз.','Could not load the summary. Try again.','无法加载摘要，请重试。'):renderSummary?w('Монтаж изменился. Закройте окно и обновите редактор перед созданием видео.','The edit changed. Close this dialog and reload the editor before rendering.','剪辑已更改，请关闭窗口并刷新编辑器。'):w('Загружаем сохранённый план…','Loading the saved plan…','正在加载已保存的计划…')}</p>{summaryError&&<button onClick={()=>void loadRenderSummary()}>{w('Повторить','Retry','重试')}</button>}</div>}<p>{w('Готовая версия останется доступна. Новый ролик использует сохранённые настройки монтажа.','Your finished version stays available. The new video uses your saved edit settings.','已完成版本仍保留，新视频将使用已保存的剪辑设置。')}</p><p>{qualityReview?w('Включена платная AI-проверка: до $0.50 за проверку и до двух попыток улучшения по $0.50 в пределах бюджета проекта.','AI review is enabled: up to $0.50 for review and up to two $0.50 improvement attempts within the project budget.','已启用 AI 审核：审核最多 $0.50，改进最多两次、每次 $0.50，受项目预算限制。'):w('AI-проверка выключена. Монтаж не вызывает AI.','AI review is off. Rendering makes no AI calls.','AI 审核已关闭，制作不调用 AI。')}</p><div className="manual-actions"><button onClick={()=>reviewDialog.current?.close()}>{w('Вернуться к редактированию','Back to editing','返回编辑')}</button><button className="primary" disabled={blocked||invalid||dirty||unapprovedCount>0||renderSummary?.revision!==revision} onClick={()=>{reviewDialog.current?.close();void act(true)}}>{w('Создать видео с этими изменениями','Create video with these changes','按这些更改创建视频')}</button></div></dialog>
+      {dirty?<section className="review-preflight"><p>{w('Есть несохранённые изменения. Сохраните их, чтобы проверить точный состав новой версии. Видео пока не создаётся.','There are unsaved changes. Save them to review exactly what the new version will contain. This does not create a video.','存在未保存更改。保存后查看新版本的准确内容，此操作不会创建视频。')}</p><button disabled={blocked||invalid} onClick={async()=>{if(await act(false)!==null)await loadRenderSummary()}}>{w('Сохранить и обновить сводку','Save and refresh summary','保存并更新摘要')}</button></section>:renderSummary?.revision===revision?<RenderSummary data={renderSummary} lang={lang} onReviewProposals={workspace?()=>{reviewDialog.current?.close();workspace.setTask('review')}:undefined}/>:<div role="status"><p>{summaryError?w('Не удалось загрузить сводку. Попробуйте ещё раз.','Could not load the summary. Try again.','无法加载摘要，请重试。'):renderSummary?w('Монтаж изменился. Закройте окно и обновите редактор перед созданием видео.','The edit changed. Close this dialog and reload the editor before rendering.','剪辑已更改，请关闭窗口并刷新编辑器。'):w('Загружаем сохранённый план…','Loading the saved plan…','正在加载已保存的计划…')}</p>{summaryError&&<button onClick={()=>void loadRenderSummary()}>{w('Повторить','Retry','重试')}</button>}</div>}<p>{w('Готовая версия останется доступна. Новый ролик использует сохранённые настройки монтажа.','Your finished version stays available. The new video uses your saved edit settings.','已完成版本仍保留，新视频将使用已保存的剪辑设置。')}</p><p>{qualityReview?w('Включена платная AI-проверка: до $0.50 за проверку и до двух попыток улучшения по $0.50 в пределах бюджета проекта.','AI review is enabled: up to $0.50 for review and up to two $0.50 improvement attempts within the project budget.','已启用 AI 审核：审核最多 $0.50，改进最多两次、每次 $0.50，受项目预算限制。'):w('AI-проверка выключена. Монтаж не вызывает AI.','AI review is off. Rendering makes no AI calls.','AI 审核已关闭，制作不调用 AI。')}</p><div className="manual-actions"><button onClick={()=>reviewDialog.current?.close()}>{w('Вернуться к редактированию','Back to editing','返回编辑')}</button><button className="primary" disabled={blocked||invalid||dirty||unapprovedCount>0||renderSummary?.revision!==revision} onClick={()=>{reviewDialog.current?.close();void act(true)}}>{w('Создать видео с этими изменениями','Create video with these changes','按这些更改创建视频')}</button></div></dialog>
     </section>
   );
 }

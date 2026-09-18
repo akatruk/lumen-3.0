@@ -27,6 +27,7 @@ class Clip(Span):
     approved: bool=True
     locked: bool=False
     shot_type: Literal['presenter','close_up','medium','broll','document','archive','news']='presenter'
+    motion_seconds: float | None=Field(default=None,ge=.08,le=840)
     zoom_end: float | None=Field(default=None,ge=1,le=3)
     x_end: float | None=Field(default=None,ge=0,le=1)
     y_end: float | None=Field(default=None,ge=0,le=1)
@@ -98,10 +99,14 @@ def get(pid:str,user=Depends(current_user)):
     p=owned(pid,user)
     with connect() as db:
         s=state(pid,db);edit=read(pid,db);saved=edit is not None
+        from .final_output import current
+        selected_audio=current(db,pid,(p.get('result') or {}).get('render_id',''))
     if edit is None:
         edit=Edit(clips=[Clip(start=0,end=p['metadata']['duration'])],captions=(s['plan'] or {}).get('transcript',[])).model_dump()
     from .timeline import compile_timeline
-    return {'revision':s['revision'],'edit':edit,'saved':saved,'timeline':compile_timeline(Edit.model_validate(edit))}
+    from .render_state import delivery_state
+    validated=Edit.model_validate(edit)
+    return {'revision':s['revision'],'edit':edit,'saved':saved,'timeline':compile_timeline(validated),'delivery':delivery_state(validated,p.get('result'),selected_audio)}
 
 @router.get('/projects/{pid}/manual/summary')
 def summary(pid:str,user=Depends(current_user)):
@@ -114,7 +119,10 @@ def summary(pid:str,user=Depends(current_user)):
         if edit is None:raise HTTPException(422,'save_manual_first')
         pending={name:db.execute(f"SELECT COUNT(*) FROM {table} WHERE project_id=? AND status='ready'",(pid,)).fetchone()[0]
                  for name,table in [('creative','creative_plans'),('music','music_plans'),('individual','timeline_proposals')]}
-    return summarize(Edit.model_validate(edit),p['metadata']['duration'])|{'revision':s['revision'],'pending_proposals':pending}
+    intended=Edit.model_validate(edit)
+    unapproved=sum(not c.approved for c in intended.clips)
+    intended=intended.model_copy(update={'clips':[c.model_copy(update={'approved':True}) for c in intended.clips]})
+    return summarize(intended,p['metadata']['duration'])|{'revision':s['revision'],'pending_proposals':pending,'unapproved_scenes':unapproved}
 
 @router.get('/projects/{pid}/plan-summary')
 def plan_summary(pid:str,user=Depends(current_user)):
@@ -192,6 +200,7 @@ def render(pid:str,body:Render,request:Request,user=Depends(current_user)):
         from .assets import validate as validate_assets
         validate_assets(Edit.model_validate(edit),pid,db)
         if not any(c['approved'] for c in edit['clips']):raise HTTPException(422,'no_approved_changes')
+        if any(not c['approved'] for c in edit['clips']):raise HTTPException(422,'approve_shots_first')
         enqueue(db,pid,'studio_render',{'revision':s['revision'],'plan':s['plan'],'decisions':[],'manual':edit,'quality_review':body.quality_review})
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?",(pid,))
     return {'ok':True}
