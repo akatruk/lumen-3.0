@@ -802,3 +802,85 @@
 .render-summary h3 { margin: 20px 0 8px; }
 .render-summary li { margin-bottom: 10px; overflow-wrap: anywhere; }
 .render-summary details { margin: 16px 0; }
+
+/* Scene inspector: one hierarchy, flat sections, visible editing context. */
+.ws-inspector-heading { padding: 18px 22px; }
+.ws-inspector-heading .eyebrow { display: none; }
+.ws-inspector-heading h2 { margin: 0; font-size: 20px; letter-spacing: -.4px; }
+.ws-inspector .manual-editor { padding: 18px 20px; }
+.ws-inspector .manual-editor > div > .inspector-scene-controls { border: 0; padding: 0; }
+.ws-inspector .inspector-scene { padding: 14px; background: #f6f8fc; border: 1px solid #e7ecf4; border-radius: 12px; margin-bottom: 12px; }
+.inspector-scene-top, .inspector-scene-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.inspector-scene-top { font-size: 9px; font-weight: 650; letter-spacing: .9px; color: #7b879c; }
+.inspector-status { padding: 4px 7px; border-radius: 5px; font-size: 10px; letter-spacing: 0; white-space: nowrap; }
+.inspector-status.approved { color: #21715a; background: #e4f2ec; }
+.inspector-status.pending { color: #9b6316; background: #fff0d6; }
+.inspector-status.locked { color: #596482; background: #e7ebf3; }
+.inspector-scene-nav { display: grid; grid-template-columns: 32px minmax(0,1fr) 32px; align-items: center; gap: 5px; margin: 10px 0; }
+.ws-inspector .inspector-scene-nav button { padding: 0; display: grid; place-items: center; min-height: 36px; border: 0; border-radius: 6px; background: transparent; color: #526581; }
+.ws-inspector .inspector-scene-nav select { font-size: 13px; font-weight: 600; background: white; padding: 8px; border-color: #e0e6f0; }
+.inspector-scene-meta { font-size: 11px; font-variant-numeric: tabular-nums; color: #6b7b93; }
+.ws-inspector .manual-editor .manual-clip { margin: 0; padding: 0; border: 0; }
+.ws-inspector .inspector-review-hint { display: none; }
+.ws-inspector .inspector-review { justify-content: space-between; padding: 0 2px 12px; border-bottom: 1px solid #edf0f5; }
+.ws-inspector .inspector-review label { min-height: 32px; font-size: 12px; color: #526078; gap: 7px; }
+.ws-inspector .inspector-review input { width: 16px; height: 16px; accent-color: var(--ws-blue); }
+.ws-inspector .manual-editor details { padding: 0; border: 0; border-radius: 0; border-bottom: 1px solid #edf0f5; margin: 0; background: transparent; box-shadow: none; }
+.ws-inspector .manual-editor details > summary { padding: 16px 2px; color: #34415a; font-size: 13px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.ws-inspector .manual-editor details > summary::-webkit-details-marker { display: none; }
+.ws-inspector .manual-editor details > summary::after { content: '+'; font-size: 18px; color: #8c98ab; font-weight: 400; margin-left: auto; }
+.ws-inspector .manual-editor details[open] > summary::after { content: '−'; }
+.ws-inspector .manual-editor details[open] { padding-bottom: 16px; }
+.ws-inspector .manual-editor details p { margin: 0 0 12px; font-size: 12px; line-height: 1.6; }
+.ws-inspector .manual-editor label { margin-bottom: 12px; font-size: 12px; font-weight: 500; }
+.ws-inspector .manual-editor label :is(input:not([type=checkbox]),select,textarea) { margin-top: 6px; min-height: 38px; border-radius: 8px; background-color: #fafbfe; }
+.ws-inspector .manual-editor label input[type=range] { background: transparent; min-height: 26px; margin: 4px 0 0; }
+.ws-inspector .manual-editor :is(input,select,textarea,button,summary):focus-visible { outline: 2px solid #3b74ff; outline-offset: 3px; }
+.ws-inspector .manual-editor button:disabled { cursor: not-allowed; opacity: .42; }
+.ws-inspector .manual-editor button { transition: background .15s, border-color .15s; }
+.ws-inspector .manual-editor button:not(:disabled):hover { background-color: #edf3ff; }
+.ws-inspector .inspector-presets { padding: 16px 0; border-bottom: 1px solid #edf0f5; }
+.ws-inspector .inspector-presets h3 { margin: 0 0 12px; font-size: 13px; color: #34415a; }
+.ws-inspector .ws-effect-presets { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.ws-inspector .ws-effect-presets button { display: flex; flex-direction: column; align-items: stretch; gap: 7px; text-align: left; padding: 6px 6px 10px; background: #fff; border: 1px solid #e4e9f1; border-radius: 10px; min-width: 0; }
+.ws-inspector .ws-effect-presets button[aria-pressed=true] { border-color: #3474fa; background: #f3f7ff; box-shadow: 0 0 0 1px #3474fa; }
+.preset-art { height: 48px; display: grid; place-items: center; border-radius: 6px; background: #edf2fb; color: #6484b9; }
+.preset-push { background: radial-gradient(ellipse at center,#d7e5ff 25%,#edf3ff 26%,#dfeaff 55%,#edf3ff 56%); color: #3e76d1; }
+.preset-dissolve { background: linear-gradient(120deg,#e6eaf5 30%,#d2e3f8 75%); }
+.ws-inspector .ws-effect-presets strong { font-size: 11px; font-weight: 600; line-height: 1.4; color: #34415a; padding: 0 2px; }
+.ws-inspector .ws-effect-presets small { font-size: 9px; line-height: 1.3; color: #7b879c; padding: 0 2px; }
+.ws-inspector .ws-framing-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+.ws-inspector .inspector-slider { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; align-items: center; }
+.ws-inspector .inspector-slider input { grid-column: 1; grid-row: 2; }
+.ws-inspector .inspector-slider output { grid-column: 2; grid-row: 2; min-width: 52px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: #2e568f; }
+.ws-inspector .inspector-motion .manual-grid { gap: 4px; }
+.ws-inspector .inspector-motion label { display: grid; grid-template-columns: 1fr auto; align-items: center; }
+.ws-inspector .inspector-motion input { grid-column: 1; grid-row: 2; }
+.ws-inspector .inspector-motion output { grid-column: 2; grid-row: 2; padding-left: 12px; color: #2e568f; font-variant-numeric: tabular-nums; }
+.ws-inspector .inspector-transition { padding: 16px 0; border-bottom: 1px solid #edf0f5; }
+.ws-inspector .inspector-transition > small { display: block; font-size: 11px; color: #8793a6; }
+.inspector-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #387bff; }
+.ws-inspector .manual-editor .ws-scene-options { margin: 8px 0 16px; }
+.ws-inspector .ws-scene-options .manual-actions { display: grid; grid-template-columns: 1fr 1fr; }
+.ws-inspector .ws-scene-options .manual-actions > strong { display: none; }
+.ws-inspector .ws-scene-options button { min-height: 36px; background: #f6f8fc; border: 1px solid #e6ebf3; border-radius: 7px; }
+.ws-inspector .ws-editor-help { margin-top: 24px !important; }
+.ws-inspector .ws-editor-help summary { color: #8993a6 !important; font-size: 11px !important; }
+.ws-draft-slot .manual-screen { height: clamp(280px, calc(100dvh - 590px), 500px); max-width: 100%; border-radius: 8px; }
+.ws-draft-slot .manual-actions { width: 100%; justify-content: center; }
+.ws-draft-slot .manual-actions > strong { flex-basis: 100%; text-align: center; margin-bottom: 6px; color: #6c7990; font-weight: 500; }
+.ws-draft-slot .manual-actions button { border: 1px solid #e3e8f1; border-radius: 7px; background: #fff; min-height: 34px; padding: 7px 11px; }
+.ws-draft-slot .manual-actions button[aria-pressed=true] { background: #eaf1ff; border-color: #abc5fc; color: #2263cf; }
+.ws-draft-slot .manual-preview > button { border: 0; background: #f1f4f9; border-radius: 7px; padding: 8px 20px; font-size: 12px; }
+@media (min-width: 1400px) { .ws-grid { grid-template-columns: 76px minmax(300px,1fr) 420px; } }
+@media (max-width: 700px) {
+ .ws-inspector .manual-editor { padding: 16px; }
+ .ws-inspector-heading { padding: 16px; }
+ .ws-inspector .inspector-scene-nav button { min-height: 40px; }
+ .ws-inspector .manual-editor label :is(input:not([type=checkbox]),select,textarea) { min-height: 42px; font-size: 14px; }
+ .ws-inspector .manual-editor label input[type=range] { min-height: 32px; }
+ .ws-inspector .ws-effect-presets strong { font-size: 12px; }
+ .ws-inspector .ws-effect-presets small { font-size: 10px; }
+ .ws-draft-slot .manual-screen { height: 340px; max-height: 52dvh; }
+}
+@media (prefers-reduced-motion: reduce) { .ws-inspector .manual-editor button { transition: none; } }

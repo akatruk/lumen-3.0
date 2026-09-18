@@ -1,3 +1,4 @@
+import {SceneInspector,EffectPresets} from './SceneInspector';
 import {RenderSummary,type RenderSummaryData} from './RenderSummary';
 import {createPortal} from 'react-dom';
 import {useWorkspace, workspaceText} from './ProjectWorkspace';
@@ -278,17 +279,6 @@ export function ManualEditor({
       className="director-card manual-editor"
       aria-label={t("Manual editor", "手动剪辑")}
     >
-      <details className="ws-editor-help"><summary>{w("Как работает редактор","How editing works","编辑器说明")}</summary>
-      <p>
-        {t(
-          "Build a separate manual cut from your footage. Its clip order and settings replace the AI edits for this render; the AI plan remains available. Saving is free. Rendering uses no AI calls and requires your visual review.",
-          "使用自有素材制作手动版本。本次制作使用下方片段顺序和设置，替代 AI 改动；AI 计划仍然保留。保存免费，制作不调用 AI，需要您亲自检查成片。",
-        )}
-      </p>
-      <div hidden={task!=="edit"}>
-      <button className="secondary" disabled={blocked||dirty||edit.clips.some(c=>c.locked)} onClick={async()=>{setBusy(true);setError('');try{const r=await fetch(base+'/from-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision})});if(!r.ok)throw Error(t('Save or reload the latest plan first.','请先保存或重新加载最新计划。'));const data=await r.json();setEdit(data.edit);setDirty(true);setSelected(0);}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>{t('Build timeline from approved AI edits','根据已批准的 AI 改动建立时间线')}</button>
-      </div>
-      </details>
       <div hidden={task!=="audio"}>{voiceover}
       <SoundtrackLibrary pid={pid} lang={lang} full={assets.length>=20} onChanged={loadAssets}/>
       </div>
@@ -308,13 +298,69 @@ export function ManualEditor({
       {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {c.approved===false?w('Нужна проверка','Review needed','待审核'):w('Проверено','Approved','已批准')}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
-      <details open>
-        <summary>
-          {task==='effects'?w('Эффекты выбранной сцены','Selected scene effects','所选场景效果'):w('Настройки выбранной сцены','Selected scene settings','所选场景设置')}
-        </summary>
+      <section className="inspector-scene-controls">
+        <SceneInspector clips={edit.clips} selected={selected} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}}/>
         <fieldset disabled={blocked} className="director-fieldset">
           {edit.clips.map((c, i) => (
             <article className="manual-clip" hidden={!!workspace&&selected!==i} key={c.id||i}>
+<p className="inspector-review-hint">{w('Изменения снимают подтверждение сцены.','Changes clear this scene’s approval.','修改后需要重新批准场景。')}</p><div className="manual-actions inspector-review"><label><input type="checkbox" checked={c.approved!==false} disabled={c.locked} onChange={e=>clipChange(i,{approved:e.target.checked})}/>{t('Approve','批准')}</label><label><input type="checkbox" checked={!!c.locked} disabled={c.approved===false} onChange={e=>clipChange(i,{locked:e.target.checked})}/>{t('Lock','锁定')}</label></div>
+              <fieldset className="director-fieldset" disabled={c.locked}>
+              {task==='effects'&&<EffectPresets lang={lang} first={i===0} zoom={c.zoom} zoomEnd={c.zoom_end} x={c.x} y={c.y} xEnd={c.x_end} yEnd={c.y_end} transition={c.transition} onChange={patch=>clipChange(i,patch)}/>}
+              <details className="inspector-framing" open={task==='edit'}><summary>{w('Границы и кадрирование','Timing and framing','时间与构图')}</summary><div className="manual-grid ws-framing-grid">
+                {(["start", "end", "zoom", "x", "y"] as const).map((key) => (
+                  <label key={key} className={key==='start'||key==='end'?'inspector-time':'inspector-slider'}>
+                    {
+                      {
+                        start: t("Source start (s)", "原片开始（秒）"),
+                        end: t("Source end (s)", "原片结束（秒）"),
+                        zoom: t("Zoom (1–3×)", "缩放（1–3 倍）"),
+                        x: t("Crop horizontal (0–1)", "水平位置（0–1）"),
+                        y: t("Crop vertical (0–1)", "垂直位置（0–1）"),
+                      }[key]
+                    }
+                    <input
+                      type={key === 'start' || key === 'end' ? 'number' : 'range'}
+                      step={key === "start" || key === "end" ? 0.1 : 0.05}
+                      min={key === "zoom" ? 1 : 0}
+                      max={
+                        key === "zoom"
+                          ? 3
+                          : key === "x" || key === "y"
+                            ? 1
+                            : duration
+                      }
+                      value={c[key]}
+                      onChange={(e) =>
+                        clipChange(i, { [key]: Number(e.target.value) })
+                      }
+                    />
+                    {key!=='start'&&key!=='end'&&<output>{c[key].toFixed(2)}{key==='zoom'?'×':''}</output>}
+                  </label>
+                ))}
+              </div></details>
+              <details className="inspector-motion" open={task==='effects'}><summary>{t('Camera motion: end framing','镜头运动：结束构图')}</summary><p>{t('The camera moves smoothly from the initial framing above to these end values. Matching values keep the camera still.','镜头从上方初始构图平滑移动至下方结束构图。数值相同则保持静止。')}</p><div className="manual-grid">{(['zoom_end','x_end','y_end'] as const).map((key,j)=><label key={key}>{[t('End zoom','结束缩放'),t('End horizontal position','结束水平位置'),t('End vertical position','结束垂直位置')][j]}<input type="range" min={j===0?1:0} max={j===0?3:1} step="0.05" value={c[key]??[c.zoom,c.x,c.y][j]} onChange={e=>clipChange(i,{[key]:Number(e.target.value)})}/><output>{(c[key]??[c.zoom,c.x,c.y][j]).toFixed(2)}</output></label>)}</div></details>
+              <section className="inspector-transition"><label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade" disabled={i===0}>{t('Cross dissolve','叠化')}</option><option value="zoom" disabled={i===0}>{t('Zoom transition','缩放转场')}</option><option value="wipe" disabled={i===0}>{t('Wipe left','向左擦除')}</option><option value="circle" disabled={i===0}>{t('Circle mask','圆形遮罩')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>{i===0&&<small>{w('У первой сцены нет входящего перехода. Можно использовать затухание через чёрный.','The first scene has no incoming transition. You can use a fade through black.','第一个镜头没有入场转场，可以使用黑场淡入淡出。')}</small>}</section>
+              <details className="inspector-text"><summary>{w('Текст на сцене','Scene text','镜头文字')}{c.text&&<span className="inspector-dot"/>}</summary><label>
+                {t("Text overlay for this clip", "此片段的叠加文字")}
+                <input
+                  maxLength={160}
+                  value={c.text}
+                  onChange={(e) => clipChange(i, { text: e.target.value })}
+                />
+              </label>
+              </details>
+              <div className="inspector-inserts">
+              <AssetPlacement value={c.external_broll||null} assets={assets.filter(a=>a.metadata.kind!=='music')} duration={c.end-c.start} lang={lang} onChange={external_broll=>clipChange(i,{external_broll,...(external_broll?{cutaway:null}:{})})}/>
+              <CutawayEditor value={c.cutaway||null} duration={c.end-c.start} sourceDuration={duration} pid={pid} lang={lang} onChange={cutaway=>clipChange(i,{cutaway,...(cutaway?{external_broll:null}:{})})}/>
+              <SoundEffectEditor effects={c.sound_effects||[]} duration={c.end-c.start} lang={lang} onChange={sound_effects=>clipChange(i,{sound_effects})}/>
+              <VisualCardEditor card={c.card||null} duration={c.end-c.start} lang={lang} onChange={card=>clipChange(i,{card})}/>
+              </div>
+              <details><summary>{w('Роль сцены и края звука','Scene role and audio edges','场景用途与声音边缘')}</summary><label>{t('Shot role','镜头用途')}<select value={c.shot_type||'presenter'} onChange={e=>clipChange(i,{shot_type:e.target.value as Clip['shot_type']})}>{[['presenter',t('Presenter','人物讲解')],['close_up',t('Close-up','特写')],['medium',t('Medium shot','中景')],['broll',t('B-roll / cutaway','补充镜头')],['document',t('Document','文档')],['archive',t('Archival footage','档案影像')],['news',t('News clip','新闻片段')]].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+              <label>{t('Source audio edge smoothing','原声边缘平滑')}<select value={c.audio_fade_ms||0} onChange={e=>clipChange(i,{audio_fade_ms:Number(e.target.value)})}>{[0,10,30,60,100].map(ms=><option key={ms} value={ms}>{ms?`${ms} ms`:t('Off — preserve original audio','关闭 — 保留原声')}</option>)}</select></label>
+              <small>{t('Short fades at both clip edges reduce clicks. They affect the whole source mix, including speech; they do not restore a broken musical phrase. Timing is unchanged.','片段首尾短淡化可减少爆音。它影响包括人声在内的全部原声，不能修复被截断的音乐乐句。时间轴不变。')}</small>
+              </details>
+
+              </fieldset>
               <details className="ws-scene-options"><summary>{w('Порядок и удаление сцены','Reorder or remove scene','调整顺序或删除场景')} · {i+1}</summary><div className="manual-actions">
                 <strong>
                   {t("Clip", "片段")} {i + 1}
@@ -367,60 +413,7 @@ export function ManualEditor({
                   {t("Inspect", "查看")}
                 </button>
               </div>
-              </details><p className="muted">{w('Изменения снимают подтверждение сцены.','Changes clear this scene’s approval.','修改后需要重新批准场景。')}</p><div className="manual-actions"><label><input type="checkbox" checked={c.approved!==false} disabled={c.locked} onChange={e=>clipChange(i,{approved:e.target.checked})}/>{t('Approve','批准')}</label><label><input type="checkbox" checked={!!c.locked} disabled={c.approved===false} onChange={e=>clipChange(i,{locked:e.target.checked})}/>{t('Lock','锁定')}</label></div>
-              <fieldset className="director-fieldset" disabled={c.locked}>
-              {task==='effects'&&<div className="ws-effect-presets"><button type="button" onClick={()=>clipChange(i,{zoom:1,zoom_end:1.2})}>{w('Плавное приближение','Gentle zoom','缓慢放大')}</button><button type="button" disabled={i===0} onClick={()=>clipChange(i,{transition:'crossfade'})}>{w('Растворение','Cross dissolve','叠化')}</button><button type="button" onClick={()=>clipChange(i,{zoom:1,zoom_end:1,transition:'cut'})}>{w('Без движения','No motion','静止画面')}</button></div>}
-              <details><summary>{w('Роль сцены и края звука','Scene role and audio edges','场景用途与声音边缘')}</summary><label>{t('Shot role','镜头用途')}<select value={c.shot_type||'presenter'} onChange={e=>clipChange(i,{shot_type:e.target.value as Clip['shot_type']})}>{[['presenter',t('Presenter','人物讲解')],['close_up',t('Close-up','特写')],['medium',t('Medium shot','中景')],['broll',t('B-roll / cutaway','补充镜头')],['document',t('Document','文档')],['archive',t('Archival footage','档案影像')],['news',t('News clip','新闻片段')]].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-              <label>{t('Source audio edge smoothing','原声边缘平滑')}<select value={c.audio_fade_ms||0} onChange={e=>clipChange(i,{audio_fade_ms:Number(e.target.value)})}>{[0,10,30,60,100].map(ms=><option key={ms} value={ms}>{ms?`${ms} ms`:t('Off — preserve original audio','关闭 — 保留原声')}</option>)}</select></label>
-              <small>{t('Short fades at both clip edges reduce clicks. They affect the whole source mix, including speech; they do not restore a broken musical phrase. Timing is unchanged.','片段首尾短淡化可减少爆音。它影响包括人声在内的全部原声，不能修复被截断的音乐乐句。时间轴不变。')}</small>
-              </details><div className="manual-grid">
-                {(["start", "end", "zoom", "x", "y"] as const).map((key) => (
-                  <label key={key}>
-                    {
-                      {
-                        start: t("Source start (s)", "原片开始（秒）"),
-                        end: t("Source end (s)", "原片结束（秒）"),
-                        zoom: t("Zoom (1–3×)", "缩放（1–3 倍）"),
-                        x: t("Crop horizontal (0–1)", "水平位置（0–1）"),
-                        y: t("Crop vertical (0–1)", "垂直位置（0–1）"),
-                      }[key]
-                    }
-                    <input
-                      type={key === 'start' || key === 'end' ? 'number' : 'range'}
-                      step={key === "start" || key === "end" ? 0.1 : 0.05}
-                      min={key === "zoom" ? 1 : 0}
-                      max={
-                        key === "zoom"
-                          ? 3
-                          : key === "x" || key === "y"
-                            ? 1
-                            : duration
-                      }
-                      value={c[key]}
-                      onChange={(e) =>
-                        clipChange(i, { [key]: Number(e.target.value) })
-                      }
-                    />
-                  </label>
-                ))}
-              </div>
-              <label>
-                {t("Text overlay for this clip", "此片段的叠加文字")}
-                <input
-                  maxLength={160}
-                  value={c.text}
-                  onChange={(e) => clipChange(i, { text: e.target.value })}
-                />
-              </label>
-              <details><summary>{w('Вставки, звук и карточки','Cutaways, sound and cards','补充镜头、声音与卡片')}</summary>
-              <AssetPlacement value={c.external_broll||null} assets={assets.filter(a=>a.metadata.kind!=='music')} duration={c.end-c.start} lang={lang} onChange={external_broll=>clipChange(i,{external_broll,...(external_broll?{cutaway:null}:{})})}/>
-              <CutawayEditor value={c.cutaway||null} duration={c.end-c.start} sourceDuration={duration} pid={pid} lang={lang} onChange={cutaway=>clipChange(i,{cutaway,...(cutaway?{external_broll:null}:{})})}/>
-              <SoundEffectEditor effects={c.sound_effects||[]} duration={c.end-c.start} lang={lang} onChange={sound_effects=>clipChange(i,{sound_effects})}/>
-              <VisualCardEditor card={c.card||null} duration={c.end-c.start} lang={lang} onChange={card=>clipChange(i,{card})}/>
               </details>
-              <details open={task==='effects'}><summary>{t('Camera motion: end framing','镜头运动：结束构图')}</summary><p>{t('The camera moves smoothly from the initial framing above to these end values. Matching values keep the camera still.','镜头从上方初始构图平滑移动至下方结束构图。数值相同则保持静止。')}</p><div className="manual-grid">{(['zoom_end','x_end','y_end'] as const).map((key,j)=><label key={key}>{[t('End zoom','结束缩放'),t('End horizontal position','结束水平位置'),t('End vertical position','结束垂直位置')][j]}<input type="range" min={j===0?1:0} max={j===0?3:1} step="0.05" value={c[key]??[c.zoom,c.x,c.y][j]} onChange={e=>clipChange(i,{[key]:Number(e.target.value)})}/><output>{(c[key]??[c.zoom,c.x,c.y][j]).toFixed(2)}</output></label>)}</div></details>
-              <label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade" disabled={i===0}>{t('Cross dissolve','叠化')}</option><option value="zoom" disabled={i===0}>{t('Zoom transition','缩放转场')}</option><option value="wipe" disabled={i===0}>{t('Wipe left','向左擦除')}</option><option value="circle" disabled={i===0}>{t('Circle mask','圆形遮罩')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>{i===0&&<small>{w('У первой сцены нет входящего перехода. Можно использовать затухание через чёрный.','The first scene has no incoming transition. You can use a fade through black.','第一个镜头没有入场转场，可以使用黑场淡入淡出。')}</small>}
-              </fieldset>
             </article>
           ))}
           <button
@@ -452,7 +445,7 @@ export function ManualEditor({
             "时间对应原片。重复范围会重复播放，未选范围会被剪掉。请确保剪切不截断讲话。",
           )}
         </p>
-      </details>
+      </section>
       <TimelineRegenerate matchRequest={matchRequest} assets={assets.filter(a=>a.metadata.kind!=='music')} pid={pid} revision={revision} clipId={clip.id} locked={clip.locked} disabled={blocked||dirty} lang={lang} onApplied={async()=>{sessionStorage.removeItem(draftKey);await load();await onSaved()}} />
       </div>
       {portal(<div className="manual-preview">
@@ -690,6 +683,17 @@ export function ManualEditor({
         </p>
       </fieldset>
       </div>
+      <details className="ws-editor-help"><summary>{w("Как работает редактор","How editing works","编辑器说明")}</summary>
+      <p>
+        {t(
+          "Build a separate manual cut from your footage. Its clip order and settings replace the AI edits for this render; the AI plan remains available. Saving is free. Rendering uses no AI calls and requires your visual review.",
+          "使用自有素材制作手动版本。本次制作使用下方片段顺序和设置，替代 AI 改动；AI 计划仍然保留。保存免费，制作不调用 AI，需要您亲自检查成片。",
+        )}
+      </p>
+      <div hidden={task!=="edit"}>
+      <button className="secondary" disabled={blocked||dirty||edit.clips.some(c=>c.locked)} onClick={async()=>{setBusy(true);setError('');try{const r=await fetch(base+'/from-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision})});if(!r.ok)throw Error(t('Save or reload the latest plan first.','请先保存或重新加载最新计划。'));const data=await r.json();setEdit(data.edit);setDirty(true);setSelected(0);}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>{t('Build timeline from approved AI edits','根据已批准的 AI 改动建立时间线')}</button>
+      </div>
+      </details>
       {error && <p role="alert">{error}</p>}
       {invalidMusic&&<p role="alert">{t('Music points must start at 0, increase in time and stay between -40 and -6 dB.','音乐节点须从 0 秒开始，时间递增，音量介于 -40 至 -6 dB。')}</p>}
       {invalid && (

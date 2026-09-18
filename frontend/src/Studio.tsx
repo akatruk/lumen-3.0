@@ -660,7 +660,7 @@ export function DirectorProject({
           <button onClick={() => setError("")}>{t("Dismiss", "关闭")}</button>
         </p>
       )}
-      {lang === 'ru' && <p className="muted">{t('Generated analysis is displayed in English.','AI 分析文本以英语显示。')}</p>}
+      {lang === 'ru' && !manualTask && <p className="muted">{t('Generated analysis is displayed in English.','AI 分析文本以英语显示。')}</p>}
       <div className="director-layout">
         <section className="director-inspector">
           {state?.plan && <div hidden={!manualTask}><ManualEditor serverRevision={state.revision} onDirtyChange={setManualDirty} hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} voiceover={<Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} embedded onPreview={(url,label)=>workspace?.previewVersion(url,label)}/>} /></div>}
