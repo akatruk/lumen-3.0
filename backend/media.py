@@ -272,6 +272,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         if effects:
             from .sound_effects import mix
             input_path=mix(input_path,folder,effects,cursor,metadata['has_audio'])
+    music_free_input=input_path
     if manual and manual.get('music'):
         from .music import mix as mix_music
         track=(asset_paths or {}).get(manual['music']['asset_id'])
@@ -299,6 +300,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         # Reuse the pre-caption picture and the final processed audio; no second video encode.
         ffmpeg('-i',input_path,'-i',folder/'result.mp4','-map','0:v:0','-map','1:a:0?',
                '-c','copy','-movflags','+faststart',folder/'caption-free.mp4',timeout=1200)
+    if manual and manual.get('music'):
+        ffmpeg('-i',folder/'result.mp4','-i',music_free_input,'-map','0:v:0','-map','1:a:0?',
+               '-c:v','copy','-c:a','aac','-movflags','+faststart',folder/'music-free.mp4',timeout=1200)
     output=probe(folder/'result.mp4')
     expected=sum(b-a for a,b in timeline)
     if abs(output['duration']-expected)>0.6: raise ValueError('output_duration_mismatch')
@@ -311,4 +315,4 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
     for p in [*parts,base,*folder.glob('overlay-*.mp4')]: p.unlink(missing_ok=True)
     from .timeline import compile_timeline
     director_timeline=compile_timeline(Edit.model_validate(manual)) if manual else None
-    return {'caption_master':bool(preserve_caption_master),'captions_enabled':bool(captions),'caption_style':{k:manual[k] for k in ('font_size','position','color')} if manual else {},'caption_transcript':[c for c in manual['captions']] if manual else [c.model_dump() for c in analysis.transcript],'director_timeline':director_timeline,'metadata':output,'timeline':timeline,'applied':[r.id for r in recommendations], 'generated_clips':len(brolls or [])}
+    return {'music':manual.get('music') if manual else None,'caption_master':bool(preserve_caption_master),'captions_enabled':bool(captions),'caption_style':{k:manual[k] for k in ('font_size','position','color')} if manual else {},'caption_transcript':[c for c in manual['captions']] if manual else [c.model_dump() for c in analysis.transcript],'director_timeline':director_timeline,'metadata':output,'timeline':timeline,'applied':[r.id for r in recommendations], 'generated_clips':len(brolls or [])}

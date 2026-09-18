@@ -7,7 +7,7 @@ import { workspaceText } from './ProjectWorkspace';
 
 type Language = 'ru' | 'en' | 'zh';
 type Version = { id: string; master_id: string; language: Language; voice: string; kind: 'sample' | 'video'; status: string; progress: number; error: string | null; stale: boolean; result: { duration: number } | null };
-type Catalog = { final_version_id?: string; voices: { id: string; language: Language; name: string }[]; versions: Version[]; blocked_reason: string | null; needs_transcription?: boolean; busy: boolean; master_id: string; remaining_budget: number; max_cost: number; sample_max_cost: number };
+type Catalog = { final_version_id?: string; final_version?:{source_voice?:string}; voices: { id: string; language: Language; name: string }[]; versions: Version[]; blocked_reason: string | null; needs_transcription?: boolean; busy: boolean; master_id: string; remaining_budget: number; max_cost: number; sample_max_cost: number };
 const names: Record<Language, string> = { ru: 'Русский', en: 'English', zh: '中文' };
 const active = (v: Version) => !['ready', 'failed'].includes(v.status);
 
@@ -104,7 +104,7 @@ export function Dubbing({ pid, lang, masterId, embedded=false, onPreview, onFina
     {open && <div id={panelId} className="director-card" role="region" aria-label={t('Change voiceover', '更换配音')}>
       <h3>{t('Create a translated voiceover', '创建翻译配音')}</h3>
       <p>{w('Выберите язык и голос, затем создайте озвучку. Когда она будет готова, финальное видео и обычная кнопка скачивания будут использовать её. Монтаж до озвучки останется в «Версиях».','Choose a language and voice, then create the voiceover. Once ready, the finished video and main download will use it. The edit before voiceover stays available in Versions.','选择语言和声音并创建配音。完成后，成片和主下载按钮将使用新配音。配音前的剪辑仍可在版本中访问。')}</p>
-      <p className="dubbing-notice">{t('This version replaces all original audio, including mixed music and background sounds. It does not clone the speaker or change lip movements. Existing text inside the picture stays unchanged.', '此版本会替换全部原音轨，包括混合的音乐与环境声。不克隆原说话者声音，也不改变口型。画面内原有文字保持不变。')}</p>
+      <p className="dubbing-notice">{w('Озвучка заменяет исходную речь и звуки. Музыка, добавленная здесь в финальное видео, сохранится. Голос не клонируется, движения губ и текст в кадре не меняются.','Voiceover replaces the original speech and sounds. Music added to the final video here is retained. It does not clone voices or change lip movements or text in the picture.','配音替换原始语音与环境声。此处添加到成片的背景音乐会保留。不克隆声音，不改变口型或画面文字。')}</p>
       {loadError && <p role="alert">{t('Could not refresh voiceover status. Reconnecting…', '无法刷新配音状态，正在重连…')}</p>}
       {!data ? <p role="status">{t('Loading voices…', '正在加载声音…')}</p> : <>
         <div className="manual-grid">
@@ -135,7 +135,7 @@ export function Dubbing({ pid, lang, masterId, embedded=false, onPreview, onFina
           <h4>{names[v.language]} · {data.voices.find(voice => voice.id === v.voice)?.name || v.voice}</h4>
           {v.stale && <p>{t('Created from an earlier Master. It is still available to play and download.', '基于较早的主版本创建，仍可播放和下载。')}</p>}
           <p>{t('AI voiceover — review pronunciation and timing before sharing.', 'AI 配音 — 分享前请检查发音和时序。')}</p>
-          {data.final_version_id===v.id ? <p className="dubbing-final-status" role="status">{w('Используется в финальном видео','Used in final video','已用于最终视频')}</p> : <button className="primary" disabled={unavailable||v.stale} onClick={()=>void useAsFinal(v.id)}>{w('Использовать в финальном видео','Use in final video','用于最终视频')}</button>}
+          {(data.final_version_id===v.id||data.final_version?.source_voice===v.id) ? <p className="dubbing-final-status" role="status">{w('Используется в финальном видео','Used in final video','已用于最终视频')}</p> : <button className="primary" disabled={unavailable||v.stale} onClick={()=>void useAsFinal(v.id)}>{w('Использовать в финальном видео','Use in final video','用于最终视频')}</button>}
           {onPreview?<button className="secondary" onClick={()=>onPreview(file(v,'video.mp4'),`${names[v.language]} · ${v.voice}`)}>{t('Play','播放')} · {names[v.language]}</button>:<video controls preload="none" src={file(v,'video.mp4')} aria-label={`${names[v.language]} ${t('dubbed version','配音版本')}`} />}
           <div className="dubbing-downloads"><a className="primary" href={file(v, 'video.mp4') + '?download=true'}><Download size={16} aria-hidden="true" /> {t('Download dubbed video', '下载配音视频')}</a>
           <a className="secondary" href={file(v, 'subtitles.vtt') + '?download=true'}>{t('Download translated subtitles', '下载译文字幕')}</a></div>

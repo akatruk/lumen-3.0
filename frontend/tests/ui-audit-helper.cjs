@@ -2,6 +2,7 @@ const fixture=require('./fixtures/ui-audit.cjs');
 const assert=require('node:assert/strict');
 module.exports=async function setup(browser){
  const data=fixture(),writes=[],errors=[],unknown=[],pid=data.project.id,root=`/api/studio/projects/${pid}`;
+ data.finalMusic={master_id:data.project.result.render_id,final_id:'master',music:null,title:'',voice_id:'',jobs:[]};
  const page=await browser.newPage({viewport:{width:1440,height:1000},permissions:['clipboard-read','clipboard-write']});page.setDefaultTimeout(7000);
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.addInitScript(()=>localStorage.setItem('lumen_language','en'));
@@ -12,6 +13,7 @@ module.exports=async function setup(browser){
   if(path.includes('/media/')||path.endsWith('/media')||path.endsWith('/video.mp4'))return route.fulfill(process.env.WORKSPACE_MEDIA?{path:process.env.WORKSPACE_MEDIA,contentType:'video/mp4'}:{status:204});
   if(method!=='GET'){
    const body=req.headers()['content-type']?.includes('json')?req.postDataJSON():null;writes.push({path,method,body});
+   if(path===root+'/final-music'){const id='f'.repeat(32);const voice=data.dubbing.versions.find(v=>v.id===data.dubbing.final_version_id);const v={id,master_id:data.project.result.render_id,kind:'mix',status:'ready',created:1800000000,language:voice?.language||'',voice:voice?.voice||'',source_voice:voice?.id||'',music:data.manual.edit.music,music_title:'QA music',stale:false};data.dubbing.final_version_id=id;data.dubbing.final_version=v;data.dubbing.versions.push(v);data.finalMusic={master_id:v.master_id,final_id:id,music:v.music,title:v.music?'QA music':'',voice_id:v.source_voice,jobs:[{id,status:'ready',error:null}]};return route.fulfill({json:{id}})}
    if(path===root+'/dubbing/final'){data.dubbing.final_version_id=body.version_id;return route.fulfill({json:{final_version_id:body.version_id}})}
    if(path===root+'/manual'&&method==='PUT'){data.manual.edit=body.edit;revised();return route.fulfill({json:data.manual})}
    if(path===root+'/manual/from-plan')return route.fulfill({json:{...data.manual,edit:{...data.manual.edit,clips:[{...data.manual.edit.clips[0],start:0,end:2},{...data.manual.edit.clips[1],start:4,end:12}]}}});
@@ -22,7 +24,7 @@ module.exports=async function setup(browser){
    if(path===root+'/timeline-proposals'){data.proposals=[{id:'proposal',target:body.clip_id,revision:data.manual.revision,status:'ready',instruction:body.instruction,result:{reason:text,clip:{...data.manual.edit.clips[0],zoom_end:1.3}}}];return route.fulfill({json:{id:'proposal'}})}
    if(path.includes('/timeline-proposals/')&&path.endsWith('/accept')){data.manual.edit.clips[0]={...data.proposals[0].result.clip,approved:false};data.proposals[0].status='accepted';revised();return route.fulfill({json:{ok:true}})}
    if(path===root+'/music-plans'){data.musicPlans=[{id:'music',revision:data.manual.revision,status:'ready',result:{music:data.music,reason:text,emotional_curve:[text]}}];return route.fulfill({json:{id:'music'}})}
-   if(path.includes('/music-plans/')&&path.endsWith('/accept')){data.manual.edit.music=data.music;data.musicPlans[0].status='accepted';revised();return route.fulfill({json:{ok:true}})}
+   if(path.includes('/music-plans/')&&path.endsWith('/accept')){data.manual.edit.music=data.music;data.musicPlans[0].status='accepted';revised();return route.fulfill({json:{revision:data.manual.revision}})}
    if(path===root+'/creative-plans'){data.creative=[{id:'creative',revision:data.manual.revision,status:'ready',result:{edit:data.manual.edit,reason:text,notes:[]}}];return route.fulfill({json:{id:'creative'}})}
    if(path.includes('/creative-plans/')&&path.endsWith('/accept')){data.creative[0].status='accepted';data.manual.edit.clips.forEach(c=>c.approved=false);revised();return route.fulfill({json:{ok:true}})}
    if(path===root+'/alternatives'){data.alternatives=[{id:'alternative',target:body.target,revision:data.studio.revision,status:'ready',instruction:body.instruction,proposal:{recommendation:data.studio.plan.recommendations[0],transfer:{fit:text}}}];return route.fulfill({json:{id:'alternative'}})}
@@ -44,6 +46,7 @@ module.exports=async function setup(browser){
   else if(path.endsWith('/plan-summary'))json={revision:data.studio.revision,source_duration:12,output_duration:10,removed_seconds:2,removed_ranges:[[2,4]],near_original:true,captions:0,music:false,normalize:false,global_operations:['trim'],pending_proposals:{creative:0},clips:[{id:'a',start:0,end:2,source_start:0,source_end:2,operations:[]},{id:'b',start:2,end:10,source_start:4,source_end:12,operations:[]}]};
   else if(path.endsWith('/manual'))json=data.manual;
   else if(path.endsWith('/assets'))json=data.assets;
+  else if(path.endsWith('/final-music'))json=data.finalMusic;
   else if(path.endsWith('/dubbing'))json=data.dubbing;
   else if(path==='/api/studio/soundtracks')json=data.soundtracks;
   else if(path.endsWith('/creative-plans'))json=data.creative;

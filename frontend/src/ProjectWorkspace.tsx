@@ -75,7 +75,7 @@ export function ProjectWorkspace({
     [loadError, setLoadError] = useState(false),
     [draftActive, setDraftActive] = useState(false),
     [custom, setCustom] = useState<Version | null>(null);
-  const [finalVoiceState, setFinalVoice] = useState<{id:string; label:string; masterId:string} | null>(null);
+  const [finalVoiceState, setFinalVoice] = useState<{id:string; label:string; masterId:string; url:string} | null>(null);
   const finalVoice = finalVoiceState?.masterId === p.result?.render_id ? finalVoiceState : null;
   const [finalRefresh, setFinalRefresh] = useState(0);
   const finalIdentity = useRef<string | null>(null);
@@ -102,7 +102,7 @@ export function ProjectWorkspace({
           {
             id: "result",
             label: w("Готовый ролик", "Finished video", "已完成视频") + (finalVoice ? ` · ${finalVoice.label}` : ''),
-            url: finalVoice ? `/api/studio/projects/${p.id}/dubbing/${finalVoice.id}/files/video.mp4` : base + "result?v=" + (p.result.render_id || ''),
+            url: finalVoice ? finalVoice.url : base + "result?v=" + (p.result.render_id || ''),
             download: base + "result",
             detail: `${fmt(p.result.metadata.duration)} · ${p.result.metadata.width} × ${p.result.metadata.height}`,
           },
@@ -147,25 +147,30 @@ export function ProjectWorkspace({
             switchVersion('result');
           }
           finalIdentity.current = identity;
-          setFinalVoice(finalVersion && finalId!=='master' ? {id:finalVersion.id,masterId:d.master_id,label:`${({ru:'Русский',en:'English',zh:'中文'} as Record<string,string>)[finalVersion.language] || finalVersion.language} · ${d.voices.find((v:{id:string})=>v.id===finalVersion.voice)?.name || finalVersion.voice}`} : null);
+          const versionUrl=(v:{id:string;kind:string})=>v.kind==='mix'?`/api/studio/projects/${p.id}/final-music/${v.id}/video.mp4`:`/api/studio/projects/${p.id}/dubbing/${v.id}/files/video.mp4`;
+          const versionLabel=(v:{language:string;voice:string;kind:string;music_title?:string;music?:unknown})=>[v.voice?`${({ru:'Русский',en:'English',zh:'中文'} as Record<string,string>)[v.language]||v.language} · ${d.voices.find((voice:{id:string})=>voice.id===v.voice)?.name||v.voice}`:'',v.kind==='mix'?(v.music?v.music_title:w('Без добавленной музыки','No added music','无新增音乐')):''].filter(Boolean).join(' · ');
+          setFinalVoice(finalVersion && finalId!=='master' ? {id:finalVersion.id,masterId:d.master_id,url:versionUrl(finalVersion),label:versionLabel(finalVersion)} : null);
           setDubs(
             d.versions
               .filter(
                 (v: { kind: string; status: string }) =>
-                  v.kind === "video" && v.status === "ready",
+                  (v.kind === "video" || v.kind === "mix") && v.status === "ready",
               )
               .map(
                 (v: {
                   id: string;
+                  kind: string;
+                  music_title?:string;
+                  music?:unknown;
                   language: string;
                   voice: string;
                   stale: boolean;
                   created: number;
                 }) => ({
                   id: v.id,
-                  label: `${({ ru: "Русский", en: "English", zh: "中文" } as Record<string, string>)[v.language] || v.language} · ${d.voices.find((voice: { id: string }) => voice.id === v.voice)?.name || v.voice}`,
-                  url: `/api/studio/projects/${p.id}/dubbing/${v.id}/files/video.mp4`,
-                  download: `/api/studio/projects/${p.id}/dubbing/${v.id}/files/video.mp4?download=true`,
+                  label: versionLabel(v),
+                  url: versionUrl(v),
+                  download: versionUrl(v)+'?download=true',
                   detail: `${new Date(v.created * 1000).toLocaleString(lang)} · ${v.stale ? w("Предыдущий ролик", "Earlier video", "较早版本") : w("Текущий ролик", "Current video", "当前版本")} · ${v.id.slice(0, 6)}`,
                 }),
               ),

@@ -67,6 +67,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         else if (path === `/api/studio/projects/${pid}`) json = data.studio;
         else if (path.endsWith("/manual/summary")) json = {revision:data.manual.revision,source_duration:12,output_duration:12,removed_seconds:0,removed_ranges:[],near_original:false,captions:0,music:false,normalize:false,global_operations:[],pending_proposals:{creative:3,music:0,individual:0},clips:data.manual.edit.clips.map((c,i)=>({...c,source_start:c.start,source_end:c.end,operations:i===0?['motion']:[]}))};
         else if (path.endsWith("/manual")) json = data.manual;
+        else if (path.endsWith("/final-music")) json = {master_id:data.project.result?.render_id||"",final_id:"master",music:null,title:"",voice_id:"",jobs:[]};
         else if (path.endsWith("/dubbing")) json = data.dubbing;
         return route.fulfill({ json });
       });
@@ -131,6 +132,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           .locator(".ws-tools")
           .getByRole("button", { name: "Звук", exact: true })
           .click();
+        await page.locator('.audio-voiceover > summary').click();
         await page.getByLabel("Язык озвучки").selectOption("en");
         await page
           .locator(".ws-tools")

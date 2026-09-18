@@ -7,6 +7,7 @@ import {SoundtrackLibrary} from './SoundtrackLibrary';
 import { translate, contentLanguage } from './locale';
 import {reviseDecision} from './decisionReview';
 import {MusicPlan} from './MusicPlan';
+import {FinalMusic,type FinalMusicHandle} from './FinalMusic';
 import {BeatPreview} from './BeatPreview';
 import {StockLibrary} from './StockLibrary';
 import {MusicEditor,type Music} from './MusicEditor';
@@ -164,10 +165,10 @@ export function ManualEditor({
   useEffect(()=>{onDirtyChange?.(dirty)},[dirty,onDirtyChange]);
   useEffect(()=>{if(edit&&!dirty&&serverRevision!==undefined&&serverRevision!==revision)void load()},[serverRevision]);
   const blocked = disabled || busy;
-  function change(p: Partial<Edit>) {
+  function change(p: Partial<Edit>, preview = true) {
     setEdit((e) => (e ? { ...e, ...p } : e));
     setDirty(true);
-    workspace?.showDraft();
+    if(preview)workspace?.showDraft();
   }
   function clipChange(i: number, p: Partial<Clip>) {
     if (edit)
@@ -181,8 +182,10 @@ export function ManualEditor({
         captions: edit.captions.map((c, j) => (i === j ? { ...c, ...p } : c)),
       });
   }
+  const finalMusic = useRef<FinalMusicHandle>(null);
   async function act(render = false) {
-    if (!edit) return;
+    if (!edit) return null;
+    let savedRevision=revision;
     setBusy(true);
     setError("");
     try {
@@ -207,14 +210,17 @@ export function ManualEditor({
       }
       if (!render) {
         const d = await r.json();
+        savedRevision=d.revision;
         setRevision(d.revision);
         setEdit(d.edit);
         setDirty(false);
         sessionStorage.removeItem(draftKey);
       }
       await onSaved();
+      return savedRevision;
     } catch (e) {
       setError((e as Error).message);
+      return null;
     } finally {
       setBusy(false);
     }
@@ -279,21 +285,21 @@ export function ManualEditor({
       className="director-card manual-editor"
       aria-label={t("Manual editor", "手动剪辑")}
     >
-      <div hidden={task!=="audio"}>{voiceover}
-      <SoundtrackLibrary pid={pid} lang={lang} full={assets.length>=20} onChanged={loadAssets}/>
+      <div hidden={task!=="audio"}>
+
+      <MusicEditor delivery={<FinalMusic ref={finalMusic} pid={pid} lang={lang} music={edit.music||null} disabled={blocked||invalid} save={()=>act(false)}/>} pid={pid} onAnalyzed={loadAssets} firstCut={edit.clips.filter(c=>c.approved!==false).length>1?(()=>{const c=edit.clips.find(c=>c.approved!==false)!;return c.end-c.start})():null} value={edit.music||null} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked} onChange={music=>change({music},false)}/>
+      {edit.music&&<BeatPreview pid={pid} revision={revision} lang={lang} disabled={blocked||dirty} onPreview={value=>{setEdit(value);setDirty(true)}}/>}
+      <details className="audio-voiceover"><summary>{w('Озвучка и язык','Voiceover and language','配音与语言')}</summary>{voiceover}</details>
+      <details className="audio-library"><summary>{w('Библиотека музыки','Music library','音乐库')}</summary><SoundtrackLibrary pid={pid} lang={lang} full={assets.length>=20} onChanged={loadAssets}/></details>
       </div>
       <div hidden={task!=="materials"}>
       <MediaLibrary ref={mediaLibrary} pid={pid} lang={lang} assets={assets} onChanged={loadAssets}/>
       </div>
       <div hidden={task!=="audio"}>
-      <MusicPlan onUploadMusic={()=>{workspace?.setTask('materials');requestAnimationFrame(()=>mediaLibrary.current?.openMusicUpload())}} currentMusic={edit.music} pid={pid} revision={revision} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked||dirty||!!edit.music?.locked} onApplied={async()=>{sessionStorage.removeItem(draftKey);await load();await onSaved()}}/>
+      <MusicPlan onUploadMusic={()=>{workspace?.setTask('materials');requestAnimationFrame(()=>mediaLibrary.current?.openMusicUpload())}} currentMusic={edit.music} pid={pid} revision={revision} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked||dirty||!!edit.music?.locked} onApplied={async nextRevision=>{sessionStorage.removeItem(draftKey);await load();await onSaved();await finalMusic.current?.apply(nextRevision)}}/>
       </div>
       <div hidden={task!=="materials"}>
       <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;workspace?.setTask('effects');setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[contentLanguage(lang)]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
-      </div>
-      <div hidden={task!=="audio"}>
-      {edit.music&&<BeatPreview pid={pid} revision={revision} lang={lang} disabled={blocked||dirty} onPreview={value=>{setEdit(value);setDirty(true)}}/>}
-      <MusicEditor pid={pid} onAnalyzed={loadAssets} firstCut={edit.clips.filter(c=>c.approved!==false).length>1?(()=>{const c=edit.clips.find(c=>c.approved!==false)!;return c.end-c.start})():null} value={edit.music||null} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked} onChange={music=>change({music})}/>
       </div>
       {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {c.approved===false?w('Нужна проверка','Review needed','待审核'):w('Проверено','Approved','已批准')}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}

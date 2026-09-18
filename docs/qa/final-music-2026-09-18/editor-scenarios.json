@@ -1,0 +1,114 @@
+[
+  {
+    "name": "scene selection and inspect seeks source",
+    "pass": true
+  },
+  {
+    "name": "scene reorder add remove and locked controls",
+    "pass": true
+  },
+  {
+    "name": "draft preview before after play pause",
+    "pass": true
+  },
+  {
+    "name": "inspector scene navigation presets and lock",
+    "pass": true
+  },
+  {
+    "name": "first scene cannot use incoming dissolve",
+    "pass": true
+  },
+  {
+    "name": "save discard reload and approval",
+    "pass": true
+  },
+  {
+    "name": "captions styles add remove and empty validation",
+    "pass": true
+  },
+  {
+    "name": "sound effects and B-roll controls",
+    "pass": true
+  },
+  {
+    "name": "visual card types rows maps and event controls",
+    "pass": true
+  },
+  {
+    "name": "soundtrack filters favorite add and copy",
+    "pass": true
+  },
+  {
+    "name": "music editing volume lock rhythm and beat preview",
+    "pass": true
+  },
+  {
+    "name": "AI soundtrack select and apply",
+    "pass": true
+  },
+  {
+    "name": "upload music shortcut and media upload",
+    "pass": true
+  },
+  {
+    "name": "music updates the final player and download after reload",
+    "pass": true
+  },
+  {
+    "name": "voiceover becomes persistent final output",
+    "pass": true
+  },
+  {
+    "name": "voice sample and translated version submission",
+    "pass": true
+  },
+  {
+    "name": "AI individual regeneration and replacement",
+    "pass": true
+  },
+  {
+    "name": "AI full plan generation apply and review",
+    "pass": true
+  },
+  {
+    "name": "alternative requires decision then generates and replaces",
+    "pass": true
+  },
+  {
+    "name": "stock candidate opens AI matching controls",
+    "pass": true
+  },
+  {
+    "name": "platform approval lock reopen edit and history",
+    "pass": true
+  },
+  {
+    "name": "cleanup render requires actual plan summary and confirmation",
+    "pass": true
+  },
+  {
+    "name": "timeline view switches and scene activation",
+    "pass": true
+  },
+  {
+    "name": "save failure preserves draft and exposes retry",
+    "pass": true
+  },
+  {
+    "name": "platform create submits reviewed duration and story choices",
+    "pass": true
+  },
+  {
+    "name": "platform manual form captions ranges and save",
+    "pass": true
+  },
+  {
+    "name": "all AI clip modes send explicit scoped tasks",
+    "pass": true
+  },
+  {
+    "name": "stock discovery request and direct placement",
+    "pass": true
+  }
+]

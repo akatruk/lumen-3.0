@@ -1,0 +1,12 @@
+{
+  "project": "9b3f7ca5bfe549bcadac78d63ba16757",
+  "mix": "423b1104966945e298e99f423ba7828d",
+  "track": "0e433cabaaf5428d83525abb8fae2ff7",
+  "voice": "3242a5a016584394b79f3ad3c021358f",
+  "writes": [
+    "/api/studio/projects/9b3f7ca5bfe549bcadac78d63ba16757/manual",
+    "/api/studio/projects/9b3f7ca5bfe549bcadac78d63ba16757/final-music"
+  ],
+  "errors": [],
+  "downloadMatches": true
+}

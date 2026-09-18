@@ -18,6 +18,7 @@ const seed=require('./fixtures/workspace.cjs');
  else if(path===`/api/projects/${pid}`)json=seed.project;
  else if(path===`/api/studio/projects/${pid}`)json=seed.studio;
  else if(path.endsWith('/manual'))json=seed.manual;
+ else if(path.endsWith('/final-music'))json={master_id:seed.project.result?.render_id||'',final_id:'master',music:null,title:'',voice_id:'',jobs:[]};
  else if(path.endsWith('/dubbing'))json=seed.dubbing;
  return route.fulfill({json});});
  await page.goto((process.env.WORKSPACE_URL||'http://127.0.0.1:5192')+'/#project/'+pid);

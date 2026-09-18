@@ -45,9 +45,11 @@ class Create(Strict):
 
 
 def public(row, current_master):
+    row=dict(row)
     return {k: row[k] for k in ('id', 'master_id', 'language', 'voice', 'kind', 'status', 'progress', 'error', 'created')} | {
         'result': json.loads(row['result']) if row['result'] else None,
-        'stale': row['kind'] == 'video' and row['master_id'] != current_master,
+        'stale': row['kind'] in ('video','mix') and row['master_id'] != current_master,
+        **({'music_title':row['title'],'source_voice':row['source_voice'],'music':json.loads(row['music']) if row['music'] else None} if row.get('delivery')=='mix' else {}),
     }
 
 
@@ -72,6 +74,7 @@ def listing(pid: str, user=Depends(current_user)):
     with connect() as db:
         versions = [public(r, master.get('render_id')) for r in db.execute(
             'SELECT * FROM dubbing_versions WHERE project_id=? ORDER BY created DESC LIMIT 30', (pid,))]
+        versions += [public(dict(r)|{'kind':'mix','progress':100,'language':r['language'] or '', 'voice':r['voice'] or '', 'delivery':'mix'},master.get('render_id')) for r in db.execute("SELECT m.*,v.language,v.voice FROM final_music_versions m LEFT JOIN dubbing_versions v ON v.id=m.source_voice AND v.project_id=m.project_id WHERE m.project_id=? AND m.status='ready' ORDER BY m.created DESC LIMIT 15",(pid,))]
         busy = bool(db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone())
         selected = final_output.current(db, pid, master.get('render_id', ''))
     return {'final_version_id': selected['id'] if selected else 'master',
@@ -104,9 +107,11 @@ def choose_final(pid: str, body: FinalSelection, user=Depends(current_user)):
                 raise HTTPException(409, 'master_changed')
             if not (settings.data_dir / pid / 'dubbing' / row['id'] / 'video.mp4').is_file():
                 raise HTTPException(404, 'not_ready')
-        final_output.select(db, pid, body.master_id, body.version_id)
+        if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')",(pid,)).fetchone():raise HTTPException(409,'job_already_running')
+        from .final_music import promote_voice
+        selected_id=promote_voice(db,p,'' if body.version_id=='master' else body.version_id)
     event(pid, 'final_output_selected', body.version_id)
-    return {'final_version_id': body.version_id}
+    return {'final_version_id': selected_id}
 
 
 @router.post('/projects/{pid}/dubbing', status_code=202)
@@ -136,7 +141,9 @@ def create(pid: str, body: Create, request: Request, user=Depends(current_user))
             raise HTTPException(409, 'master_changed')
         if cached and json.loads(cached['snapshot']).get('model') == settings.dubbing_model:
             if body.kind == 'video':
-                final_output.select(db, pid, master_id, cached['id'])
+                from .final_music import promote_voice
+                if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')",(pid,)).fetchone():raise HTTPException(409,'job_already_running')
+                promote_voice(db,p,cached['id'])
             return {'id': cached['id']}
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
@@ -226,7 +233,8 @@ def run_job(p, payload):
             if row['kind'] == 'video':
                 latest = db.execute('SELECT result FROM projects WHERE id=?', (p['id'],)).fetchone()
                 if latest and json.loads(latest['result'] or '{}').get('render_id') == row['master_id']:
-                    final_output.select(db, p['id'], row['master_id'], ident)
+                    from .final_music import promote_voice
+                    promote_voice(db,p,ident)
         event(p['id'], 'dubbing_ready', json.dumps({'id': ident, 'language': row['language'], 'kind': row['kind']}))
     except Exception as exc:
         code = str(exc) if str(exc) in ERRORS else 'dubbing_failed'

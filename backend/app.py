@@ -350,11 +350,11 @@ def media_file(pid:str,kind:str,user=Depends(current_user)):
         if not re.fullmatch(r'[a-f0-9]{32}',render_id): raise HTTPException(404,'not_ready')
         folder=folder/'renders'/render_id
     if kind == 'result':
-        from .final_output import current
+        from .final_output import current, path as final_path
         with connect() as db:
             selected = current(db, pid, p['result'].get('render_id', ''))
         if selected:
-            folder = settings.data_dir / pid / 'dubbing' / selected['id']
+            folder = final_path(pid,selected).parent
             name = 'video.mp4'
     path=folder/name
     if not path.is_file(): raise HTTPException(404,'not_ready')
@@ -375,6 +375,8 @@ def delete_project(pid:str,user=Depends(current_user)):
     shutil.rmtree(settings.data_dir/pid,ignore_errors=True)
     return {'ok':True}
 
+from .final_music import router as final_music_router
+app.include_router(final_music_router)
 from .studio import router as studio_router
 app.include_router(studio_router)
 from .manual import router as manual_router
