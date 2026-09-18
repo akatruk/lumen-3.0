@@ -1,0 +1,59 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "label": "music applied to selected voice",
+      "master_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "final_id": "cfdb98dfb84348efbab267f8b20de81a",
+      "download_sha256": "903cf682d37095b6daf631bfdc823846f45d485070050c3cce419a546ba3a47f",
+      "playback": true
+    },
+    {
+      "label": "first manual render preserves voice and music",
+      "master_id": "19d39de46cc74310a037d9fe2c1cfd1c",
+      "final_id": "d76886f7a9734a9eb61d521007468917",
+      "download_sha256": "6e3d4c45983819a56170e63998ffa8cffb1699d7f910c5cff2f383231fb01e8c",
+      "playback": true
+    },
+    {
+      "label": "second manual render preserves voice and music",
+      "master_id": "de540cd38d45427ba0a7fcc9fd3954e6",
+      "final_id": "51a3ff9f89f54d8481357b4191438b9b",
+      "download_sha256": "03316f147063b8b78b2b28e064a63120f3a89fed58afd66917dff425259070e8",
+      "playback": true
+    },
+    {
+      "label": "reload keeps selected final and download",
+      "master_id": "de540cd38d45427ba0a7fcc9fd3954e6",
+      "final_id": "51a3ff9f89f54d8481357b4191438b9b",
+      "download_sha256": "03316f147063b8b78b2b28e064a63120f3a89fed58afd66917dff425259070e8",
+      "playback": true
+    },
+    {
+      "label": "accepted AI plan rendered with selected voice and music",
+      "master_id": "b8a28acee90e4baabf95031f352ec880",
+      "final_id": "0154aed17bce4071be75b59d66f2fc96",
+      "download_sha256": "970ed5b7b87db78456fe30b2f05bd66f390ff105165001e061ef9b18c72f786f",
+      "playback": true
+    }
+  ],
+  "errors": [],
+  "media_verified": {
+    "duration": 6,
+    "timeline": [
+      [
+        4.0,
+        8.0
+      ],
+      [
+        0.0,
+        2.0
+      ]
+    ],
+    "voice_before_cut_hz": 880,
+    "voice_after_cut_hz": 440,
+    "music_hz": 220,
+    "picture_difference": 53.86,
+    "render_id": "b8a28acee90e4baabf95031f352ec880"
+  }
+}

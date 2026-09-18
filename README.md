@@ -18,6 +18,8 @@ Google SSO uses an email allowlist. Production uses PostgreSQL, a durable job wo
 
 The current capability matrix and limits are documented in [implementation status](docs/product/remaining-implementation.md). Verification reports are in [docs/qa](docs/qa). Passing technical tests does not guarantee editorial quality for every video.
 
+Editing and delivery changes must pass the [release verification lifecycle](docs/RELEASE_CHECKS.md), including repeated renders, audio continuity, reload and actual MP4 downloads.
+
 ## Local development
 
 Python 3.12+, Node.js 22+, FFmpeg with libass/libx264/AAC, and Noto Sans CJK fonts are required.
