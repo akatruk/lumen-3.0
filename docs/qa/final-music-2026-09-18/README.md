@@ -30,3 +30,5 @@ Production mix: 423b1104966945e298e99f423ba7828d.
 Final production browser verification: mixed video plays, time advances with audio, no media errors; applied-state control prevents duplicate mixing. HTML/JS/CSS SHA-256 values match the local build.
 
 During the final static-only update, an SSH upload timed out and the reused deployment script briefly selected an older static archive. A new uniquely named archive was uploaded with fail-fast handling, then published and verified by hashes and browser playback. Corrected static backup: /opt/lumen-rebuild/backups/project-workspace-20260918-115454. The completed audio mix and saved final selection were unaffected.
+
+Additional real-render check passed locally: music-free companion keeps the encoded picture and 440 Hz source voice, removes the added 220 Hz bed, and the completed render retains the bed. This protects subsequent soundtrack replacement.

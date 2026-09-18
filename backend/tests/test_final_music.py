@@ -133,3 +133,23 @@ def test_new_dubbing_job_retains_music_and_waits_for_mix(client,monkeypatch):
     assert run_once();assert client.get(url).json()['final_id']==old
     assert run_once();assert client.get(f'/api/projects/{pid}/media/result').content==b'generated voice plus music'
     assert client.get(url).json()['voice_id']==r.json()['id']
+
+
+def test_manual_render_keeps_clean_music_base(tmp_path):
+    import subprocess,array,math
+    from backend.manual import Edit,Clip
+    from backend.tests.test_studio import plan
+    source=tmp_path/'source.mp4';track=tmp_path/'track.wav';folder=tmp_path/'render';folder.mkdir()
+    media.ffmpeg('-f','lavfi','-i','color=blue:s=160x240:d=2:r=12','-f','lavfi','-i','sine=frequency=440:duration=2','-c:v','libx264','-c:a','aac',source)
+    media.ffmpeg('-f','lavfi','-i','sine=frequency=220:duration=2',track)
+    edit=Edit(clips=[Clip(start=0,end=2)],music=Music(asset_id='a'*32,gain_db=-6,fade_in=0,fade_out=0,duck=False))
+    result=media.render(source,folder,REAL_PROBE(source),plan(),[],'en','original',manual=edit.model_dump(),asset_paths={'a'*32:track})
+    clean=folder/'music-free.mp4';assert clean.is_file();assert result['music']['asset_id']=='a'*32
+    def packets(path):return subprocess.check_output(['ffmpeg','-v','error','-i',str(path),'-map','0:v','-c:v','copy','-f','hash','-'])
+    assert packets(clean)==packets(folder/'result.mp4')
+    def energy(path,frequency):
+        samples=array.array('f',subprocess.check_output(['ffmpeg','-v','error','-ss','0.5','-i',str(path),'-t','1','-map','0:a','-ac','1','-ar','16000','-f','f32le','-']))
+        return abs(sum(v*complex(math.cos(2*math.pi*frequency*i/16000),math.sin(2*math.pi*frequency*i/16000)) for i,v in enumerate(samples)))/len(samples)
+    assert energy(clean,440)>.03
+    assert energy(clean,220)<.002
+    assert energy(folder/'result.mp4',220)>.01
