@@ -17,9 +17,12 @@ def test_style_changes_snapshot_and_persists_only_on_accept(client,monkeypatch):
     r=client.post(url,json={'revision':1,'style':style});assert r.status_code==202
     ident=r.json()['id'];creative.run_job(project(pid),{'id':ident})
     assert 'shot_duration_target_seconds' in seen['prompt'] and 'problem_solution' in seen['prompt']
+    assert 'EDITORIAL PASS' in seen['prompt'] and 'editorial_diagnostics' in seen['prompt']
     row=client.get(url).json()[0]
     assert 'snapshot' not in row
     assert row['style_audit']['preferences']==style
+    assert row['editorial_diagnostics']['timing_only'] is True
+    assert row['editorial_diagnostics']['visual_run_count']>=1
     with connect() as db:
         old=json.loads(db.execute('SELECT context FROM studio_projects WHERE project_id=?',(pid,)).fetchone()[0])
         assert old['creator'].get('style')!=style
