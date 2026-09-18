@@ -4,20 +4,25 @@ const seed=require('./fixtures/workspace.cjs');
 (async()=>{const browser=await chromium.launch({channel:'chrome',headless:true});try{
  const page=await browser.newPage({viewport:{width:390,height:844}});
  await page.addInitScript(()=>localStorage.setItem('lumen_language','ru'));
- let mode='error',writes=0;
+ let mode='error',writes=0,manual=structuredClone(seed.manual),renders=0;
  const pid=seed.project.id;
  await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname;
- if(route.request().method()!=='GET'){writes++;return route.fulfill({json:{ok:true}})}
+ if(route.request().method()!=='GET'){
+ writes++;
+ if(path.endsWith('/render'))renders++;
+ if(path.endsWith('/manual')){manual={...manual,edit:route.request().postDataJSON().edit,revision:manual.revision+1};return route.fulfill({json:manual})}
+ return route.fulfill({json:{ok:true}})
+ }
  if(path.endsWith('/summary')){
  if(mode==='error')return route.fulfill({status:503,json:{}});
- return route.fulfill({json:{revision:mode==='stale'?99:1,source_duration:162.1,output_duration:160.5,removed_seconds:1.6,removed_ranges:[[160.5,162.1]],near_original:true,captions:0,music:false,normalize:true,global_operations:['trim','normalize'],pending_proposals:{creative:3},clips:[{id:'one',start:0,end:160.5,source_start:0,source_end:160.5,operations:[]}]}});
+ return route.fulfill({json:{revision:mode==='stale'?99:manual.revision,source_duration:162.1,output_duration:160.5,removed_seconds:1.6,removed_ranges:[[160.5,162.1]],near_original:true,captions:0,music:false,normalize:true,global_operations:['trim','normalize'],pending_proposals:{creative:3},clips:[{id:'one',start:0,end:160.5,source_start:0,source_end:160.5,operations:[]}]}});
  }
  let json=[];
  if(path==='/api/session')json={email:'test@example.test'};
  else if(path==='/api/projects')json=[seed.project];
  else if(path===`/api/projects/${pid}`)json=seed.project;
  else if(path===`/api/studio/projects/${pid}`)json=seed.studio;
- else if(path.endsWith('/manual'))json=seed.manual;
+ else if(path.endsWith('/manual'))json=manual;
  else if(path.endsWith('/final-music'))json={master_id:seed.project.result?.render_id||'',final_id:'master',music:null,title:'',voice_id:'',jobs:[]};
  else if(path.endsWith('/dubbing'))json=seed.dubbing;
  return route.fulfill({json});});
@@ -33,5 +38,17 @@ const seed=require('./fixtures/workspace.cjs');
  assert(await confirm.isEnabled());assert.equal(writes,0);
  assert(await page.locator('dialog[open]').evaluate(el=>el.scrollWidth<=el.clientWidth));
  await page.screenshot({path:'/tmp/lumen-render-summary-mobile.png'});
- console.log('PASS summary error, stale revision, retry, near-original warning, mobile overflow, no accidental render');
+ await page.getByRole('button',{name:'Вернуться к редактированию',exact:true}).click();
+ manual.edit.clips[0].approved=false;
+ await page.reload();await open.click();
+ await page.getByRole('heading',{name:'Подтвердите сцены перед созданием видео'}).waitFor();
+ assert(await confirm.isDisabled());assert.equal(writes,0);
+ await page.getByRole('button',{name:'Подтвердить сцену 1',exact:true}).click();
+ assert(await confirm.isDisabled());
+ await page.getByRole('button',{name:'Сохранить и обновить сводку',exact:true}).click();
+ await page.getByText('Видео будет почти идентично исходнику',{exact:true}).waitFor();
+ assert(await confirm.isEnabled());assert.equal(writes,1);assert.equal(renders,0);
+ assert.equal(manual.edit.clips[0].approved,true);
+ await confirm.click();await page.waitForTimeout(200);assert.equal(renders,1);
+ console.log('PASS unapproved scene → explicit approval → save → summary → explicit render; summary error, stale revision, retry, near-original warning, mobile overflow, no accidental render');
  }finally{await browser.close()}})().catch(e=>{console.error(e.message.split('Call log:')[0]);process.exit(1)});

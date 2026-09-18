@@ -903,3 +903,9 @@
 .ws-inspector .music-editor-direct legend { padding-right: 130px; }
 .ws-inspector .final-music-action { padding: 12px; }
 .ws-inspector .final-music-action > p { margin: 0 0 10px; }
+
+.review-preflight { margin: 1rem 0; padding: 1rem; border: 1px solid #dbe3ef; border-radius: 12px; background: #f7f9fd; }
+.review-preflight h3 { margin-top: 0; }
+.review-scene + .review-scene { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dbe3ef; }
+.review-scene { overflow-wrap: anywhere; }
+.review-preflight .manual-actions { flex-wrap: wrap; }
