@@ -31,6 +31,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
           kind TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL);
         ''')
+        from .soundtracks import init as init_soundtracks
+        init_soundtracks(db)
         from .studio import init as init_studio
         init_studio(db)
         from .dubbing import init as init_dubbing
