@@ -94,7 +94,7 @@ await test('platform approval lock reopen edit and history',async({page,button,t
 });
 
 await test('cleanup render requires actual plan summary and confirmation',async({page,button,tool,expand,writes})=>{
- await tool('Review');await expand();await button('Review and render approved plan').click();await page.locator('dialog[open] .render-summary').waitFor();assert.equal(writes.length,0);assert.match(await page.locator('dialog[open]').innerText(),/Manual effects, music and the editor timeline are not included/);await button('Back to editing',page.locator('dialog[open]')).click();assert.equal(writes.length,0);
+ await tool('Review');await expand();await button('Review and render approved plan').click();await page.locator('dialog[open] .render-summary').waitFor();assert.equal(writes.length,0);assert.match(await page.locator('dialog[open]').innerText(),/Manual visual effects and the editor timeline are not included/);await button('Back to editing',page.locator('dialog[open]')).click();assert.equal(writes.length,0);
  await button('Review and render approved plan').click();await page.locator('dialog[open] .render-summary').waitFor();await button('Create video with these changes',page.locator('dialog[open]')).click();await page.waitForTimeout(100);assert(writes.some(w=>w.path.endsWith('/render')&&!w.path.includes('/manual/')));
 });
 await test('timeline view switches and scene activation',async({page,button})=>{

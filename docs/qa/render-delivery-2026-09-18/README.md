@@ -25,3 +25,5 @@ The selected delivery is audio mix `423b1104966945e298e99f423ba7828d`, using the
 ## Limits
 
 This does not automatically accept old AI proposals, remove subtitles burned into source pixels, or transfer separately generated dubbing to a newly edited Master. The preflight continues to state that a new picture render uses source audio plus saved music; current delivered Russian dubbing remains untouched by this investigation. No paid AI calls were made. A missing legacy Director Timeline is treated as unknown, not assumed current.
+
+Update: the separate-dubbing carryover limitation above was subsequently fixed; see [audio continuity](../audio-continuity-2026-09-18/README.md).

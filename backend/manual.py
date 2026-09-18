@@ -122,7 +122,9 @@ def summary(pid:str,user=Depends(current_user)):
     intended=Edit.model_validate(edit)
     unapproved=sum(not c.approved for c in intended.clips)
     intended=intended.model_copy(update={'clips':[c.model_copy(update={'approved':True}) for c in intended.clips]})
-    return summarize(intended,p['metadata']['duration'])|{'revision':s['revision'],'pending_proposals':pending,'unapproved_scenes':unapproved}
+    from .render_audio import summary as audio_summary
+    with connect() as db:voiceover=audio_summary(db,p,[(c.start,c.end) for c in intended.clips])
+    return summarize(intended,p['metadata']['duration'])|{'revision':s['revision'],'pending_proposals':pending,'unapproved_scenes':unapproved,'voiceover':voiceover}
 
 @router.get('/projects/{pid}/plan-summary')
 def plan_summary(pid:str,user=Depends(current_user)):
@@ -136,7 +138,16 @@ def plan_summary(pid:str,user=Depends(current_user)):
                  for name,table in [('creative','creative_plans'),('music','music_plans'),('individual','timeline_proposals'),('alternatives','director_proposals')]}
     # Same approved recommendation conversion used by the editor import.
     data=from_plan(pid,Render(revision=s['revision']),user)
-    return summarize(Edit.model_validate(data['edit']),p['metadata']['duration'])|{'revision':data['revision'],'pending_proposals':pending}
+    from .render_audio import summary as audio_summary,snapshot
+    intended=Edit.model_validate(data['edit'])
+    with connect() as db:
+        voiceover=audio_summary(db,p,[(c.start,c.end) for c in intended.clips])
+        if not (voiceover or {}).get('error'):
+            delivery=snapshot(db,p)
+            if delivery and delivery.get('music'):
+                from .music import Music
+                intended.music=Music.model_validate(delivery['music'])
+    return summarize(intended,p['metadata']['duration'])|{'revision':data['revision'],'pending_proposals':pending,'voiceover':voiceover}
 
 @router.put('/projects/{pid}/manual')
 def save(pid:str,body:Save,user=Depends(current_user)):
@@ -201,6 +212,9 @@ def render(pid:str,body:Render,request:Request,user=Depends(current_user)):
         validate_assets(Edit.model_validate(edit),pid,db)
         if not any(c['approved'] for c in edit['clips']):raise HTTPException(422,'no_approved_changes')
         if any(not c['approved'] for c in edit['clips']):raise HTTPException(422,'approve_shots_first')
+        from .render_audio import summary as audio_summary
+        audio=audio_summary(db,p,[(c['start'],c['end']) for c in edit['clips']])
+        if audio and audio.get('error'):raise HTTPException(422,audio['error'])
         enqueue(db,pid,'studio_render',{'revision':s['revision'],'plan':s['plan'],'decisions':[],'manual':edit,'quality_review':body.quality_review})
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?",(pid,))
     return {'ok':True}

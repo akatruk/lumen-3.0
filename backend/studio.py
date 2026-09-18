@@ -191,13 +191,18 @@ def edit(pid:str,body:PlanEdit,user=Depends(current_user)):
 @router.post('/projects/{pid}/render')
 def render(pid:str,body:RenderPlan,request:Request,user=Depends(current_user)):
     from .app import rate_limit
-    rate_limit(request,'render',12,3600);owned(pid,user)
+    rate_limit(request,'render',12,3600);p=owned(pid,user)
     with connect() as db:
         db.lock();s=state(pid,db)
         if not s['plan'] or s['revision']!=body.revision:raise HTTPException(409,'plan_changed')
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')",(pid,)).fetchone():raise HTTPException(409,'job_already_running')
         selected=[d for d in s['decisions'] if d['approved']]
         if not selected:raise HTTPException(422,'no_approved_changes')
+        from .render_audio import summary as audio_summary
+        approved={d['id']:d for d in selected}
+        recs=[Recommendation.model_validate(r|{'start':approved[r['id']]['start'],'end':approved[r['id']]['end']}) for r in s['plan']['recommendations'] if r['id'] in approved]
+        audio=audio_summary(db,p,media.build_timeline(p['metadata']['duration'],recs))
+        if audio and audio.get('error'):raise HTTPException(422,audio['error'])
         enqueue(db,pid,'studio_render',{'revision':s['revision'],'plan':s['plan'],'decisions':selected})
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?",(pid,))
     return {'ok':True}

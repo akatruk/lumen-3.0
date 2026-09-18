@@ -55,6 +55,16 @@ def render_job(p,payload):
     manual=payload.get('manual')
     if manual: selected=[]
     else: media.build_timeline(p['metadata']['duration'],selected)
+    from . import render_audio
+    with connect() as db:delivery=render_audio.snapshot(db,p)
+    if not manual and delivery:
+        from .manual import Edit,Clip
+        manual=Edit(clips=[Clip(start=a,end=b) for a,b in media.build_timeline(p['metadata']['duration'],selected)],
+            captions=analysis.transcript,subtitles=any(r.action=='captions' for r in selected),
+            normalize=any(r.action=='normalize_audio' for r in selected),music=delivery['music']).model_dump()
+        payload=payload|{'quality_review':True} # Automatic renders already run QA.
+    timeline=[(c['start'],c['end']) for c in manual['clips'] if c.get('approved',True)] if manual else media.build_timeline(p['metadata']['duration'],selected)
+    if delivery and delivery['voice']:render_audio.map_ranges(delivery['voice']['timeline'],timeline)
     update(pid,status='rendering',error=None)
     progress(pid,'creating',10)
     brolls=[]
@@ -71,8 +81,10 @@ def render_job(p,payload):
         from .assets import validate as validate_assets
         from .manual import Edit
         with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
-    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
+    voice_audio=render_audio.prepare(pid,delivery['voice'],render_folder,timeline) if delivery and delivery['voice'] else None
+    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id
+    if delivery and delivery['voice']:result['voiceover']={k:delivery['voice'][k] for k in ('language','voice')}
     if asset_paths:
         used_assets={c['external_broll']['asset_id'] for c in manual['clips'] if c['approved'] and c.get('external_broll')}
         if manual.get('music'):used_assets.add(manual['music']['asset_id'])
@@ -99,11 +111,12 @@ def render_job(p,payload):
     if manual:result['manual_transcript']=manual['captions'] if manual['subtitles'] else []
     # A failed quality review is never published as approved.
     status='complete' if result['qa_status']=='passed' else 'needs_review'
-    update(pid,result=result,status=status,stage=status,progress=100)
+    with connect() as db:
+        db.lock();render_audio.publish(db,p,result,render_folder,delivery,status)
     event(pid,'render_complete',json.dumps({'applied':result['applied'],'quality':result['qa_status']}))
 
 def safe_error(exc):
-    allowed={'douyin_not_configured','douyin_daily_limit','douyin_auth_failed','douyin_credits_required','douyin_rate_limited','douyin_search_failed','douyin_media_unavailable','upload_too_large','budget_limit','not_a_video','invalid_duration','resolution_too_large','video_too_long','provider_not_configured',
+    allowed={'selected_audio_unavailable','voiceover_timeline_unavailable','voiceover_range_unavailable','douyin_not_configured','douyin_daily_limit','douyin_auth_failed','douyin_credits_required','douyin_rate_limited','douyin_search_failed','douyin_media_unavailable','upload_too_large','budget_limit','not_a_video','invalid_duration','resolution_too_large','video_too_long','provider_not_configured',
     'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',

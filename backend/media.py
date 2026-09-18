@@ -185,7 +185,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 rows.append((a,f'Dialogue: 0,{ass_time(a)},{ass_time(b)},Default,,0,0,0,,{chunk}\n'))
     path.write_text(header+''.join(row for _,row in sorted(rows)),encoding='utf-8')
 
-def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False):
+def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None):
     if manual:
         from .manual import Edit,check
         from .schemas import Caption
@@ -264,6 +264,10 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
                '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
         input_path=overlay
+    original_audio_input=input_path
+    if voice_audio:
+        from .render_audio import replace_picture_audio
+        input_path=replace_picture_audio(input_path,voice_audio,folder,sum(b-a for a,b in timeline))
     if manual:
         effects=[];cursor=0
         for clip in manual['clips']:
@@ -271,7 +275,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             cursor+=clip['end']-clip['start']
         if effects:
             from .sound_effects import mix
-            input_path=mix(input_path,folder,effects,cursor,metadata['has_audio'])
+            input_path=mix(input_path,folder,effects,cursor,bool(voice_audio) or metadata['has_audio'])
     music_free_input=input_path
     if manual and manual.get('music'):
         from .music import mix as mix_music
@@ -286,7 +290,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         filters.append(f"ass='{escaped}'")
     args=['-i',input_path]
     if filters: args+=['-vf',','.join(filters)]
-    if normalize and metadata['has_audio']:
+    if normalize and (metadata['has_audio'] or voice_audio):
         _,stats=ffmpeg('-i',input_path,'-af','loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json','-vn','-f','null','-')
         match=re.search(r'\{\s*"input_i"[\s\S]*?\}',stats)
         values=json.loads(match.group(0)) if match else {}
@@ -303,6 +307,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
     if manual and manual.get('music'):
         ffmpeg('-i',folder/'result.mp4','-i',music_free_input,'-map','0:v:0','-map','1:a:0?',
                '-c:v','copy','-c:a','aac','-movflags','+faststart',folder/'music-free.mp4',timeout=1200)
+    if voice_audio:
+        from .render_audio import preserve_original_audio
+        preserve_original_audio(folder/'result.mp4',original_audio_input,folder,sum(b-a for a,b in timeline),manual,asset_paths or {},normalize)
     output=probe(folder/'result.mp4')
     expected=sum(b-a for a,b in timeline)
     if abs(output['duration']-expected)>0.6: raise ValueError('output_duration_mismatch')
