@@ -9,6 +9,7 @@ import {
   Heart,
   Clock3,
   Film,
+  Play,
 } from "lucide-react";
 import type { Lang } from "./types";
 export type Hit = {
@@ -166,6 +167,7 @@ export function DouyinSearch({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [selected, setSelected] = useState<Hit | null>(null);
+  const [preview, setPreview] = useState<Hit | null>(null);
   const submitted = useRef({ keyword: "", sort: "1", publish_time: 0 });
   const describe = (e: string) =>
     translate(lang, ...(errors[e] || [
@@ -282,7 +284,7 @@ export function DouyinSearch({
           <div className="douyin-grid">
             {result.items.map((hit) => (
               <article className="douyin-card" key={hit.id}>
-                <div className="douyin-cover">
+                <button type="button" className="douyin-cover douyin-preview-trigger" aria-label={translate(lang,"Preview video","预览视频")+": "+hit.title} onClick={()=>setPreview(hit)}>
                   <Film size={36} className="douyin-placeholder" />
                   {hit.cover && (
                     <img
@@ -295,11 +297,12 @@ export function DouyinSearch({
                       }}
                     />
                   )}
+                  <b className="douyin-play"><Play size={26} fill="currentColor"/> {translate(lang,"Preview video","预览视频")}</b>
                   <span>
                     <Clock3 size={12} />
                     {duration(hit.duration)}
                   </span>
-                </div>
+                </button>
                 <div className="douyin-card-body">
                   <h3 title={hit.title}>{hit.title}</h3>
                   <p>{hit.author || "Douyin"}</p>
@@ -350,6 +353,7 @@ export function DouyinSearch({
           )}
         </>
       )}
+      {preview && <PreviewDialog hit={preview} lang={lang} onClose={()=>setPreview(null)}/>}
       {selected && (
         <ImportDialog
           hit={selected}
@@ -512,4 +516,19 @@ function ImportDialog({
       </form>
     </dialog>
   );
+}
+
+function PreviewDialog({hit,lang,onClose}:{hit:Hit;lang:Lang;onClose:()=>void}){
+ const ref=useRef<HTMLDialogElement>(null),player=useRef<HTMLVideoElement>(null);
+ const [url,setUrl]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const t=(ru:string,en:string,zh:string)=>lang==='ru'?ru:lang==='zh'?zh:en;
+ const controller=useRef<AbortController|null>(null);
+ async function load(){controller.current?.abort();controller.current=new AbortController();setBusy(true);setError('');setUrl('');try{const r=await fetch(`/api/douyin/results/${hit.id}/preview`,{method:'POST',signal:controller.current.signal});const d=await r.json();if(!r.ok)throw Error(d.detail);setUrl(d.url)}catch(e){if(e instanceof Error&&e.name==='AbortError')return;setError(e instanceof Error?e.message:'failed')}finally{setBusy(false)}}
+ useEffect(()=>{ref.current?.showModal();void load();return()=>{controller.current?.abort();player.current?.pause()}},[hit.id]);
+ function close(){player.current?.pause();onClose()}
+ return <dialog ref={ref} className="douyin-preview-dialog" onCancel={close} aria-label={t('Предпросмотр видео','Video preview','视频预览')}><header><h3>{t('Предпросмотр видео','Video preview','视频预览')}</h3><button type="button" className="secondary" onClick={close} aria-label={t('Закрыть предпросмотр','Close preview','关闭预览')}><X size={20}/></button></header><p className="douyin-preview-title">{hit.title}</p>
+ {busy&&<p role="status"><Loader2 className="spin" size={18}/> {t('Готовлю видео… Первый запуск может занять немного времени.','Preparing video… The first preview may take a moment.','正在准备视频，首次加载可能需要一些时间。')}</p>}
+ {url&&!error&&<video ref={player} src={url} controls autoPlay playsInline onError={()=>setError('playback_failed')}/>}
+ {error&&<div role="alert"><p>{error==='douyin_search_expired'?t('Результаты устарели. Повтори поиск.','These results expired. Search again.','结果已过期，请重新搜索。'):error==='preview_busy'?t('Другой предпросмотр ещё готовится. Попробуй через несколько секунд.','Another preview is preparing. Try again shortly.','另一个预览正在准备，请稍后重试。'):t('Не удалось открыть видео. Повтори попытку или открой его на Douyin.','Could not play this video. Retry or open it on Douyin.','无法播放，请重试或在抖音打开。')}</p><button type="button" className="secondary" disabled={busy} onClick={()=>void load()}>{t('Повторить','Retry','重试')}</button></div>}
+ <p>{t('Просмотр не добавляет референс и не запускает анализ.','Preview does not add a reference or start analysis.','预览不会添加参考或启动分析。')}</p><a href={hit.share_url} target="_blank" rel="noreferrer">{t('Открыть на Douyin','Open on Douyin','在抖音打开')}</a></dialog>
 }

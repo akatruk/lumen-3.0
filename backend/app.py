@@ -405,6 +405,9 @@ app.include_router(dubbing_router)
 from .soundtracks import router as soundtracks_router
 app.include_router(soundtracks_router)
 
+from .douyin_preview import router as douyin_preview_router
+app.include_router(douyin_preview_router)
+
 static=ROOT/'frontend'/'dist'
 if static.is_dir():
     app.mount('/',StaticFiles(directory=static,html=True),name='web')

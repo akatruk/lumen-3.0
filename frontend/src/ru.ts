@@ -1,5 +1,6 @@
 // Russian interface messages keyed by their English source. Generated project content is separate.
 export const ru: Record<string, string> = {
+  "Preview video": "Предпросмотр",
   " Burn edited subtitles into the video": " Встроить отредактированные субтитры в видео",
   " Normalize overall audio loudness": " Выровнять общую громкость",
   "1. Arrange clips, crop and add text": "1. Расставьте клипы, настройте кадрирование и текст",
