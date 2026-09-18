@@ -1,3 +1,4 @@
+import {ProjectWorkspace, useWorkspace} from './ProjectWorkspace';
 import { LanguageSelect } from './LanguageSelect';
 import { translate, contentLanguage, readLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
@@ -55,6 +56,7 @@ import "./style.css";
 import { DouyinSearch } from "./DouyinSearch";
 import { StudioCreate, DirectorProject } from "./Studio";
 import "./apple-design.css";
+import "./workspace.css";
 const Locale = createContext<{ lang: Lang; t: (key: string) => string }>({
   lang: "en",
   t: (k) => k,
@@ -334,7 +336,7 @@ function App() {
             )}
             {pid ? (
               project ? (
-                project.studio ? (
+                <ProjectWorkspace key={project.id} p={project} lang={lang} onBack={() => navigate("library")}>{project.studio ? (
                   <DirectorProject
                     key={project.id}
                     p={project}
@@ -358,7 +360,7 @@ function App() {
                       void refresh();
                     }}
                   />
-                )
+                )}</ProjectWorkspace>
               ) : (
                 <div className="loading">
                   <Loader2 className="spin" />
@@ -1057,6 +1059,7 @@ function ProjectView({
   onDeleted: () => void;
 }) {
   const { lang, t } = useL();
+  const workspace=useWorkspace();
   const [tab, setTab] = useState("recommendations"),
     [videoMode, setVideoMode] = useState<"source" | "result">("source"),
     [time, setTime] = useState(0),
@@ -1083,6 +1086,7 @@ function ProjectView({
     }
   }, [p]);
   const seek = (s: number) => {
+    if(workspace){workspace.seekSource(s);return;}
     setTime(s);
     if (videoMode === "result") {
       pendingSeek.current = s;
@@ -1146,7 +1150,7 @@ function ProjectView({
   const duration = p.metadata?.duration || 0;
   return (
     <div className="project-page">
-      <div className="project-header">
+      <div className="project-header ws-legacy-header">
         <div>
           <button className="text-button back" onClick={onBack}>
             <ArrowLeft size={14} />
@@ -1197,7 +1201,7 @@ function ProjectView({
       {error && <ErrorBox error={error} />}
       <div className="studio-layout">
         <div className="preview-column">
-          <div className="preview-panel">
+          {!workspace && <div className="preview-panel">
             <div className="preview-toolbar">
               <div className="segment">
                 <button
@@ -1292,6 +1296,7 @@ function ProjectView({
               </div>
             </div>
           </div>
+          }
           {working && (
             <div className="processing-card">
               <span className="processing-icon">

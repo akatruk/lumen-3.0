@@ -1,3 +1,4 @@
+import {useWorkspace, workspaceText} from './ProjectWorkspace';
 import { translate, contentLanguage } from './locale';
 import { Dubbing } from './Dubbing';
 import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
@@ -510,7 +511,6 @@ type State = {
 export function DirectorProject({
   p,
   lang,
-  onBack,
   onRefresh,
 }: {
   p: Project;
@@ -519,18 +519,17 @@ export function DirectorProject({
   onRefresh: () => Promise<void>;
 }) {
   const t = (en: string, zh: string) => translate(lang, en, zh);
+  const workspace=useWorkspace();
+  const [manualDirty,setManualDirty]=useState(false);
+  const manualTask=workspace && workspace.task!=="review";
+  const w=(ru:string,en:string,zh:string)=>workspaceText(lang,ru,en,zh);
   const [state, setState] = useState<State | null>(null),
     [decisions, setDecisions] = useState<Decision[]>([]),
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [section, setSection] = useState("plan"),
-    [mode, setMode] = useState(p.result ? "result" : "source");
-  const video = useRef<HTMLVideoElement>(null),
-    editing = useRef(false);
-  const pendingSeek = useRef<{start:number;end:number} | null>(null);
-  const momentEnd = useRef<number|null>(null);
-  const [momentNotice,setMomentNotice] = useState("");
+    [section, setSection] = useState("plan");
+  const editing = useRef(false);
   const draftKey = "lumen-plan-draft:" + p.id;
   const hydrated = useRef(false);
   useEffect(() => {
@@ -589,6 +588,7 @@ export function DirectorProject({
   }, [dirty, state, decisions, draftKey]);
   const working = ["queued", "analyzing", "rendering"].includes(p.status);
   function change(id: string, patch: Partial<Decision>) {
+    if(manualDirty)return;
     editing.current = true;
     setDirty(true);
     setDecisions((ds) => ds.map((d) => (d.id === id ? { ...d, ...patch } : d)));
@@ -640,29 +640,7 @@ export function DirectorProject({
       setBusy(false);
     }
   }
-  function playMoment() {
-    const player=video.current, range=pendingSeek.current;
-    if(mode!=="source"||!player||!range||player.readyState<1)return;
-    pendingSeek.current=null;
-    const end=Math.min(range.end,Number.isFinite(player.duration)?player.duration:range.end);
-    player.currentTime=Math.min(range.start,Math.max(0,end-.01));
-    momentEnd.current=end;
-    player.scrollIntoView({behavior:"smooth",block:"center"});
-    player.focus({preventScroll:true});
-    void player.play().catch(()=>{
-      if(video.current===player)setMomentNotice(t("Playback did not start. Press Play in the video above to watch this moment.","播放未启动，请点击上方视频的播放按钮查看此片段。"));
-    });
-  }
-  function seek(start:number,end:number) {
-    if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start){
-      setMomentNotice(t("Enter a valid start and end time first.","请先输入有效的开始和结束时间。"));return;
-    }
-    pendingSeek.current={start,end};
-    setMomentNotice(`${t("Selected moment","所选片段")}: ${start.toFixed(1)}–${end.toFixed(1)}s`);
-    setMode("source");
-    playMoment();
-  }
-  function switchPreview(next:string){pendingSeek.current=null;momentEnd.current=null;setMomentNotice("");setMode(next);}
+  function seek(start:number,end:number) { workspace?.seekSource(start,end); }
   const stages: Record<string, string> = {
     queued: t("Queued", "排队中"),
     preparing: t("Preparing your footage", "准备自有素材"),
@@ -675,41 +653,6 @@ export function DirectorProject({
   };
   return (
     <div className="page director-project">
-      <button
-        className="text-button"
-        onClick={() => {
-          if (
-            !dirty ||
-            window.confirm(t("Discard unsaved changes?", "放弃未保存的修改？"))
-          ) {
-            sessionStorage.removeItem(draftKey);
-            onBack();
-          }
-        }}
-      >
-        ← {t("Projects", "项目库")}
-      </button>
-      <header className="director-project-header">
-        <div>
-          <span className="eyebrow">{translate(lang, "DIRECTOR STUDIO", "DIRECTOR STUDIO")}</span>
-          <h1>{p.title}</h1>
-          <p>
-            {t(
-              "Owned footage · references are used for techniques only",
-              "自有素材 · 参考视频仅用于分析创作方法",
-            )}
-          </p>
-        </div>
-        {p.result && (
-          <a
-            className="primary"
-            href={`/api/projects/${p.id}/media/result`}
-            download
-          >
-            {t("Download master", "下载主版本")}
-          </a>
-        )}
-      </header>
       {error && (
         <p className="error-box" role="alert">
           {message(error, lang)}{" "}
@@ -717,79 +660,15 @@ export function DirectorProject({
         </p>
       )}
       {lang === 'ru' && <p className="muted">{t('Generated analysis is displayed in English.','AI 分析文本以英语显示。')}</p>}
-      <Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} />
       <div className="director-layout">
-        <section className="director-player">
-          <div className="director-tabs">
-            <button
-              aria-pressed={mode === "source"}
-              onClick={() => switchPreview("source")}
-            >
-              {t("Owned source", "自有原片")}
-            </button>
-            <button
-              disabled={!p.result}
-              aria-pressed={mode === "result"}
-              onClick={() => switchPreview("result")}
-            >
-              {t("Master preview", "主版本预览")}
-            </button>
-          </div>
-          <p className="preview-context" role="status"><strong>{mode==="source"?t("Original footage — no edits shown","原始素材 — 未显示剪辑"):t("Rendered master — saved result","已制作主版本 — 已保存结果")}</strong><br/>{mode==="source"?t("Use Master preview to see the rendered changes.","请切换到主版本预览查看制作后的改动。"):t("New plan changes appear here only after rendering again.","新计划的改动需重新制作后才会显示在这里。")}</p>
-          {p.metadata?.preview_ready ? (
-            <video
-              key={
-                p.id + mode + (mode === "result" ? p.result?.metadata.size : "")
-              }
-              ref={video}
-              controls
-              playsInline
-              src={`/api/projects/${p.id}/media/${mode}`}
-              tabIndex={0}
-              onLoadedMetadata={playMoment}
-              onTimeUpdate={e=>{
-                if(momentEnd.current!==null&&e.currentTarget.currentTime>=momentEnd.current){
-                  e.currentTarget.pause();momentEnd.current=null;
-                }
-              }}
-              onError={() => setError("media_error")}
-            />
-          ) : (
-            <p className="director-placeholder">
-              {t("Preparing your video preview…", "正在准备预览…")}
-            </p>
-          )}
-          {momentNotice&&<p role="status">{momentNotice}</p>}
-          {!working && !p.error && <p><StatusBadge status={p.status}>{p.status==='complete'?t('Completed successfully','已成功完成'):p.status==='needs_review'?t('Video created — review required','视频已生成 — 需要审核'):t('Analysis complete — review decisions','分析已完成 — 请审核决策')}</StatusBadge></p>}
-          {working && (
-            <TaskProgress title={stages[p.stage] || t("Processing", "处理中")} percent={p.progress} detail={t("Your source is saved. This page updates automatically.","原片已保存，页面会自动更新。")}/>
-          )}
-          {p.error && (
-            <div role="alert" className="task-state-panel">
-              <StatusBadge status="failed">{t("Failed — action needed","失败 — 需要处理")}</StatusBadge>
-              <p>{message(p.error, lang)}</p>
-              {!p.analysis && (
-                <button className="secondary" onClick={retry} disabled={busy}>
-                  {t("Retry analysis", "重新分析")}
-                </button>
-              )}
-            </div>
-          )}
-          <div className="director-spend">
-            <strong>
-              ${p.cost.toFixed(3)} / ${p.budget.toFixed(2)}
-            </strong>
-            <span>
-              {t(
-                "AI usage / limit · reservations included",
-                "AI 用量 / 上限 · 含预留费用",
-              )}
-            </span>
-            <span>
-              {t("Remaining", "剩余额度")}: $
-              {Math.max(0, p.budget - p.cost).toFixed(2)}
-            </span>
-          </div>
+        <section className="director-inspector">
+          {state?.plan && <div hidden={!manualTask}><ManualEditor serverRevision={state.revision} onDirtyChange={setManualDirty} hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} voiceover={<Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} embedded onPreview={(url,label)=>workspace?.previewVersion(url,label)}/>} /></div>}
+          {manualTask&&!state?.plan&&<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}
+          <div hidden={!!manualTask}>
+          {manualDirty&&<p role="status">{w('Сначала сохраните правки в разделе «Монтаж».','Save your manual edits in Edit first.','请先在剪辑中保存手动更改。')}</p>}
+          {working && <TaskProgress title={stages[p.stage] || t("Processing", "处理中")} percent={p.progress}/>}
+          {p.error&&<div role="alert"><p>{message(p.error,lang)}</p>{!p.analysis&&<button onClick={retry} disabled={busy}>{t("Retry analysis","重新分析")}</button>}</div>}
+          <details className="ws-quality"><summary>{w('Проверка готовой версии','Finished video review','成片审核')}</summary>
           {p.result && (
             <section className="director-result">
               <h2>{t("Master review", "主版本复核")}</h2>
@@ -820,15 +699,13 @@ export function DirectorProject({
               </ul>
             </section>
           )}
-        </section>
-        <section className="director-inspector">
+          </details>
           <nav
             className="director-tabs"
             aria-label={t("Project sections", "项目内容")}
           >
             {[
               ["plan", t("Director Timeline", "剪辑计划")],
-              ["manual", t("Manual editor", "手动剪辑")],
               ["dna", t("Video DNA", "视频 DNA")],
               ["profile", t("Creator profile", "创作者风格")],
               ["platforms", t("Platform versions", "平台版本")],
@@ -844,8 +721,6 @@ export function DirectorProject({
           </nav>
           {!state ? (
             <p role="status">{t("Loading…", "加载中…")}</p>
-          ) : section === "manual" ? (
-            state.plan ? <ManualEditor hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} /> : <p className="director-card">{t("The manual editor becomes available when analysis is complete.","分析完成后即可使用手动剪辑。")}</p>
           ) : section === "profile" ? (
             <div className="director-card">
               <h2>{t("Creator profile", "创作者风格")}</h2>
@@ -979,10 +854,10 @@ export function DirectorProject({
                 </p>
               ) : (
                 <>
-                  <div className="director-card"><p>{state.plan.summary[contentLanguage(lang)]}</p><button className="secondary" onClick={()=>setSection("manual")}>{t("Open Director Timeline", "打开导演时间线")}</button></div>
-                  <CreativePlan onSave={dirty&&!working&&!busy?save:undefined} disabledReason={dirty?t("Save your plan changes to continue.","请先保存计划更改。") : t("Wait for the current task to finish.","请等待当前任务完成。")} initialStyle={state.context.creator.style} pid={p.id} revision={state.revision} lang={lang} disabled={dirty||working||busy} onApplied={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);setSection('manual');await onRefresh();}} />
+                  <div className="director-card"><p>{state.plan.summary[contentLanguage(lang)]}</p><button className="secondary" onClick={()=>workspace?.setTask("edit")}>{t("Open Director Timeline", "打开导演时间线")}</button></div>
+                  <CreativePlan onSave={dirty&&!manualDirty&&!working&&!busy?save:undefined} disabledReason={dirty?t("Save your plan changes to continue.","请先保存计划更改。") : t("Wait for the current task to finish.","请等待当前任务完成。")} initialStyle={state.context.creator.style} pid={p.id} revision={state.revision} lang={lang} disabled={dirty||manualDirty||working||busy} onApplied={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);workspace?.setTask('edit');await onRefresh();}} />
                   <details className="cleanup-controls"><summary>{t('Additional cleanup controls','更多基础调整')}</summary>
-                  <DirectorAlternatives onSave={dirty&&!working&&!busy?save:undefined} pid={p.id} revision={state.revision} recs={state.plan.recommendations} locked={decisions.filter(d=>d.locked).map(d=>d.id)} disabled={dirty||working||busy} lang={lang} onApplied={async()=>{const s=await request("/studio/projects/"+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} />
+                  <DirectorAlternatives onSave={dirty&&!manualDirty&&!working&&!busy?save:undefined} pid={p.id} revision={state.revision} recs={state.plan.recommendations} locked={decisions.filter(d=>d.locked).map(d=>d.id)} disabled={dirty||manualDirty||working||busy} lang={lang} onApplied={async()=>{const s=await request("/studio/projects/"+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} />
                   {state.plan.recommendations.length === 0 && (
                     <p className="director-card">
                       {t(
@@ -1054,6 +929,7 @@ export function DirectorProject({
                               value={d.start}
                               disabled={
                                 d.locked ||
+                                manualDirty ||
                                 working ||
                                 busy ||
                                 ["captions", "normalize_audio"].includes(
@@ -1075,6 +951,7 @@ export function DirectorProject({
                               value={d.end}
                               disabled={
                                 d.locked ||
+                                manualDirty ||
                                 working ||
                                 busy ||
                                 ["captions", "normalize_audio"].includes(
@@ -1097,7 +974,7 @@ export function DirectorProject({
                           <input
                             type="checkbox"
                             checked={d.approved}
-                            disabled={d.locked || working || busy}
+                            disabled={d.locked || manualDirty || working || busy}
                             onChange={(e) =>
                               change(d.id, { approved: e.target.checked })
                             }
@@ -1108,7 +985,7 @@ export function DirectorProject({
                           <input
                             type="checkbox"
                             checked={d.locked}
-                            disabled={!d.approved || working || busy}
+                            disabled={!d.approved || manualDirty || working || busy}
                             onChange={(e) =>
                               change(d.id, { locked: e.target.checked })
                             }
@@ -1127,7 +1004,7 @@ export function DirectorProject({
                     </span>
                     <button
                       className="secondary"
-                      disabled={!dirty || busy || working}
+                      disabled={!dirty || manualDirty || busy || working}
                       onClick={save}
                     >
                       {t("Save plan", "保存计划")}
@@ -1136,6 +1013,7 @@ export function DirectorProject({
                       className="primary"
                       disabled={
                         dirty ||
+                        manualDirty ||
                         busy ||
                         working ||
                         !decisions.some((x) => x.approved)
@@ -1156,6 +1034,7 @@ export function DirectorProject({
               )}
             </div>
           )}
+          </div>
         </section>
       </div>
     </div>

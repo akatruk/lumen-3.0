@@ -10,9 +10,9 @@ type Catalog = { voices: { id: string; language: Language; name: string }[]; ver
 const names: Record<Language, string> = { ru: 'Русский', en: 'English', zh: '中文' };
 const active = (v: Version) => !['ready', 'failed'].includes(v.status);
 
-export function Dubbing({ pid, lang, masterId }: { pid: string; lang: Lang; masterId?: string }) {
+export function Dubbing({ pid, lang, masterId, embedded=false, onPreview }: { pid: string; lang: Lang; masterId?: string; embedded?:boolean; onPreview?:(url:string,label:string)=>void }) {
   const t = (en: string, zh: string) => translate(lang, en, zh);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(embedded);
   const [data, setData] = useState<Catalog | null>(null);
   const [language, setLanguage] = useState<Language>('ru');
   const [voice, setVoice] = useState('ru-male');
@@ -84,9 +84,9 @@ export function Dubbing({ pid, lang, masterId }: { pid: string; lang: Lang; mast
   const unavailable = busy || !!running || !!data?.busy || loadError;
   const stage = (status: string) => ({ queued: t('Queued', '已排队'), transcribing: t('Recognizing speech in the finished video', '正在识别成片语音'), translating: t('Translating speech', '正在翻译语音'), synthesizing: t('Generating voice', '正在生成语音'), muxing: t('Preparing dubbed video', '正在合成配音视频') })[status] || t('Processing', '正在处理');
   return <section className="dubbing-panel">
-    <button type="button" className="secondary" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)}>
+    {!embedded && <button type="button" className="secondary" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)}>
       <Languages size={18} aria-hidden="true" /> {t('Change voiceover', '更换配音')}
-    </button>
+    </button>}
     {open && <div id={panelId} className="director-card" role="region" aria-label={t('Change voiceover', '更换配音')}>
       <h3>{t('Create a translated voiceover', '创建翻译配音')}</h3>
       <p>{t('Choose a language and an AI voice. Create a separate version of the rendered Master; your original video stays available.', '选择语言和 AI 声音，基于已制作的主版本创建独立配音版本，原视频保持可用。')}</p>
@@ -120,7 +120,7 @@ export function Dubbing({ pid, lang, masterId }: { pid: string; lang: Lang; mast
           <h4>{names[v.language]} · {data.voices.find(voice => voice.id === v.voice)?.name || v.voice}</h4>
           {v.stale && <p>{t('Created from an earlier Master. It is still available to play and download.', '基于较早的主版本创建，仍可播放和下载。')}</p>}
           <p>{t('AI voiceover — review pronunciation and timing before sharing.', 'AI 配音 — 分享前请检查发音和时序。')}</p>
-          <video controls preload="none" src={file(v, 'video.mp4')} aria-label={`${names[v.language]} ${t('dubbed version', '配音版本')}`} />
+          {onPreview?<button className="secondary" onClick={()=>onPreview(file(v,'video.mp4'),`${names[v.language]} · ${v.voice}`)}>{t('Play','播放')} · {names[v.language]}</button>:<video controls preload="none" src={file(v,'video.mp4')} aria-label={`${names[v.language]} ${t('dubbed version','配音版本')}`} />}
           <div className="dubbing-downloads"><a className="primary" href={file(v, 'video.mp4') + '?download=true'}><Download size={16} aria-hidden="true" /> {t('Download dubbed video', '下载配音视频')}</a>
           <a className="secondary" href={file(v, 'subtitles.vtt') + '?download=true'}>{t('Download translated subtitles', '下载译文字幕')}</a></div>
         </article>)}

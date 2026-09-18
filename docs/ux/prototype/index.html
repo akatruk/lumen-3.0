@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>Lumen — рабочее пространство · прототип</title><link rel="stylesheet" href="prototype.css"></head>
+<body>
+<div class="prototype-bar"><span><b>Дизайн-прототип</b><span class="prototype-detail"> · test11 · локальные изменения, без запросов к AI</span></span><label>Состояние <select id="scenario"><option value="ready">Готово</option><option value="dirty">Есть правки</option><option value="rendering">Сборка</option><option value="error">Ошибка</option></select></label></div>
+<header class="app-header"><a href="#" class="brand" aria-label="Lumen — о прототипе" data-action="about"><span class="brand-mark"><i></i><i></i><i></i></span>lumen<span class="brand-dot">.</span></a><div class="breadcrumb"><span>Проекты</span><span class="icon" data-icon="ChevronRight"></span><strong>test11</strong></div><div class="header-end"><span class="saved-note" id="header-status"><span class="icon" data-icon="CircleCheck"></span>Готово</span><span class="locale"><span class="icon" data-icon="Globe"></span>Русский</span><button class="avatar" data-action="about" aria-label="О дизайн-прототипе">A</button></div></header>
+<section class="project-heading"><div><div class="eyebrow">ВАШ ПРОЕКТ</div><h1>Квартира у бассейна<span class="project-id">test11</span></h1></div><div class="heading-actions"><button class="button" data-action="versions"><span class="icon" data-icon="History"></span><span>Версии</span><span class="count" id="version-count">3</span></button><button class="button primary desktop-download" data-action="export"><span class="icon" data-icon="Download"></span>Скачать видео</button></div></section>
+<main class="workspace">
+<nav class="tool-rail" aria-label="Инструменты проекта" id="tools"></nav>
+<section class="editor" aria-label="Просмотр и сцены">
+<div class="preview-heading"><div class="preview-title"><span class="status-dot"></span><button class="version-picker" id="version-picker" data-action="versions"><span id="version-label">Русский · с эффектами</span><span class="icon" data-icon="ChevronDown"></span></button></div><button class="text-button compare" data-action="compare"><span class="icon" data-icon="Layers"></span><span id="compare-label">Сравнить с исходником</span></button></div>
+<div class="player-stage" id="stage"><div class="canvas-badge" id="canvas-badge">Готовая версия</div><div class="video-frame" id="video-frame"><video id="video" poster="assets/effects-poster.jpg" src="assets/effects.mp4" playsinline preload="metadata" aria-label="Предпросмотр выбранной версии test11"></video><span class="added-caption" id="added-caption" hidden>Бассейн прямо у дома</span></div><button class="stage-play" id="stage-play" data-action="play" aria-label="Воспроизвести видео"><span class="icon" data-icon="Play"></span></button><div class="player-spec">9:16 <span>·</span> test11</div><button class="stage-expand" data-action="expand" aria-label="На весь экран"><span class="icon" data-icon="Maximize2"></span></button></div>
+<div class="playback"><button class="icon-button" data-action="play" id="play-button" aria-label="Воспроизвести видео"><span class="icon" data-icon="Play"></span></button><span class="time"><b id="elapsed">0:00</b><span>/</span><span id="duration">2:41</span></span><input id="seek" type="range" min="0" max="160.86" step="0.1" value="0" aria-label="Позиция воспроизведения"><button class="icon-button" data-action="mute" id="mute-button" aria-label="Выключить звук" aria-pressed="false"><span class="icon" data-icon="Volume2"></span></button><span class="preview-resolution">Прокси</span></div>
+<div class="scene-heading"><div><h2>Сцены <span class="count">6</span></h2><p>Выберите сцену, чтобы настроить её</p></div><span class="timeline-duration">2:41</span></div>
+<div class="scene-strip" id="scenes" aria-label="Выбор сцены"></div>
+<div class="track-summary"><span><i class="track-line voice-line"></i>Русская озвучка</span><span><i class="track-line text-line"></i>3 надписи</span><span class="track-hint">Нажмите на сцену для перехода</span></div>
+</section>
+<aside class="inspector" aria-label="Настройки выбранного инструмента"><div class="inspector-head"><div><span class="eyebrow" id="inspector-kicker">СЦЕНА 01 / 06</span><h2 id="inspector-title">Монтаж</h2></div><span class="tool-symbol" id="inspector-symbol"></span></div><div class="inspector-content" id="inspector-content"></div></aside>
+</main>
+<footer class="action-bar"><div class="action-status" id="action-status"></div><div class="action-buttons" id="action-buttons"></div></footer>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<dialog id="dialog"><div id="dialog-content"></div></dialog>
+<script src="icons.js"></script><script src="prototype.js"></script>
+</body></html>
