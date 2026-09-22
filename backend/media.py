@@ -171,7 +171,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
     rows=[]
     for c in captions:
-        raw=getattr(c,language) or c.original
+        raw=getattr(c,language,None) or c.original
         # Split long model phrases, distribute within their original timestamps.
         chunks=caption_chunks(raw,language)
         weights=[len(chunk.replace('\\N',' ')) for chunk in chunks]
