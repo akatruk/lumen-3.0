@@ -48,6 +48,7 @@ class Clip(Span):
     y: float=Field(default=.5,ge=0,le=1)
     enhance: bool=False
     speed: float=Field(default=1,ge=.5,le=2)
+    speed_end: float | None=Field(default=None,ge=.5,le=2)
     blur: float=Field(default=0,ge=0,le=12)
     glow: bool=False
     shadow: bool=False

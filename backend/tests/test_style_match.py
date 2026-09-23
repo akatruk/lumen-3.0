@@ -236,6 +236,16 @@ def test_words_alone_do_not_split_mask_or_overlay():
     assert lower_edit['clips'][0]['lower'] is True and lower_edit['clips'][0]['icon'] is True and lower_edit['clips'][0]['text'].startswith('Visa')
     assert 'lower' in lower_report['applied']
 
+def test_a_measured_pace_changes_speed_inside_the_shot():
+    words = shot(motion={'en': 'speed ramp', 'zh': '变速'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    named, named_report = build([words], 40, [], False)
+    assert named['clips'][0]['speed'] == 1 and named['clips'][0]['speed_end'] is None
+    assert 'speed_ramp' in {gap['id'] for gap in named_report['gaps']}
+    measured = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'speed': 1, 'speed_end': 1.45})
+    edit, report = build([measured], 40, [], False)
+    assert edit['clips'][0]['speed'] == 1 and edit['clips'][0]['speed_end'] == 1.45
+    assert 'speed' in report['applied']
+
 def test_measured_layout_adds_split_progress_and_stabilization():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     edit, report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证天数'}], False, measured={'layout': {'split': True, 'bar': True, 'lower': True, 'shake': True}})

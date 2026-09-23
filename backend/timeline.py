@@ -29,6 +29,20 @@ def _num(clip, key, default):
     try: return float(clip.get(key) if clip.get(key) is not None else default)
     except (TypeError, ValueError): return default
 
+def playback(clip, length, room=None):
+    speed=max(0.5,min(2,_num(clip,'speed',1)))
+    end=clip.get('speed_end')
+    end=speed if end is None else max(0.5,min(2,_num(clip,'speed_end',speed)))
+    if abs(end-speed)<=0.04: end=speed
+    average=(speed+end)/2
+    if average>1 and room is not None and average>room:
+        speed=min(speed,max(1,room)); end=speed; average=speed
+    return speed, end, average
+
+def _ramp(speed, end, length):
+    slope=(end-speed)/(2*max(0.08,length))
+    return f"setpts=(-{speed:.4f}+sqrt({speed:.4f}*{speed:.4f}+4*{slope:.6f}*PTS*TB))/(2*{slope:.6f})/TB,"
+
 def motion_filter(clip,width,height,length):
     z0=clip['zoom'];z1=clip.get('zoom_end') if clip.get('zoom_end') is not None else z0
     x0=clip['x'];x1=clip.get('x_end') if clip.get('x_end') is not None else x0
@@ -39,8 +53,9 @@ def motion_filter(clip,width,height,length):
     else:
         n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1);progress=f'min(on/{n},1)'
         base=f"fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({x0}+({x1}-{x0})*{progress})':y='(ih-ih/zoom)*({y0}+({y1}-{y0})*{progress})':d=1:s={width}x{height}:fps=30,"
-    speed=_num(clip,'speed',1)
-    if abs(speed-1)>0.04: base+=f'setpts=PTS/{max(0.5,min(2,speed)):.4f},'
+    speed,end,_average=playback(clip,length)
+    if abs(end-speed)>0.04: base+=_ramp(speed,end,length)
+    elif abs(speed-1)>0.04: base+=f'setpts=PTS/{speed:.4f},'
     grade=clip.get('grade') or None
     if grade:
         base+=f"eq=contrast={_num(grade,'contrast',1):.4f}:brightness={_num(grade,'brightness',0):.4f}:saturation={_num(grade,'saturation',1):.4f}:gamma={_num(grade,'gamma',1):.4f},"

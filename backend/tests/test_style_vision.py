@@ -1,7 +1,8 @@
 from types import SimpleNamespace
 from backend import media
 from backend.manual import Edit
-from backend.style_vision import _join, black_spans, chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, measure, picture_of, reference_layout, visual_track
+from backend.style_vision import _join, black_spans, chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, visual_track
+from backend.timeline import motion_filter
 from backend.media import write_kinetic
 
 
@@ -182,3 +183,22 @@ def test_grade_follows_measured_yuv_without_copying_the_frame(tmp_path):
     assert matched['brightness'] == 0 and matched['contrast'] == 1 and matched['saturation'] == 1 and matched['rs'] == 0
     assert light_between(owned, owned) == 0
     assert set(lifted) == {'brightness', 'contrast', 'saturation', 'gamma', 'rs', 'gs', 'bs'}
+
+def test_pace_ramps_only_when_the_shot_changes_speed(tmp_path):
+    accelerate = tmp_path / 'accel.mp4'
+    _video(accelerate, '-f', 'lavfi', '-i', 'color=0x202020:s=160x160:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=0x111111:s=160x160:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=white:s=40x40:r=30:d=0.9', '-filter_complex', "[1:v][2:v]overlay=x='20+80*mod(n,2)':y=40[move];[0:v][move]concat=n=2:v=1:a=0")
+    assert pace_of(accelerate, 0, 1.8) == (1.0, 1.45)
+    decelerate = tmp_path / 'decel.mp4'
+    _video(decelerate, '-f', 'lavfi', '-i', 'color=0x111111:s=160x160:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=white:s=40x40:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=0x202020:s=160x160:r=30:d=0.9', '-filter_complex', "[0:v][1:v]overlay=x='20+80*mod(n,2)':y=40[move];[move][2:v]concat=n=2:v=1:a=0")
+    assert pace_of(decelerate, 0, 1.8) == (1.45, 0.8)
+    still = tmp_path / 'still.mp4'
+    _video(still, '-f', 'lavfi', '-i', 'color=0x446688:s=160x160:r=30:d=1.8')
+    assert pace_of(still, 0, 1.8) is None
+    chain = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'speed_end': 1.45}, 160, 240, 1.5)
+    assert 'sqrt' in chain and 'PTS/1.0000' not in chain
+    source = tmp_path / 'source.mp4'
+    _video(source, '-f', 'lavfi', '-i', 'color=0x224466:s=160x240:r=30:d=4')
+    folder = tmp_path / 'ramp'
+    folder.mkdir()
+    result = media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.5, 'speed': 1, 'speed_end': 1.45}]).model_dump())
+    assert abs(result['metadata']['duration'] - 1.5) < 0.6

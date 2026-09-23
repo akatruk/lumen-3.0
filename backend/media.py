@@ -246,10 +246,14 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         part=folder/f'part-{i:03}.mp4'; parts.append(part)
         vf=f'scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x101614,setsar=1,fps=30'
         cutaway=None;post=''
+        rate=1
         if manual:
             clip=manual['clips'][i]
             cutaway=clip.get('external_broll') or clip.get('cutaway')
-            from .timeline import motion_filter
+            from .timeline import motion_filter, playback
+            speed,end_speed,rate=playback(clip,b-a,(metadata['duration']-a)/max(0.08,b-a))
+            clip['speed']=speed
+            clip['speed_end']=None if abs(end_speed-speed)<=0.04 else end_speed
             vf=motion_filter(clip,w,h,b-a)+vf
             base_vf=vf
             vf=''
@@ -272,12 +276,6 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 frac=max(0.04,min(1,float(clip.get('progress') or 0)))
                 base_vf+=f',drawbox=x=0:y=ih-12:w=iw*{frac:.3f}:h=10:color=0xF4F1EA@0.92:t=fill'
             post=vf;vf=base_vf+post
-        speed=1
-        if manual:
-            try: speed=float(clip.get('speed') or 1)
-            except (TypeError, ValueError): speed=1
-            speed=max(0.5,min(2,speed))
-            if speed>1: speed=min(speed, max(1,(metadata['duration']-a)/max(0.08,b-a)))
         if cutaway:
             footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
             if footage is None:raise ValueError('asset_not_found')
@@ -333,10 +331,10 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         else:
             inputs=['-ss',a,'-i',source];filters=['-vf',vf,'-map','0:v:0']
-        if manual and abs(speed-1)>0.04 and inputs[:2]==['-ss',a]:
-            inputs=['-ss',a,'-t',f'{(b-a)*speed:.4f}',*inputs[2:]]
+        if manual and rate>1 and inputs[:2]==['-ss',a]:
+            inputs=['-ss',a,'-t',f'{(b-a)*rate:.4f}',*inputs[2:]]
         audio=[]
-        if manual and abs(speed-1)>0.04: audio.append(f'atempo={speed:.4f}')
+        if manual and abs(rate-1)>0.04: audio.append(f'atempo={max(0.5,min(2,rate)):.4f}')
         if manual and metadata['has_audio'] and clip.get('audio_fade_ms',0):
             edge=min(clip['audio_fade_ms']/1000,(b-a)/4)
             audio.append(f'afade=t=in:st=0:d={edge},afade=t=out:st={b-a-edge}:d={edge}')

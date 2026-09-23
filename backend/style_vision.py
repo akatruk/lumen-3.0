@@ -10,7 +10,7 @@ def _stats(path, vf, frames=8):
     ys, us, vs = values('YAVG'), values('UAVG'), values('VAVG')
     if not ys:
         return None
-    sats, highs, lows = values('SATAVG'), values('YHIGH'), values('YLOW')
+    sats, highs, lows, difs = values('SATAVG'), values('YHIGH'), values('YLOW'), values('YDIF')
     spread = (sum(highs) / len(highs) - sum(lows) / len(lows)) if highs and lows else None
     return {
         'y': sum(ys) / len(ys),
@@ -18,6 +18,7 @@ def _stats(path, vf, frames=8):
         'v': sum(vs) / len(vs) if vs else 128,
         'sat': sum(sats) / len(sats) if sats else None,
         'spread': spread,
+        'ydif': sum(difs) / len(difs) if difs else None,
     }
 
 def color_sample(path):
@@ -429,6 +430,23 @@ def _vignette(path, at, width, height):
             return False
         corners.append(level)
     return center - max(corners) >= 18
+
+def pace_of(path, start, end):
+    """Name a speed change only when the two halves of a shot move differently."""
+    span = end - start
+    if span < 0.8:
+        return None
+    window = span * 0.34
+    early = _stats(path, f'trim=start={max(0, start):.3f}:duration={window:.3f},signalstats,metadata=print:file=-', frames=4)
+    late = _stats(path, f'trim=start={max(0, end - window):.3f}:duration={window:.3f},signalstats,metadata=print:file=-', frames=4)
+    if not early or not late or early.get('ydif') is None or late.get('ydif') is None:
+        return None
+    opening, closing = early['ydif'], late['ydif']
+    if closing >= opening + 3 and closing >= max(1, opening) * 1.4:
+        return 1.0, 1.45
+    if opening >= closing + 3 and opening >= max(1, closing) * 1.4:
+        return 1.45, 0.8
+    return None
 
 def annotate_pictures(path, shots):
     for shot in list(shots or [])[:6]:

@@ -37,6 +37,7 @@ type Clip = {
   y: number;
   enhance?: boolean;
   speed?: number;
+  speed_end?: number | null;
   blur?: number;
   glow?: boolean;
   shadow?: boolean;

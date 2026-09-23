@@ -309,7 +309,7 @@ def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=Fal
         'stabilize': _has(blob, ('stabilize', 'stabilisation', 'shaky')) or bool(look_shake),
         'cutout': bool(flat or chroma) and _has(blob, ('cutout', 'cut out', 'green screen', 'background replace', 'replace the background')),
         'mask': bool((shot.get('picture') or {}).get('mask')),
-        'speed': 1.35 if ref_len < 0.55 else 0.75 if _has(blob, ('slow motion', 'slow-mo', 'speed ramp')) else 1.0,
+        'speed': 1.35 if ref_len < 0.55 else 0.75 if _has(blob, ('slow motion', 'slow-mo')) else 1.0,
         'kinetic': _has(blob, ('kinetic', 'animated title', 'title card')),
     }
 
@@ -327,6 +327,12 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     callout = bool(words) and (_wants_captions([shot or {}]) or _has(blob, ('title', 'overlay', 'callout', 'keyword', 'kinetic', 'icon')) or look.get('lower') or look.get('bar') or picture.get('lower'))
     card = _card(facts, end - start) if (allow_card and _has(blob, ('chart', 'number', 'statistic', 'progress'))) or picture.get('graphic') else None
     fx = _effects(shot, end - start if ref_len is None else ref_len, look.get('flat'), chroma=bool(look.get('chroma')), look_split=bool(look.get('split')), look_shake=bool(look.get('shake')))
+    slot = end - start if ref_len is None else ref_len
+    opening, closing = picture.get('speed'), picture.get('speed_end')
+    if slot >= 0.55 and opening is not None and closing is not None and abs(float(opening) - float(closing)) > 0.08:
+        speed, speed_end = max(0.5, min(2, float(opening))), max(0.5, min(2, float(closing)))
+    else:
+        speed, speed_end = fx['speed'], None
     open_shot = not fx['split'] and not fx['cutout'] and not (picture.get('graphic') and facts)
     screen = (_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if open_shot and (picture.get('screen') or _has(blob, ('screenshot', 'screen recording', 'screen capture'))) else None
     diagram = max(1, min(4, len(words) or 3)) if open_shot and screen is None and _has(blob, ('illustration', 'diagram', 'infographic', 'drawing')) else 0
@@ -358,7 +364,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         cutaway=None if card or fx['cutout'] or fx['split'] else _cutaway(shot or {}, start, end, duration),
         card=card,
         enhance=grade is None,
-        speed=fx['speed'],
+        speed=speed,
+        speed_end=speed_end,
         blur=fx['blur'],
         glow=fx['glow'],
         shadow=fx['shadow'],
@@ -404,7 +411,7 @@ def _gaps(shots, edit):
     if any(c.get('stabilize') for c in clips): done.add('stabilize')
     if any(c.get('cutout') for c in clips): done.update(('presenter_cutout', 'background_replacement'))
     if any(c.get('grade') for c in clips): done.add('color_grade')
-    if any(abs((c.get('speed') or 1) - 1) > 0.04 for c in clips): done.add('speed_ramp')
+    if any(abs((c.get('speed') or 1) - 1) > 0.04 or (c.get('speed_end') is not None and abs(c['speed_end'] - (c.get('speed') or 1)) > 0.04) for c in clips): done.add('speed_ramp')
     if any(c.get('kinetic') for c in clips): done.add('kinetic_type')
     if any(c.get('track') for c in clips): done.add('motion_tracking')
     if any(c.get('mask') for c in clips): done.add('mask')
@@ -486,7 +493,7 @@ def _applied(edit, trimmed):
         rows.append('enhance')
     if any(c.get('grade') for c in edit['clips']):
         rows.append('grade')
-    if any(abs((c.get('speed') or 1) - 1) > 0.04 for c in edit['clips']):
+    if any(abs((c.get('speed') or 1) - 1) > 0.04 or (c.get('speed_end') is not None and abs(c['speed_end'] - (c.get('speed') or 1)) > 0.04) for c in edit['clips']):
         rows.append('speed')
     if any(c.get('blur') for c in edit['clips']):
         rows.append('blur')
