@@ -140,7 +140,7 @@ def test_join_names_only_reproducible_transitions(tmp_path):
     _video(hard, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.6', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
     assert _join(hard, 0.6) == 'cut'
     dip = tmp_path / 'dip.mp4'
-    _video(dip, '-f', 'lavfi', '-i', 'color=black:s=180x240:r=30:d=0.5', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.6', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
+    _video(dip, '-f', 'lavfi', '-i', 'color=black:s=180x240:r=30:d=0.5', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=180x240:r=30:d=0.6', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
     assert _join(dip, 0.5) == 'fade'
     wipe = tmp_path / 'wipe.mp4'
     _video(wipe, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=blue:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=red:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]hstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
