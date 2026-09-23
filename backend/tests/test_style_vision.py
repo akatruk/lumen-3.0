@@ -202,3 +202,24 @@ def test_pace_ramps_only_when_the_shot_changes_speed(tmp_path):
     folder.mkdir()
     result = media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.5, 'speed': 1, 'speed_end': 1.45}]).model_dump())
     assert abs(result['metadata']['duration'] - 1.5) < 0.6
+
+def test_blur_glow_and_shadow_strength_follow_the_frame(tmp_path):
+    def clip(name, *graphs):
+        path = tmp_path / name
+        _video(path, *graphs)
+        return picture_of(path, 0, 0.4)
+    light = clip('light.mp4', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=white:s=70x90:r=30:d=0.4', '-filter_complex', 'overlay=55:70,gblur=sigma=2')
+    heavy = clip('heavy.mp4', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=white:s=70x90:r=30:d=0.4', '-filter_complex', 'overlay=55:70,gblur=sigma=8')
+    sharp = clip('sharp.mp4', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=white:s=70x90:r=30:d=0.4', '-filter_complex', 'overlay=55:70')
+    flat = clip('flat.mp4', '-f', 'lavfi', '-i', 'color=0x446688:s=180x240:r=30:d=0.4')
+    assert heavy['blur'] > light['blur'] > 0
+    assert sharp['blur'] == 0 and flat['blur'] == 0
+    mild = clip('mild.mp4', '-f', 'lavfi', '-i', 'testsrc=s=180x240:r=30:d=0.4', '-vf', 'vignette=angle=PI/3')
+    deep = clip('deep.mp4', '-f', 'lavfi', '-i', 'testsrc=s=180x240:r=30:d=0.4', '-vf', 'vignette=angle=PI/2')
+    assert deep['shade'] > mild['shade'] > 0 and flat['shade'] == 0
+    halo = clip('halo.mp4', '-f', 'lavfi', '-i', 'color=0x101010:s=180x240:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=white:s=90x90:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=white:s=28x28:r=30:d=0.4', '-filter_complex', '[1:v]gblur=sigma=14[halo];[0:v][halo]overlay=(W-w)/2:(H-h)/2[base];[base][2:v]overlay=(W-w)/2:(H-h)/2')
+    assert halo['glow'] > 0 and halo['blur'] == 0 and sharp['glow'] == 0
+    chain = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'blur': heavy['blur'], 'glow': True, 'glow_amount': halo['glow'], 'shadow': True, 'shade': deep['shade']}, 160, 240, 1)
+    assert f"gblur=sigma={heavy['blur']:.2f}" in chain
+    assert f"unsharp=7:7:{halo['glow']:.2f}" in chain
+    assert f"vignette=angle={deep['shade']:.3f}" in chain

@@ -331,7 +331,8 @@ def picture_of(path, start, end):
     zoom_end, x_end, y_end = _subject(_grid(path, closing_at, width, height))
     left, mid, right = opening
     stamp = min(start + 0.04, max(start, end - 0.08))
-    vignette = _vignette(path, stamp, width, height)
+    shade = _shade(path, stamp, width, height)
+    softness = _softness(path, stamp, width, height)
     screen = _screen(path, stamp, width, height)
     mask = _window(path, stamp, width, height)
     lower = False if mask else _lower_strip(path, stamp, width, height)
@@ -349,7 +350,10 @@ def picture_of(path, start, end):
         'mask': mask,
         'lower': lower,
         'fade': edge is not None and middle is not None and middle - edge >= 22,
-        'vignette': vignette,
+        'vignette': shade > 0,
+        'shade': shade,
+        'blur': softness,
+        'glow': 0.0 if softness else _bloom(path, stamp, width, height),
         'screen': screen,
     }
 
@@ -416,20 +420,51 @@ def _screen(path, at, width, height):
         return False
     return left - border >= 22 and right - border >= 22
 
-def _vignette(path, at, width, height):
+def _shade(path, at, width, height):
+    """Vignette angle from how much darker the corners are than the center."""
     if width < 80 or height < 80:
-        return False
+        return 0.0
     side = 24
     center = _level(path, f'crop=40:40:{(width - 40) // 2}:{(height - 40) // 2}', at)
     if center is None or center < 40:
-        return False
+        return 0.0
     corners = []
     for x, y in ((0, 0), (width - side, 0), (0, height - side), (width - side, height - side)):
         level = _level(path, f'crop={side}:{side}:{x}:{y}', at)
         if level is None:
-            return False
+            return 0.0
         corners.append(level)
-    return center - max(corners) >= 18
+    depth = center - max(corners)
+    if depth < 18:
+        return 0.0
+    return round(min(1.35, 0.4 + (depth - 18) / 90), 3)
+
+def _softness(path, at, width, height):
+    """Blur sigma when the frame still has range but its edges are weak."""
+    if width < 80 or height < 80:
+        return 0.0
+    full = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.08,signalstats,metadata=print:file=-', frames=1)
+    edges = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.08,convolution="0 -1 0 -1 4 -1 0 -1 0",signalstats,metadata=print:file=-', frames=1)
+    if not full or not edges or not full.get('spread') or edges.get('y') is None:
+        return 0.0
+    if full['spread'] < 40 or edges['y'] >= 0.7:
+        return 0.0
+    return round(min(8.0, max(1.2, (0.7 - edges['y']) * 12)), 2)
+
+def _bloom(path, at, width, height):
+    """Unsharp amount when a bright core has a lifted ring and the corners stay dark."""
+    if width < 90 or height < 90:
+        return 0.0
+    cx, cy = (width - 12) // 2, (height - 12) // 2
+    origin = min(width - 8, (width // 2) + max(24, int(width * 0.23)))
+    center = _level(path, f'crop=12:12:{cx}:{cy}', at)
+    ring = _level(path, f'crop=8:8:{origin}:{(height - 8) // 2}', at)
+    corner = _level(path, 'crop=16:16:0:0', at)
+    if None in (center, ring, corner):
+        return 0.0
+    if center < 100 or ring < corner + 18 or center < ring + 25:
+        return 0.0
+    return round(min(1.4, max(0.4, (ring - corner) / 50)), 2)
 
 def pace_of(path, start, end):
     """Name a speed change only when the two halves of a shot move differently."""

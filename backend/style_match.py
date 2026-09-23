@@ -301,10 +301,14 @@ def _cutaway(shot, start, end, duration):
 
 def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=False):
     blob = _blob([shot or {}])
+    picture = shot.get('picture') or {}
+    soft, bloom, shade = float(picture.get('blur') or 0), float(picture.get('glow') or 0), float(picture.get('shade') or 0)
     return {
-        'blur': 2.0 if _has(blob, ('blur', 'bokeh')) else 0,
-        'glow': _has(blob, ('glow', 'bloom')),
-        'shadow': _has(blob, ('drop shadow', 'shadows', 'shadow')) or bool((shot.get('picture') or {}).get('vignette')),
+        'blur': soft if soft >= 1 else 2.0 if _has(blob, ('blur', 'bokeh')) else 0,
+        'glow': bloom >= 0.4 or _has(blob, ('glow', 'bloom')),
+        'glow_amount': bloom if bloom >= 0.4 else 0.8 if _has(blob, ('glow', 'bloom')) else 0,
+        'shadow': shade >= 0.4 or bool(picture.get('vignette')) or _has(blob, ('drop shadow', 'shadows', 'shadow')),
+        'shade': shade if shade >= 0.4 else 0,
         'split': bool(look_split) or bool((shot.get('picture') or {}).get('split')),
         'stabilize': _has(blob, ('stabilize', 'stabilisation', 'shaky')) or bool(look_shake),
         'cutout': bool(flat or chroma) and _has(blob, ('cutout', 'cut out', 'green screen', 'background replace', 'replace the background')),
@@ -368,7 +372,9 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         speed_end=speed_end,
         blur=fx['blur'],
         glow=fx['glow'],
+        glow_amount=fx['glow_amount'],
         shadow=fx['shadow'],
+        shade=fx['shade'],
         split=fx['split'],
         stabilize=fx['stabilize'],
         cutout=fx['cutout'],

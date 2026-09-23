@@ -236,6 +236,14 @@ def test_words_alone_do_not_split_mask_or_overlay():
     assert lower_edit['clips'][0]['lower'] is True and lower_edit['clips'][0]['icon'] is True and lower_edit['clips'][0]['text'].startswith('Visa')
     assert 'lower' in lower_report['applied']
 
+def test_measured_strength_replaces_the_fixed_blur_glow_and_shadow():
+    row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'blur': 4.5, 'glow': 1.1, 'shade': 1.2})
+    edit, report = build([row], 40, [], False)
+    clip = edit['clips'][0]
+    assert clip['blur'] == 4.5 and clip['glow_amount'] == 1.1 and clip['shade'] == 1.2
+    assert clip['glow'] is True and clip['shadow'] is True
+    assert {'blur', 'glow', 'shadow'} <= set(report['applied'])
+
 def test_a_measured_pace_changes_speed_inside_the_shot():
     words = shot(motion={'en': 'speed ramp', 'zh': '变速'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     named, named_report = build([words], 40, [], False)

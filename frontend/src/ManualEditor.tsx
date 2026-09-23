@@ -40,7 +40,9 @@ type Clip = {
   speed_end?: number | null;
   blur?: number;
   glow?: boolean;
+  glow_amount?: number;
   shadow?: boolean;
+  shade?: number;
   split?: boolean;
   stabilize?: boolean;
   cutout?: boolean;

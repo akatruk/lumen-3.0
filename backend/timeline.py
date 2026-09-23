@@ -64,7 +64,13 @@ def motion_filter(clip,width,height,length):
         # A small lift only. It does not copy a reference grade.
         base+='eq=contrast=1.04:brightness=0.02:saturation=1.06:gamma=1.02,'
     if _num(clip,'blur',0)>=0.4: base+=f"gblur=sigma={min(12,_num(clip,'blur',0)):.2f},"
-    if clip.get('glow'): base+='unsharp=7:7:0.8:7:7:0,'
-    if clip.get('shadow'): base+='vignette=angle=PI/5,'
+    if clip.get('glow'):
+        amount=_num(clip,'glow_amount',0)
+        if amount<0.2: amount=0.8
+        base+=f"unsharp=7:7:{min(1.5,amount):.2f}:7:7:0,"
+    if clip.get('shadow'):
+        angle=_num(clip,'shade',0)
+        if angle<0.2: angle=3.1416/5
+        base+=f"vignette=angle={min(1.35,angle):.3f},"
     if abs(_num(clip,'exposure',0))>0.02: base+=f"exposure={_num(clip,'exposure',0):.3f},"
     return pre+base
