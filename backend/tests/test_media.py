@@ -28,6 +28,19 @@ def test_subtitle_injection_and_time_rounding():
     assert ass_time(59.999)=='0:01:00.00'
     assert subtitle_text('测试中文字幕不应超过每一行的安全长度而且不能溢出边缘','zh').count('\\N')>=1
 
+def test_write_subtitles_falls_back_for_language_without_field(tmp_path):
+    # A delivery language without a dedicated caption field (e.g. 'ru') must not
+    # crash the renderer; it falls back to the original transcription text.
+    from backend.media import write_subtitles
+    from backend.schemas import Caption
+    caps=[Caption(start=0,end=2,original='Original text',en='English',zh='中文')]
+    out=tmp_path/'captions.ass'
+    write_subtitles(out,caps,[(0,2)],'ru',1080,1920,None)
+    body=out.read_text(encoding='utf-8')
+    assert 'Original text' in body
+    assert 'Dialogue:' in body
+
+
 @pytest.mark.parametrize('duration',[float('nan'),float('inf')])
 def test_pydantic_rejects_nonfinite_span(duration):
     from backend.schemas import Span
