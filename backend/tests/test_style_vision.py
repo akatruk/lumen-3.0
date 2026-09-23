@@ -59,6 +59,11 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     _video(vig, '-f', 'lavfi', '-i', 'testsrc=s=180x240:r=30:d=0.4', '-vf', 'vignette=angle=PI/3')
     assert picture_of(vig, 0, 0.4)['vignette'] is True
     assert picture_of(plain, 0, 1)['vignette'] is False
+    bezel = tmp_path / 'bezel.mp4'
+    _video(bezel, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.4', '-vf', 'drawbox=x=16:y=16:w=148:h=208:color=0xD8D2C4:t=fill')
+    assert picture_of(bezel, 0, 0.4)['screen'] is True
+    assert picture_of(plain, 0, 1)['screen'] is False
+    assert picture_of(card, 0, 1)['screen'] is False
 
 
 def test_style_filters_keep_the_slot_duration(tmp_path):
@@ -101,3 +106,17 @@ def test_style_filters_keep_the_slot_duration(tmp_path):
     sided.mkdir()
     panel = media.render(halves, sided, media.probe(halves), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1, 'split': True, 'panel': 1}]).model_dump())
     assert abs(panel['metadata']['duration'] - 1) < 0.6
+    framed = tmp_path / 'framed'
+    framed.mkdir()
+    screen = media.render(source, framed, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.5, 'screen': 2}]).model_dump())
+    assert abs(screen['metadata']['duration'] - 1.5) < 0.6
+    drawn_art = tmp_path / 'drawn'
+    drawn_art.mkdir()
+    shapes = media.render(source, drawn_art, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.5, 'diagram': 3}]).model_dump())
+    assert abs(shapes['metadata']['duration'] - 1.5) < 0.6
+    png = source.parent / 'style-art-0.png'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=c=0xE7C27A:s=80x80:d=0.2', '-frames:v', '1', png)
+    painted = tmp_path / 'painted'
+    painted.mkdir()
+    picture = media.render(source, painted, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.5, 'diagram': 3, 'art': 'style-art-0.png'}]).model_dump())
+    assert abs(picture['metadata']['duration'] - 1.5) < 0.6

@@ -53,6 +53,9 @@ type Clip = {
   lower?: boolean;
   icon?: boolean;
   still?: number | null;
+  screen?: number | null;
+  diagram?: number;
+  art?: string;
   panel?: number | null;
   plate?: string;
   grade?: {brightness:number;contrast:number;saturation:number;gamma:number;rs:number;gs:number;bs:number}|null;

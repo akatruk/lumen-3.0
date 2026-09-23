@@ -247,6 +247,7 @@ def picture_of(path, start, end):
     zoom_end, x_end = read(closing)
     left, mid, right = opening
     vignette = _vignette(path, min(start + 0.04, max(start, end - 0.08)), width, height)
+    screen = _screen(path, min(start + 0.04, max(start, end - 0.08)), width, height)
     edge = _level(path, f'crop={width}:{height}:0:0', min(start + 0.02, max(start, end - 0.08)))
     middle = _level(path, f'crop={width}:{height}:0:0', (start + end) / 2)
     return {
@@ -258,7 +259,29 @@ def picture_of(path, start, end):
         'graphic': mid >= left + 22 and mid >= right + 22,
         'fade': edge is not None and middle is not None and middle - edge >= 22,
         'vignette': vignette,
+        'screen': screen,
     }
+
+def _screen(path, at, width, height):
+    if width < 120 or height < 120:
+        return False
+    bw, bh = max(8, width // 12), max(8, height // 12)
+    borders = []
+    for crop in (f'crop={width}:{bh}:0:0', f'crop={width}:{bh}:0:{height - bh}', f'crop={bw}:{height}:0:0', f'crop={bw}:{height}:{width - bw}:0'):
+        level = _level(path, crop, at)
+        if level is None:
+            return False
+        borders.append(level)
+    if max(borders) - min(borders) > 40:
+        return False
+    border = sum(borders) / 4
+    inner_w, inner_h = width - 4 * bw, height - 4 * bh
+    quarter = max(8, inner_w // 4)
+    left = _level(path, f'crop={quarter}:{inner_h}:{2 * bw}:{2 * bh}', at)
+    right = _level(path, f'crop={quarter}:{inner_h}:{2 * bw + inner_w - quarter}:{2 * bh}', at)
+    if left is None or right is None:
+        return False
+    return left - border >= 22 and right - border >= 22
 
 def _vignette(path, at, width, height):
     if width < 80 or height < 80:

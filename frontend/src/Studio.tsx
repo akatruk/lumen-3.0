@@ -601,6 +601,9 @@ function StyleMatch({
     if (id === "lower") return t("A lower band fades in and out over the presenter.", "下沿条带在主讲人画面上淡入再淡出。");
     if (id === "icon") return t("A small mark fades in and out on that band.", "这条带上的小标记会淡入再淡出。");
     if (id === "still") return t("A title-like shot with no figures holds another frame of your footage, then lets it go.", "没有数字的标题镜头会定格你素材里的另一帧，然后再放开。");
+    if (id === "screen") return t("A screen-like reference shot holds your frame inside a border, then lets it go.", "像屏幕的参考镜头会把你的画面放进边框，然后再放开。");
+    if (id === "diagram") return t("An illustration of equal shapes is drawn from your words and fades out.", "根据你的词语画出等大图形，然后淡出。");
+    if (id === "art") return t("One generated picture uses your words. It has no text from the reference.", "生成的一张图只用你的词语，不含参考视频里的文字。");
     if (id === "panel") return t("The other half of a split frame is another moment of your footage.", "分屏的另一半是你视频的另一个时刻。");
     if (id === "transitions") return t("Cuts, fades, dissolves, wipes and circle transitions follow the reference.", "切、淡入、叠化、擦除和圆形转场跟随参考。");
     if (id === "captions") return t("Owned speech was burned as captions.", "已烧录你自己的语音字幕。");

@@ -313,6 +313,14 @@ def validate_director(result,dna):
         if t.reference_id not in refs or not 0<=t.reference_start<t.reference_end<=refs[t.reference_id]:raise ValueError('analysis_timestamps_invalid')
 
 def render_job(p,payload):
+    if payload.get('manual'):
+        try:
+            current = state(p['id'])
+            if current.get('context', {}).get('style_match'):
+                from .style_pictures import allow, attach_art
+                payload['manual'] = attach_art(p['id'], payload['manual'], allow())
+        except Exception:
+            pass
     from .worker import render_job as legacy_render
     plan=payload['plan'];decisions={d['id']:d for d in payload['decisions']}
     analysis=Analysis.model_validate({k:v for k,v in plan.items() if k!='transfers'})

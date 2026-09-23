@@ -322,9 +322,15 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     words = _keywords(spoken)
     blob = _blob([shot or {}])
     callout = bool(words) and (_wants_captions([shot or {}]) or _has(blob, ('title', 'overlay', 'callout', 'keyword', 'kinetic', 'icon')) or look.get('lower') or look.get('bar'))
-    card = _card(facts, end - start) if (allow_card and _has(blob, ('chart', 'number', 'statistic', 'progress'))) or (shot.get('picture') or {}).get('graphic') else None
+    picture = shot.get('picture') or {}
+    card = _card(facts, end - start) if (allow_card and _has(blob, ('chart', 'number', 'statistic', 'progress'))) or picture.get('graphic') else None
     fx = _effects(shot, end - start if ref_len is None else ref_len, look.get('flat'), chroma=bool(look.get('chroma')), look_split=bool(look.get('split')), look_shake=bool(look.get('shake')))
+    open_shot = not fx['split'] and not fx['cutout'] and not (picture.get('graphic') and facts)
+    screen = (_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if open_shot and (picture.get('screen') or _has(blob, ('screenshot', 'screen recording', 'screen capture'))) else None
+    diagram = max(1, min(4, len(words) or 3)) if open_shot and screen is None and _has(blob, ('illustration', 'diagram', 'infographic', 'drawing')) else 0
     text = (words[0][:40] if callout else '')
+    if diagram and words and not text:
+        text = words[0][:40]
     if text and _has(blob, ('icon', 'chart', 'progress')):
         mark = '▮ ' if _has(blob, ('chart', 'progress')) else '● '
         text = (mark + text)[:160]
@@ -363,12 +369,14 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         exposure=float(look.get('exposure') or 0),
         progress=max(0, min(1, float(progress or 0))),
         plate='1A1F1C' if fx['cutout'] else '',
-        graphic=bool((shot.get('picture') or {}).get('graphic') and facts and not fx['split'] and not fx['cutout']),
-        bars=_bars(facts) if (shot.get('picture') or {}).get('graphic') and facts and not fx['split'] and not fx['cutout'] else [],
-        lower=bool((look.get('lower') or _has(blob, ('icon',))) and not (shot.get('picture') or {}).get('graphic') and not fx['split'] and not fx['cutout']),
-        icon=bool((look.get('lower') or _has(blob, ('icon',))) and not (shot.get('picture') or {}).get('graphic') and not fx['split'] and not fx['cutout']),
+        graphic=bool(picture.get('graphic') and facts and not fx['split'] and not fx['cutout']),
+        bars=_bars(facts) if picture.get('graphic') and facts and not fx['split'] and not fx['cutout'] else [],
+        lower=bool((look.get('lower') or _has(blob, ('icon',))) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and screen is None and not diagram),
+        icon=bool((look.get('lower') or _has(blob, ('icon',))) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and screen is None and not diagram),
         panel=_panel_start(start, end, duration) if fx['split'] and not fx['cutout'] else None,
-        still=(_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if (shot.get('picture') or {}).get('graphic') and not facts and not fx['split'] and not fx['cutout'] else None,
+        still=(_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if picture.get('graphic') and not facts and not fx['split'] and not fx['cutout'] and screen is None and not diagram else None,
+        screen=screen,
+        diagram=diagram,
         grade=grade,
         approved=True,
         locked=False,
@@ -506,6 +514,12 @@ def _applied(edit, trimmed):
         rows.append('icon')
     if any(c.get('still') is not None for c in edit['clips']):
         rows.append('still')
+    if any(c.get('screen') is not None for c in edit['clips']):
+        rows.append('screen')
+    if any(c.get('diagram') for c in edit['clips']):
+        rows.append('diagram')
+    if any(c.get('art') for c in edit['clips']):
+        rows.append('art')
     if any(c.get('panel') is not None for c in edit['clips']):
         rows.append('panel')
     return rows

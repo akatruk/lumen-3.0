@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     dubbing_model: str = 'minimax/speech-2.8-hd'
     dubbing_price_per_million: float = 100.0
     generation_model: str = 'google/veo-3.1-fast'
+    image_model: str = 'google/gemini-2.5-flash-image'
     lumen_session_secret: str = ''
     lumen_invite_code: str = ''
     database_url: str = ''

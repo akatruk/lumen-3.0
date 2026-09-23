@@ -1110,6 +1110,9 @@ export const ru: Record<string, string> = {
   "A lower band fades in and out over the presenter.": "Нижняя полоса проявляется и гаснет поверх ведущего.",
   "A small mark fades in and out on that band.": "Маленькая метка на этой полосе проявляется и гаснет.",
   "A title-like shot with no figures holds another frame of your footage, then lets it go.": "Кадр-плашка без цифр держит другой кадр вашего видео и потом отпускает его.",
+  "A screen-like reference shot holds your frame inside a border, then lets it go.": "Кадр, похожий на экран, держит ваш кадр в рамке и потом отпускает его.",
+  "An illustration of equal shapes is drawn from your words and fades out.": "Иллюстрация из одинаковых фигур строится по вашим словам и гаснет.",
+  "One generated picture uses your words. It has no text from the reference.": "Одна сгенерированная картинка берёт ваши слова. Текста из референса в ней нет.",
   "The other half of a split frame is another moment of your footage.": "Вторая половина кадра — другой момент вашего видео.",
   "Face tracking is not available. The frame follows a moving bright area when one is measured.": "Лицо не отслеживается. Если яркая область движется и это измерено, кадр идёт за ней.",
   "Extra pictures were not added. Confirm a license in the stock library on this page, or upload your own.": "Дополнительные кадры не добавлены. Подтвердите лицензию в библиотеке на этой странице или загрузите своё."

@@ -60,6 +60,9 @@ class Clip(Span):
     lower: bool=False
     icon: bool=False
     still: float | None=Field(default=None,ge=0)
+    screen: float | None=Field(default=None,ge=0)
+    diagram: int=Field(default=0,ge=0,le=4)
+    art: str=Field(default='',pattern=r'^$|^style-art-[0-9]{1,2}\.png$')
     panel: float | None=Field(default=None,ge=0)
     mask: bool=False
     track: bool=False

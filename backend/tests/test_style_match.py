@@ -189,6 +189,16 @@ def test_measured_vignette_adds_a_shadow_without_the_word():
     assert edit['clips'][0]['shadow'] is True
     assert 'shadow' in report['applied']
 
+def test_screenshot_and_illustration_use_owned_material():
+    screen = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'screen': True, 'graphic': False, 'split': False})
+    shown, shown_report = build([screen], 40, [], False)
+    assert shown['clips'][0]['screen'] is not None and shown['clips'][0]['still'] is None
+    assert 'screen' in shown_report['applied']
+    drawn = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'illustration', 'zh': '插画'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    edit, report = build([drawn], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
+    assert edit['clips'][0]['diagram'] >= 1 and edit['clips'][0]['text'] == 'Visa'
+    assert 'diagram' in report['applied'] and 'SECRET' not in edit['clips'][0]['text']
+
 def test_graphic_without_figures_holds_another_owned_frame():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'split': False, 'graphic': True, 'fade': False})
     edit, report = build([row], 40, [], False)

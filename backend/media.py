@@ -18,6 +18,15 @@ def run(args, timeout=600):
         raise RuntimeError('media_processing_failed')
     return p.stdout, p.stderr
 
+def _art_file(source, name):
+    if not name or not re.fullmatch(r'style-art-[0-9]{1,2}\.png', str(name)):
+        return None
+    root = Path(source).resolve().parent
+    art = (root / str(name)).resolve()
+    if art.parent != root or not art.is_file():
+        return None
+    return art
+
 def ffmpeg(*args, timeout=600):
     # A missing subtitle filter should fail as itself, before FFmpeg hides the reason.
     if any(re.search(r'(^|[,\s])ass=', str(arg)) for arg in args) and not ass_available():
@@ -288,6 +297,24 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0xF4F1EA@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
             span=max(b-a,0.2); fade_d=min(0.25,span/4)
             graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and _art_file(source, clip.get('art')) and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_art_file(source, clip.get('art'))]
+            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('screen') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+            bezel_x=max(8,(w//10)//2*2); bezel_y=max(8,(h//10)//2*2)
+            inner_w, inner_h = w-2*bezel_x, h-2*bezel_y
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={inner_w}:{inner_h}:force_original_aspect_ratio=increase,crop={inner_w}:{inner_h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f}[shot];color=c=0x10140F:s={w}x{h}:r=30:d={span:.3f}[plate];[plate][shot]overlay={bezel_x}:{bezel_y}:format=auto,format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[frame];[fg][frame]overlay=format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source,'-ss',clip['screen'],'-t','0.12','-i',source]
+            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('diagram') and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+            span=max(b-a,0.2); fade_d=min(0.25,span/4)
+            spots=((0.18,0.32),(0.56,0.32),(0.18,0.58),(0.56,0.58))[:int(clip['diagram'])]
+            boxes=','.join(f"drawbox=x=iw*{x}:y=ih*{y}:w=iw*0.24:h=ih*0.16:color=0xE7C27A@0.95:t=fill" for x,y in spots)
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x1A2430:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('still') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
             span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
