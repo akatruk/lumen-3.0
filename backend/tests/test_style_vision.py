@@ -58,7 +58,7 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     assert found['bar'] is True and found['split'] is False
     jumped = tmp_path / 'jumped.mp4'
     _video(jumped, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.35', '-f', 'lavfi', '-i', 'color=white:s=50x70:r=30:d=0.35', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.35', '-f', 'lavfi', '-i', 'color=white:s=50x70:r=30:d=0.35', '-filter_complex', '[0:v][1:v]overlay=8:40[a];[2:v][3:v]overlay=120:40[b];[a][b]concat=n=2:v=1:a=0')
-    assert reference_layout(jumped)['shake'] is True
+    assert reference_layout(jumped)['shake'] is True and reference_layout(jumped)['shake_rx'] == 32
     card = tmp_path / 'card.mp4'
     _video(card, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=white:s=36x90:r=30:d=1', '-filter_complex', 'overlay=72:30')
     tight = picture_of(card, 0, 1)
@@ -240,6 +240,22 @@ def test_blur_glow_and_shadow_strength_follow_the_frame(tmp_path):
     assert f"unsharp=7:7:{halo['glow']:.2f}" in chain
     assert f"vignette=angle={deep['shade']:.3f}" in chain
     assert 'enable=' not in chain
+
+def test_deshake_window_follows_the_measured_shift(tmp_path):
+    mild = tmp_path / 'mild.mp4'
+    _video(mild, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.35', '-f', 'lavfi', '-i', 'color=white:s=50x70:r=30:d=0.35', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.35', '-f', 'lavfi', '-i', 'color=white:s=50x70:r=30:d=0.35', '-filter_complex', '[0:v][1:v]overlay=8:40[a];[2:v][3:v]overlay=70:40[b];[a][b]concat=n=2:v=1:a=0')
+    still = tmp_path / 'still-block.mp4'
+    _video(still, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.7', '-f', 'lavfi', '-i', 'color=white:s=50x70:r=30:d=0.7', '-filter_complex', 'overlay=8:40')
+    assert reference_layout(mild)['shake'] is True and reference_layout(mild)['shake_rx'] == 8
+    assert reference_layout(still)['shake'] is False and reference_layout(still)['shake_rx'] == 0
+    chain = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'stabilize': True, 'shake_rx': 32}, 160, 240, 1.2)
+    assert 'deshake=rx=32:ry=32' in chain and 'vidstab' not in chain
+    source = tmp_path / 'source.mp4'
+    _video(source, '-f', 'lavfi', '-i', 'testsrc=s=180x240:r=30:d=1.2')
+    folder = tmp_path / 'steady'
+    folder.mkdir()
+    rendered = media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.2, 'stabilize': True, 'shake_rx': 32, 'text': ''}]).model_dump())
+    assert abs(rendered['metadata']['duration'] - 1.2) < 0.2
 
 def test_a_plate_that_appears_later_starts_the_effect_then(tmp_path):
     late = tmp_path / 'late.mp4'

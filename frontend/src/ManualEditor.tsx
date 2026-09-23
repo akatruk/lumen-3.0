@@ -45,6 +45,7 @@ type Clip = {
   shade?: number;
   split?: boolean;
   stabilize?: boolean;
+  shake_rx?: number;
   cutout?: boolean;
   kinetic?: boolean;
   mask?: boolean;

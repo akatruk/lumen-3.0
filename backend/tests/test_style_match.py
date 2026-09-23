@@ -305,6 +305,16 @@ def test_owned_percent_sets_the_progress_and_the_icon_plate():
     days, _report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa takes 120 days', 'en': 'Visa takes 120 days', 'zh': '签证'}], False, measured={'layout': {'split': False, 'bar': True, 'lower': False, 'shake': False}})
     assert days['clips'][-1]['progress'] == 1
 
+def test_measured_shake_sets_the_deshake_window_and_words_use_the_default():
+    words = shot(motion={'en': 'shaky camera', 'zh': '晃动'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    spoken, _report = build([words], 40, [], False)
+    assert spoken['clips'][0]['stabilize'] is True and spoken['clips'][0]['shake_rx'] == 16
+    row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    strong, _report = build([row], 40, [], False, measured={'layout': {'split': False, 'bar': False, 'lower': False, 'shake': True, 'shake_rx': 32}})
+    assert strong['clips'][0]['stabilize'] is True and strong['clips'][0]['shake_rx'] == 32
+    calm, _report = build([row], 40, [], False, measured={'layout': {'split': False, 'bar': False, 'lower': False, 'shake': False, 'shake_rx': 0}})
+    assert calm['clips'][0]['stabilize'] is False and calm['clips'][0]['shake_rx'] == 0
+
 def test_measured_layout_adds_split_progress_and_stabilization():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     edit, report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证天数'}], False, measured={'layout': {'split': True, 'bar': True, 'lower': True, 'shake': True}})

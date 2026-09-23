@@ -47,7 +47,8 @@ def motion_filter(clip,width,height,length):
     z0=clip['zoom'];z1=clip.get('zoom_end') if clip.get('zoom_end') is not None else z0
     x0=clip['x'];x1=clip.get('x_end') if clip.get('x_end') is not None else x0
     y0=clip['y'];y1=clip.get('y_end') if clip.get('y_end') is not None else y0
-    pre='deshake=rx=16:ry=16:edge=0,' if clip.get('stabilize') else ''
+    rx=max(4, min(64, int(clip.get('shake_rx') or 16))) if clip.get('stabilize') else 0
+    pre=f'deshake=rx={rx}:ry={rx}:edge=0,' if rx else ''
     if (z0,x0,y0)==(z1,x1,y1):
         base=f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
     else:

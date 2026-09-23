@@ -380,6 +380,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         from .manual import Grade
         grade = Grade.model_validate(look['grade'])
     icon = bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram)
+    radius = int(look.get('shake_rx') or 0)
+    shake_rx = max(4, min(64, radius)) if fx['stabilize'] and radius else 16 if fx['stabilize'] else 0
     effect_at = float(picture.get('hold') or 0)
     if effect_at < 0.2 or not (fx['blur'] or fx['glow'] or fx['shadow'] or icon):
         effect_at = 0
@@ -420,6 +422,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         shade=fx['shade'],
         split=fx['split'],
         stabilize=fx['stabilize'],
+        shake_rx=shake_rx,
         cutout=fx['cutout'],
         kinetic=bool(fx['kinetic'] and text),
         mask=bool(fx['mask'] and not fx['cutout'] and not fx['split']),
@@ -618,7 +621,7 @@ def _scaled(shots, duration):
 def _look(measured):
     measured = measured or {}
     layout = measured.get('layout') or {}
-    return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'exposure': measured.get('exposure') or 0, 'split': layout.get('split'), 'bar': layout.get('bar'), 'lower': layout.get('lower'), 'shake': layout.get('shake')}
+    return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'exposure': measured.get('exposure') or 0, 'split': layout.get('split'), 'bar': layout.get('bar'), 'lower': layout.get('lower'), 'shake': layout.get('shake'), 'shake_rx': int(layout.get('shake_rx') or 0)}
 
 def build(shots, duration, transcript, has_audio, script='', recommendations=None, measured=None):
     measured = measured or {}

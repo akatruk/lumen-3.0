@@ -270,7 +270,7 @@ def _column_at(path, at):
 def reference_layout(path):
     meta = media.probe(path)
     width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
-    empty = {'split': False, 'bar': False, 'lower': False, 'shake': False}
+    empty = {'split': False, 'bar': False, 'lower': False, 'shake': False, 'shake_rx': 0}
     if width < 64 or height < 64:
         return empty
     at = min(0.3, max(0, duration / 3))
@@ -289,8 +289,10 @@ def reference_layout(path):
     lower = (not bar) and middle is not None and lower_band is not None and abs(middle - lower_band) >= 40
     later = min(duration - 0.1, at + 0.24)
     first, second = _column_at(path, at), _column_at(path, later)
-    shake = first is not None and second is not None and abs(first - second) >= 0.2
-    return {'split': split, 'bar': bar, 'lower': lower, 'shake': shake}
+    moved = abs(first - second) if first is not None and second is not None else 0
+    shake = moved >= 0.2
+    radius = 32 if moved >= 0.4 else 8 if shake else 0
+    return {'split': split, 'bar': bar, 'lower': lower, 'shake': shake, 'shake_rx': radius}
 
 def _arrived(old, now, new):
     return abs(now - new) + 12 < abs(now - old)

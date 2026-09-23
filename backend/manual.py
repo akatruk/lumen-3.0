@@ -56,6 +56,7 @@ class Clip(Span):
     shade: float=Field(default=0,ge=0,le=1.35)
     split: bool=False
     stabilize: bool=False
+    shake_rx: int=Field(default=16,ge=0,le=64)
     cutout: bool=False
     kinetic: bool=False
     graphic: bool=False
