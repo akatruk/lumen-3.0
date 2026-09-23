@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     google_client_id: str = ''
     google_client_secret: str = ''
     google_allowed_emails: str = 'andreykatruk@gmail.com'
-    google_sso_only: bool = True
+    google_sso_only: bool = False
     openrouter_api_key: str = ''
     analysis_model: str = 'google/gemini-3.8-flash'
     dubbing_model: str = 'minimax/speech-2.8-hd'

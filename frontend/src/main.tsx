@@ -473,7 +473,7 @@ function App() {
 function TutorialVideo({compact=false}:{compact?:boolean}) {const {lang}=useL();return <TutorialVideos lang={lang} compact={compact}/>;}
 
 function Auth({
-  onAuth: _onAuth,
+  onAuth,
   lang,
   setLang,
 }: {
@@ -482,17 +482,9 @@ function Auth({
   setLang: (l: Lang) => void;
 }) {
   const { t } = useL();
-  const [ready, setReady] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const authError = new URLSearchParams(window.location.search).get(
-    "auth_error",
-  );
-  useEffect(() => {
-    api("/auth/config")
-      .then((c) => setReady(c.google_ready))
-      .catch(() => {})
-      .finally(() => setLoaded(true));
-  }, []);
+  const [account, setAccount] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   return (
     <div className="auth">
       <section className="auth-art">
@@ -523,38 +515,46 @@ function Auth({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (ready) window.location.assign("/api/auth/google");
+            const data = new FormData(e.currentTarget);
+            setBusy(true);
+            setError("");
+            api(account ? "/register" : "/login", json({
+              email: String(data.get("email") || ""),
+              password: String(data.get("password") || ""),
+              invite: String(data.get("invite") || ""),
+            }))
+              .then(onAuth)
+              .catch((err) => setError((err as Error).message))
+              .finally(() => setBusy(false));
           }}
         >
           <span className="eyebrow">{translate(lang, "LUMEN WORKSPACE", "LUMEN WORKSPACE")}</span>
-          <h2>{t("signIn")}</h2>
-          <p>
-            {translate(lang, "A private workspace. Sign in with your approved Google account.", "私人工作空间。请使用已获授权的 Google 帐号登录。")}
-          </p>
-          {authError && (
-            <p role="alert">
-              {authError === "access_denied"
-                ? translate(lang, "This Google account does not have access. Choose an approved account.", "此 Google 帐号没有访问权限。请选择已获授权的帐号。")
-                : translate(lang, "Google sign-in could not be completed. Please try again.", "Google 登录未完成，请重试。")}
-            </p>
+          <h2>{account ? t("register") : t("signIn")}</h2>
+          <p>{t("authDesc")}</p>
+          <label>
+            {t("email")}
+            <input name="email" type="email" required autoComplete="username" />
+          </label>
+          <label>
+            {t("password")}
+            <input name="password" type="password" minLength={10} required autoComplete={account ? "new-password" : "current-password"} />
+          </label>
+          {account && (
+            <label>
+              {t("invite")}
+              <input name="invite" required autoComplete="off" />
+            </label>
           )}
-          <button className="primary" disabled={!ready}>
-            {!loaded ? (
-              <Loader2 className="spin" size={18} />
-            ) : (
-              <>
-                <span aria-hidden="true">G</span>
-                {translate(lang, "Continue with Google", "使用 Google 登录")}
-                <ArrowRight size={18} />
-              </>
-            )}
+          {error && (
+            <p role="alert">{t(error) === error ? t("genericError") : t(error)}</p>
+          )}
+          <button className="primary" disabled={busy}>
+            {busy ? <Loader2 className="spin" size={18} /> : t("continue")}
           </button>
-          {loaded && !ready && (
-            <p role="status">
-              {translate(lang, "Google sign-in is being configured. Please check back shortly.", "Google 登录正在配置中，请稍后再试。")}
-            </p>
-          )}
         </form>
+        <button type="button" className="auth-switch" onClick={() => { setAccount((value) => !value); setError(""); }}>
+          {account ? t("haveAccount") : t("needAccount")}
+        </button>
         <TutorialVideo compact />
         <small className="auth-foot">
           <ShieldCheck size={15} />

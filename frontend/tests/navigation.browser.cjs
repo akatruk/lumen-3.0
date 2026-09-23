@@ -28,7 +28,7 @@ try{
   await page.getByRole('button',{name:'Back to projects'}).click();
   await page.waitForFunction(()=>location.hash==='#library');
  });
- await test('logout success and Google sign-in launch',async({page,button,writes})=>{
- await page.route('**/api/auth/config',r=>r.fulfill({json:{google_ready:true}}));await button('Sign out').click();await page.locator('.auth-form').waitFor();let requested=false;await page.route('**/api/auth/google',r=>{requested=true;return r.fulfill({contentType:'text/html',body:'<p>QA OAuth redirect</p>'})});await page.getByRole('button',{name:/Continue with Google/}).click();await page.waitForURL('**/api/auth/google');assert(requested);assert(writes.some(w=>w.path==='/api/logout'));
+ await test('logout returns to email sign-in',async({page,button,writes})=>{
+ await button('Sign out').click();await page.locator('.auth-form').waitFor();assert.equal(await page.getByRole('button',{name:/Continue with Google/}).count(),0);await page.getByLabel('Email address').waitFor();await page.getByLabel('Password').waitFor();assert(writes.some(w=>w.path==='/api/logout'));
  });
 }finally{await browser.close();require('fs').writeFileSync('/tmp/lumen-nav-audit.json',JSON.stringify(results,null,2))}if(results.some(r=>!r.pass))process.exitCode=1})();
