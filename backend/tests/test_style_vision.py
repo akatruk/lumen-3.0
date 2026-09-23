@@ -64,6 +64,15 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     assert picture_of(bezel, 0, 0.4)['screen'] is True
     assert picture_of(plain, 0, 1)['screen'] is False
     assert picture_of(card, 0, 1)['screen'] is False
+    low = tmp_path / 'low.mp4'
+    _video(low, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.8', '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.8', '-filter_complex', 'overlay=70:180')
+    placed = picture_of(low, 0, 0.8)
+    assert placed['y'] == 0.78 and placed['zoom'] >= 1.15 and placed['y_end'] is None
+    assert picture_of(plain, 0, 1)['y'] == 0.5
+    rise = tmp_path / 'rise.mp4'
+    _video(rise, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.6', '-filter_complex', '[0:v][1:v]overlay=70:8[a];[2:v][3:v]overlay=70:180[b];[a][b]concat=n=2:v=1:a=0')
+    moved = picture_of(rise, 0, 1.2)
+    assert moved['y'] == 0.22 and moved['y_end'] == 0.78
 
 
 def test_style_filters_keep_the_slot_duration(tmp_path):

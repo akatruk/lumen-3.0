@@ -89,7 +89,9 @@ def _frame(shot):
         zoom_end = picture.get('zoom_end')
         x = float(picture.get('x') if picture.get('x') is not None else 0.5)
         x_end = picture.get('x_end')
-        return {'zoom': zoom, 'zoom_end': zoom_end, 'x': x, 'y': 0.45 if zoom > 1.05 else 0.5, 'x_end': x_end, 'y_end': None}
+        y = float(picture['y']) if picture.get('y') is not None else (0.45 if zoom > 1.05 else 0.5)
+        y_end = picture.get('y_end')
+        return {'zoom': zoom, 'zoom_end': zoom_end, 'x': x, 'y': y, 'x_end': x_end, 'y_end': y_end}
     blob = (plain(shot.get('motion')) + ' ' + plain(shot.get('reusable_method')) + ' ' + plain(shot.get('visual_type'))).lower()
     zoom, zoom_end = _motion(shot)
     x, y, x_end, y_end = 0.5, 0.5, None, None
@@ -428,7 +430,9 @@ def _scores(shots, edit, gaps, duration):
         if frame['zoom'] > 1 or transition != 'cut' or frame['x_end'] is not None or frame['y_end'] is not None:
             requested += 1
             same = abs(clip['zoom'] - frame['zoom']) < 0.01 and clip['transition'] == transition
+            same = same and abs(clip['y'] - frame['y']) < 0.01
             same = same and (frame['x_end'] is None or abs((clip.get('x_end') or clip['x']) - frame['x_end']) < 0.01)
+            same = same and (frame['y_end'] is None or abs((clip.get('y_end') or clip['y']) - frame['y_end']) < 0.01)
             if same:
                 applied += 1
     effects = 100.0 if requested == 0 else round(100 * applied / requested, 1)

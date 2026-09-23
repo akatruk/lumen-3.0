@@ -173,6 +173,12 @@ def test_detail_track_mask_and_unusable_spans_change_the_cut():
     assert keyed['clips'][0]['cutout'] is True and keyed['clips'][0]['plate'] == '1A1F1C'
     assert 'background_replacement' not in {gap['id'] for gap in keyed_report['gaps']}
 
+def test_measured_vertical_composition_frames_the_subject():
+    row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1.35, 'x': 0.5, 'y': 0.78, 'y_end': 0.22, 'split': False, 'graphic': False})
+    edit, report = build([row], 40, [], False)
+    assert edit['clips'][0]['y'] == 0.78 and edit['clips'][0]['y_end'] == 0.22 and edit['clips'][0]['zoom'] == 1.35
+    assert report['scores']['effect_similarity'] == 100
+
 def test_picture_measurement_sets_zoom_framing_and_a_graphic():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1.15, 'zoom_end': 1.35, 'x': 0.22, 'x_end': 0.78, 'split': False, 'graphic': True})
     edit, report = build([row], 40, [], False, script='Price 120000 and deposit 30000')

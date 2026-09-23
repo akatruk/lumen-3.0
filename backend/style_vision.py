@@ -228,23 +228,40 @@ def _bands(path, at, width, height):
         scores.append(0 if level is None else level)
     return scores
 
+def _rows(path, at, width, height):
+    crop_h = max(16, height // 3)
+    scores = []
+    for index in range(3):
+        level = _level(path, f'crop={width}:{crop_h}:0:{min(index * crop_h, height - crop_h)}', at)
+        scores.append(0 if level is None else level)
+    return scores
+
+def _read_axis(scores):
+    peak = max(scores)
+    if peak - min(scores) < 12:
+        return 1.0, 0.5
+    hot = sum(1 for score in scores if peak - score < 18)
+    zoom = 1.35 if hot <= 1 else 1.15 if hot == 2 else 1.0
+    return zoom, (0.22, 0.5, 0.78)[scores.index(peak)]
+
 def picture_of(path, start, end):
     meta = media.probe(path)
     width, height = int(meta['width']), int(meta['height'])
-    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'split': False, 'graphic': False}
+    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'y': 0.5, 'y_end': None, 'split': False, 'graphic': False}
     if width < 90 or height < 90 or end - start < 0.2:
         return wide
-    opening = _bands(path, min(start + 0.04, end - 0.12), width, height)
-    closing = _bands(path, max(start + 0.04, end - 0.12), width, height)
-    def read(scores):
-        peak = max(scores)
-        if peak - min(scores) < 12:
-            return 1.0, 0.5
-        hot = sum(1 for score in scores if peak - score < 18)
-        zoom = 1.35 if hot <= 1 else 1.15 if hot == 2 else 1.0
-        return zoom, (0.22, 0.5, 0.78)[scores.index(peak)]
-    zoom, x = read(opening)
-    zoom_end, x_end = read(closing)
+    opening_at = min(start + 0.04, end - 0.12)
+    closing_at = max(start + 0.04, end - 0.12)
+    opening = _bands(path, opening_at, width, height)
+    closing = _bands(path, closing_at, width, height)
+    open_rows = _rows(path, opening_at, width, height)
+    close_rows = _rows(path, closing_at, width, height)
+    zoom_x, x = _read_axis(opening)
+    zoom_y, y = _read_axis(open_rows)
+    end_x, x_end = _read_axis(closing)
+    end_y, y_end = _read_axis(close_rows)
+    zoom = max(zoom_x, zoom_y)
+    zoom_end = max(end_x, end_y)
     left, mid, right = opening
     vignette = _vignette(path, min(start + 0.04, max(start, end - 0.08)), width, height)
     screen = _screen(path, min(start + 0.04, max(start, end - 0.08)), width, height)
@@ -255,6 +272,8 @@ def picture_of(path, start, end):
         'zoom_end': zoom_end if abs(zoom_end - zoom) >= 0.1 else None,
         'x': x,
         'x_end': x_end if abs(x_end - x) >= 0.2 else None,
+        'y': y,
+        'y_end': y_end if abs(y_end - y) >= 0.2 else None,
         'split': abs(left - right) >= 28 and abs(mid - (left + right) / 2) <= 14,
         'graphic': mid >= left + 22 and mid >= right + 22,
         'fade': edge is not None and middle is not None and middle - edge >= 22,
