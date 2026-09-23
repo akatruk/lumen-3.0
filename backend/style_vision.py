@@ -228,21 +228,25 @@ def _bands(path, at, width, height):
         scores.append(0 if level is None else level)
     return scores
 
-def _rows(path, at, width, height):
-    crop_h = max(16, height // 3)
-    scores = []
-    for index in range(3):
-        level = _level(path, f'crop={width}:{crop_h}:0:{min(index * crop_h, height - crop_h)}', at)
-        scores.append(0 if level is None else level)
-    return scores
+def _grid(path, at, width, height):
+    crop_w, crop_h = max(16, width // 3), max(16, height // 3)
+    cells = []
+    for row in range(3):
+        for col in range(3):
+            level = _level(path, f'crop={crop_w}:{crop_h}:{min(col * crop_w, width - crop_w)}:{min(row * crop_h, height - crop_h)}', at)
+            cells.append(0 if level is None else level)
+    return cells
 
-def _read_axis(scores):
-    peak = max(scores)
-    if peak - min(scores) < 12:
-        return 1.0, 0.5
-    hot = sum(1 for score in scores if peak - score < 18)
-    zoom = 1.35 if hot <= 1 else 1.15 if hot == 2 else 1.0
-    return zoom, (0.22, 0.5, 0.78)[scores.index(peak)]
+def _subject(cells):
+    peak, floor = max(cells), min(cells)
+    if peak - floor < 12:
+        return 1.0, 0.5, 0.5
+    cut = floor + max(18, 0.45 * (peak - floor))
+    hot = [index for index, score in enumerate(cells) if score >= cut] or [cells.index(peak)]
+    fill = len(hot) / 9
+    zoom = round(min(1.45, max(1.0, 1 + 0.45 * (1 - fill) / (1 - 1 / 9))), 2)
+    xs, ys = (0.22, 0.5, 0.78), (0.22, 0.5, 0.78)
+    return zoom, sum(xs[index % 3] for index in hot) / len(hot), sum(ys[index // 3] for index in hot) / len(hot)
 
 def picture_of(path, start, end):
     meta = media.probe(path)
@@ -253,15 +257,8 @@ def picture_of(path, start, end):
     opening_at = min(start + 0.04, end - 0.12)
     closing_at = max(start + 0.04, end - 0.12)
     opening = _bands(path, opening_at, width, height)
-    closing = _bands(path, closing_at, width, height)
-    open_rows = _rows(path, opening_at, width, height)
-    close_rows = _rows(path, closing_at, width, height)
-    zoom_x, x = _read_axis(opening)
-    zoom_y, y = _read_axis(open_rows)
-    end_x, x_end = _read_axis(closing)
-    end_y, y_end = _read_axis(close_rows)
-    zoom = max(zoom_x, zoom_y)
-    zoom_end = max(end_x, end_y)
+    zoom, x, y = _subject(_grid(path, opening_at, width, height))
+    zoom_end, x_end, y_end = _subject(_grid(path, closing_at, width, height))
     left, mid, right = opening
     vignette = _vignette(path, min(start + 0.04, max(start, end - 0.08)), width, height)
     screen = _screen(path, min(start + 0.04, max(start, end - 0.08)), width, height)

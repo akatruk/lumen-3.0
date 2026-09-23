@@ -45,7 +45,7 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     card = tmp_path / 'card.mp4'
     _video(card, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=white:s=36x90:r=30:d=1', '-filter_complex', 'overlay=72:30')
     tight = picture_of(card, 0, 1)
-    assert tight['graphic'] is True and tight['zoom'] == 1.35
+    assert tight['graphic'] is True and tight['zoom'] >= 1.3
     plain = tmp_path / 'plain.mp4'
     _video(plain, '-f', 'lavfi', '-i', 'color=0x446688:s=180x240:r=30:d=1')
     wide = picture_of(plain, 0, 1)
@@ -67,7 +67,11 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     low = tmp_path / 'low.mp4'
     _video(low, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.8', '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.8', '-filter_complex', 'overlay=70:180')
     placed = picture_of(low, 0, 0.8)
-    assert placed['y'] == 0.78 and placed['zoom'] >= 1.15 and placed['y_end'] is None
+    assert placed['y'] == 0.78 and placed['zoom'] >= 1.3 and placed['y_end'] is None
+    large = tmp_path / 'large.mp4'
+    _video(large, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.8', '-f', 'lavfi', '-i', 'color=white:s=160x200:r=30:d=0.8', '-filter_complex', 'overlay=10:20')
+    filled = picture_of(large, 0, 0.8)
+    assert placed['zoom'] > filled['zoom'] >= 1
     assert picture_of(plain, 0, 1)['y'] == 0.5
     rise = tmp_path / 'rise.mp4'
     _video(rise, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.6', '-filter_complex', '[0:v][1:v]overlay=70:8[a];[2:v][3:v]overlay=70:180[b];[a][b]concat=n=2:v=1:a=0')
