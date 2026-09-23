@@ -364,7 +364,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         speed, speed_end = fx['speed'], None
     open_shot = not fx['split'] and not fx['cutout'] and not (picture.get('graphic') and facts)
     screen = (_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if open_shot and (picture.get('screen') or _has(blob, ('screenshot', 'screen recording', 'screen capture'))) else None
-    diagram = max(1, min(4, len(words) or 3)) if open_shot and screen is None and _has(blob, ('illustration', 'diagram', 'infographic', 'drawing')) else 0
+    tiles = int(picture.get('tiles') or 0)
+    diagram = (tiles if 1 <= tiles <= 4 else max(1, min(4, len(words) or 3))) if open_shot and screen is None and _has(blob, ('illustration', 'diagram', 'infographic', 'drawing')) else 0
     text = (words[0][:40] if callout else '')
     if diagram and words and not text:
         text = words[0][:40]

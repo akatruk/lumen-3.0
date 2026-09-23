@@ -391,7 +391,7 @@ def _entered(path, start, end, width, height):
 def picture_of(path, start, end):
     meta = media.probe(path)
     width, height = int(meta['width']), int(meta['height'])
-    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'y': 0.5, 'y_end': None, 'split': False, 'graphic': False, 'mask': False, 'lower': False, 'hold': 0.0}
+    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'y': 0.5, 'y_end': None, 'split': False, 'graphic': False, 'mask': False, 'lower': False, 'hold': 0.0, 'tiles': 0}
     if width < 90 or height < 90 or end - start < 0.2:
         return wide
     opening_at = min(start + 0.04, end - 0.12)
@@ -442,7 +442,24 @@ def picture_of(path, start, end):
         'hold': hold,
         'screen': screen,
         'bezel': bezel,
+        'tiles': _tiles(path, stamp, width, height),
     }
+
+def _tiles(path, at, width, height):
+    """How many of the four equal illustration slots are brighter than the corner."""
+    if width < 90 or height < 90:
+        return 0
+    corner = _level(path, 'crop=16:16:0:0', at)
+    if corner is None:
+        return 0
+    count = 0
+    for x, y in ((0.18, 0.32), (0.56, 0.32), (0.18, 0.58), (0.56, 0.58)):
+        left = min(width - 16, int(width * (x + 0.08)))
+        top = min(height - 16, int(height * (y + 0.05)))
+        sample = _level(path, f'crop=16:16:{left}:{top}', at)
+        if sample is not None and sample >= corner + 36:
+            count += 1
+    return count
 
 def _window(path, at, width, height):
     """True when the frame is the ellipse the mask filter already cuts."""

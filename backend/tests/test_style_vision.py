@@ -242,6 +242,29 @@ def test_blur_glow_and_shadow_strength_follow_the_frame(tmp_path):
     assert f"vignette=angle={deep['shade']:.3f}" in chain
     assert 'enable=' not in chain
 
+def test_illustration_tiles_follow_the_bright_blocks(tmp_path):
+    one = tmp_path / 'one-tile.mp4'
+    four = tmp_path / 'four-tiles.mp4'
+    box = 'drawbox=x=iw*{x}:y=ih*{y}:w=iw*0.24:h=ih*0.16:color=0xE7C27A:t=fill'
+    spots = ((0.18, 0.32), (0.56, 0.32), (0.18, 0.58), (0.56, 0.58))
+    _video(one, '-f', 'lavfi', '-i', 'color=0x1A2430:s=180x240:r=30:d=0.4', '-vf', box.format(x=0.18, y=0.32))
+    _video(four, '-f', 'lavfi', '-i', 'color=0x1A2430:s=180x240:r=30:d=0.4', '-vf', ','.join(box.format(x=x, y=y) for x, y in spots))
+    assert picture_of(one, 0, 0.4)['tiles'] == 1
+    assert picture_of(four, 0, 0.4)['tiles'] == 4
+    source = tmp_path / 'owned.mp4'
+    _video(source, '-f', 'lavfi', '-i', 'color=0x203028:s=180x240:r=30:d=1.2')
+    single, several = tmp_path / 'single', tmp_path / 'several'
+    single.mkdir(); several.mkdir()
+    media.render(source, single, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.2, 'diagram': 1, 'text': ''}]).model_dump())
+    rendered = media.render(source, several, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.2, 'diagram': 4, 'text': ''}]).model_dump())
+    assert abs(rendered['metadata']['duration'] - 1.2) < 0.2
+
+    def luma(folder):
+        out, err = media.ffmpeg('-ss', '0.5', '-i', folder / 'result.mp4', '-vf', 'crop=8:8:118:154,signalstats,metadata=print:file=-', '-frames:v', '1', '-f', 'null', '-')
+        return float(re.search(r'YAVG=([\d.]+)', out + '\n' + err).group(1))
+
+    assert luma(several) > luma(single) + 40
+
 def test_screen_bezel_follows_the_measured_border(tmp_path):
     thick = tmp_path / 'thick-bezel.mp4'
     _video(thick, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.4', '-vf', 'drawbox=x=28:y=32:w=124:h=176:color=0xE8E4DC:t=fill')

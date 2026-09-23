@@ -219,6 +219,15 @@ def test_measured_bezel_is_kept_and_a_named_screen_stays_a_tenth():
     words, _report = build([named], 40, [], False)
     assert words['clips'][0]['screen'] is not None and words['clips'][0]['bezel'] == 0.1
 
+def test_measured_tiles_replace_the_word_count():
+    row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'illustration', 'zh': '插画'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'}, picture={'zoom': 1, 'graphic': False, 'split': False, 'screen': False, 'tiles': 4})
+    edit, _report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
+    assert edit['clips'][0]['diagram'] == 4 and edit['clips'][0]['text'] == 'Visa'
+    assert 'SECRET' not in edit['clips'][0]['text']
+    words = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'illustration', 'zh': '插画'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    spoken, _report = build([words], 40, [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证'}], False)
+    assert spoken['clips'][0]['diagram'] == 2
+
 def test_screenshot_and_illustration_use_owned_material():
     screen = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'screen': True, 'graphic': False, 'split': False})
     shown, shown_report = build([screen], 40, [], False)
