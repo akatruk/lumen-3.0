@@ -10,7 +10,15 @@ def _stats(path, vf, frames=8):
     ys, us, vs = values('YAVG'), values('UAVG'), values('VAVG')
     if not ys:
         return None
-    return {'y': sum(ys) / len(ys), 'u': sum(us) / len(us) if us else 128, 'v': sum(vs) / len(vs) if vs else 128}
+    sats, highs, lows = values('SATAVG'), values('YHIGH'), values('YLOW')
+    spread = (sum(highs) / len(highs) - sum(lows) / len(lows)) if highs and lows else None
+    return {
+        'y': sum(ys) / len(ys),
+        'u': sum(us) / len(us) if us else 128,
+        'v': sum(vs) / len(vs) if vs else 128,
+        'sat': sum(sats) / len(sats) if sats else None,
+        'spread': spread,
+    }
 
 def color_sample(path):
     return _stats(path, 'fps=1,signalstats,metadata=print:file=-')
@@ -81,20 +89,40 @@ def scene_shots(path, duration):
         'reusable_method': {'en': 'hold the frame', 'zh': '固定机位'},
     }]
 
+def _clamp(value, low, high):
+    return max(low, min(high, value))
+
 def grade_between(reference, owned):
+    """Move owned color toward the reference with the existing grade sliders."""
     if not reference or not owned:
         return None
-    def clamp(value, low, high):
-        return max(low, min(high, value))
+    own_sat, ref_sat = owned.get('sat'), reference.get('sat')
+    saturation = 1.0
+    if own_sat is not None and ref_sat is not None:
+        saturation = _clamp((ref_sat + 1) / (own_sat + 1), 0.5, 1.8)
+    own_spread, ref_spread = owned.get('spread'), reference.get('spread')
+    contrast = 1.0
+    if own_spread and ref_spread and own_spread >= 8 and ref_spread >= 8:
+        contrast = _clamp(ref_spread / own_spread, 0.8, 1.4)
     return {
-        'brightness': round(clamp((reference['y'] - owned['y']) / 255, -0.08, 0.08), 4),
-        'contrast': 1.05,
-        'saturation': round(clamp(1.08, 0.9, 1.3), 4),
+        'brightness': round(_clamp((reference['y'] - owned['y']) / 255, -0.2, 0.2), 4),
+        'contrast': round(contrast, 4),
+        'saturation': round(saturation, 4),
         'gamma': 1.0,
-        'rs': round(clamp((reference['v'] - owned['v']) / 220, -0.12, 0.12), 4),
+        'rs': round(_clamp((reference['v'] - owned['v']) / 128, -0.3, 0.3), 4),
         'gs': 0.0,
-        'bs': round(clamp((reference['u'] - owned['u']) / 220, -0.12, 0.12), 4),
+        'bs': round(_clamp((reference['u'] - owned['u']) / 128, -0.3, 0.3), 4),
     }
+
+def light_between(reference, owned):
+    """Exposure for the luma that the brightness slider cannot cover."""
+    if not reference or not owned:
+        return 0
+    remainder = (reference['y'] - owned['y']) - _clamp((reference['y'] - owned['y']) / 255, -0.2, 0.2) * 255
+    exposure = _clamp(remainder / 80, -1, 1)
+    if abs(exposure) < 0.05:
+        return 0
+    return round(exposure, 3)
 
 def _timed_levels(path):
     out, err = media.ffmpeg('-i', path, '-vf', 'fps=1,signalstats,metadata=print:file=-', '-an', '-f', 'null', '-', timeout=240)

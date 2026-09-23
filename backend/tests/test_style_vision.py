@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from backend import media
 from backend.manual import Edit
-from backend.style_vision import _join, black_spans, chroma_plate, flat_background, highlight_window, measure, picture_of, reference_layout, visual_track
+from backend.style_vision import _join, black_spans, chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, measure, picture_of, reference_layout, visual_track
 from backend.media import write_kinetic
 
 
@@ -164,3 +164,21 @@ def test_join_names_only_reproducible_transitions(tmp_path):
     blend = tmp_path / 'blend.mp4'
     _video(blend, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]blend=all_mode=average[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
     assert _join(blend, 0.6) == 'crossfade'
+
+def test_grade_follows_measured_yuv_without_copying_the_frame(tmp_path):
+    dark = tmp_path / 'dark.mp4'
+    bright = tmp_path / 'bright.mp4'
+    warm = tmp_path / 'warm.mp4'
+    _video(dark, '-f', 'lavfi', '-i', 'color=0x202020:s=160x160:r=30:d=1.2')
+    _video(bright, '-f', 'lavfi', '-i', 'color=0xE8E8E8:s=160x160:r=30:d=1.2')
+    _video(warm, '-f', 'lavfi', '-i', 'color=0xC04020:s=160x160:r=30:d=1.2')
+    owned, lit, tinted = color_sample(dark), color_sample(bright), color_sample(warm)
+    lifted = grade_between(lit, owned)
+    matched = grade_between(owned, owned)
+    assert lifted['brightness'] == 0.2
+    assert light_between(lit, owned) > 0.5
+    assert grade_between(tinted, owned)['rs'] > lifted['rs']
+    assert grade_between(tinted, owned)['saturation'] > 1
+    assert matched['brightness'] == 0 and matched['contrast'] == 1 and matched['saturation'] == 1 and matched['rs'] == 0
+    assert light_between(owned, owned) == 0
+    assert set(lifted) == {'brightness', 'contrast', 'saturation', 'gamma', 'rs', 'gs', 'bs'}

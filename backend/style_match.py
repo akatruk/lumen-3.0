@@ -675,7 +675,7 @@ def attach_measurement(pid):
     from . import media
     from .config import settings
     from .studio import state
-    from .style_vision import black_spans, chroma_plate, color_sample, flat_background, grade_between, highlight_window, measure, reference_layout, visual_track
+    from .style_vision import black_spans, chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, measure, reference_layout, visual_track
     folder = settings.data_dir / pid
     item = project(pid)
     current = state(pid)
@@ -687,12 +687,9 @@ def attach_measurement(pid):
             return default
     vision = quiet(lambda: measure(folder / 'reference_source'), None) if (folder / 'reference_source').exists() else None
     owned = quiet(lambda: color_sample(source), None)
-    grade = grade_between(vision.get('color') if vision else None, owned)
-    exposure = 0
-    if vision and vision.get('color') and owned:
-        exposure = max(-0.5, min(0.5, round((vision['color']['y'] - owned['y']) / 100, 3)))
-        if abs(exposure) < 0.05:
-            exposure = 0
+    sampled = vision.get('color') if vision else None
+    grade = grade_between(sampled, owned)
+    exposure = light_between(sampled, owned)
     silences = media.silence_ranges(source, item['metadata']['duration']) if item['metadata'].get('has_audio') else []
     payload = {
         'shots': vision['shots'] if vision else [],
