@@ -50,7 +50,10 @@ def scene_shots(path, duration):
             continue
         short = end - start < 0.55
         motion = 'fast punch in' if short else 'slow push in' if end - start < 2.2 else 'static hold'
-        transition = 'fade' if index and index % 4 == 0 else 'cut'
+        try:
+            transition = 'cut' if index == 0 else _join(path, start)
+        except Exception:
+            transition = 'cut'
         shots.append({
             'start': round(start, 3), 'end': round(end, 3),
             'observation': {'en': 'Measured shot', 'zh': '测量镜头'},
@@ -219,6 +222,44 @@ def reference_layout(path):
     first, second = _column_at(path, at), _column_at(path, later)
     shake = first is not None and second is not None and abs(first - second) >= 0.2
     return {'split': split, 'bar': bar, 'lower': lower, 'shake': shake}
+
+def _arrived(old, now, new):
+    return abs(now - new) + 12 < abs(now - old)
+
+def _stayed(old, now, new):
+    return abs(now - old) + 12 < abs(now - new)
+
+def _join(path, at):
+    """Name a boundary only when an existing filter reproduces it."""
+    meta = media.probe(path)
+    width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
+    if width < 80 or height < 80 or at < 0.12 or duration - at < 0.12:
+        return 'cut'
+    before, after = at - 0.08, at + 0.08
+    full = [_level(path, f'crop={width}:{height}:0:0', stamp) for stamp in (before, at, after)]
+    if any(level is None for level in full):
+        return 'cut'
+    old, now, new = full
+    if old < 45 and now >= old + 22 and new >= old + 22:
+        return 'fade'
+    if now < 45 and old > now + 22 and new > now + 22:
+        return 'fade'
+    if abs(old - new) < 12:
+        return 'cut'
+    half = max(16, width // 2)
+    left = [_level(path, f'crop={half}:{height}:0:0', stamp) for stamp in (before, at, after)]
+    right = [_level(path, f'crop={half}:{height}:{width - half}:0', stamp) for stamp in (before, at, after)]
+    if None not in left + right and ((_arrived(*left) and _stayed(*right)) or (_arrived(*right) and _stayed(*left))):
+        return 'wipe' if _arrived(*left) and _stayed(*right) else 'cut'
+    crop_w, crop_h = max(16, width // 3), max(16, height // 3)
+    center = [_level(path, f'crop={crop_w}:{crop_h}:{(width - crop_w) // 2}:{(height - crop_h) // 2}', stamp) for stamp in (before, at, after)]
+    corner = [_level(path, 'crop=24:24:0:0', stamp) for stamp in (before, at, after)]
+    if None not in center + corner and _arrived(*center) and _stayed(*corner):
+        return 'circle'
+    gap = abs(old - new)
+    if gap >= 18 and abs(now - (old + new) / 2) <= gap * 0.35:
+        return 'crossfade'
+    return 'cut'
 
 def _bands(path, at, width, height):
     crop_w = max(16, width // 3)

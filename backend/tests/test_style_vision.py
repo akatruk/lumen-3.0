@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from backend import media
 from backend.manual import Edit
-from backend.style_vision import black_spans, chroma_plate, flat_background, highlight_window, measure, picture_of, reference_layout, visual_track
+from backend.style_vision import _join, black_spans, chroma_plate, flat_background, highlight_window, measure, picture_of, reference_layout, visual_track
 from backend.media import write_kinetic
 
 
@@ -133,3 +133,24 @@ def test_style_filters_keep_the_slot_duration(tmp_path):
     painted.mkdir()
     picture = media.render(source, painted, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.5, 'diagram': 3, 'art': 'style-art-0.png'}]).model_dump())
     assert abs(picture['metadata']['duration'] - 1.5) < 0.6
+
+
+def test_join_names_only_reproducible_transitions(tmp_path):
+    hard = tmp_path / 'hard.mp4'
+    _video(hard, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.6', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
+    assert _join(hard, 0.6) == 'cut'
+    dip = tmp_path / 'dip.mp4'
+    _video(dip, '-f', 'lavfi', '-i', 'color=black:s=180x240:r=30:d=0.5', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.6', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
+    assert _join(dip, 0.5) == 'fade'
+    wipe = tmp_path / 'wipe.mp4'
+    _video(wipe, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=blue:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=red:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]hstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
+    assert _join(wipe, 0.6) == 'wipe'
+    other = tmp_path / 'other.mp4'
+    _video(other, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]hstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
+    assert _join(other, 0.6) == 'cut'
+    opened = tmp_path / 'opened.mp4'
+    _video(opened, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=60x80:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]overlay=60:80[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
+    assert _join(opened, 0.6) == 'circle'
+    blend = tmp_path / 'blend.mp4'
+    _video(blend, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]blend=all_mode=average[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
+    assert _join(blend, 0.6) == 'crossfade'
