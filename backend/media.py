@@ -173,7 +173,12 @@ def emphasize_caption(chunk,terms,language,base_color):
     return re.sub('|'.join(patterns),lambda m:r'{\c'+accent+'}'+m.group(0)+r'{\c'+base_color+'}',chunk,flags=re.IGNORECASE if language=='en' else 0)
 
 def write_kinetic(path, text, length, w, h):
-    clean=re.sub(r'[{}\\\r\n]',' ',text).strip()[:80]
+    tokens=[re.sub(r'[{}\\\r\n]',' ',piece).strip() for piece in str(text or '').split()]
+    tokens=[piece for piece in tokens if piece][:3]
+    if tokens and tokens[0] in {'●', '▮'} and len(tokens) > 1:
+        tokens=[tokens[0] + ' ' + tokens[1], *tokens[2:]]
+    first=tokens[0][:40] if tokens else ''
+    second=tokens[1][:40] if len(tokens) > 1 else ''
     size=max(28,int(h*0.045))
     travel=min(900,int(max(0.2,length)*450))
     header=f'''[Script Info]
@@ -187,7 +192,15 @@ Style: Default,Noto Sans CJK SC,{size},&H00FFFFFF,&H00FFFFFF,&H00121212,&H800000
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
     tags='{\\move('+f'{w*0.12:.0f},{h*0.2:.0f},{w*0.5:.0f},{h*0.2:.0f},0,{travel}'+f')\\fscx40\\fscy40\\t(0,{min(700,travel)},\\fscx100\\fscy100)'+'}'
-    path.write_text(header+f'Dialogue: 0,{ass_time(0)},{ass_time(length)},Default,,0,0,0,,{tags}{clean}\n',encoding='utf-8')
+    events=[f'Dialogue: 0,{ass_time(0)},{ass_time(length)},Default,,0,0,0,,{tags}{first}\n']
+    step=min(0.7, max(0.28, length * 0.42))
+    if second and length > step + 0.2:
+        begin=int(step * 1000)
+        span=min(600, int((length - step) * 1000))
+        y=h * 0.34
+        follow='{\\move('+f'{w*0.5:.0f},{y+36:.0f},{w*0.5:.0f},{y:.0f},{begin},{begin+span}'+f')\\fscx40\\fscy40\\t({begin},{begin+span},\\fscx100\\fscy100)'+'}'
+        events.append(f'Dialogue: 0,{ass_time(step)},{ass_time(length)},Default,,0,0,0,,{follow}{second}\n')
+    path.write_text(header+''.join(events),encoding='utf-8')
 
 def write_subtitles(path, captions, timeline, language, w,h,style=None):
     style=style or {}

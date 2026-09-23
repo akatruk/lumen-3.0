@@ -236,6 +236,16 @@ def test_words_alone_do_not_split_mask_or_overlay():
     assert lower_edit['clips'][0]['lower'] is True and lower_edit['clips'][0]['icon'] is True and lower_edit['clips'][0]['text'].startswith('Visa')
     assert 'lower' in lower_report['applied']
 
+def test_kinetic_caption_adds_a_second_owned_word():
+    row = shot(motion={'en': 'kinetic title', 'zh': '动效标题'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'})
+    spoken = [{'start': 0, 'end': 4, 'original': 'Visa paperwork', 'en': 'Visa paperwork', 'zh': '签证材料'}]
+    edit, _report = build([row], 40, spoken, False)
+    assert edit['clips'][0]['kinetic'] is True
+    assert edit['clips'][0]['text'].split() == ['paperwork', 'Visa']
+    assert 'SECRET' not in edit['clips'][0]['text']
+    one = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)[0]
+    assert one['clips'][0]['text'] == 'Visa'
+
 def test_measured_strength_replaces_the_fixed_blur_glow_and_shadow():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'blur': 4.5, 'glow': 1.1, 'shade': 1.2})
     edit, report = build([row], 40, [], False)

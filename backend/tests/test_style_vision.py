@@ -33,6 +33,12 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     title = tmp_path / 'title.ass'
     write_kinetic(title, 'Visa', 1.2, 160, 240)
     assert '\\fscx100' in title.read_text()
+    assert title.read_text().count('Dialogue:') == 1
+    follow = tmp_path / 'follow.ass'
+    write_kinetic(follow, 'Visa days', 1.6, 160, 240)
+    lines = [line for line in follow.read_text().splitlines() if line.startswith('Dialogue:')]
+    assert len(lines) == 2 and 'Visa' in lines[0] and lines[1].endswith('days')
+    assert lines[1].split(',')[1] != lines[0].split(',')[1]
     split = tmp_path / 'split.mp4'
     _video(split, '-f', 'lavfi', '-i', 'color=red:s=90x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=blue:s=90x240:r=30:d=1', '-filter_complex', '[0:v][1:v]hstack=inputs=2')
     assert reference_layout(split)['split'] is True

@@ -343,6 +343,10 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     text = (words[0][:40] if callout else '')
     if diagram and words and not text:
         text = words[0][:40]
+    if fx['kinetic'] and len(words) >= 2:
+        lead = text or words[0][:40]
+        if words[1] not in lead.split():
+            text = f'{lead} {words[1]}'[:80]
     if text and _has(blob, ('icon', 'chart', 'progress')):
         mark = '▮ ' if _has(blob, ('chart', 'progress')) else '● '
         text = (mark + text)[:160]
