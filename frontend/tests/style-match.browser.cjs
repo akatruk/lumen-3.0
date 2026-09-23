@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const setup=require('./ui-audit-helper.cjs');
 const report={
  scores:{shot_structure:44,visual_pacing:80,effect_similarity:100,motion_graphic_style:15,color_treatment:0,production_quality:70,overall:51.5},
- applied:['cuts','zoom','transitions','enhance','cards','track','mask','exposure','progress','illustration','lower','panel','icon','still','screen','diagram','art'],
+ applied:['cuts','zoom','transitions','enhance','cards','track','mask','exposure','progress','illustration','lower','panel','icon','still','screen','diagram','art','stock'],
  gaps:[{id:'motion_tracking',essential:false},{id:'number_card',essential:true},{id:'blur',essential:false}],
  sections:[{index:0,start:0,end:6},{index:1,start:6,end:12}],
  note:'owned_only'
@@ -45,6 +45,7 @@ const report={
   await x.page.getByText('A screen-like reference shot holds your frame inside a border, then lets it go.').waitFor();
   await x.page.getByText('An illustration of equal shapes is drawn from your words and fades out.').waitFor();
   await x.page.getByText('One generated picture uses your words. It has no text from the reference.').waitFor();
+  await x.page.getByText('A Commons clip with a CC BY, CC0, or public-domain license was inserted. Its credit stays on the asset.').waitFor();
   await x.page.getByText('The other half of a split frame is another moment of your footage.').waitFor();
   await x.button('Approve this cut').click();
   await x.button('Regenerate video').click();

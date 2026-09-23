@@ -132,6 +132,45 @@ def download(url,target):
                 if size>MAX_BYTES or time.monotonic()-began>120:raise ValueError('stock_media_too_large')
                 f.write(chunk)
 
+def import_licensed(pid, item):
+    """Save one clip that already passed the CC BY / CC0 / public-domain filter."""
+    from . import media
+    from .assets import path
+    pages = query(pageids=item['page_id'])
+    fresh = candidate(pages[0]) if pages else None
+    if not fresh or (fresh['license'], fresh['license_url'], fresh['artist']) != (item['license'], item['license_url'], item['artist']):
+        raise ValueError('stock_license_changed')
+    if shutil.disk_usage(settings.data_dir).free < 1024**3 or sum(f.stat().st_size for f in settings.data_dir.rglob('*') if f.is_file()) > settings.max_storage_gb * 1024**3 - MAX_BYTES:
+        raise ValueError('storage_full')
+    ident = uuid.uuid4().hex
+    folder = settings.data_dir / pid / 'stock' / ident
+    folder.mkdir(parents=True, exist_ok=True)
+    try:
+        source = folder / 'source.webm'
+        download(fresh['media_url'], source)
+        meta = media.probe(source)
+        if not .1 <= meta['duration'] <= 420:
+            raise ValueError('stock_media_invalid')
+        output = folder / 'asset.mp4'
+        media.ffmpeg('-protocol_whitelist', 'file,pipe', '-i', source, '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'scale=1280:1280:force_original_aspect_ratio=decrease:force_divisible_by=2', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', 23, '-c:a', 'aac', '-movflags', '+faststart', output)
+        probed = media.probe(output)
+        fresh = dict(fresh)
+        fresh['approval'] = 'written'
+        metadata = probed | {'kind': 'video', 'mime': 'video/mp4', 'provenance': {k: v for k, v in fresh.items() if k != 'media_url'}}
+        attribution = f'{fresh["title"]} — {fresh["artist"]}; {fresh["license"]}; {fresh["license_url"]}; {fresh["source_url"]}; converted to MP4; editing may crop or trim.'
+        with connect() as db:
+            db.lock()
+            if db.execute('SELECT count(*) FROM studio_assets WHERE project_id=?', (pid,)).fetchone()[0] >= 20:
+                raise ValueError('asset_limit')
+            aid = uuid.uuid4().hex
+            target = path(pid, aid)
+            target.parent.mkdir(exist_ok=True)
+            shutil.copyfile(output, target)
+            db.execute('INSERT INTO studio_assets VALUES(?,?,?,?,?,?,?)', (aid, pid, ident, fresh['title'], attribution, json.dumps(metadata), time.time()))
+        return aid, float(probed['duration'])
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
 def run_job(p,payload):
     from . import media
     from .assets import path

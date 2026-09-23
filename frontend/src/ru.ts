@@ -1115,5 +1115,7 @@ export const ru: Record<string, string> = {
   "One generated picture uses your words. It has no text from the reference.": "Одна сгенерированная картинка берёт ваши слова. Текста из референса в ней нет.",
   "The other half of a split frame is another moment of your footage.": "Вторая половина кадра — другой момент вашего видео.",
   "Face tracking is not available. The frame follows a moving bright area when one is measured.": "Лицо не отслеживается. Если яркая область движется и это измерено, кадр идёт за ней.",
-  "Extra pictures were not added. Confirm a license in the stock library on this page, or upload your own.": "Дополнительные кадры не добавлены. Подтвердите лицензию в библиотеке на этой странице или загрузите своё."
+  "Extra pictures were not added. Confirm a license in the stock library on this page, or upload your own.": "Дополнительные кадры не добавлены. Подтвердите лицензию в библиотеке на этой странице или загрузите своё.",
+  "A Commons clip with a CC BY, CC0, or public-domain license was inserted. Its credit stays on the asset.": "Вставлен ролик Commons с лицензией CC BY, CC0 или общественным достоянием. Авторство сохранено у материала.",
+  "No Commons clip with a CC BY, CC0, or public-domain license matched your words.": "По вашим словам не нашёлся ролик Commons с лицензией CC BY, CC0 или общественным достоянием."
 };

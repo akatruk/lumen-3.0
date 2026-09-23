@@ -623,6 +623,11 @@ def match_project(pid):
     shots = shots_of(current.get('dna'))
     transcript = (current.get('plan') or {}).get('transcript') or []
     edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=(current.get('plan') or {}).get('recommendations') or [], measured=current['context'].get('measured') or {})
+    try:
+        from .style_stock import attach
+        edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
+    except Exception:
+        pass
     with connect() as db:
         db.lock()
         _store(db, pid, edit, report, 'pending', True)
@@ -758,6 +763,11 @@ def regenerate(pid: str, user=Depends(current_user)):
     shots = shots_of(current.get('dna'))
     transcript = current['plan'].get('transcript') or []
     edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=current['plan'].get('recommendations') or [], measured=current['context'].get('measured') or {})
+    try:
+        from .style_stock import attach
+        edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
+    except Exception:
+        pass
     with connect() as db:
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
@@ -782,6 +792,11 @@ def regenerate_section(pid: str, index: int, user=Depends(current_user)):
     dumped = checked.model_dump()
     trimmed = abs(sum(c['end'] - c['start'] for c in dumped['clips']) - float(item['metadata']['duration'])) >= 0.5
     report = _report(shots, dumped, item['metadata']['duration'], trimmed)
+    try:
+        from .style_stock import attach
+        dumped, report = attach(pid, dumped, shots, item.get('brief') or '', report, item['metadata']['duration'], only=index)
+    except Exception:
+        pass
     with connect() as db:
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():

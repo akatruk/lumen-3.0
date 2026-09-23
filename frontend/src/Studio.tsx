@@ -604,6 +604,7 @@ function StyleMatch({
     if (id === "screen") return t("A screen-like reference shot holds your frame inside a border, then lets it go.", "像屏幕的参考镜头会把你的画面放进边框，然后再放开。");
     if (id === "diagram") return t("An illustration of equal shapes is drawn from your words and fades out.", "根据你的词语画出等大图形，然后淡出。");
     if (id === "art") return t("One generated picture uses your words. It has no text from the reference.", "生成的一张图只用你的词语，不含参考视频里的文字。");
+    if (id === "stock") return t("A Commons clip with a CC BY, CC0, or public-domain license was inserted. Its credit stays on the asset.", "已插入一条 CC BY、CC0 或公有领域的 Commons 视频，署名保留在素材上。");
     if (id === "panel") return t("The other half of a split frame is another moment of your footage.", "分屏的另一半是你视频的另一个时刻。");
     if (id === "transitions") return t("Cuts, fades, dissolves, wipes and circle transitions follow the reference.", "切、淡入、叠化、擦除和圆形转场跟随参考。");
     if (id === "captions") return t("Owned speech was burned as captions.", "已烧录你自己的语音字幕。");
@@ -621,7 +622,7 @@ function StyleMatch({
     if (id === "color_grade") return t("Automatic color and lighting match is not available.", "无法自动匹配色彩和光线。");
     if (id === "kinetic_type") return t("Kinetic typography is not cloned. Owned captions are used when speech exists.", "不会复制动态标题。有语音时使用你自己的字幕。");
     if (id === "number_card") return t("A chart or number card needs the figure and its label from you. Nothing was invented.", "图表或数字卡需要你提供数字和标签。系统不会编造。");
-    if (id === "broll") return t("Extra pictures were not added. Confirm a license in the stock library on this page, or upload your own.", "没有自动添加画面。请在本页素材库确认许可，或上传你自己的素材。");
+    if (id === "broll") return t("No Commons clip with a CC BY, CC0, or public-domain license matched your words.", "没有找到与你的词语匹配、且为 CC BY、CC0 或公有领域的 Commons 视频。");
     if (id === "captions_need_speech") return t("Captions need a speech transcript from your video.", "字幕需要你视频里的语音文本。");
     if (id === "reference_music") return t("Reference music was not copied.", "没有复制参考视频的音乐。");
     if (id === "blur") return t("Blur is not available.", "无法做模糊。");
