@@ -128,15 +128,30 @@ def light_between(reference, owned):
 def _timed_levels(path):
     out, err = media.ffmpeg('-i', path, '-vf', 'fps=1,signalstats,metadata=print:file=-', '-an', '-f', 'null', '-', timeout=240)
     rows = []
-    stamp = None
+    current = {}
+
+    def flush():
+        if current.get('t') is None or current.get('y') is None:
+            return
+        high, low = current.get('high'), current.get('low')
+        spread = high - low if high is not None and low is not None else 0
+        rows.append((current['t'], current['y'], spread))
+
     for line in (out + '\n' + err).splitlines():
         found = re.search(r'pts_time:([\d.]+)', line)
         if found:
-            stamp = float(found.group(1))
+            flush()
+            current = {'t': float(found.group(1))}
+        top = re.search(r'signalstats\.YHIGH=([\d.]+)', line)
+        if top:
+            current['high'] = float(top.group(1))
+        bottom = re.search(r'signalstats\.YLOW=([\d.]+)', line)
+        if bottom:
+            current['low'] = float(bottom.group(1))
         level = re.search(r'signalstats\.YAVG=([\d.]+)', line)
-        if level and stamp is not None:
-            rows.append((stamp, float(level.group(1))))
-            stamp = None
+        if level:
+            current['y'] = float(level.group(1))
+    flush()
     return rows
 
 def black_spans(path):
@@ -153,6 +168,30 @@ def black_spans(path):
             start = stamp
         prev = stamp
     return spans
+
+def freeze_spans(path):
+    """Near-identical holds. A shot that never moves is left alone."""
+    duration = float(media.probe(path)['duration'])
+    _, err = media.ffmpeg('-i', path, '-vf', 'freezedetect=n=-70dB:d=0.5', '-an', '-f', 'null', '-', timeout=240)
+    starts = [float(item) for item in re.findall(r'freeze_start: ([\d.]+)', err)]
+    ends = [float(item) for item in re.findall(r'freeze_end: ([\d.]+)', err)]
+    spans = []
+    for index, start in enumerate(starts):
+        end = ends[index] if index < len(ends) else duration
+        if end - start < 0.5 or end - start > duration * 0.85:
+            continue
+        spans.append({'start': round(start, 3), 'end': round(min(duration, end), 3)})
+    return spans
+
+def unusable_spans(path):
+    pending = sorted((float(span['start']), float(span['end'])) for span in [*black_spans(path), *freeze_spans(path)] if float(span['end']) - float(span['start']) >= 0.4)
+    rows = []
+    for start, end in pending:
+        if rows and start <= rows[-1]['end'] + 0.05:
+            rows[-1]['end'] = round(max(rows[-1]['end'], end), 3)
+        else:
+            rows.append({'start': round(start, 3), 'end': round(end, 3)})
+    return rows
 
 def visual_track(path):
     meta = media.probe(path)
@@ -198,10 +237,11 @@ def chroma_plate(path):
     return None
 
 def highlight_window(path, duration):
-    rows = [(stamp, level) for stamp, level in _timed_levels(path) if level >= 30]
+    rows = [row for row in _timed_levels(path) if row[1] >= 30]
     if not rows:
         return None
-    stamp, _level = max(rows, key=lambda row: row[1])
+    detailed = [row for row in rows if row[2] >= 12]
+    stamp, _level, _spread = max(detailed or rows, key=lambda row: row[2] if detailed else row[1])
     if stamp < 0.8:
         return None
     end = min(float(duration), stamp + 1.2)

@@ -174,6 +174,11 @@ def test_detail_track_mask_and_unusable_spans_change_the_cut():
     assert masked['clips'][0]['mask'] is True and masked['clips'][0]['split'] is False
     assert 'mask' not in {gap['id'] for gap in masked_report['gaps']}
     assert sum(c['end'] - c['start'] for c in edit['clips']) < 39
+    spoken = [{'start': 0, 'end': 4, 'original': 'Visa days stay', 'en': 'Visa days stay', 'zh': '签证'}]
+    kept, _report = build([row], 40, spoken, False, measured={'unusable': [{'start': 1, 'end': 3}]})
+    assert abs(sum(c['end'] - c['start'] for c in kept['clips']) - 40) < 1
+    opened, _report = build([row], 40, [], False, measured={'highlight': {'start': 30, 'end': 34}})
+    assert opened['clips'][0]['start'] >= 28
     keyed, keyed_report = build([shot(motion={'en': 'replace the background', 'zh': '换背景'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'})], 40, [], False, measured={'chroma': 'green'})
     assert keyed['clips'][0]['cutout'] is True and keyed['clips'][0]['plate'] == '1A1F1C'
     assert 'background_replacement' not in {gap['id'] for gap in keyed_report['gaps']}

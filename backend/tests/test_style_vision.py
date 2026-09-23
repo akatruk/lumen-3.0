@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from backend import media
 from backend.manual import Edit
-from backend.style_vision import _join, black_spans, chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, visual_track
+from backend.style_vision import _join, black_spans, chroma_plate, color_sample, flat_background, freeze_spans, grade_between, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, visual_track
 from backend.timeline import motion_filter
 from backend.media import write_kinetic
 
@@ -30,6 +30,16 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     spans = black_spans(dark)
     assert spans and spans[0]['start'] < 0.2 and spans[0]['end'] > 0.8
     assert highlight_window(dark, 2)['start'] >= 0.8
+    held = tmp_path / 'held-plate.mp4'
+    _video(held, '-f', 'lavfi', '-i', 'color=0x202020:s=160x160:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=white:s=160x160:r=30:d=1.2', '-f', 'lavfi', '-i', 'color=0x224466:s=160x160:r=30:d=0.4', '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0')
+    frozen = freeze_spans(held)
+    assert frozen and frozen[0]['start'] < 0.6 and frozen[0]['end'] > 1.4
+    moving_plate = tmp_path / 'moving-plate.mp4'
+    _video(moving_plate, '-f', 'lavfi', '-i', 'testsrc=s=160x160:r=30:d=1.6')
+    assert freeze_spans(moving_plate) == []
+    bright = tmp_path / 'bright-then-detail.mp4'
+    _video(bright, '-f', 'lavfi', '-i', 'color=white:s=160x160:r=30:d=1.2', '-f', 'lavfi', '-i', 'testsrc=s=160x160:r=30:d=1.2', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
+    assert highlight_window(bright, 2.4)['start'] >= 0.9
     title = tmp_path / 'title.ass'
     write_kinetic(title, 'Visa', 1.2, 160, 240)
     assert '\\fscx100' in title.read_text()

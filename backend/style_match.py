@@ -164,6 +164,21 @@ def _safe_removes(recommendations, transcript, duration):
         removes.append((a, b))
     return removes
 
+def _merged_spans(spans):
+    rows = []
+    for span in spans or []:
+        try:
+            start, end = float(span['start']), float(span['end'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end - start < 0.4:
+            continue
+        if rows and start <= rows[-1][1] + 0.05:
+            rows[-1][1] = max(rows[-1][1], end)
+        else:
+            rows.append([start, end])
+    return [{'start': round(start, 3), 'end': round(end, 3)} for start, end in rows]
+
 def _overlap(start, end, spans):
     return sum(max(0, min(end, b) - max(start, a)) for a, b in spans)
 
@@ -614,9 +629,8 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
     for span in measured.get('silences') or []:
         if float(span['end']) - float(span['start']) >= 1:
             extra.append({'action': 'remove', 'start': span['start'], 'end': span['end']})
-    for span in measured.get('unusable') or []:
-        if float(span['end']) - float(span['start']) >= 0.4:
-            extra.append({'action': 'remove', 'start': span['start'], 'end': span['end']})
+    for span in _merged_spans(measured.get('unusable')):
+        extra.append({'action': 'remove', 'start': span['start'], 'end': span['end']})
     if measured.get('highlight') and not any(item.get('action') == 'move_to_front' for item in extra):
         extra.append({'action': 'move_to_front', **measured['highlight']})
     removes = _safe_removes(extra, transcript, duration)
@@ -718,7 +732,7 @@ def attach_measurement(pid):
     from . import media
     from .config import settings
     from .studio import state
-    from .style_vision import black_spans, chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, measure, reference_layout, visual_track
+    from .style_vision import chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, measure, reference_layout, unusable_spans, visual_track
     folder = settings.data_dir / pid
     item = project(pid)
     current = state(pid)
@@ -741,7 +755,7 @@ def attach_measurement(pid):
         'grade': grade,
         'exposure': exposure,
         'silences': silences,
-        'unusable': quiet(lambda: black_spans(source), []),
+        'unusable': quiet(lambda: unusable_spans(source), []),
         'track': quiet(lambda: visual_track(source), None),
         'highlight': quiet(lambda: highlight_window(source, item['metadata']['duration']), None),
         'layout': quiet(lambda: reference_layout(folder / 'reference_source'), {}) if (folder / 'reference_source').exists() else {},
