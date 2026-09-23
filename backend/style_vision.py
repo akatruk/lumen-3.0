@@ -318,10 +318,38 @@ def _subject(cells):
     xs, ys = (0.22, 0.5, 0.78), (0.22, 0.5, 0.78)
     return zoom, sum(xs[index % 3] for index in hot) / len(hot), sum(ys[index // 3] for index in hot) / len(hot)
 
+def _series(path, start, end, crop, fps=4):
+    span = max(0.2, end - start)
+    frames = max(3, min(6, int(span * fps)))
+    vf = f'trim=start={max(0, start):.3f}:duration={span:.3f},setpts=PTS-STARTPTS,fps={fps},{crop},signalstats,metadata=print:file=-'
+    out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(frames), '-f', 'null', '-', timeout=180)
+    return [float(item) for item in re.findall(r'signalstats\.YAVG=([\d.]+)', out + '\n' + err)]
+
+def _entered(path, start, end, width, height):
+    """Fraction where a lower plate appears after the opening, else 0."""
+    span = end - start
+    if span < 0.9 or width < 80 or height < 80:
+        return 0.0
+    fps = 4
+    band = max(16, height // 5)
+    mid_h = max(16, height // 3)
+    lower = _series(path, start, end, f'crop={width}:{band}:0:{height - band}', fps)
+    middle = _series(path, start, end, f'crop={width}:{mid_h}:0:{height // 3}', fps)
+    count = min(len(lower), len(middle))
+    if count < 3:
+        return 0.0
+    for index in range(count):
+        if abs(lower[index] - middle[index]) < 40:
+            continue
+        if index == 0:
+            return 0.0
+        return round(min(0.7, (index / fps) / span), 2)
+    return 0.0
+
 def picture_of(path, start, end):
     meta = media.probe(path)
     width, height = int(meta['width']), int(meta['height'])
-    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'y': 0.5, 'y_end': None, 'split': False, 'graphic': False, 'mask': False, 'lower': False}
+    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'y': 0.5, 'y_end': None, 'split': False, 'graphic': False, 'mask': False, 'lower': False, 'hold': 0.0}
     if width < 90 or height < 90 or end - start < 0.2:
         return wide
     opening_at = min(start + 0.04, end - 0.12)
@@ -333,9 +361,23 @@ def picture_of(path, start, end):
     stamp = min(start + 0.04, max(start, end - 0.08))
     shade = _shade(path, stamp, width, height)
     softness = _softness(path, stamp, width, height)
+    bloom = 0.0 if softness else _bloom(path, stamp, width, height)
     screen = _screen(path, stamp, width, height)
     mask = _window(path, stamp, width, height)
     lower = False if mask else _lower_strip(path, stamp, width, height)
+    hold = 0.0
+    if end - start >= 0.9 and not lower and softness <= 0 and bloom <= 0 and shade <= 0:
+        hold = _entered(path, start, end, width, height)
+        if hold >= 0.2:
+            late = min(end - 0.08, start + hold * (end - start) + 0.05)
+            lower = False if mask else _lower_strip(path, late, width, height)
+            softness = _softness(path, late, width, height) or softness
+            shade = _shade(path, late, width, height) or shade
+            bloom = 0.0 if softness else (_bloom(path, late, width, height) or bloom)
+            if not (lower or softness or shade or bloom):
+                hold = 0.0
+        else:
+            hold = 0.0
     edge = _level(path, f'crop={width}:{height}:0:0', min(start + 0.02, max(start, end - 0.08)))
     middle = _level(path, f'crop={width}:{height}:0:0', (start + end) / 2)
     return {
@@ -353,7 +395,8 @@ def picture_of(path, start, end):
         'vignette': shade > 0,
         'shade': shade,
         'blur': softness,
-        'glow': 0.0 if softness else _bloom(path, stamp, width, height),
+        'glow': bloom,
+        'hold': hold,
         'screen': screen,
     }
 

@@ -172,7 +172,7 @@ def emphasize_caption(chunk,terms,language,base_color):
     accent='&H00FFFF00' if base_color=='&H0000FFFF' else '&H0000FFFF'
     return re.sub('|'.join(patterns),lambda m:r'{\c'+accent+'}'+m.group(0)+r'{\c'+base_color+'}',chunk,flags=re.IGNORECASE if language=='en' else 0)
 
-def write_kinetic(path, text, length, w, h):
+def write_kinetic(path, text, length, w, h, begin=0):
     tokens=[re.sub(r'[{}\\\r\n]',' ',piece).strip() for piece in str(text or '').split()]
     tokens=[piece for piece in tokens if piece][:3]
     if tokens and tokens[0] in {'●', '▮'} and len(tokens) > 1:
@@ -191,9 +191,11 @@ Style: Default,Noto Sans CJK SC,{size},&H00FFFFFF,&H00FFFFFF,&H00121212,&H800000
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
-    tags='{\\move('+f'{w*0.12:.0f},{h*0.2:.0f},{w*0.5:.0f},{h*0.2:.0f},0,{travel}'+f')\\fscx40\\fscy40\\t(0,{min(700,travel)},\\fscx100\\fscy100)'+'}'
-    events=[f'Dialogue: 0,{ass_time(0)},{ass_time(length)},Default,,0,0,0,,{tags}{first}\n']
-    step=min(0.7, max(0.28, length * 0.42))
+    begin=max(0, min(float(begin or 0), max(0, length - 0.25)))
+    move_from=int(begin * 1000)
+    tags='{\\move('+f'{w*0.12:.0f},{h*0.2:.0f},{w*0.5:.0f},{h*0.2:.0f},{move_from},{move_from+travel}'+f')\\fscx40\\fscy40\\t({move_from},{move_from+min(700,travel)},\\fscx100\\fscy100)'+'}'
+    events=[f'Dialogue: 0,{ass_time(begin)},{ass_time(length)},Default,,0,0,0,,{tags}{first}\n']
+    step=(begin + min(0.7, max(0.28, (length - begin) * 0.42))) if begin else min(0.7, max(0.28, length * 0.42))
     if second and length > step + 0.2:
         begin=int(step * 1000)
         span=min(600, int((length - step) * 1000))
@@ -275,8 +277,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 vf+=f',fade=t=in:st=0:d={fade},fade=t=out:st={b-a-fade}:d={fade}'
             if clip['text'].strip():
                 title=folder/f'title-{i}.ass'
-                if clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h)
-                else: write_subtitles(title,[Caption(start=0,end=b-a,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
+                opened=max(0, min(float(clip.get('effect_at') or 0), 0.85))*(b-a)
+                if clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened)
+                else: write_subtitles(title,[Caption(start=opened,end=b-a,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
                 title_path=str(title.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{title_path}'"
             if clip.get('card'):
@@ -287,7 +290,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 vf+=f",ass='{escaped}'"
             if clip.get('progress'):
                 frac=max(0.04,min(1,float(clip.get('progress') or 0)))
-                base_vf+=f',drawbox=x=0:y=ih-12:w=iw*{frac:.3f}:h=10:color=0xF4F1EA@0.92:t=fill'
+                opened=float(clip.get('effect_at') or 0)
+                gate=f":enable='gte(t\\,{opened:.3f})'" if opened>=0.2 else ''
+                base_vf+=f',drawbox=x=0:y=ih-12:w=iw*{frac:.3f}:h=10:color=0xF4F1EA@0.92:t=fill{gate}'
             post=vf;vf=base_vf+post
         if cutaway:
             footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
@@ -335,7 +340,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             span=max(b-a,0.2); fade_d=min(0.25,span/4); band=max(24,(h//6)//2*2); chip=max(12,(band//2)//2*2)
             mark=max(0,min(1,float(clip.get('mark') or 0)))
             plate=max(chip, int((w-24)*mark)) if mark>0.02 else chip
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={plate}:h={chip}:color=0xF4F1EA@0.95:t=fill,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}:format=auto{post}[v]"
+            opened=max(0, min(float(clip.get('effect_at') or 0), 0.85))*span if float(clip.get('effect_at') or 0)>=0.2 else 0
+            show=f":enable='gte(t\\,{opened:.3f})'" if opened else ''
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={plate}:h={chip}:color=0xF4F1EA@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={max(opened,span-fade_d):.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}{show}:format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('split') and clip.get('panel') is not None:
             half=max(2,(w//2)//2*2)

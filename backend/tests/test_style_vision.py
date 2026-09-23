@@ -229,3 +229,32 @@ def test_blur_glow_and_shadow_strength_follow_the_frame(tmp_path):
     assert f"gblur=sigma={heavy['blur']:.2f}" in chain
     assert f"unsharp=7:7:{halo['glow']:.2f}" in chain
     assert f"vignette=angle={deep['shade']:.3f}" in chain
+    assert 'enable=' not in chain
+
+def test_a_plate_that_appears_later_starts_the_effect_then(tmp_path):
+    late = tmp_path / 'late.mp4'
+    _video(late, '-f', 'lavfi', '-i', 'color=0x222222:s=180x240:r=30:d=1.8', '-f', 'lavfi', '-i', 'color=0xF4F1EA:s=180x48:r=30:d=1.8', '-filter_complex', "[0:v][1:v]overlay=0:192:enable='gte(t\\,1.0)'")
+    picture = picture_of(late, 0, 1.8)
+    assert picture['lower'] is True and 0.35 <= picture['hold'] <= 0.7
+    flat = tmp_path / 'flat-long.mp4'
+    _video(flat, '-f', 'lavfi', '-i', 'color=0x446688:s=180x240:r=30:d=1.2')
+    assert picture_of(flat, 0, 1.2)['hold'] == 0 and picture_of(flat, 0, 1.2)['lower'] is False
+    source = tmp_path / 'detail.mp4'
+    _video(source, '-f', 'lavfi', '-i', 'testsrc=s=180x240:r=30:d=1.6')
+    folder = tmp_path / 'gated'
+    folder.mkdir()
+    rendered = media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.6, 'blur': 8, 'effect_at': 0.5, 'text': ''}]).model_dump())
+    assert abs(rendered['metadata']['duration'] - 1.6) < 0.2
+
+    def edge(at):
+        import re
+        proc = media.ffmpeg('-ss', at, '-i', folder / 'result.mp4', '-vf', 'convolution="0 -1 0 -1 4 -1 0 -1 0",signalstats,metadata=print:file=-', '-frames:v', '1', '-f', 'null', '-')
+        text = proc[0] + '\n' + proc[1]
+        match = re.search(r'YAVG=([\d.]+)', text)
+        return float(match.group(1))
+
+    assert edge(0.2) > edge(1.2)
+    caption = tmp_path / 'late.ass'
+    write_kinetic(caption, 'Visa days', 1.6, 180, 240, begin=0.5)
+    lines = [line for line in caption.read_text().splitlines() if line.startswith('Dialogue:')]
+    assert lines[0].split(',')[1] == '0:00:00.50'

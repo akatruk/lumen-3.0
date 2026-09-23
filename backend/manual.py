@@ -72,6 +72,7 @@ class Clip(Span):
     track: bool=False
     exposure: float=Field(default=0,ge=-1,le=1)
     progress: float=Field(default=0,ge=0,le=1)
+    effect_at: float=Field(default=0,ge=0,le=0.85)
     plate: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
     grade: Grade | None=None
     text: str=Field(default='',max_length=160)

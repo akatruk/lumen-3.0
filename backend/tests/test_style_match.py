@@ -283,6 +283,14 @@ def test_icon_plate_follows_the_owned_percent(tmp_path):
 
     assert luma(100) > luma(168) + 40
 
+def test_a_measured_entrance_times_the_effect_and_words_do_not():
+    late = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'mask': False, 'lower': True, 'hold': 0.5, 'blur': 0})
+    edit, _report = build([late], 40, [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证'}], False)
+    assert edit['clips'][0]['lower'] is True and edit['clips'][0]['effect_at'] == 0.5
+    words = shot(motion={'en': 'soft blur', 'zh': '虚化'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    blurred, _report = build([words], 40, [], False)
+    assert blurred['clips'][0]['blur'] == 2 and blurred['clips'][0]['effect_at'] == 0
+
 def test_owned_percent_sets_the_progress_and_the_icon_plate():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': '', 'zh': ''})
     band, _report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Saved 40 percent', 'en': 'Saved 40 percent', 'zh': '节省'}], False, measured={'layout': {'split': False, 'bar': False, 'lower': True, 'shake': False}})

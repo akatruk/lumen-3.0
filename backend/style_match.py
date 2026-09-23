@@ -365,6 +365,18 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         from .manual import Grade
         grade = Grade.model_validate(look['grade'])
     icon = bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram)
+    effect_at = float(picture.get('hold') or 0)
+    if effect_at < 0.2 or not (fx['blur'] or fx['glow'] or fx['shadow'] or icon):
+        effect_at = 0
+    if card is not None and effect_at >= 0.2:
+        slot = end - start
+        card.start = round(min(max(float(card.start), effect_at * slot), max(float(card.start), slot - 0.45)), 3)
+    cutaway = None if card or fx['cutout'] or fx['split'] else _cutaway(shot or {}, start, end, duration)
+    if cutaway is not None and effect_at >= 0.2:
+        window = cutaway.end - cutaway.start
+        begin = round(min(effect_at * (end - start), max(0.12, (end - start) - window)), 3)
+        if begin >= 0.2 and begin + window <= (end - start) + 1e-6:
+            cutaway = cutaway.model_copy(update={'start': begin, 'end': round(begin + window, 3)})
     return Clip(
         id=ident,
         start=start,
@@ -380,7 +392,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         shot_type=_shot_type(shot or {}),
         text=text,
         audio_fade_ms=16 if _transition(shot or {}) != 'cut' else 0,
-        cutaway=None if card or fx['cutout'] or fx['split'] else _cutaway(shot or {}, start, end, duration),
+        cutaway=cutaway,
+        effect_at=round(effect_at, 2),
         card=card,
         enhance=grade is None,
         speed=speed,
