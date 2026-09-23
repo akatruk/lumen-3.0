@@ -165,9 +165,13 @@ def test_detail_track_mask_and_unusable_spans_change_the_cut():
     row = shot(motion={'en': 'follow the subject with a mask and slow motion', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     edit, report = build([row], 40, [], False, measured={'track': {'x0': 0.22, 'x1': 0.78}, 'unusable': [{'start': 8, 'end': 14}], 'chroma': 'green'})
     assert edit['clips'][0]['track'] is True and edit['clips'][0]['x'] == 0.22 and edit['clips'][0]['x_end'] == 0.78
-    assert edit['clips'][0]['mask'] is True and edit['clips'][0]['speed'] == 0.75
+    assert edit['clips'][0]['mask'] is False and edit['clips'][0]['speed'] == 0.75
     gaps = {gap['id'] for gap in report['gaps']}
-    assert 'motion_tracking' not in gaps and 'mask' not in gaps
+    assert 'motion_tracking' not in gaps and 'mask' in gaps
+    window = shot(motion={'en': 'follow the subject with a mask and slow motion', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'mask': True, 'lower': False})
+    masked, masked_report = build([window], 40, [], False)
+    assert masked['clips'][0]['mask'] is True and masked['clips'][0]['split'] is False
+    assert 'mask' not in {gap['id'] for gap in masked_report['gaps']}
     assert sum(c['end'] - c['start'] for c in edit['clips']) < 39
     keyed, keyed_report = build([shot(motion={'en': 'replace the background', 'zh': '换背景'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'})], 40, [], False, measured={'chroma': 'green'})
     assert keyed['clips'][0]['cutout'] is True and keyed['clips'][0]['plate'] == '1A1F1C'
@@ -216,6 +220,21 @@ def test_graphic_without_figures_holds_another_owned_frame():
     assert edit['clips'][0]['graphic'] is False and edit['clips'][0]['card'] is None
     assert edit['clips'][0]['still'] is not None
     assert 'still' in report['applied'] and 'illustration' not in report['applied']
+
+def test_words_alone_do_not_split_mask_or_overlay():
+    named = shot(motion={'en': 'split screen with an icon and a mask', 'zh': '分屏'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    spoken = [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证天数'}]
+    edit, report = build([named], 40, spoken, False)
+    assert edit['clips'][0]['split'] is False and edit['clips'][0]['mask'] is False and edit['clips'][0]['lower'] is False
+    assert {'split_screen', 'mask'} <= {gap['id'] for gap in report['gaps']}
+    measured = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': True, 'graphic': False, 'mask': False, 'lower': False})
+    split_edit, split_report = build([measured], 40, spoken, False)
+    assert split_edit['clips'][0]['split'] is True and split_edit['clips'][0]['panel'] is not None and split_edit['clips'][0]['lower'] is False
+    assert 'split' in split_report['applied']
+    band = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'mask': False, 'lower': True})
+    lower_edit, lower_report = build([band], 40, spoken, False)
+    assert lower_edit['clips'][0]['lower'] is True and lower_edit['clips'][0]['icon'] is True and lower_edit['clips'][0]['text'].startswith('Visa')
+    assert 'lower' in lower_report['applied']
 
 def test_measured_layout_adds_split_progress_and_stabilization():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})

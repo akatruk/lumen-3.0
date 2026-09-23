@@ -305,10 +305,10 @@ def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=Fal
         'blur': 2.0 if _has(blob, ('blur', 'bokeh')) else 0,
         'glow': _has(blob, ('glow', 'bloom')),
         'shadow': _has(blob, ('drop shadow', 'shadows', 'shadow')) or bool((shot.get('picture') or {}).get('vignette')),
-        'split': _has(blob, ('split screen', 'split-screen')) or bool(look_split) or bool((shot.get('picture') or {}).get('split')),
+        'split': bool(look_split) or bool((shot.get('picture') or {}).get('split')),
         'stabilize': _has(blob, ('stabilize', 'stabilisation', 'shaky')) or bool(look_shake),
         'cutout': bool(flat or chroma) and _has(blob, ('cutout', 'cut out', 'green screen', 'background replace', 'replace the background')),
-        'mask': _has(blob, ('masking', 'mask')),
+        'mask': bool((shot.get('picture') or {}).get('mask')),
         'speed': 1.35 if ref_len < 0.55 else 0.75 if _has(blob, ('slow motion', 'slow-mo', 'speed ramp')) else 1.0,
         'kinetic': _has(blob, ('kinetic', 'animated title', 'title card')),
     }
@@ -323,8 +323,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     spoken = _spoken(start, end, transcript)
     words = _keywords(spoken)
     blob = _blob([shot or {}])
-    callout = bool(words) and (_wants_captions([shot or {}]) or _has(blob, ('title', 'overlay', 'callout', 'keyword', 'kinetic', 'icon')) or look.get('lower') or look.get('bar'))
     picture = shot.get('picture') or {}
+    callout = bool(words) and (_wants_captions([shot or {}]) or _has(blob, ('title', 'overlay', 'callout', 'keyword', 'kinetic', 'icon')) or look.get('lower') or look.get('bar') or picture.get('lower'))
     card = _card(facts, end - start) if (allow_card and _has(blob, ('chart', 'number', 'statistic', 'progress'))) or picture.get('graphic') else None
     fx = _effects(shot, end - start if ref_len is None else ref_len, look.get('flat'), chroma=bool(look.get('chroma')), look_split=bool(look.get('split')), look_shake=bool(look.get('shake')))
     open_shot = not fx['split'] and not fx['cutout'] and not (picture.get('graphic') and facts)
@@ -373,8 +373,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         plate='1A1F1C' if fx['cutout'] else '',
         graphic=bool(picture.get('graphic') and facts and not fx['split'] and not fx['cutout']),
         bars=_bars(facts) if picture.get('graphic') and facts and not fx['split'] and not fx['cutout'] else [],
-        lower=bool((look.get('lower') or _has(blob, ('icon',))) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and screen is None and not diagram),
-        icon=bool((look.get('lower') or _has(blob, ('icon',))) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and screen is None and not diagram),
+        lower=bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram),
+        icon=bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram),
         panel=_panel_start(start, end, duration) if fx['split'] and not fx['cutout'] else None,
         still=(_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if picture.get('graphic') and not facts and not fx['split'] and not fx['cutout'] and screen is None and not diagram else None,
         screen=screen,

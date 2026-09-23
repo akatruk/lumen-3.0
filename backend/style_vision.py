@@ -292,7 +292,7 @@ def _subject(cells):
 def picture_of(path, start, end):
     meta = media.probe(path)
     width, height = int(meta['width']), int(meta['height'])
-    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'y': 0.5, 'y_end': None, 'split': False, 'graphic': False}
+    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'y': 0.5, 'y_end': None, 'split': False, 'graphic': False, 'mask': False, 'lower': False}
     if width < 90 or height < 90 or end - start < 0.2:
         return wide
     opening_at = min(start + 0.04, end - 0.12)
@@ -301,8 +301,11 @@ def picture_of(path, start, end):
     zoom, x, y = _subject(_grid(path, opening_at, width, height))
     zoom_end, x_end, y_end = _subject(_grid(path, closing_at, width, height))
     left, mid, right = opening
-    vignette = _vignette(path, min(start + 0.04, max(start, end - 0.08)), width, height)
-    screen = _screen(path, min(start + 0.04, max(start, end - 0.08)), width, height)
+    stamp = min(start + 0.04, max(start, end - 0.08))
+    vignette = _vignette(path, stamp, width, height)
+    screen = _screen(path, stamp, width, height)
+    mask = _window(path, stamp, width, height)
+    lower = False if mask else _lower_strip(path, stamp, width, height)
     edge = _level(path, f'crop={width}:{height}:0:0', min(start + 0.02, max(start, end - 0.08)))
     middle = _level(path, f'crop={width}:{height}:0:0', (start + end) / 2)
     return {
@@ -312,12 +315,56 @@ def picture_of(path, start, end):
         'x_end': x_end if abs(x_end - x) >= 0.2 else None,
         'y': y,
         'y_end': y_end if abs(y_end - y) >= 0.2 else None,
-        'split': abs(left - right) >= 28 and abs(mid - (left + right) / 2) <= 14,
-        'graphic': mid >= left + 22 and mid >= right + 22,
+        'split': (not mask) and abs(left - right) >= 28 and abs(mid - (left + right) / 2) <= 14,
+        'graphic': (not mask) and mid >= left + 22 and mid >= right + 22,
+        'mask': mask,
+        'lower': lower,
         'fade': edge is not None and middle is not None and middle - edge >= 22,
         'vignette': vignette,
         'screen': screen,
     }
+
+def _window(path, at, width, height):
+    """True when the frame is the ellipse the mask filter already cuts."""
+    if width < 80 or height < 80:
+        return False
+    side = 24
+    corners = []
+    for x, y in ((0, 0), (width - side, 0), (0, height - side), (width - side, height - side)):
+        level = _level(path, f'crop={side}:{side}:{x}:{y}', at)
+        if level is None:
+            return False
+        corners.append(level)
+    if max(corners) > 42 or max(corners) - min(corners) > 16:
+        return False
+    plate = sum(corners) / 4
+    center = _level(path, f'crop=40:40:{(width - 40) // 2}:{(height - 40) // 2}', at)
+    inset = max(8, int(width * 0.18))
+    inside = _level(path, f'crop=16:16:{max(0, width // 2 - inset)}:{(height - 16) // 2}', at)
+    edge_h = max(16, height // 5)
+    edge = _level(path, f'crop=12:{edge_h}:0:{(height - edge_h) // 2}', at)
+    if None in (center, inside, edge):
+        return False
+    return center >= plate + 40 and inside >= plate + 30 and edge <= plate + 12
+
+def _lower_strip(path, at, width, height):
+    """True for a full-width lower band, and false for the thin progress bar."""
+    if width < 80 or height < 80:
+        return False
+    thin = max(12, height // 14)
+    bottom = _level(path, f'crop={width}:{thin}:0:{height - thin}', at)
+    above = _level(path, f'crop={width}:{thin}:0:{max(0, height - 2 * thin)}', at)
+    half = max(16, width // 2)
+    bar_left = _level(path, f'crop={half}:{thin}:0:{height - thin}', at)
+    bar_right = _level(path, f'crop={half}:{thin}:{width - half}:{height - thin}', at)
+    if None in (bottom, above, bar_left, bar_right):
+        return False
+    if abs(bottom - above) >= 28 and abs(bar_left - bar_right) <= 16:
+        return False
+    middle = _level(path, f'crop={width}:{max(16, height // 3)}:0:{height // 3}', at)
+    band = max(16, height // 5)
+    lower = _level(path, f'crop={width}:{band}:0:{height - band}', at)
+    return middle is not None and lower is not None and abs(middle - lower) >= 40
 
 def _screen(path, at, width, height):
     if width < 120 or height < 120:

@@ -73,6 +73,16 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     filled = picture_of(large, 0, 0.8)
     assert placed['zoom'] > filled['zoom'] >= 1
     assert picture_of(plain, 0, 1)['y'] == 0.5
+    ellipse = tmp_path / 'ellipse.mp4'
+    _video(ellipse, '-f', 'lavfi', '-i', 'color=0x101614:s=180x240:r=30:d=0.4', '-vf', "geq=lum='if(lt(pow((X-W/2)/(W*0.38),2)+pow((Y-H/2)/(H*0.42),2),1),210,16)':cb=128:cr=128")
+    assert picture_of(ellipse, 0, 0.4)['mask'] is True
+    assert picture_of(ellipse, 0, 0.4)['split'] is False and picture_of(ellipse, 0, 0.4)['lower'] is False
+    assert picture_of(split, 0, 1)['mask'] is False
+    assert picture_of(plain, 0, 1)['mask'] is False and picture_of(vig, 0, 0.4)['mask'] is False
+    band = tmp_path / 'band.mp4'
+    _video(band, '-f', 'lavfi', '-i', 'color=0x222222:s=180x240:r=30:d=0.4', '-vf', 'drawbox=x=0:y=192:w=180:h=48:color=0xF4F1EA:t=fill')
+    assert picture_of(band, 0, 0.4)['lower'] is True and picture_of(band, 0, 0.4)['mask'] is False
+    assert picture_of(bar, 0, 1)['lower'] is False
     rise = tmp_path / 'rise.mp4'
     _video(rise, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.6', '-filter_complex', '[0:v][1:v]overlay=70:8[a];[2:v][3:v]overlay=70:180[b];[a][b]concat=n=2:v=1:a=0')
     moved = picture_of(rise, 0, 1.2)
