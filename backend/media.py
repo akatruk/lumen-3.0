@@ -321,7 +321,8 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('screen') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
             span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
-            bezel_x=max(8,(w//10)//2*2); bezel_y=max(8,(h//10)//2*2)
+            frac=max(0.06, min(0.28, float(clip.get('bezel') or 0.1)))
+            bezel_x=max(8, int(w*frac)//2*2); bezel_y=max(8, int(h*frac)//2*2)
             inner_w, inner_h = w-2*bezel_x, h-2*bezel_y
             graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={inner_w}:{inner_h}:force_original_aspect_ratio=increase,crop={inner_w}:{inner_h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f}[shot];color=c=0x10140F:s={w}x{h}:r=30:d={span:.3f}[plate];[plate][shot]overlay={bezel_x}:{bezel_y}:format=auto,format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[frame];[fg][frame]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source,'-ss',clip['screen'],'-t','0.12','-i',source]

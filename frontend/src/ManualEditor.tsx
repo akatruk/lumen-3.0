@@ -60,6 +60,7 @@ type Clip = {
   effect_at?: number;
   still?: number | null;
   screen?: number | null;
+  bezel?: number;
   diagram?: number;
   art?: string;
   panel?: number | null;

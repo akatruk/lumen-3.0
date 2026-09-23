@@ -1,3 +1,4 @@
+import re
 from types import SimpleNamespace
 from backend import media
 from backend.manual import Edit
@@ -240,6 +241,28 @@ def test_blur_glow_and_shadow_strength_follow_the_frame(tmp_path):
     assert f"unsharp=7:7:{halo['glow']:.2f}" in chain
     assert f"vignette=angle={deep['shade']:.3f}" in chain
     assert 'enable=' not in chain
+
+def test_screen_bezel_follows_the_measured_border(tmp_path):
+    thick = tmp_path / 'thick-bezel.mp4'
+    _video(thick, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.4', '-vf', 'drawbox=x=28:y=32:w=124:h=176:color=0xE8E4DC:t=fill')
+    thin = tmp_path / 'thin-bezel.mp4'
+    _video(thin, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.4', '-vf', 'drawbox=x=16:y=16:w=148:h=208:color=0xE8E4DC:t=fill')
+    wide = picture_of(thick, 0, 0.4)
+    narrow = picture_of(thin, 0, 0.4)
+    assert wide['screen'] is True and narrow['screen'] is True
+    assert wide['bezel'] > narrow['bezel'] >= 0.06
+    source = tmp_path / 'owned.mp4'
+    _video(source, '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=180x240:r=30:d=1.2')
+    folder = tmp_path / 'framed'
+    folder.mkdir()
+    rendered = media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.2, 'screen': 0, 'bezel': wide['bezel'], 'text': ''}]).model_dump())
+    assert abs(rendered['metadata']['duration'] - 1.2) < 0.2
+
+    def luma(x):
+        out, err = media.ffmpeg('-ss', '0.4', '-i', folder / 'result.mp4', '-vf', f'crop=8:8:{x}:116,signalstats,metadata=print:file=-', '-frames:v', '1', '-f', 'null', '-')
+        return float(re.search(r'YAVG=([\d.]+)', out + '\n' + err).group(1))
+
+    assert luma(80) > luma(8) + 40
 
 def test_deshake_window_follows_the_measured_shift(tmp_path):
     mild = tmp_path / 'mild.mp4'

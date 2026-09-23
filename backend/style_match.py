@@ -438,6 +438,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         panel=_panel_start(start, end, duration) if fx['split'] and not fx['cutout'] else None,
         still=(_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if picture.get('graphic') and not facts and not fx['split'] and not fx['cutout'] and screen is None and not diagram else None,
         screen=screen,
+        bezel=float(picture.get('bezel') or 0.1) if screen is not None and 0.06 <= float(picture.get('bezel') or 0) <= 0.28 else 0.1,
         diagram=diagram,
         grade=grade,
         approved=True,

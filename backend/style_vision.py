@@ -405,6 +405,7 @@ def picture_of(path, start, end):
     softness = _softness(path, stamp, width, height)
     bloom = 0.0 if softness else _bloom(path, stamp, width, height)
     screen = _screen(path, stamp, width, height)
+    bezel = _bezel(path, stamp, width, height) if screen else 0.0
     mask = _window(path, stamp, width, height)
     lower = False if mask else _lower_strip(path, stamp, width, height)
     hold = 0.0
@@ -440,6 +441,7 @@ def picture_of(path, start, end):
         'glow': bloom,
         'hold': hold,
         'screen': screen,
+        'bezel': bezel,
     }
 
 def _window(path, at, width, height):
@@ -504,6 +506,20 @@ def _screen(path, at, width, height):
     if left is None or right is None:
         return False
     return left - border >= 22 and right - border >= 22
+
+def _bezel(path, at, width, height):
+    """Fraction of the frame taken by the dark border around a screen."""
+    edge = _level(path, f'crop={max(8, width // 12)}:{max(8, height // 12)}:0:0', at)
+    if edge is None:
+        return 0.1
+    band = max(12, height // 8)
+    top = (height - band) // 2
+    for frac in (0.06, 0.10, 0.14, 0.18, 0.24):
+        x = min(width - 12, int(width * frac))
+        sample = _level(path, f'crop=12:{band}:{x}:{top}', at)
+        if sample is not None and sample >= edge + 22:
+            return round(frac, 2)
+    return 0.1
 
 def _shade(path, at, width, height):
     """Vignette angle from how much darker the corners are than the center."""

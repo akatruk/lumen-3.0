@@ -210,6 +210,15 @@ def test_measured_vignette_adds_a_shadow_without_the_word():
     assert edit['clips'][0]['shadow'] is True
     assert 'shadow' in report['applied']
 
+def test_measured_bezel_is_kept_and_a_named_screen_stays_a_tenth():
+    row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'}, picture={'zoom': 1, 'screen': True, 'bezel': 0.18, 'graphic': False, 'split': False})
+    edit, _report = build([row], 40, [], False)
+    assert edit['clips'][0]['screen'] is not None and edit['clips'][0]['bezel'] == 0.18
+    assert 'SECRET' not in json.dumps(edit['clips'][0])
+    named = shot(motion={'en': 'screenshot', 'zh': '截图'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    words, _report = build([named], 40, [], False)
+    assert words['clips'][0]['screen'] is not None and words['clips'][0]['bezel'] == 0.1
+
 def test_screenshot_and_illustration_use_owned_material():
     screen = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'screen': True, 'graphic': False, 'split': False})
     shown, shown_report = build([screen], 40, [], False)
