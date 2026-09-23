@@ -24,6 +24,22 @@ def _stats(path, vf, frames=8):
 def color_sample(path):
     return _stats(path, 'fps=1,signalstats,metadata=print:file=-')
 
+def frame_similarity(reference, output):
+    """How close the rendered frame is to the reference on spread and edge strength."""
+    ref_meta, out_meta = media.probe(reference), media.probe(output)
+    ref_at = min(0.3, max(0.05, float(ref_meta['duration']) * 0.25))
+    out_at = min(0.3, max(0.05, float(out_meta['duration']) * 0.25))
+    ref = _stats(reference, f'trim=start={ref_at:.3f}:duration=0.12,signalstats,metadata=print:file=-', frames=1)
+    out = _stats(output, f'trim=start={out_at:.3f}:duration=0.12,signalstats,metadata=print:file=-', frames=1)
+    if not ref or not out:
+        return None
+    soft_ref = _softness(reference, ref_at, int(ref_meta['width']), int(ref_meta['height']))
+    soft_out = _softness(output, out_at, int(out_meta['width']), int(out_meta['height']))
+    spread_gap = abs((ref.get('spread') or 0) - (out.get('spread') or 0))
+    soft_gap = abs(soft_ref - soft_out)
+    score = 100 - min(50, spread_gap / 3) - min(50, soft_gap * 10)
+    return round(max(0, min(100, score)), 1)
+
 def flat_background(path):
     meta = media.probe(path)
     w, h = int(meta['width']), int(meta['height'])

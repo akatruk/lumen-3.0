@@ -776,7 +776,7 @@ def attach_measurement(pid):
 
 def score_output(pid):
     from .config import settings
-    from .style_vision import color_sample
+    from .style_vision import color_sample, frame_similarity
     item = project(pid)
     render_id = (item.get('result') or {}).get('render_id')
     folder = settings.data_dir / pid
@@ -785,19 +785,27 @@ def score_output(pid):
     if not output.exists() or not reference.exists():
         return
     left, right = color_sample(reference), color_sample(output)
-    if not left or not right:
+    try:
+        measured = frame_similarity(reference, output)
+    except Exception:
+        measured = None
+    if (not left or not right) and measured is None:
         return
-    distance = abs(left['y'] - right['y']) + 0.5 * abs(left['u'] - right['u']) + 0.5 * abs(left['v'] - right['v'])
-    color = round(max(0, min(100, 100 - distance)), 1)
     with connect() as db:
         db.lock()
         _current, context = _context(db, pid)
         report = context.get('style_report')
         if not report:
             return
-        report['scores']['color_treatment'] = color
+        if left and right:
+            distance = abs(left['y'] - right['y']) + 0.5 * abs(left['u'] - right['u']) + 0.5 * abs(left['v'] - right['v'])
+            report['scores']['color_treatment'] = round(max(0, min(100, 100 - distance)), 1)
+            report['measured_color_distance'] = round(distance, 2)
+        if measured is not None:
+            rule = float(report['scores'].get('effect_similarity') or 0)
+            report['scores']['effect_similarity'] = round((rule + measured) / 2, 1)
+            report['measured_effect_similarity'] = measured
         report['scores']['overall'] = round(sum(report['scores'][key] for key in SCORE_KEYS) / len(SCORE_KEYS), 1)
-        report['measured_color_distance'] = round(distance, 2)
         context['style_report'] = report
         db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
 

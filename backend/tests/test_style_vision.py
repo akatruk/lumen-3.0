@@ -2,7 +2,7 @@ import re
 from types import SimpleNamespace
 from backend import media
 from backend.manual import Edit
-from backend.style_vision import _join, black_spans, chroma_plate, color_sample, flat_background, freeze_spans, grade_between, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, visual_track
+from backend.style_vision import _join, black_spans, chroma_plate, color_sample, flat_background, frame_similarity, freeze_spans, grade_between, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, visual_track
 from backend.timeline import motion_filter
 from backend.media import write_kinetic
 
@@ -241,6 +241,16 @@ def test_blur_glow_and_shadow_strength_follow_the_frame(tmp_path):
     assert f"unsharp=7:7:{halo['glow']:.2f}" in chain
     assert f"vignette=angle={deep['shade']:.3f}" in chain
     assert 'enable=' not in chain
+
+def test_similarity_compares_the_rendered_frame(tmp_path):
+    sharp = tmp_path / 'sharp.mp4'
+    soft = tmp_path / 'soft.mp4'
+    _video(sharp, '-f', 'lavfi', '-i', 'testsrc=s=180x240:r=30:d=1.2')
+    _video(soft, '-f', 'lavfi', '-i', 'testsrc=s=180x240:r=30:d=1.2', '-vf', 'gblur=sigma=8')
+    same = frame_similarity(sharp, sharp)
+    apart = frame_similarity(sharp, soft)
+    assert same is not None and same >= 90
+    assert apart is not None and apart < same - 15
 
 def test_illustration_tiles_follow_the_bright_blocks(tmp_path):
     one = tmp_path / 'one-tile.mp4'
