@@ -233,9 +233,9 @@ def _join(path, at):
     """Name a boundary only when an existing filter reproduces it."""
     meta = media.probe(path)
     width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
-    if width < 80 or height < 80 or at < 0.12 or duration - at < 0.12:
+    if width < 80 or height < 80 or at < 0.2 or duration - at < 0.2:
         return 'cut'
-    before, after = at - 0.08, at + 0.08
+    before, after = at - 0.16, at + 0.16
     full = [_level(path, f'crop={width}:{height}:0:0', stamp) for stamp in (before, at, after)]
     if any(level is None for level in full):
         return 'cut'
