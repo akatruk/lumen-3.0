@@ -35,6 +35,27 @@ type Clip = {
   zoom: number;
   x: number;
   y: number;
+  enhance?: boolean;
+  speed?: number;
+  blur?: number;
+  glow?: boolean;
+  shadow?: boolean;
+  split?: boolean;
+  stabilize?: boolean;
+  cutout?: boolean;
+  kinetic?: boolean;
+  mask?: boolean;
+  track?: boolean;
+  exposure?: number;
+  progress?: number;
+  graphic?: boolean;
+  bars?: number[];
+  lower?: boolean;
+  icon?: boolean;
+  still?: number | null;
+  panel?: number | null;
+  plate?: string;
+  grade?: {brightness:number;contrast:number;saturation:number;gamma:number;rs:number;gs:number;bs:number}|null;
   text: string;
 };
 type Caption = {

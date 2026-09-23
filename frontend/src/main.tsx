@@ -1,3 +1,4 @@
+import { Trends } from "./Trends";
 import {ProjectWorkspace, useWorkspace} from './ProjectWorkspace';
 import { LanguageSelect } from './LanguageSelect';
 import { translate, contentLanguage, readLanguage } from './locale';
@@ -23,6 +24,7 @@ import {
   Sparkles,
   Layers3,
   LayoutGrid,
+  TrendingUp,
   Settings2,
   LogOut,
   Globe,
@@ -70,9 +72,11 @@ const fmt = (s: number) =>
     .padStart(2, "0")}`;
 function initialRoute() {
   const h = window.location.hash.slice(1);
+  const trend = /^trend\/[a-f0-9]{32}$/.test(h) ? h.slice(6) : null;
   return {
     pid: /^project\/[a-f0-9]{32}$/.test(h) ? h.slice(8) : null,
-    page: ["studio", "library", "settings", "guide"].includes(h) ? h : "studio",
+    trend,
+    page: trend ? "trends" : ["studio", "library", "settings", "guide", "trends"].includes(h) ? h : "studio",
   };
 }
 const active = (p: { status: string }) =>
@@ -126,26 +130,30 @@ function App() {
   const [user, setUser] = useState<{ email: string } | null>(null),
     [loading, setLoading] = useState(true),
     [page, setPage] = useState(initialRoute().page),
+    [trend, setTrend] = useState<string | null>(initialRoute().trend),
+    [studioEpoch, setStudioEpoch] = useState(0),
     [items, setItems] = useState<Summary[]>([]),
     [pid, setPid] = useState<string | null>(initialRoute().pid),
     [project, setProject] = useState<Project | null>(null),
     [modal, setModal] = useState(false),
     [initialFile, setInitialFile] = useState<File | null>(null),
     [nav, setNav] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [missingProject, setMissingProject] = useState(false);
   useEffect(() => {
     const change = () => {
       const r = initialRoute();
       setPage(r.page);
       setPid(r.pid);
+      setTrend(r.trend);
     };
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
   }, []);
   useEffect(() => {
-    const next = pid ? "project/" + pid : page;
+    const next = pid ? "project/" + pid : trend ? "trend/" + trend : page;
     if (window.location.hash.slice(1) !== next) window.location.hash = next;
-  }, [pid, page]);
+  }, [pid, page, trend]);
   useEffect(() => {
     api("/session")
       .then(setUser)
@@ -175,37 +183,65 @@ function App() {
   useEffect(() => {
     if (!pid) {
       setProject(null);
+      setMissingProject(false);
       return;
     }
     let alive = true;
+    let stopped = false;
+    setMissingProject(false);
     const get = async () => {
+      if (!alive || stopped) return;
       try {
         const p = await api("/projects/" + pid);
-        if (alive) setProject(p);
+        if (!alive || stopped) return;
+        setProject(p);
+        setMissingProject(false);
       } catch (e) {
-        if (alive) setError((e as Error).message);
+        if (!alive || stopped) return;
+        if ((e as Error).message === "not_found") {
+          stopped = true;
+          window.clearInterval(timer);
+          setProject(null);
+          setMissingProject(true);
+          setError("");
+          return;
+        }
+        setError((e as Error).message);
       }
     };
+    const timer = window.setInterval(() => void get(), 3500);
     void get();
-    const timer = setInterval(get, 3500);
     return () => {
       alive = false;
-      clearInterval(timer);
+      window.clearInterval(timer);
     };
   }, [pid]);
   const open = (id: string) => {
     setProject(null);
+    setTrend(null);
     setPid(id);
     setNav(false);
   };
   const newProject = (file?: File) => {
+    sessionStorage.removeItem("lumen-trend-handoff");
+    setStudioEpoch((n) => n + 1);
     setPage("studio");
     setPid(null);
+    setTrend(null);
     setNav(false);
   };
   const navigate = (p: string) => {
     setPage(p);
     setPid(null);
+    setTrend(null);
+    setNav(false);
+  };
+  const useTrend = (handoff: { concept_id: string; title: string; script: string; trend: string }) => {
+    sessionStorage.setItem("lumen-trend-handoff", JSON.stringify(handoff));
+    setStudioEpoch((n) => n + 1);
+    setTrend(null);
+    setPid(null);
+    setPage("studio");
     setNav(false);
   };
   const logout = async () => {
@@ -263,6 +299,7 @@ function App() {
             <nav>
               {[
                 ["studio", ScanLine],
+                ["trends", TrendingUp],
                 ["library", LayoutGrid],
                 ["settings", Settings2],
                 ["guide", Film],
@@ -317,7 +354,11 @@ function App() {
                 <span>Lumen</span>
                 <ChevronRight size={14} />
                 <strong>
-                  {pid ? project?.title || t("loading") : t(page)}
+                  {pid
+                    ? missingProject
+                      ? t("projectMissing")
+                      : project?.title || t("loading")
+                    : t(page)}
                 </strong>
               </div>
               <div className="topbar-right">
@@ -364,6 +405,14 @@ function App() {
                     }}
                   />
                 )}</ProjectWorkspace>
+              ) : missingProject ? (
+                <div className="empty-centered">
+                  <h2>{t("projectMissing")}</h2>
+                  <p>{t("projectMissingDesc")}</p>
+                  <button className="primary" onClick={() => navigate("library")}>
+                    {t("backToProjects")}
+                  </button>
+                </div>
               ) : (
                 <div className="loading">
                   <Loader2 className="spin" />
@@ -372,13 +421,25 @@ function App() {
               )
             ) : page === "studio" ? (
               <StudioCreate
-                key={user.email}
+                key={user.email + ":" + studioEpoch}
                 lang={lang}
                 userKey={user.email}
                 onCreated={(id) => {
                   open(id);
                   void refresh();
                 }}
+              />
+            ) : page === "trends" ? (
+              <Trends
+                lang={lang}
+                trendId={trend}
+                onOpen={(id) => {
+                  setPid(null);
+                  setTrend(id);
+                  setPage("trends");
+                }}
+                onBack={() => navigate("trends")}
+                onCreate={useTrend}
               />
             ) : page === "library" ? (
               <Library

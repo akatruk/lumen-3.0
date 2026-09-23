@@ -2,7 +2,7 @@ import subprocess
 import pytest
 from backend.visuals import VisualCard,write_card
 from backend.manual import Clip,Edit
-from backend.media import ffmpeg,probe,render
+from backend.media import ass_available,ffmpeg,probe,render
 from backend.schemas import Analysis
 T={'en':'Trip','zh':'旅程'}
 def card():
@@ -13,6 +13,7 @@ def test_milestone_validation_and_order(tmp_path):
  with pytest.raises(ValueError):VisualCard.model_validate(c.model_dump()|{'milestones':[]})
  with pytest.raises(ValueError):VisualCard.model_validate(c.model_dump()|{'kind':'number'})
  with pytest.raises(ValueError):VisualCard.model_validate(c.model_dump()|{'items':[{'label':T,'value':1}]})
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 def test_event_timeline_is_burned_only_in_its_interval(tmp_path):
  src=tmp_path/'source.mp4';ffmpeg('-f','lavfi','-i','color=red:s=320x568:d=4:r=12','-c:v','libx264',src)
  analysis=Analysis(summary=T,strongest_moment=T,audience=T,scores=[dict(category='clarity',value=50,reason=T)],scenes=[dict(start=0,end=4,title=T,observation=T,role='context')],transcript=[],recommendations=[],uncertainties=[])

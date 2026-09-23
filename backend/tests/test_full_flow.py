@@ -3,11 +3,13 @@ import json,uuid,subprocess
 import pytest
 from backend.tests.test_studio import client,plan
 from backend import media,worker,studio,timeline_proposals
+from backend.media import ass_available
 from backend.config import settings
 from backend.db import connect,project
 from backend.manual import Clip,ExternalBroll
 REAL_PROBE=media.probe
 
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 @pytest.mark.parametrize('quality_review',[False,True])
 def test_upload_analyze_match_approve_render_download(client,tmp_path,monkeypatch,quality_review):
  monkeypatch.setattr(media,'probe',REAL_PROBE)

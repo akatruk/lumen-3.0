@@ -4,6 +4,13 @@ import re
 import subprocess
 from pathlib import Path
 
+def ass_available():
+    try:
+        completed = subprocess.run(['ffmpeg', '-hide_banner', '-filters'], capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return any(len(fields) >= 2 and fields[1] == 'ass' for fields in (line.split() for line in completed.stdout.splitlines()))
+
 def run(args, timeout=600):
     p = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
     if p.returncode:
@@ -12,6 +19,9 @@ def run(args, timeout=600):
     return p.stdout, p.stderr
 
 def ffmpeg(*args, timeout=600):
+    # A missing subtitle filter should fail as itself, before FFmpeg hides the reason.
+    if any(re.search(r'(^|[,\s])ass=', str(arg)) for arg in args) and not ass_available():
+        raise RuntimeError('ffmpeg_ass_unavailable')
     return run(['ffmpeg','-hide_banner','-nostdin','-y','-threads','2',*map(str,args)],timeout)
 
 def probe(path):
@@ -153,6 +163,23 @@ def emphasize_caption(chunk,terms,language,base_color):
     accent='&H00FFFF00' if base_color=='&H0000FFFF' else '&H0000FFFF'
     return re.sub('|'.join(patterns),lambda m:r'{\c'+accent+'}'+m.group(0)+r'{\c'+base_color+'}',chunk,flags=re.IGNORECASE if language=='en' else 0)
 
+def write_kinetic(path, text, length, w, h):
+    clean=re.sub(r'[{}\\\r\n]',' ',text).strip()[:80]
+    size=max(28,int(h*0.045))
+    travel=min(900,int(max(0.2,length)*450))
+    header=f'''[Script Info]
+ScriptType: v4.00+
+PlayResX: {w}
+PlayResY: {h}
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Noto Sans CJK SC,{size},&H00FFFFFF,&H00FFFFFF,&H00121212,&H80000000,-1,0,0,0,100,100,0,0,1,3,2,5,0,0,0,1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+'''
+    tags='{\\move('+f'{w*0.12:.0f},{h*0.2:.0f},{w*0.5:.0f},{h*0.2:.0f},0,{travel}'+f')\\fscx40\\fscy40\\t(0,{min(700,travel)},\\fscx100\\fscy100)'+'}'
+    path.write_text(header+f'Dialogue: 0,{ass_time(0)},{ass_time(length)},Default,,0,0,0,,{tags}{clean}\n',encoding='utf-8')
+
 def write_subtitles(path, captions, timeline, language, w,h,style=None):
     style=style or {}
     font=max(22,round(h*{'small':.026,'medium':.035,'large':.045}.get(style.get('font_size'),.035)))
@@ -222,7 +249,8 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 vf+=f',fade=t=in:st=0:d={fade},fade=t=out:st={b-a-fade}:d={fade}'
             if clip['text'].strip():
                 title=folder/f'title-{i}.ass'
-                write_subtitles(title,[Caption(start=0,end=b-a,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
+                if clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h)
+                else: write_subtitles(title,[Caption(start=0,end=b-a,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
                 title_path=str(title.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{title_path}'"
             if clip.get('card'):
@@ -231,7 +259,16 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 write_card(card_path,clip['card'],language,w,h)
                 escaped=str(card_path.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{escaped}'"
+            if clip.get('progress'):
+                frac=max(0.04,min(1,float(clip.get('progress') or 0)))
+                base_vf+=f',drawbox=x=0:y=ih-12:w=iw*{frac:.3f}:h=10:color=0xF4F1EA@0.92:t=fill'
             post=vf;vf=base_vf+post
+        speed=1
+        if manual:
+            try: speed=float(clip.get('speed') or 1)
+            except (TypeError, ValueError): speed=1
+            speed=max(0.5,min(2,speed))
+            if speed>1: speed=min(speed, max(1,(metadata['duration']-a)/max(0.08,b-a)))
         if cutaway:
             footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
             if footage is None:raise ValueError('asset_not_found')
@@ -239,11 +276,44 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             graph=f"[0:v]{base_vf}[base];[1:v]trim=duration={length},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,setpts=PTS-STARTPTS+{cutaway['start']}/TB[br];[base][br]overlay=enable='gte(t,{cutaway['start']})*lt(t,{cutaway['end']})':eof_action=pass:repeatlast=0{post}[v]"
             inputs=['-ss',a,'-i',source,'-ss',cutaway['source_start'],'-i',footage]
             filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('cutout'):
+            graph=f"[1:v]scale={w}:{h},setsar=1,fps=30[plate];[0:v]{base_vf.rstrip(',')},backgroundkey=threshold=0.18:similarity=0.22:blend=0.08[key];[plate][key]overlay=format=auto{post}[v]"
+            plate=str(clip.get('plate') or '1A1F1C')
+            inputs=['-ss',a,'-i',source,'-f','lavfi','-i',f'color=c=0x{plate}:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}']
+            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('mask'):
+            graph=f"[0:v]{base_vf.rstrip(',')},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(pow((X-W/2)/(W*0.38),2)+pow((Y-H/2)/(H*0.42),2),1),255,0)'[key];color=c=0x101614:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}[plate];[plate][key]overlay=format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('graphic') and clip.get('bars') and not clip.get('cutout') and not clip.get('split') and not clip.get('mask'):
+            boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0xF4F1EA@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
+            span=max(b-a,0.2); fade_d=min(0.25,span/4)
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('still') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source,'-ss',clip['still'],'-t','0.12','-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('lower') and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+            span=max(b-a,0.2); fade_d=min(0.25,span/4); band=max(24,(h//6)//2*2); chip=max(12,(band//2)//2*2)
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={chip}:h={chip}:color=0xF4F1EA@0.95:t=fill,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}:format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('split') and clip.get('panel') is not None:
+            half=max(2,(w//2)//2*2)
+            graph=f"[0:v]{base_vf.rstrip(',')},crop={half}:{h}:0:0,scale={half}:{h},setsar=1[left];[1:v]scale={half}:{h}:force_original_aspect_ratio=increase,crop={half}:{h},setsar=1,fps=30[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
+            inputs=['-ss',a,'-i',source,'-ss',clip['panel'],'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and clip.get('split'):
+            graph=f"[0:v]{base_vf.rstrip(',')},split[leftsrc][rightsrc];[leftsrc]crop=iw/2:ih:0:0[left];[rightsrc]crop=iw/2:ih:iw/2:0[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
+            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         else:
             inputs=['-ss',a,'-i',source];filters=['-vf',vf,'-map','0:v:0']
+        if manual and abs(speed-1)>0.04 and inputs[:2]==['-ss',a]:
+            inputs=['-ss',a,'-t',f'{(b-a)*speed:.4f}',*inputs[2:]]
+        audio=[]
+        if manual and abs(speed-1)>0.04: audio.append(f'atempo={speed:.4f}')
         if manual and metadata['has_audio'] and clip.get('audio_fade_ms',0):
             edge=min(clip['audio_fade_ms']/1000,(b-a)/4)
-            filters+=['-af',f'afade=t=in:st=0:d={edge},afade=t=out:st={b-a-edge}:d={edge}']
+            audio.append(f'afade=t=in:st=0:d={edge},afade=t=out:st={b-a-edge}:d={edge}')
+        if audio: filters+=['-af',','.join(audio)]
         args=[*inputs,'-t',b-a,*filters,'-map','0:a:0?',
               '-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000',part]
         ffmpeg(*args,timeout=900)

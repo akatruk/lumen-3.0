@@ -50,3 +50,19 @@ export async function uploadVideo(file:File,config:Record<string,unknown>,signal
  sessionStorage.removeItem(key);
  return result;
 }
+
+export async function holdUpload(file:File,signal:AbortSignal){
+ const token=crypto.randomUUID().replaceAll('-','');
+ const begin=await fetch('/api/studio/uploads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({size:file.size,token}),signal});
+ const started=await begin.json().catch(()=>({}));
+ if(!begin.ok)throw new Error(typeof started.detail==='string'?started.detail:'upload_interrupted');
+ let offset=started.offset||0;
+ while(offset<file.size){
+  const end=Math.min(file.size,offset+(started.chunk_size||1024*1024));
+  const put=await fetch('/api/studio/uploads/'+started.id+'?offset='+offset,{method:'PUT',body:file.slice(offset,end),headers:{'Content-Type':'application/octet-stream'},signal});
+  const next=await put.json().catch(()=>({}));
+  if(!put.ok)throw new Error(typeof next.detail==='string'?next.detail:'upload_interrupted');
+  offset=next.offset;
+ }
+ return started.id as string;
+}

@@ -2,7 +2,7 @@ import subprocess
 import pytest
 from backend.visuals import VisualCard
 from backend.manual import Edit,Clip
-from backend.media import ffmpeg,probe,render
+from backend.media import ass_available,ffmpeg,probe,render
 from backend.schemas import Analysis
 T={'en':'Verified data','zh':'已核实数据'}
 def card(kind='bar_chart'):
@@ -13,6 +13,7 @@ def test_animation_scope_and_duration_validation():
   with pytest.raises(ValueError):VisualCard.model_validate(c.model_dump()|changes)
  assert VisualCard.model_validate(c.model_dump()|{'animation':'none'}).animation=='none'
 
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 @pytest.mark.parametrize('kind',['bar_chart','ranking'])
 def test_bar_growth_is_visible_in_rendered_frames(tmp_path,kind):
  src=tmp_path/'source.mp4';ffmpeg('-f','lavfi','-i','color=red:s=320x568:d=4:r=30','-c:v','libx264',src)

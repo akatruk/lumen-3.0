@@ -17,9 +17,17 @@ try{
  await page.route('**/tutorial/*.mp4',r=>r.fulfill({path:process.env.WORKSPACE_MEDIA,contentType:'video/mp4'}));await button('Video guide',page.locator('aside nav')).click();await page.locator('.tutorial-tabs button').first().click();assert.equal(await page.locator('.tutorial-tabs button').first().getAttribute('aria-pressed'),'true');await page.locator('.tutorial-tabs button').nth(1).click();await page.locator('.tutorial-chapters button').first().click();assert.equal(await page.locator('.tutorial-tabs button').nth(1).getAttribute('aria-pressed'),'true');
  });
  await test('logout failure is visible and does not crash',async({page,button})=>{
- await page.route('**/api/logout',r=>r.fulfill({status:503,json:{detail:'temporarily_unavailable'}}));await button('Sign out').click();await page.locator('[role=alert]').waitFor();assert.equal(await page.locator('.project-workspace').count(),1);
+ await page.route('**/api/logout',r=>r.fulfill({status:503,json:{detail:'temporarily_unavailable'}}));await button('Sign out').click();await page.getByText('The request could not be completed. Please try again.').waitFor();assert.equal(await page.locator('.project-workspace').count(),1);
  });
 
+ await test('missing project stops polling and returns to the library',async({page})=>{
+  let hits=0;await page.route('**/api/projects/deadbeefdeadbeefdeadbeefdeadbeef',route=>{hits++;return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({detail:'not_found'})})});
+  await page.goto((process.env.WORKSPACE_URL||'http://127.0.0.1:5192')+'/#project/deadbeefdeadbeefdeadbeefdeadbeef');
+  await page.getByRole('heading',{name:'This project is not available.'}).waitFor();
+  await page.waitForTimeout(4200);assert.equal(hits,1);assert.equal(await page.locator('.loading').count(),0);
+  await page.getByRole('button',{name:'Back to projects'}).click();
+  await page.waitForFunction(()=>location.hash==='#library');
+ });
  await test('logout success and Google sign-in launch',async({page,button,writes})=>{
  await page.route('**/api/auth/config',r=>r.fulfill({json:{google_ready:true}}));await button('Sign out').click();await page.locator('.auth-form').waitFor();let requested=false;await page.route('**/api/auth/google',r=>{requested=true;return r.fulfill({contentType:'text/html',body:'<p>QA OAuth redirect</p>'})});await page.getByRole('button',{name:/Continue with Google/}).click();await page.waitForURL('**/api/auth/google');assert(requested);assert(writes.some(w=>w.path==='/api/logout'));
  });

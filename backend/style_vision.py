@@ -1,0 +1,295 @@
+"""Measurements taken from an uploaded reference. Reference pixels are never copied into the export."""
+import re
+from . import media
+
+def _stats(path, vf, frames=8):
+    out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(frames), '-f', 'null', '-', timeout=180)
+    text = out + '\n' + err
+    def values(key):
+        return [float(item) for item in re.findall(r'signalstats\.' + key + r'=([\d.]+)', text)]
+    ys, us, vs = values('YAVG'), values('UAVG'), values('VAVG')
+    if not ys:
+        return None
+    return {'y': sum(ys) / len(ys), 'u': sum(us) / len(us) if us else 128, 'v': sum(vs) / len(vs) if vs else 128}
+
+def color_sample(path):
+    return _stats(path, 'fps=1,signalstats,metadata=print:file=-')
+
+def flat_background(path):
+    meta = media.probe(path)
+    w, h = int(meta['width']), int(meta['height'])
+    if w < 48 or h < 48:
+        return False
+    corners = ((0, 0), (w - 24, 0), (0, h - 24), (w - 24, h - 24))
+    samples = []
+    for x, y in corners:
+        sample = _stats(path, f'crop=24:24:{x}:{y},signalstats,metadata=print:file=-', frames=1)
+        if not sample:
+            return False
+        samples.append(sample['y'])
+    return max(samples) - min(samples) <= 14
+
+def scene_shots(path, duration):
+    _, err = media.ffmpeg('-i', path, '-vf', "select='gt(scene,0.32)',showinfo", '-an', '-f', 'null', '-', timeout=240)
+    times = [0.0]
+    for line in err.splitlines():
+        match = re.search(r'pts_time:([\d.]+)', line)
+        if not match:
+            continue
+        stamp = float(match.group(1))
+        if stamp - times[-1] >= 0.28:
+            times.append(stamp)
+    if duration - times[-1] >= 0.28:
+        times.append(duration)
+    else:
+        times[-1] = duration
+    shots = []
+    for index in range(len(times) - 1):
+        start, end = times[index], times[index + 1]
+        if end - start < 0.28:
+            continue
+        short = end - start < 0.55
+        motion = 'fast punch in' if short else 'slow push in' if end - start < 2.2 else 'static hold'
+        transition = 'fade' if index and index % 4 == 0 else 'cut'
+        shots.append({
+            'start': round(start, 3), 'end': round(end, 3),
+            'observation': {'en': 'Measured shot', 'zh': '测量镜头'},
+            'visual_type': {'en': 'presenter', 'zh': '主讲'},
+            'narrative_role': {'en': 'beat', 'zh': '节拍'},
+            'motion': {'en': motion, 'zh': '运镜'},
+            'transition': {'en': transition, 'zh': '转场'},
+            'subtitle_emphasis': {'en': 'keywords', 'zh': '关键词'},
+            'music': {'en': '', 'zh': ''},
+            'emotion': {'en': 'neutral', 'zh': '中性'},
+            'information_density': {'en': 'spoken', 'zh': '口述'},
+            'reusable_method': {'en': motion, 'zh': '运镜'},
+        })
+    return shots or [{
+        'start': 0, 'end': round(float(duration), 3),
+        'observation': {'en': 'Measured shot', 'zh': '测量镜头'},
+        'visual_type': {'en': 'presenter', 'zh': '主讲'},
+        'narrative_role': {'en': 'beat', 'zh': '节拍'},
+        'motion': {'en': 'static hold', 'zh': '固定'},
+        'transition': {'en': 'cut', 'zh': '切'},
+        'subtitle_emphasis': {'en': 'keywords', 'zh': '关键词'},
+        'music': {'en': '', 'zh': ''},
+        'emotion': {'en': 'neutral', 'zh': '中性'},
+        'information_density': {'en': 'spoken', 'zh': '口述'},
+        'reusable_method': {'en': 'hold the frame', 'zh': '固定机位'},
+    }]
+
+def grade_between(reference, owned):
+    if not reference or not owned:
+        return None
+    def clamp(value, low, high):
+        return max(low, min(high, value))
+    return {
+        'brightness': round(clamp((reference['y'] - owned['y']) / 255, -0.08, 0.08), 4),
+        'contrast': 1.05,
+        'saturation': round(clamp(1.08, 0.9, 1.3), 4),
+        'gamma': 1.0,
+        'rs': round(clamp((reference['v'] - owned['v']) / 220, -0.12, 0.12), 4),
+        'gs': 0.0,
+        'bs': round(clamp((reference['u'] - owned['u']) / 220, -0.12, 0.12), 4),
+    }
+
+def _timed_levels(path):
+    out, err = media.ffmpeg('-i', path, '-vf', 'fps=1,signalstats,metadata=print:file=-', '-an', '-f', 'null', '-', timeout=240)
+    rows = []
+    stamp = None
+    for line in (out + '\n' + err).splitlines():
+        found = re.search(r'pts_time:([\d.]+)', line)
+        if found:
+            stamp = float(found.group(1))
+        level = re.search(r'signalstats\.YAVG=([\d.]+)', line)
+        if level and stamp is not None:
+            rows.append((stamp, float(level.group(1))))
+            stamp = None
+    return rows
+
+def black_spans(path):
+    _, err = media.ffmpeg('-i', path, '-vf', 'blackframe=amount=92:threshold=32', '-an', '-f', 'null', '-', timeout=240)
+    times = [float(item) for item in re.findall(r'blackframe.*\st:([\d.]+)', err)]
+    if not times:
+        return []
+    spans = []
+    start = prev = times[0]
+    for stamp in times[1:] + [times[-1] + 1]:
+        if stamp - prev > 0.08:
+            if prev - start >= 0.4:
+                spans.append({'start': round(start, 3), 'end': round(prev + 0.05, 3)})
+            start = stamp
+        prev = stamp
+    return spans
+
+def visual_track(path):
+    meta = media.probe(path)
+    width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
+    if width < 90 or height < 90 or duration < 0.6:
+        return None
+    def column(at):
+        scores = []
+        crop_w = width // 3
+        for index in range(3):
+            sample = _stats(path, f'trim=start={at:.3f}:duration=0.08,crop={crop_w}:{height}:{index * crop_w}:0,signalstats,metadata=print:file=-', frames=1)
+            scores.append(sample['y'] if sample else 0)
+        if max(scores) - min(scores) < 12:
+            return None
+        return (0.22, 0.5, 0.78)[scores.index(max(scores))]
+    early = column(min(0.12, duration / 3))
+    late = column(max(0.2, duration - 0.28))
+    if early is None or late is None or abs(early - late) < 0.2:
+        return None
+    return {'x0': early, 'x1': late}
+
+def chroma_plate(path):
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    if width < 48 or height < 48:
+        return None
+    samples = []
+    for x, y in ((0, 0), (width - 24, 0), (0, height - 24), (width - 24, height - 24)):
+        sample = _stats(path, f'crop=24:24:{x}:{y},signalstats,metadata=print:file=-', frames=1)
+        if not sample:
+            return None
+        samples.append(sample)
+    us = [item['u'] for item in samples]
+    vs = [item['v'] for item in samples]
+    if max(us) - min(us) > 18 or max(vs) - min(vs) > 18:
+        return None
+    luma = sum(item['y'] for item in samples) / 4
+    u, v = sum(us) / 4, sum(vs) / 4
+    if v < 70 and u < 110 and luma > 60:
+        return 'green'
+    if u > 150 and v < 150:
+        return 'blue'
+    return None
+
+def highlight_window(path, duration):
+    rows = [(stamp, level) for stamp, level in _timed_levels(path) if level >= 30]
+    if not rows:
+        return None
+    stamp, _level = max(rows, key=lambda row: row[1])
+    if stamp < 0.8:
+        return None
+    end = min(float(duration), stamp + 1.2)
+    if end - stamp < 0.4:
+        return None
+    return {'start': round(stamp, 3), 'end': round(end, 3)}
+
+def _level(path, crop, at):
+    sample = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.08,{crop},signalstats,metadata=print:file=-', frames=1)
+    return sample['y'] if sample else None
+
+def _column_at(path, at):
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    if width < 90 or height < 90:
+        return None
+    scores = []
+    crop_w = width // 3
+    for index in range(3):
+        level = _level(path, f'crop={crop_w}:{height}:{index * crop_w}:0', at)
+        scores.append(0 if level is None else level)
+    if max(scores) - min(scores) < 12:
+        return None
+    return (0.22, 0.5, 0.78)[scores.index(max(scores))]
+
+def reference_layout(path):
+    meta = media.probe(path)
+    width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
+    empty = {'split': False, 'bar': False, 'lower': False, 'shake': False}
+    if width < 64 or height < 64:
+        return empty
+    at = min(0.3, max(0, duration / 3))
+    half = max(16, width // 2)
+    left = _level(path, f'crop={half}:{height}:0:0', at)
+    right = _level(path, f'crop={half}:{height}:{width - half}:0', at)
+    split = left is not None and right is not None and abs(left - right) >= 28
+    band = max(12, height // 14)
+    bottom = _level(path, f'crop={width}:{band}:0:{height - band}', at)
+    above = _level(path, f'crop={width}:{band}:0:{max(0, height - 2 * band)}', at)
+    bar_left = _level(path, f'crop={half}:{band}:0:{height - band}', at)
+    bar_right = _level(path, f'crop={half}:{band}:{width - half}:{height - band}', at)
+    bar = None not in (bottom, above, bar_left, bar_right) and abs(bottom - above) >= 28 and abs(bar_left - bar_right) <= 16
+    middle = _level(path, f'crop={width}:{max(16, height // 3)}:0:{height // 3}', at)
+    lower_band = _level(path, f'crop={width}:{max(16, height // 5)}:0:{height - max(16, height // 5)}', at)
+    lower = (not bar) and middle is not None and lower_band is not None and abs(middle - lower_band) >= 40
+    later = min(duration - 0.1, at + 0.24)
+    first, second = _column_at(path, at), _column_at(path, later)
+    shake = first is not None and second is not None and abs(first - second) >= 0.2
+    return {'split': split, 'bar': bar, 'lower': lower, 'shake': shake}
+
+def _bands(path, at, width, height):
+    crop_w = max(16, width // 3)
+    scores = []
+    for index in range(3):
+        level = _level(path, f'crop={crop_w}:{height}:{min(index * crop_w, width - crop_w)}:0', at)
+        scores.append(0 if level is None else level)
+    return scores
+
+def picture_of(path, start, end):
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    wide = {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'split': False, 'graphic': False}
+    if width < 90 or height < 90 or end - start < 0.2:
+        return wide
+    opening = _bands(path, min(start + 0.04, end - 0.12), width, height)
+    closing = _bands(path, max(start + 0.04, end - 0.12), width, height)
+    def read(scores):
+        peak = max(scores)
+        if peak - min(scores) < 12:
+            return 1.0, 0.5
+        hot = sum(1 for score in scores if peak - score < 18)
+        zoom = 1.35 if hot <= 1 else 1.15 if hot == 2 else 1.0
+        return zoom, (0.22, 0.5, 0.78)[scores.index(peak)]
+    zoom, x = read(opening)
+    zoom_end, x_end = read(closing)
+    left, mid, right = opening
+    vignette = _vignette(path, min(start + 0.04, max(start, end - 0.08)), width, height)
+    edge = _level(path, f'crop={width}:{height}:0:0', min(start + 0.02, max(start, end - 0.08)))
+    middle = _level(path, f'crop={width}:{height}:0:0', (start + end) / 2)
+    return {
+        'zoom': zoom,
+        'zoom_end': zoom_end if abs(zoom_end - zoom) >= 0.1 else None,
+        'x': x,
+        'x_end': x_end if abs(x_end - x) >= 0.2 else None,
+        'split': abs(left - right) >= 28 and abs(mid - (left + right) / 2) <= 14,
+        'graphic': mid >= left + 22 and mid >= right + 22,
+        'fade': edge is not None and middle is not None and middle - edge >= 22,
+        'vignette': vignette,
+    }
+
+def _vignette(path, at, width, height):
+    if width < 80 or height < 80:
+        return False
+    side = 24
+    center = _level(path, f'crop=40:40:{(width - 40) // 2}:{(height - 40) // 2}', at)
+    if center is None or center < 40:
+        return False
+    corners = []
+    for x, y in ((0, 0), (width - side, 0), (0, height - side), (width - side, height - side)):
+        level = _level(path, f'crop={side}:{side}:{x}:{y}', at)
+        if level is None:
+            return False
+        corners.append(level)
+    return center - max(corners) >= 18
+
+def annotate_pictures(path, shots):
+    for shot in list(shots or [])[:6]:
+        try:
+            shot['picture'] = picture_of(path, float(shot['start']), float(shot['end']))
+        except Exception:
+            shot['picture'] = None
+    return shots
+
+def measure(path):
+    meta = media.probe(path)
+    shots = scene_shots(path, meta['duration'])
+    annotate_pictures(path, shots)
+    return {
+        'duration': meta['duration'],
+        'shots': shots,
+        'color': color_sample(path),
+        'flat': flat_background(path),
+    }

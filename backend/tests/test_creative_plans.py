@@ -1,4 +1,6 @@
+import shutil
 import pytest
+from backend.media import ass_available
 from backend.tests.test_studio import client,create,seed_plan,T
 from backend import creative_plans as creative
 from backend.manual import Edit,Clip
@@ -63,6 +65,7 @@ def test_failed_proposal_does_not_break_ready_project(client,monkeypatch):
  assert client.get(base).json()[0]['status']=='failed'
  assert client.get(f'/api/studio/projects/{pid}/manual').json()['saved'] is False
 
+@pytest.mark.skipif(not shutil.which('ffmpeg') or not ass_available(),reason='FFmpeg ass filter required')
 def test_creative_plan_reaches_real_renderer(tmp_path):
  from backend.media import ffmpeg,probe,render
  from backend.tests.test_studio import plan

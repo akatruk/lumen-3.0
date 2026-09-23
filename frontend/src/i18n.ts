@@ -2,6 +2,7 @@ import { translateRecord } from './locale';
 const bilingualWords = {
   en: {
     studio: "Video studio",
+    trends: "Trends",
     library: "Your projects",
     settings: "Workspace",
     guide: "Video guide",
@@ -217,6 +218,8 @@ const bilingualWords = {
     worker_interrupted:
       "Processing was interrupted. Retry analysis or create the cut again.",
     media_processing_failed: "This media could not be processed.",
+    ffmpeg_ass_unavailable: "Subtitles cannot be burned because FFmpeg has no ass filter.",
+    style_match_off: "Automatic style match is off for this project.",
     video_too_long: "Choose a video up to 7 minutes long.",
     not_a_video: "This file could not be read as a supported video.",
     upload_too_large: "The video exceeds the 250 MB limit.",
@@ -236,6 +239,10 @@ const bilingualWords = {
       "Generation is taking longer than expected. A saved provider job will be checked when you create the cut again.",
     generation_not_enabled: "Generated footage is disabled for this project.",
     genericError: "The request could not be completed. Please try again.",
+    projectMissing: "This project is not available.",
+    projectMissingDesc:
+      "It may have been removed, or this link does not match a project in your workspace.",
+    backToProjects: "Back to projects",
     loading: "Loading your workspace…",
     close: "Close",
     menu: "Open navigation",
@@ -255,6 +262,7 @@ const bilingualWords = {
   },
   zh: {
     studio: "视频工作室",
+    trends: "趋势",
     library: "项目库",
     settings: "工作空间",
     guide: "视频指南",
@@ -456,6 +464,8 @@ const bilingualWords = {
     processing_failed: "处理未能完成，原视频已保留。",
     worker_interrupted: "处理意外中断，请重新分析或制作新版本。",
     media_processing_failed: "无法处理此媒体文件。",
+    ffmpeg_ass_unavailable: "无法烧录字幕，因为 FFmpeg 没有 ass 滤镜。",
+    style_match_off: "此项目未开启自动风格匹配。",
     video_too_long: "请选择三分钟以内的视频。",
     not_a_video: "无法读取此文件为支持的视频格式。",
     upload_too_large: "视频超过 250 MB 限制。",
@@ -471,6 +481,9 @@ const bilingualWords = {
       "生成时间超出预期，再次制作时将检查已保存的服务商任务。",
     generation_not_enabled: "此项目未启用画面生成。",
     genericError: "请求未能完成，请重试。",
+    projectMissing: "找不到这个项目。",
+    projectMissingDesc: "项目可能已删除，或此链接不属于当前工作空间的项目。",
+    backToProjects: "返回项目库",
     loading: "正在加载工作空间…",
     close: "关闭",
     menu: "打开导航",

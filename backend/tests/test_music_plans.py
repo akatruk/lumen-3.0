@@ -1,9 +1,12 @@
 import json,time
+import pytest
+from backend.media import ass_available
 from backend.tests.test_studio import client,create,seed_plan,T
 from backend.db import connect,project
 from backend import music_plans
 from backend.music import Music,MusicLevel
 
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 def test_candidate_reel_keeps_audio(tmp_path,monkeypatch):
     from backend.config import settings
     from backend import media

@@ -5,7 +5,7 @@ import { Dubbing } from './Dubbing';
 import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
 import {StatusBadge,TaskProgress,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
-import {uploadVideo} from './resumableUpload';
+import {holdUpload, uploadVideo} from './resumableUpload';
 import {ManualEditor} from './ManualEditor';
 import { DirectorAlternatives } from "./DirectorAlternatives";
 import { PlatformVariants } from "./PlatformVariants";
@@ -75,6 +75,7 @@ const labels: Record<string, [string, string]> = {
     "请至少批准一项改动。",
   ],
   job_already_running: ["Processing is already running.", "任务已在处理中。"],
+  style_match_off: ["Automatic style match is off for this project.", "此项目未开启自动风格匹配。"],
   budget_limit: [
     "The project or workspace budget is exhausted.",
     "项目或工作空间预算不足。",
@@ -160,6 +161,8 @@ export function StudioCreate({
     }
   });
   const [file, setFile] = useState<File | null>(null),
+    [referenceFile, setReferenceFile] = useState<File | null>(null),
+    [styleOn, setStyleOn] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [percent, setPercent] = useState(0),
@@ -168,6 +171,14 @@ export function StudioCreate({
   const [transfer,setTransfer]=useState<{bytes:number;total:number;mbps:number}|null>(null);
   const xhr = useRef<AbortController | null>(null);
   const requestId = useRef(crypto.randomUUID().replaceAll("-", ""));
+  const [handoff] = useState<{ concept_id: string; title: string; script: string; trend: string } | null>(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("lumen-trend-handoff") || "null");
+      return saved?.concept_id ? saved : null;
+    } catch {
+      return null;
+    }
+  });
   useEffect(() => {
     sessionStorage.setItem(cache, JSON.stringify(refs));
   }, [cache, refs]);
@@ -188,13 +199,24 @@ export function StudioCreate({
   }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file || !refs.length) return;
+    if (!file || (!refs.length && !referenceFile)) return;
     setError("");
-    if (file.size > 250 * 1024 * 1024) {
+    if (file.size > 250 * 1024 * 1024 || (referenceFile && referenceFile.size > 250 * 1024 * 1024)) {
       setError("upload_too_large");
       return;
     }
     const f = new FormData(e.currentTarget);
+    setBusy(true);setPaused(false);setPercent(0);setTransfer(null);
+    const controller=new AbortController();xhr.current=controller;
+    let referenceUpload = "";
+    try {
+      if (styleOn && referenceFile) referenceUpload = await holdUpload(referenceFile, controller.signal);
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "upload_interrupted";
+      if (code === "upload_cancelled") setPaused(true); else setError(code);
+      setBusy(false);
+      return;
+    }
     const config = {
       request_id: requestId.current,
       references: refs.map((r) => r.id),
@@ -210,9 +232,10 @@ export function StudioCreate({
       language: f.get("language"),
       budget: Number(f.get("budget")),
       owned_rights_confirmed: f.has("rights"),
+      style_match: f.has("style_match"),
+      ...(referenceUpload ? { reference_upload_id: referenceUpload } : {}),
+      ...(handoff ? { concept_id: handoff.concept_id } : {}),
     };
-    setBusy(true);setPaused(false);setPercent(0);setTransfer(null);
-    const controller=new AbortController();xhr.current=controller;
     try {
       const p=await uploadVideo(file,config,controller.signal,(n,info)=>{setPercent(n);if(info)setTransfer(info)});
       sessionStorage.removeItem(cache);onCreated(p.id);
@@ -250,6 +273,15 @@ export function StudioCreate({
           )}
         </small>
       </div>
+      {handoff && (
+        <p className="director-note">
+          {t(
+            "This project starts from a trend. The script is a new structure, not the reference video. New project clears it.",
+            "这个项目从趋势开始。脚本是新的结构，不是参考视频。新建项目会清除它。",
+          )}{" "}
+          {handoff.trend}
+        </p>
+      )}
       <fieldset disabled={busy} className="director-fieldset">
         <DouyinSearch
           lang={lang}
@@ -329,7 +361,7 @@ export function StudioCreate({
             </p>
             <label>
               {t("Project name", "项目名称")}
-              <input name="title" required maxLength={120} />
+              <input name="title" required maxLength={120} defaultValue={handoff?.title || ""} />
             </label>
             <label>
               {t("Script & intended message", "脚本与核心信息")}
@@ -338,6 +370,7 @@ export function StudioCreate({
                 required
                 maxLength={6000}
                 rows={4}
+                defaultValue={handoff?.script || ""}
                 placeholder={t(
                   "What should the viewer understand or do? Include your script and facts that must stay unchanged.",
                   "观众应理解什么、采取什么行动？请填写脚本以及必须保留的事实。",
@@ -351,6 +384,29 @@ export function StudioCreate({
                 "我拥有或已获得此素材的编辑使用权。",
               )}
             </label>
+            <label className="director-check">
+              <input name="style_match" type="checkbox" onChange={(e) => setStyleOn(e.target.checked)} />
+              {t(
+                "Match the reference pacing and the visual effects this editor can reproduce, then render. You still approve the result and can edit every cut.",
+                "按该参考的节奏和本编辑器可实现的视觉效果制作成片。你仍需批准结果，也可以修改每一处剪辑。",
+              )}
+            </label>
+            {styleOn && (
+              <label>
+                {t("Reference video", "参考视频")}
+                <input
+                  className="director-file-input"
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm,.mov"
+                  onChange={(e) => setReferenceFile(e.target.files?.[0] || null)}
+                />
+                <small>
+                  {referenceFile
+                    ? referenceFile.name
+                    : t("Upload the reference video. The finished film still uses only your footage.", "上传参考视频。成片仍然只用你的素材。")}
+                </small>
+              </label>
+            )}
           </section>
           <section className="director-card">
             <h2>{t("3. Creator & brand profile", "3. 创作者与品牌风格")}</h2>
@@ -455,7 +511,7 @@ export function StudioCreate({
               {t("Pause upload", "暂停上传")}
             </button>
           ) : (
-            <button className="primary" disabled={!file || !refs.length}>
+            <button className="primary" disabled={!file || (!refs.length && !referenceFile)}>
               {t("Analyze & build my plan", "分析并创建剪辑计划")}
             </button>
           )}
@@ -480,6 +536,173 @@ type Transfer = {
   method: Text;
   fit: Text;
 };
+type StyleReport = {
+  scores: Record<string, number>;
+  applied: string[];
+  gaps: { id: string; essential: boolean }[];
+  sections: { index: number; start: number; end: number }[];
+};
+
+function StyleMatch({
+  pid,
+  lang,
+  report,
+  status,
+  locked,
+  onDone,
+}: {
+  pid: string;
+  lang: Lang;
+  report?: StyleReport | null;
+  status?: string;
+  locked: boolean;
+  onDone: () => Promise<void>;
+}) {
+  const t = (en: string, zh: string) => translate(lang, en, zh);
+  const [section, setSection] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function run(path: string) {
+    setError("");
+    setBusy(true);
+    try {
+      await request(path, { method: "POST" });
+      await onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function appliedLine(id: string) {
+    if (id === "cuts") return t("The owned video was cut to the reference rhythm.", "已按参考节奏切开你的视频。");
+    if (id === "trimmed") return t("Unusable sections that do not cut through speech were removed.", "已去掉不切断语音的无用片段。");
+    if (id === "framing") return t("Crop, punch-in and camera moves follow the reference.", "裁切、推近和运镜跟随参考。");
+    if (id === "zoom") return t("Zoom and punch-in were applied where the reference uses them.", "参考使用了推近的地方已加上变焦。");
+    if (id === "callouts") return t("Short labels use words from your own speech.", "短标签使用你自己语音里的词。");
+    if (id === "cards") return t("Charts and number cards use figures from your script.", "图表和数字卡使用你脚本里的数字。");
+    if (id === "cutaway") return t("A cutaway uses another moment of your own footage.", "插入镜头使用你素材里的另一个片段。");
+    if (id === "emphasis") return t("Numbers and keywords from your speech are highlighted.", "你语音里的数字和关键词已突出显示。");
+    if (id === "enhance") return t("Exposure and color were lifted slightly. The reference grade was not copied.", "曝光和色彩略作提升。没有复制参考的调色。");
+    if (id === "grade") return t("Color was shifted toward the reference measurement.", "色彩已按参考测量值调整。");
+    if (id === "speed") return t("Short reference beats play with a speed change.", "参考里的短镜头用了变速。");
+    if (id === "blur") return t("Blur was applied where the reference uses it.", "参考使用模糊的地方已加上模糊。");
+    if (id === "glow") return t("A light glow was applied.", "已加上轻微发光。");
+    if (id === "shadow") return t("A vignette shadow was applied.", "已加上暗角。");
+    if (id === "split") return t("The frame was split into two panels.", "画面分成了两栏。");
+    if (id === "stabilize") return t("The shot was stabilized.", "镜头已做防抖。");
+    if (id === "cutout") return t("A flat background was separated and softened.", "纯色背景已分离并柔化。");
+    if (id === "kinetic") return t("The on-screen label moves across the frame.", "屏幕文字会在画面中移动。");
+    if (id === "track") return t("The frame follows where the detail moves.", "画面跟着细节移动。");
+    if (id === "mask") return t("The presenter sits in a soft window over a clean plate.", "主讲人位于干净底板上的柔和窗口中。");
+    if (id === "exposure") return t("Exposure was shifted toward the reference measurement.", "曝光已按参考测量值调整。");
+    if (id === "progress") return t("A progress bar follows the position in the cut.", "进度条跟着成片的位置走。");
+    if (id === "illustration") return t("A title-like reference shot is replaced by a chart of your figures, fading in and out.", "参考里的标题镜头换成了你的数字图，淡入再淡出。");
+    if (id === "lower") return t("A lower band fades in and out over the presenter.", "下沿条带在主讲人画面上淡入再淡出。");
+    if (id === "icon") return t("A small mark fades in and out on that band.", "这条带上的小标记会淡入再淡出。");
+    if (id === "still") return t("A title-like shot with no figures holds another frame of your footage, then lets it go.", "没有数字的标题镜头会定格你素材里的另一帧，然后再放开。");
+    if (id === "panel") return t("The other half of a split frame is another moment of your footage.", "分屏的另一半是你视频的另一个时刻。");
+    if (id === "transitions") return t("Cuts, fades, dissolves, wipes and circle transitions follow the reference.", "切、淡入、叠化、擦除和圆形转场跟随参考。");
+    if (id === "captions") return t("Owned speech was burned as captions.", "已烧录你自己的语音字幕。");
+    if (id === "normalize") return t("Audio level was normalized.", "已均衡音量。");
+    if (id === "no_captions") return t("No owned captions were added.", "没有添加你自己的字幕。");
+    return id;
+  }
+  function gapLine(id: string) {
+    if (id === "motion_tracking") return t("Face tracking is not available. The frame follows a moving bright area when one is measured.", "无法跟踪人脸。测到移动的亮区时，画面会跟着它。");
+    if (id === "presenter_cutout") return t("Presenter cutout is not available.", "无法抠出主讲人。");
+    if (id === "background_replacement") return t("Background replacement is not available.", "无法替换背景。");
+    if (id === "speed_ramp") return t("Speed ramps are not available.", "无法做速度渐变。");
+    if (id === "mask") return t("Masks are not available.", "无法使用蒙版。");
+    if (id === "split_screen") return t("Split screen is not available.", "无法做分屏。");
+    if (id === "color_grade") return t("Automatic color and lighting match is not available.", "无法自动匹配色彩和光线。");
+    if (id === "kinetic_type") return t("Kinetic typography is not cloned. Owned captions are used when speech exists.", "不会复制动态标题。有语音时使用你自己的字幕。");
+    if (id === "number_card") return t("A chart or number card needs the figure and its label from you. Nothing was invented.", "图表或数字卡需要你提供数字和标签。系统不会编造。");
+    if (id === "broll") return t("Extra pictures were not added. Confirm a license in the stock library on this page, or upload your own.", "没有自动添加画面。请在本页素材库确认许可，或上传你自己的素材。");
+    if (id === "captions_need_speech") return t("Captions need a speech transcript from your video.", "字幕需要你视频里的语音文本。");
+    if (id === "reference_music") return t("Reference music was not copied.", "没有复制参考视频的音乐。");
+    if (id === "blur") return t("Blur is not available.", "无法做模糊。");
+    if (id === "glow") return t("Glow is not available.", "无法做发光。");
+    if (id === "shadow") return t("Drop shadows are not available.", "无法做投影。");
+    if (id === "stabilize") return t("Stabilization is not available.", "无法做防抖。");
+    if (id === "style_match_failed") return t("The automatic cut could not be built. Regenerate video to try again.", "未能自动生成剪辑。请重新生成视频。");
+    return id;
+  }
+  if (!report) {
+    return (
+      <section className="director-card style-match">
+        <h2>{t("Automatic style match", "自动风格匹配")}</h2>
+        <p>{t("Style match starts when analysis finishes.", "分析完成后开始风格匹配。")}</p>
+      </section>
+    );
+  }
+  return (
+    <section className="director-card style-match">
+      <h2>{t("Automatic style match", "自动风格匹配")}</h2>
+      <p>
+        <strong>{report.scores.overall}/100</strong>{" "}
+        {t(
+          "Visual fidelity to the reference structure. Unsupported effects are listed and are not imitated. The cut uses your footage only.",
+          "这是与参考结构的视觉吻合度。无法实现的效果会列出，不会被模仿。成片只用你的素材。",
+        )}
+      </p>
+      {status === "approved" && <p>{t("You approved this cut.", "你已批准这个成片。")}</p>}
+      <ul>
+        <li>{t("Shot structure", "镜头结构")}: {report.scores.shot_structure}/100</li>
+        <li>{t("Visual pacing", "视觉节奏")}: {report.scores.visual_pacing}/100</li>
+        <li>{t("Effect similarity", "效果相似度")}: {report.scores.effect_similarity}/100</li>
+        <li>{t("Motion-graphic style", "动态图形风格")}: {report.scores.motion_graphic_style}/100</li>
+        <li>{t("Color treatment", "色彩处理")}: {report.scores.color_treatment}/100</li>
+        <li>{t("Production quality", "成片完成度")}: {report.scores.production_quality}/100</li>
+      </ul>
+      <ul>
+        {report.applied.map((id) => (
+          <li key={id}>{appliedLine(id)}</li>
+        ))}
+      </ul>
+      {report.gaps.map((gap) => (
+        <p key={gap.id}>
+          {gap.essential ? t("Needs your input", "需要你补充") : t("Not reproduced", "未能复现")}
+          : {gapLine(gap.id)}
+        </p>
+      ))}
+      {error && (
+        <p className="error-box" role="alert">
+          {message(error, lang)}
+        </p>
+      )}
+      <div className="trend-actions">
+        <button type="button" className="primary" disabled={busy || status === "approved"} onClick={() => void run(`/studio/projects/${pid}/style-match/approve`)}>
+          {t("Approve this cut", "批准这个成片")}
+        </button>
+        <button type="button" className="secondary" disabled={busy || locked} onClick={() => void run(`/studio/projects/${pid}/style-match/regenerate`)}>
+          {t("Regenerate video", "重新生成视频")}
+        </button>
+        {!!report.sections.length && (
+          <label>
+            {t("Section", "片段")}
+            <select aria-label={t("Style section", "风格片段")} value={section} onChange={(e) => setSection(Number(e.target.value))}>
+              {report.sections.map((item) => (
+                <option key={item.index} value={item.index}>
+                  {item.index + 1} · {item.start.toFixed(1)}–{item.end.toFixed(1)}s
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <button
+          type="button"
+          className="secondary"
+          disabled={busy || locked || !report.sections.length}
+          onClick={() => void run(`/studio/projects/${pid}/style-match/sections/${section}/regenerate`)}
+        >
+          {t("Regenerate selected section", "重新生成所选片段")}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 type State = {
   context: {
     creator: { style?:Style; topic: string; audience: string; tone: string; rules: string };
@@ -490,6 +713,9 @@ type State = {
       share_url: string;
     }[];
     platforms: string[];
+    style_match?: boolean;
+    style_report?: StyleReport | null;
+    style_match_status?: string;
   };
   dna: {
     reference_id: string;
@@ -663,6 +889,20 @@ export function DirectorProject({
       {lang === 'ru' && !manualTask && <p className="muted">{t('Generated analysis is displayed in English.','AI 分析文本以英语显示。')}</p>}
       <div className="director-layout">
         <section className="director-inspector">
+          {state?.context.style_match && (
+            <StyleMatch
+              pid={p.id}
+              lang={lang}
+              report={state.context.style_report}
+              status={state.context.style_match_status}
+              locked={working || busy}
+              onDone={async () => {
+                const next = await request("/studio/projects/" + p.id);
+                setState(next);
+                await onRefresh();
+              }}
+            />
+          )}
           {state?.plan && <div hidden={!manualTask}><ManualEditor serverRevision={state.revision} onDirtyChange={setManualDirty} hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} voiceover={<Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} embedded onFinalChange={()=>workspace?.refreshFinal()} onPreview={(url,label)=>workspace?.previewVersion(url,label)}/>} /></div>}
           {manualTask&&!state?.plan&&<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}
           <div hidden={!!manualTask}>

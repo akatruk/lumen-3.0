@@ -417,6 +417,10 @@ app.include_router(soundtracks_router)
 
 from .douyin_preview import router as douyin_preview_router
 app.include_router(douyin_preview_router)
+from .trends import router as trends_router
+app.include_router(trends_router)
+from .style_match import router as style_match_router
+app.include_router(style_match_router)
 
 static=ROOT/'frontend'/'dist'
 if static.is_dir():

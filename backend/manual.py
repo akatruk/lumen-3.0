@@ -18,6 +18,15 @@ class Cutaway(Span):
 class ExternalBroll(Cutaway):
     asset_id:str=Field(pattern=r'^[a-f0-9]{32}$')
 
+class Grade(Strict):
+    brightness: float=Field(default=0,ge=-.2,le=.2)
+    contrast: float=Field(default=1,ge=.8,le=1.4)
+    saturation: float=Field(default=1,ge=.5,le=1.8)
+    gamma: float=Field(default=1,ge=.7,le=1.4)
+    rs: float=Field(default=0,ge=-.3,le=.3)
+    gs: float=Field(default=0,ge=-.3,le=.3)
+    bs: float=Field(default=0,ge=-.3,le=.3)
+
 class Clip(Span):
     sound_effects:list[SoundEffect]=Field(default_factory=list,max_length=4)
     external_broll: ExternalBroll | None=None
@@ -37,6 +46,27 @@ class Clip(Span):
     zoom: float=Field(default=1,ge=1,le=3)
     x: float=Field(default=.5,ge=0,le=1)
     y: float=Field(default=.5,ge=0,le=1)
+    enhance: bool=False
+    speed: float=Field(default=1,ge=.5,le=2)
+    blur: float=Field(default=0,ge=0,le=12)
+    glow: bool=False
+    shadow: bool=False
+    split: bool=False
+    stabilize: bool=False
+    cutout: bool=False
+    kinetic: bool=False
+    graphic: bool=False
+    bars: list[float]=Field(default_factory=list,max_length=5)
+    lower: bool=False
+    icon: bool=False
+    still: float | None=Field(default=None,ge=0)
+    panel: float | None=Field(default=None,ge=0)
+    mask: bool=False
+    track: bool=False
+    exposure: float=Field(default=0,ge=-1,le=1)
+    progress: float=Field(default=0,ge=0,le=1)
+    plate: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
+    grade: Grade | None=None
     text: str=Field(default='',max_length=160)
 class Edit(Strict):
     music: Music | None=None

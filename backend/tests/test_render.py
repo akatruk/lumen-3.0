@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 import pytest
-from backend.media import ffmpeg,probe,render,run
+from backend.media import ass_available,ffmpeg,probe,render,run
 from backend.schemas import Analysis,Recommendation
 
 T={'en':'Synthetic fixture, not AI analysis','zh':'合成测试素材，非 AI 分析'}
@@ -9,6 +9,7 @@ def recommendation(id,action,start,end):
     return Recommendation(id=id,action=action,start=start,end=end,title=T,evidence=T,improvement=T,category='hook',confidence=1,auto_apply=True,generation_prompt='')
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'),reason='FFmpeg required')
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 def test_real_render_timeline_captions_and_audio(tmp_path):
     src=tmp_path/'source.mp4'
     ffmpeg('-f','lavfi','-i','color=red:s=320x240:d=2:r=30','-f','lavfi','-i','color=green:s=320x240:d=3:r=30',
@@ -34,6 +35,7 @@ def test_real_render_timeline_captions_and_audio(tmp_path):
     assert next_pixel[0]>180 and next_pixel[2]<60
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'),reason='FFmpeg required')
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 def test_manual_render_reorders_crops_and_burns_safe_text(tmp_path):
     import subprocess
     src=tmp_path/'source.mp4'
@@ -66,6 +68,7 @@ def test_animated_reframe_and_fade_are_real_pixels(tmp_path):
     assert abs(result['metadata']['duration']-3)<.2
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'),reason='FFmpeg required')
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 def test_bilingual_card_is_timed_and_burned(tmp_path):
  import subprocess
  src=tmp_path/'card-source.mp4'

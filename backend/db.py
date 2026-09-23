@@ -41,6 +41,8 @@ def init_db():
         init_director_revisions(db)
         from .variants import init as init_variants
         init_variants(db)
+        from .trends import init as init_trends
+        init_trends(db)
         if 'auth_method' not in db.columns('sessions'):
             db.execute("ALTER TABLE sessions ADD COLUMN auth_method TEXT NOT NULL DEFAULT 'password'")
 

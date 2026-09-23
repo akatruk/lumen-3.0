@@ -1,4 +1,5 @@
 import pytest
+from backend.media import ass_available
 from backend.visuals import VisualCard,MapPoint,write_card
 from backend.tests.test_studio import T,plan
 
@@ -7,6 +8,7 @@ def test_map_coordinates_and_card_types_are_validated():
     with pytest.raises(ValueError):VisualCard(kind='map',start=0,end=2,title=T,primary=T,source=T)
     with pytest.raises(ValueError):VisualCard(kind='number',start=0,end=2,title=T,primary=T,source=T,locations=[MapPoint(label=T,latitude=0,longitude=0)])
 
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 def test_map_reaches_real_renderer(tmp_path):
     from backend import media
     from backend.manual import Edit,Clip

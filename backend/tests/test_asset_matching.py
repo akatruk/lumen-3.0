@@ -4,6 +4,7 @@ from backend.tests.test_studio import client,create,seed_plan
 from backend.db import connect,project
 from backend import timeline_proposals as proposals
 from backend.manual import Clip,ExternalBroll
+from backend.media import ass_available
 
 @pytest.mark.parametrize("matched",[True,False])
 def test_visual_library_match_is_scoped_reviewed_and_bounded(client,monkeypatch,matched):
@@ -50,7 +51,7 @@ def test_match_rejects_unseen_ranges_and_unrelated_changes():
  result.clip.external_broll.source_start=4;result.clip.zoom=2
  with pytest.raises(ValueError,match='provider_invalid_analysis'):proposals.validate_proposal(result,snapshot,'target',10)
 
-@pytest.mark.skipif(not shutil.which('ffmpeg'),reason='FFmpeg required')
+@pytest.mark.skipif(not shutil.which('ffmpeg') or not ass_available(),reason='FFmpeg ass filter required')
 def test_candidate_reel_contains_bounded_labeled_samples(tmp_path,monkeypatch):
  from backend.config import settings
  from backend.asset_matching import build_reel,video_ranges

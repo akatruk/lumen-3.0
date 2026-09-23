@@ -25,11 +25,31 @@ def compile_timeline(edit):
                 if b>a:captions.append({'start':round(shot['start']+a-shot['source_start'],6),'end':round(shot['start']+b-shot['source_start'],6),'en':c.en or c.original,'zh':c.zh or c.original,'emphasis_en':c.emphasis_en,'emphasis_zh':c.emphasis_zh})
     return {'version':2,'duration':round(cursor,6),'tracks':{'music':[edit.music.model_dump()|{'start':0,'end':round(cursor,6),'loop':True}] if edit.music else [],'sound_effects':effects,'video':shots,'titles':titles,'inserts':inserts,'cutaways':cutaways,'captions':sorted(captions,key=lambda c:c['start']),'audio':[{'start':0,'end':round(cursor,6),'source':'original','normalize':edit.normalize}] if shots else []}}
 
+def _num(clip, key, default):
+    try: return float(clip.get(key) if clip.get(key) is not None else default)
+    except (TypeError, ValueError): return default
+
 def motion_filter(clip,width,height,length):
     z0=clip['zoom'];z1=clip.get('zoom_end') if clip.get('zoom_end') is not None else z0
     x0=clip['x'];x1=clip.get('x_end') if clip.get('x_end') is not None else x0
     y0=clip['y'];y1=clip.get('y_end') if clip.get('y_end') is not None else y0
+    pre='deshake=rx=16:ry=16:edge=0,' if clip.get('stabilize') else ''
     if (z0,x0,y0)==(z1,x1,y1):
-        return f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
-    n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1);progress=f'min(on/{n},1)'
-    return f"fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({x0}+({x1}-{x0})*{progress})':y='(ih-ih/zoom)*({y0}+({y1}-{y0})*{progress})':d=1:s={width}x{height}:fps=30,"
+        base=f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
+    else:
+        n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1);progress=f'min(on/{n},1)'
+        base=f"fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({x0}+({x1}-{x0})*{progress})':y='(ih-ih/zoom)*({y0}+({y1}-{y0})*{progress})':d=1:s={width}x{height}:fps=30,"
+    speed=_num(clip,'speed',1)
+    if abs(speed-1)>0.04: base+=f'setpts=PTS/{max(0.5,min(2,speed)):.4f},'
+    grade=clip.get('grade') or None
+    if grade:
+        base+=f"eq=contrast={_num(grade,'contrast',1):.4f}:brightness={_num(grade,'brightness',0):.4f}:saturation={_num(grade,'saturation',1):.4f}:gamma={_num(grade,'gamma',1):.4f},"
+        base+=f"colorbalance=rs={_num(grade,'rs',0):.4f}:gs={_num(grade,'gs',0):.4f}:bs={_num(grade,'bs',0):.4f},"
+    elif clip.get('enhance'):
+        # A small lift only. It does not copy a reference grade.
+        base+='eq=contrast=1.04:brightness=0.02:saturation=1.06:gamma=1.02,'
+    if _num(clip,'blur',0)>=0.4: base+=f"gblur=sigma={min(12,_num(clip,'blur',0)):.2f},"
+    if clip.get('glow'): base+='unsharp=7:7:0.8:7:7:0,'
+    if clip.get('shadow'): base+='vignette=angle=PI/5,'
+    if abs(_num(clip,'exposure',0))>0.02: base+=f"exposure={_num(clip,'exposure',0):.3f},"
+    return pre+base

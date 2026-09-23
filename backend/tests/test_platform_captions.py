@@ -1,5 +1,6 @@
 import pytest
 from backend import media
+from backend.media import ass_available
 from backend.platform_captions import caption_source,write
 from backend.tests.test_platform_titles import variant
 from backend.schemas import Caption
@@ -25,6 +26,7 @@ def test_legacy_and_missing_companion_fail_safely(tmp_path):
     with pytest.raises(ValueError):caption_source(source,{'caption_master':True,'captions_enabled':True},variant())
     assert caption_source(source,{'caption_master':True,'captions_enabled':False},variant())==source
 
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 @pytest.mark.parametrize('language',['en','zh'])
 def test_clean_companion_retains_final_audio_without_captions(tmp_path,language):
     import subprocess

@@ -1,5 +1,6 @@
 import array,subprocess
 import pytest
+from backend.media import ass_available
 from backend.manual import Clip,Edit,check
 from backend.timeline_proposals import Proposal,validate_proposal
 from backend.timeline import compile_timeline
@@ -83,6 +84,7 @@ def test_data_graphics_have_validated_values_and_bilingual_output(tmp_path,kind)
  with pytest.raises(ValueError):VisualCard.model_validate(card.model_dump()|{'items':[]})
  with pytest.raises(ValueError):VisualCard.model_validate(card.model_dump()|{'items':[{'label':T,'value':float('nan')},{'label':T,'value':1}]})
 
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 @pytest.mark.parametrize('kind',['bar_chart','ranking'])
 def test_chart_is_rendered_with_proportional_bars(tmp_path,kind):
  from backend.media import ffmpeg,probe,render

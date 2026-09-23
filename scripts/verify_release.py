@@ -32,6 +32,9 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     ssh = ['ssh', '-o', 'ConnectTimeout=15', args.host]
     remote_python = shlex.quote(args.python)
+    probe = subprocess.run(ssh + ["ffmpeg -hide_banner -filters | awk '$2==\"ass\" { found=1 } END { exit !found }'"], capture_output=True, text=True)
+    if probe.returncode != 0:
+        raise SystemExit('Remote FFmpeg is missing the ass filter (libass). The release check was not started.')
     run(['npm', '--prefix', 'frontend', 'run', 'build'], cwd=ROOT)
     run(['npm', '--prefix', 'frontend', 'run', 'test:locale'], cwd=ROOT)
     stage = run(ssh + ['mktemp -d /tmp/lumen-release-check.XXXXXX'], capture_output=True, text=True).stdout.strip()

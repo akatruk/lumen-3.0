@@ -1,7 +1,7 @@
 import subprocess
 import pytest
 from backend.schemas import Caption
-from backend.media import emphasize_caption,write_subtitles,ffmpeg
+from backend.media import ass_available,emphasize_caption,write_subtitles,ffmpeg
 
 def test_highlights_preserve_words_and_ignore_ass_injection(tmp_path):
  text=emphasize_caption('Thailand and land',['land'],'en','&H00FFFFFF')
@@ -14,6 +14,7 @@ def test_highlights_preserve_words_and_ignore_ass_injection(tmp_path):
  assert '{\\c&H00FFFF00}2026' in out.read_text()
  with pytest.raises(ValueError):Caption.model_validate(c.model_dump()|{'emphasis_en':['x']*9})
 
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 @pytest.mark.parametrize('language',['en','zh'])
 def test_emphasis_has_colored_pixels_in_real_render(tmp_path,language):
  c=Caption(start=0,end=2,original='',en='Travel 2026',zh='旅行2026',emphasis_en=['2026'],emphasis_zh=['2026'])

@@ -5,8 +5,10 @@ from backend import variants
 from backend.db import connect,update,project
 from backend.schemas import Text
 from backend import media
+from backend.media import ass_available
 REAL_PROBE=media.probe
 
+@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
 @pytest.mark.parametrize('clean_captions',[False,True])
 def test_five_platforms_render_and_download(client,tmp_path,monkeypatch,clean_captions):
     from backend.config import settings

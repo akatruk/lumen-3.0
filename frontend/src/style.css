@@ -1256,6 +1256,19 @@ dialog::backdrop {
 .page-error .error-box {
   flex: 1;
 }
+.trend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin: 18px 0 28px; }
+.trend-card { border: 1px solid var(--line); border-radius: 12px; background: white; padding: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; color: inherit; }
+button.trend-card { cursor: pointer; }
+.trend-score { font-size: 28px; line-height: 1; color: var(--pine); }
+.trend-meta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--muted); font-size: 12px; }
+.trend-actions { display: flex; gap: 10px; margin: 12px 0 18px; }
+.style-match { display: grid; gap: 8px; margin-bottom: 16px; }
+.style-match ul { margin: 0; padding-left: 18px; }
+.style-match .trend-actions { align-items: end; flex-wrap: wrap; }
+.trend-form { display: grid; gap: 10px; max-width: 640px; }
+.trend-form label, .trend-card p, .trends-page .director-note { margin: 0; }
+.trend-slots { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; }
+.trend-slots li { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 12px; }
 .project-page {
   padding: 27px 30px 40px;
   max-width: 1800px;
