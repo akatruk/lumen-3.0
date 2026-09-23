@@ -255,6 +255,15 @@ def _bars(facts):
     peak = max((item[2] for item in facts), default=0) or 1
     return [round(max(0.08, min(1, item[2] / peak)), 3) for item in facts[:5]]
 
+def _owned_fill(facts):
+    """A progress fraction only when the owned figure is a percent."""
+    for _label, figure, value in facts:
+        if '%' not in figure and 'percent' not in figure.lower():
+            continue
+        ratio = value / 100 if value > 1 else value
+        return round(max(0, min(1, ratio)), 3)
+    return None
+
 def _card(facts, length):
     from .visuals import CardText, DataItem, VisualCard
     span = min(length - 0.05, 3.0)
@@ -265,7 +274,8 @@ def _card(facts, length):
         if len(facts) >= 2:
             items = [DataItem(label=CardText(en=label, zh=label), value=value) for label, _figure, value in facts]
             animation = 'grow' if 0.6 <= span - 0.3 else 'none'
-            return VisualCard(kind='bar_chart', start=0.15, end=round(span, 3), title=CardText(en='Your figures', zh='你的数字'), primary=CardText(en='From your script', zh='来自你的脚本'), source=source, items=items, animation=animation, animation_seconds=0.6)
+            label, figure, _value = facts[0]
+            return VisualCard(kind='bar_chart', start=0.15, end=round(span, 3), title=CardText(en=label, zh=label), primary=CardText(en=figure, zh=figure), source=source, items=items, animation=animation, animation_seconds=0.6)
         label, figure, _value = facts[0]
         return VisualCard(kind='number', start=0.15, end=round(span, 3), title=CardText(en=label, zh=label), primary=CardText(en=figure, zh=figure), source=source)
     except Exception:
@@ -354,6 +364,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     if look.get('grade'):
         from .manual import Grade
         grade = Grade.model_validate(look['grade'])
+    icon = bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram)
     return Clip(
         id=ident,
         start=start,
@@ -390,8 +401,9 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         plate='1A1F1C' if fx['cutout'] else '',
         graphic=bool(picture.get('graphic') and facts and not fx['split'] and not fx['cutout']),
         bars=_bars(facts) if picture.get('graphic') and facts and not fx['split'] and not fx['cutout'] else [],
-        lower=bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram),
-        icon=bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram),
+        lower=icon,
+        icon=icon,
+        mark=(_owned_fill(facts) or 0) if icon else 0,
         panel=_panel_start(start, end, duration) if fx['split'] and not fx['cutout'] else None,
         still=(_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if picture.get('graphic') and not facts and not fx['split'] and not fx['cutout'] and screen is None and not diagram else None,
         screen=screen,
@@ -606,7 +618,8 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
     facts = _facts(script, transcript)
     look = _look(measured)
     graphic = next((i for i, (start, end) in enumerate(cuts) if end - start >= 1.2 and _has(_blob([timed[i % len(timed)] if timed else {}]), ('chart', 'number', 'statistic', 'progress'))), None)
-    clips = [_clip(timed[i % len(timed)] if timed else {}, start, end, transcript, f'style_{i}', float(duration), facts, allow_card=(i == graphic), look=look, ref_len=(timed[i % len(timed)].get('ref_len') if timed else None), progress=((i + 1) / len(cuts) if look.get('bar') else 0)) for i, (start, end) in enumerate(cuts)]
+    owned_bar = _owned_fill(facts) if look.get('bar') else None
+    clips = [_clip(timed[i % len(timed)] if timed else {}, start, end, transcript, f'style_{i}', float(duration), facts, allow_card=(i == graphic), look=look, ref_len=(timed[i % len(timed)].get('ref_len') if timed else None), progress=(owned_bar if owned_bar is not None else ((i + 1) / len(cuts) if look.get('bar') else 0))) for i, (start, end) in enumerate(cuts)]
     emphasize = _wants_captions(timed or shots)
     captions = _captions(transcript, emphasize)
     subtitles = bool(captions) and emphasize

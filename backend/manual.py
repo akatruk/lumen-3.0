@@ -62,6 +62,7 @@ class Clip(Span):
     bars: list[float]=Field(default_factory=list,max_length=5)
     lower: bool=False
     icon: bool=False
+    mark: float=Field(default=0,ge=0,le=1)
     still: float | None=Field(default=None,ge=0)
     screen: float | None=Field(default=None,ge=0)
     diagram: int=Field(default=0,ge=0,le=4)

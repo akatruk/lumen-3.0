@@ -55,6 +55,7 @@ type Clip = {
   bars?: number[];
   lower?: boolean;
   icon?: boolean;
+  mark?: number;
   still?: number | null;
   screen?: number | null;
   diagram?: number;

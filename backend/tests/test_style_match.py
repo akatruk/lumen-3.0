@@ -70,6 +70,7 @@ def test_owned_facts_become_cards_and_reference_words_stay_out():
     assert 'Highlight the price' not in blob
     card = edit['clips'][0]['card']
     assert card['kind'] == 'bar_chart'
+    assert card['title']['en'] == 'Price' and card['primary']['en'] == '120000'
     assert {item['value'] for item in card['items']} == {120000, 30000, 120}
     assert all(gap['id'] != 'number_card' for gap in report['gaps'])
     assert '120' in edit['captions'][0]['emphasis_en']
@@ -263,6 +264,33 @@ def test_a_measured_pace_changes_speed_inside_the_shot():
     edit, report = build([measured], 40, [], False)
     assert edit['clips'][0]['speed'] == 1 and edit['clips'][0]['speed_end'] == 1.45
     assert 'speed' in report['applied']
+
+def test_icon_plate_follows_the_owned_percent(tmp_path):
+    import subprocess
+    from types import SimpleNamespace
+    from backend import media
+    from backend.manual import Edit
+    source = tmp_path / 'src.mp4'
+    folder = tmp_path / 'plate'
+    folder.mkdir()
+    subprocess.check_call(['ffmpeg', '-y', '-f', 'lavfi', '-i', 'color=0x203028:s=180x240:r=30:d=1.2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(source)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    rendered = media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 1.2, 'lower': True, 'icon': True, 'mark': 0.8, 'text': ''}]).model_dump())
+    assert abs(rendered['metadata']['duration'] - 1.2) < 0.2
+
+    def luma(x):
+        proc = subprocess.run(['ffmpeg', '-v', 'info', '-ss', '0.4', '-i', str(folder / 'result.mp4'), '-vf', f'crop=8:8:{x}:210,signalstats,metadata=print', '-frames:v', '1', '-f', 'null', '-'], capture_output=True, text=True)
+        return float(next(line for line in proc.stderr.splitlines() if 'YAVG=' in line).rsplit('YAVG=', 1)[-1])
+
+    assert luma(100) > luma(168) + 40
+
+def test_owned_percent_sets_the_progress_and_the_icon_plate():
+    row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': '', 'zh': ''})
+    band, _report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Saved 40 percent', 'en': 'Saved 40 percent', 'zh': '节省'}], False, measured={'layout': {'split': False, 'bar': False, 'lower': True, 'shake': False}})
+    assert band['clips'][0]['icon'] is True and band['clips'][0]['mark'] == 0.4 and band['clips'][0]['progress'] == 0
+    bar, _report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Complete 80%', 'en': 'Complete 80%', 'zh': '完成'}], False, measured={'layout': {'split': False, 'bar': True, 'lower': False, 'shake': False}})
+    assert {clip['progress'] for clip in bar['clips']} == {0.8}
+    days, _report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa takes 120 days', 'en': 'Visa takes 120 days', 'zh': '签证'}], False, measured={'layout': {'split': False, 'bar': True, 'lower': False, 'shake': False}})
+    assert days['clips'][-1]['progress'] == 1
 
 def test_measured_layout_adds_split_progress_and_stabilization():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})

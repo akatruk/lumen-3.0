@@ -333,7 +333,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             inputs=['-ss',a,'-i',source,'-ss',clip['still'],'-t','0.12','-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('lower') and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
             span=max(b-a,0.2); fade_d=min(0.25,span/4); band=max(24,(h//6)//2*2); chip=max(12,(band//2)//2*2)
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={chip}:h={chip}:color=0xF4F1EA@0.95:t=fill,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}:format=auto{post}[v]"
+            mark=max(0,min(1,float(clip.get('mark') or 0)))
+            plate=max(chip, int((w-24)*mark)) if mark>0.02 else chip
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={plate}:h={chip}:color=0xF4F1EA@0.95:t=fill,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}:format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('split') and clip.get('panel') is not None:
             half=max(2,(w//2)//2*2)
