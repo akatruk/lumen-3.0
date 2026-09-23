@@ -338,6 +338,7 @@ export const ru: Record<string, string> = {
   "For example: open with the strongest moment, tighten the middle, use subtle push-ins and clear captions.": "Например: начать с сильнейшего момента, сократить середину, добавить плавные приближения и ясные субтитры.",
   "Full version reserves up to": "Полная версия резервирует до",
   "Full video guide": "Полное видеоруководство",
+  "Style match": "Подгонка стиля",
   "GPU processing": "Обработка на GPU",
   "Generate full Director Timeline": "Создать полный монтажный таймлайн",
   "Generate illustrative B-roll": "Создать иллюстративную перебивку",

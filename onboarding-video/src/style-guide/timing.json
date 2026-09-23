@@ -1,0 +1,426 @@
+{
+  "en": {
+    "frames": 2599,
+    "scenes": [
+      {
+        "id": "upload",
+        "fromFrame": 0,
+        "frames": 395,
+        "audio": "style-guide/en-upload.wav",
+        "title": "Two files. One switch.",
+        "lines": [
+          "Your presenter video",
+          "One reference video",
+          "Your script and rights"
+        ]
+      },
+      {
+        "id": "automatic",
+        "fromFrame": 395,
+        "frames": 414,
+        "audio": "style-guide/en-automatic.wav",
+        "title": "The cut is built for you.",
+        "lines": [
+          "Measure the reference",
+          "Edit your footage",
+          "Render starts automatically"
+        ]
+      },
+      {
+        "id": "picture",
+        "fromFrame": 809,
+        "frames": 677,
+        "audio": "style-guide/en-picture.wav",
+        "title": "Pacing, pictures, and credits.",
+        "lines": [
+          "Your words and figures",
+          "Your frame inside a border",
+          "Licensed Commons clip"
+        ]
+      },
+      {
+        "id": "buttons",
+        "fromFrame": 1486,
+        "frames": 499,
+        "audio": "style-guide/en-buttons.wav",
+        "title": "Three choices after the render.",
+        "lines": [
+          "Approve this cut",
+          "Regenerate the video",
+          "Regenerate one section"
+        ]
+      },
+      {
+        "id": "limits",
+        "fromFrame": 1985,
+        "frames": 614,
+        "audio": "style-guide/en-limits.wav",
+        "title": "What the report will ask you.",
+        "lines": [
+          "Numbers come from you",
+          "Missing stock is reported",
+          "The download stays the same"
+        ]
+      }
+    ],
+    "captions": [
+      {
+        "text": "Open Video Studio.",
+        "startMs": 200,
+        "endMs": 1305
+      },
+      {
+        "text": "Turn on Match the reference pacing.",
+        "startMs": 1305,
+        "endMs": 3452
+      },
+      {
+        "text": "Upload your presenter video, then upload one reference video.",
+        "startMs": 3452,
+        "endMs": 7196
+      },
+      {
+        "text": "Name the project, add your script, and confirm",
+        "startMs": 7196,
+        "endMs": 10019
+      },
+      {
+        "text": "you have the rights to edit your footage.",
+        "startMs": 10019,
+        "endMs": 12535
+      },
+      {
+        "text": "After analysis, Lumen measures the reference",
+        "startMs": 13367,
+        "endMs": 16103
+      },
+      {
+        "text": "and builds a timeline from your footage.",
+        "startMs": 16103,
+        "endMs": 18591
+      },
+      {
+        "text": "You do not place cuts, zooms, or graphics by hand.",
+        "startMs": 18591,
+        "endMs": 21701
+      },
+      {
+        "text": "The reference is measured only.",
+        "startMs": 21701,
+        "endMs": 23630
+      },
+      {
+        "text": "Its pictures do not enter the finished file.",
+        "startMs": 23630,
+        "endMs": 26366
+      },
+      {
+        "text": "The cut follows the reference rhythm: shot length, zooms,",
+        "startMs": 27167,
+        "endMs": 30945
+      },
+      {
+        "text": "color, captions, and charts from numbers in your script.",
+        "startMs": 30945,
+        "endMs": 34657
+      },
+      {
+        "text": "A screen-like shot holds your frame.",
+        "startMs": 34657,
+        "endMs": 37044
+      },
+      {
+        "text": "An illustration uses your words.",
+        "startMs": 37044,
+        "endMs": 39165
+      },
+      {
+        "text": "If the reference asks for B-roll, one Commons clip may be",
+        "startMs": 39165,
+        "endMs": 42944
+      },
+      {
+        "text": "added, and only with a CC BY, CC0, or public-domain license.",
+        "startMs": 42944,
+        "endMs": 46921
+      },
+      {
+        "text": "The credit stays on the asset.",
+        "startMs": 46921,
+        "endMs": 48910
+      },
+      {
+        "text": "Watch the result.",
+        "startMs": 49733,
+        "endMs": 50763
+      },
+      {
+        "text": "Choose Approve this cut when it is right.",
+        "startMs": 50763,
+        "endMs": 53248
+      },
+      {
+        "text": "Choose Regenerate video to rebuild the whole cut.",
+        "startMs": 53248,
+        "endMs": 56217
+      },
+      {
+        "text": "Choose a section, then Regenerate selected section, to rebuild only that part.",
+        "startMs": 56217,
+        "endMs": 60944
+      },
+      {
+        "text": "The manual editor stays on the page, so",
+        "startMs": 60944,
+        "endMs": 63307
+      },
+      {
+        "text": "you can still change a shot yourself.",
+        "startMs": 63307,
+        "endMs": 65549
+      },
+      {
+        "text": "If a chart needs a number, put that number in your script.",
+        "startMs": 66367,
+        "endMs": 69864
+      },
+      {
+        "text": "Nothing is invented.",
+        "startMs": 69864,
+        "endMs": 71071
+      },
+      {
+        "text": "If no Commons clip matches your words under those licenses,",
+        "startMs": 71071,
+        "endMs": 74629
+      },
+      {
+        "text": "the report says so and the video still renders.",
+        "startMs": 74629,
+        "endMs": 77463
+      },
+      {
+        "text": "Face tracking and a complex room background are not copied.",
+        "startMs": 77463,
+        "endMs": 81021
+      },
+      {
+        "text": "Download the file, reload, and download again:",
+        "startMs": 81021,
+        "endMs": 83795
+      },
+      {
+        "text": "both files are the same finished cut.",
+        "startMs": 83795,
+        "endMs": 86027
+      }
+    ]
+  },
+  "zh": {
+    "frames": 3222,
+    "scenes": [
+      {
+        "id": "upload",
+        "fromFrame": 0,
+        "frames": 470,
+        "audio": "style-guide/zh-upload.wav",
+        "title": "两个文件，一个开关",
+        "lines": [
+          "你的主讲视频",
+          "一个参考视频",
+          "你的脚本与权利"
+        ]
+      },
+      {
+        "id": "automatic",
+        "fromFrame": 470,
+        "frames": 500,
+        "audio": "style-guide/zh-automatic.wav",
+        "title": "成片会自动生成",
+        "lines": [
+          "测量参考视频",
+          "剪辑你的素材",
+          "自动开始制作"
+        ]
+      },
+      {
+        "id": "picture",
+        "fromFrame": 970,
+        "frames": 853,
+        "audio": "style-guide/zh-picture.wav",
+        "title": "节奏、画面与署名",
+        "lines": [
+          "你的词语和数字",
+          "边框里的你的画面",
+          "已授权的 Commons 片段"
+        ]
+      },
+      {
+        "id": "buttons",
+        "fromFrame": 1823,
+        "frames": 639,
+        "audio": "style-guide/zh-buttons.wav",
+        "title": "制作完成后的三个选择",
+        "lines": [
+          "批准这个成片",
+          "重新生成视频",
+          "重做其中一个片段"
+        ]
+      },
+      {
+        "id": "limits",
+        "fromFrame": 2462,
+        "frames": 760,
+        "audio": "style-guide/zh-limits.wav",
+        "title": "报告会向你询问什么",
+        "lines": [
+          "数字由你提供",
+          "缺少素材会写进报告",
+          "两次下载是同一条成片"
+        ]
+      }
+    ],
+    "captions": [
+      {
+        "text": "打开视频工作室。",
+        "startMs": 200,
+        "endMs": 2058
+      },
+      {
+        "text": "打开“按参考节奏制作”。",
+        "startMs": 2058,
+        "endMs": 4845
+      },
+      {
+        "text": "先上传你的主讲视频，再上传一个参考视频。",
+        "startMs": 4845,
+        "endMs": 9491
+      },
+      {
+        "text": "填写项目名称和脚本，并确认你有权剪辑自己的素材。",
+        "startMs": 9491,
+        "endMs": 15065
+      },
+      {
+        "text": "分析完成后，Lumen 测量参考",
+        "startMs": 15867,
+        "endMs": 19540
+      },
+      {
+        "text": "视频，并用你的素材生成时间线。",
+        "startMs": 19540,
+        "endMs": 22983
+      },
+      {
+        "text": "你不需要手动放置剪辑、变焦或图形。",
+        "startMs": 22983,
+        "endMs": 26885
+      },
+      {
+        "text": "参考视频只用于测量，它的画面不会进入成片。",
+        "startMs": 26885,
+        "endMs": 31706
+      },
+      {
+        "text": "成片跟随参考的节奏：镜头长度、变焦、",
+        "startMs": 32533,
+        "endMs": 36678
+      },
+      {
+        "text": "色彩、字幕，以及来自你脚本数字的图表。",
+        "startMs": 36678,
+        "endMs": 41052
+      },
+      {
+        "text": "像屏幕的镜头会放进你的画面。",
+        "startMs": 41052,
+        "endMs": 44275
+      },
+      {
+        "text": "插图使用你的词语。",
+        "startMs": 44275,
+        "endMs": 46347
+      },
+      {
+        "text": "如果参考需要补充镜头，可能会加入一",
+        "startMs": 46347,
+        "endMs": 50261
+      },
+      {
+        "text": "条 Commons 视频，且只能是",
+        "startMs": 50261,
+        "endMs": 54175
+      },
+      {
+        "text": " CC BY、CC0 或公有领域。",
+        "startMs": 54175,
+        "endMs": 58089
+      },
+      {
+        "text": "署名保留在素材上。",
+        "startMs": 58089,
+        "endMs": 60162
+      },
+      {
+        "text": "观看结果。",
+        "startMs": 60967,
+        "endMs": 62118
+      },
+      {
+        "text": "合适就选择“批准这个成片”。",
+        "startMs": 62118,
+        "endMs": 65341
+      },
+      {
+        "text": "选择“重新生成视频”会重做整条成片。",
+        "startMs": 65341,
+        "endMs": 69485
+      },
+      {
+        "text": "先选一个片段，再选择“重新生",
+        "startMs": 69485,
+        "endMs": 72708
+      },
+      {
+        "text": "成所选片段”，就只重做这一段。",
+        "startMs": 72708,
+        "endMs": 76162
+      },
+      {
+        "text": "手动编辑器仍留在页面上，你也可以自己修改镜头。",
+        "startMs": 76162,
+        "endMs": 81457
+      },
+      {
+        "text": "如果图表需要数字，请把数字写进脚本。",
+        "startMs": 82267,
+        "endMs": 86280
+      },
+      {
+        "text": "系统不会编造。",
+        "startMs": 86280,
+        "endMs": 87841
+      },
+      {
+        "text": "如果没有符合这些许可、又匹配你词语的 Com",
+        "startMs": 87841,
+        "endMs": 92746
+      },
+      {
+        "text": "mons 片段，报告会说明，视频仍会完成制作。",
+        "startMs": 92746,
+        "endMs": 97874
+      },
+      {
+        "text": "人脸跟踪和复杂的房间背景不会被复制。",
+        "startMs": 97874,
+        "endMs": 101888
+      },
+      {
+        "text": "下载文件，刷新后再下载：两次都是同一条成片。",
+        "startMs": 101888,
+        "endMs": 106793
+      }
+    ]
+  }
+}

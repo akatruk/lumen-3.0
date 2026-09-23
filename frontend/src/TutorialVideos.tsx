@@ -9,13 +9,13 @@ export function TutorialVideos({
   lang: Lang;
   compact?: boolean;
 }) {
-  const [mode, setMode] = useState<"guide" | "walkthrough">(
+  const [mode, setMode] = useState<"guide" | "walkthrough" | "style">(
     compact ? "guide" : "walkthrough",
   );
   const video = useRef<HTMLVideoElement>(null);
   const pendingSeek = useRef<{asset: string; time: number} | null>(null);
   const t = (en: string, zh: string) => translate(lang, en, zh);
-  const full = mode === "walkthrough";
+  const full = mode !== "guide";
   const duration = (seconds: number) => `${Math.floor(Math.round(seconds) / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`;
   const info = content[lang][mode];
   const asset = `/tutorial/lumen-${mode}-${contentLanguage(lang)}-v5`;
@@ -48,8 +48,11 @@ export function TutorialVideos({
         <button aria-pressed={!full} onClick={() => setMode("guide")}>
           {t("Product presentation", "产品介绍")} · {duration(content[contentLanguage(lang)].guide.seconds)}
         </button>
-        <button aria-pressed={full} onClick={() => setMode("walkthrough")}>
+        <button aria-pressed={mode === "walkthrough"} onClick={() => setMode("walkthrough")}>
           {t("Full video guide", "完整操作指南")} · {duration(content[contentLanguage(lang)].walkthrough.seconds)}
+        </button>
+        <button aria-pressed={mode === "style"} onClick={() => setMode("style")}>
+          {t("Style match", "风格匹配")} · {duration(content[contentLanguage(lang)].style.seconds)}
         </button>
       </div>
       <video
