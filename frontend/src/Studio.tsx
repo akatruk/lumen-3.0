@@ -541,6 +541,9 @@ type StyleReport = {
   applied: string[];
   gaps: { id: string; essential: boolean }[];
   sections: { index: number; start: number; end: number }[];
+  compared?: boolean;
+  effect_similarity_rule?: number;
+  measured_effect_similarity?: number;
 };
 
 function StyleMatch({
@@ -645,16 +648,31 @@ function StyleMatch({
       <h2>{t("Automatic style match", "自动风格匹配")}</h2>
       <p>
         <strong>{report.scores.overall}/100</strong>{" "}
-        {t(
-          "Visual fidelity to the reference structure. Unsupported effects are listed and are not imitated. The cut uses your footage only.",
-          "这是与参考结构的视觉吻合度。无法实现的效果会列出，不会被模仿。成片只用你的素材。",
-        )}
+        {report.compared === true && report.measured_effect_similarity != null
+          ? t(
+              "Effect similarity averages the rule score with the measured frames. It is not a copy of the reference. Unsupported effects are listed and are not imitated. The cut uses your footage only.",
+              "效果相似度是规则分和画面测量的平均。这不是参考视频的副本。无法实现的效果会列出，不会被模仿。成片只用你的素材。",
+            )
+          : t(
+              "These scores follow the edit rules. A score of 100 is not a picture match. Frames have not been compared yet. Unsupported effects are listed and are not imitated. The cut uses your footage only.",
+              "这些分数遵循剪辑规则。100 分不是画面核对。尚未比较画面。无法实现的效果会列出，不会被模仿。成片只用你的素材。",
+            )}
       </p>
       {status === "approved" && <p>{t("You approved this cut.", "你已批准这个成片。")}</p>}
       <ul>
         <li>{t("Shot structure", "镜头结构")}: {report.scores.shot_structure}/100</li>
         <li>{t("Visual pacing", "视觉节奏")}: {report.scores.visual_pacing}/100</li>
-        <li>{t("Effect similarity", "效果相似度")}: {report.scores.effect_similarity}/100</li>
+        {report.compared === true && report.measured_effect_similarity != null ? (
+          <li>
+            {t("Effect similarity", "效果相似度")}: {report.scores.effect_similarity}/100
+            {" · "}
+            {t("Effect rule score", "效果规则分")}: {report.effect_similarity_rule ?? report.scores.effect_similarity}/100
+            {" · "}
+            {t("Frame measurement", "画面测量")}: {report.measured_effect_similarity}/100
+          </li>
+        ) : (
+          <li>{t("Effect rule score", "效果规则分")}: {report.effect_similarity_rule ?? report.scores.effect_similarity}/100</li>
+        )}
         <li>{t("Motion-graphic style", "动态图形风格")}: {report.scores.motion_graphic_style}/100</li>
         <li>{t("Color treatment", "色彩处理")}: {report.scores.color_treatment}/100</li>
         <li>{t("Production quality", "成片完成度")}: {report.scores.production_quality}/100</li>

@@ -664,10 +664,13 @@ def test_effect_similarity_waits_until_frames_are_compared():
         'comparison_note': 'Frames have not been compared yet.',
     }, 40)
     assert stored['scores']['effect_similarity'] == 70
+    assert stored['scores']['overall'] == 95.0
     assert stored['compared'] is True
     assert stored['measured_effect_similarity'] == 40
+    assert stored['comparison_note'] == ''
     missed = blend_effect_similarity({'scores': {'effect_similarity': 40}, 'effect_similarity_rule': 40, 'compared': False}, None)
     assert missed['compared'] is False and missed['scores']['effect_similarity'] == 40
+    assert missed['comparison_note'] == 'Frames have not been compared yet.'
     assert 'measured_effect_similarity' not in missed
     row = shot(motion={'en': 'follow the subject and replace the background', 'zh': '跟踪换背景'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     tracked, tracked_report = build([row], 40, [], False)

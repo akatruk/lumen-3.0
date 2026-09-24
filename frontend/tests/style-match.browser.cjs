@@ -29,6 +29,10 @@ const report={
   x.data.studio.context.style_match_status='pending';
   await x.goto();
   await x.page.getByRole('heading',{name:'Automatic style match'}).waitFor();
+  await x.page.getByText('A score of 100 is not a picture match.').waitFor();
+  await x.page.getByText('Frames have not been compared yet.').waitFor();
+  await x.page.getByText('Effect rule score').waitFor();
+  assert.equal(await x.page.getByText('Effect similarity', {exact: true}).count(), 0);
   await x.page.getByText('Needs your input').first().waitFor();
   await x.page.getByText('Not reproduced').first().waitFor();
   await x.page.getByText('Exposure and color were lifted slightly.').waitFor();
@@ -47,6 +51,14 @@ const report={
   await x.page.getByText('One generated picture uses your words. It has no text from the reference.').waitFor();
   await x.page.getByText('A Commons clip with a CC BY, CC0, or public-domain license was inserted. Its credit stays on the asset.').waitFor();
   await x.page.getByText('The other half of a split frame is another moment of your footage.').waitFor();
+  Object.assign(report, {compared: true, effect_similarity_rule: 100, measured_effect_similarity: 40});
+  report.scores.effect_similarity = 70;
+  report.scores.overall = 95;
+  await x.goto();
+  await x.page.getByRole('heading',{name:'Automatic style match'}).waitFor();
+  await x.page.getByText('Effect similarity averages the rule score with the measured frames. It is not a copy of the reference.').waitFor();
+  await x.page.getByText('Effect similarity: 70/100').waitFor();
+  await x.page.getByText('Frame measurement: 40/100').waitFor();
   await x.button('Approve this cut').click();
   await x.button('Regenerate video').click();
   await x.page.getByRole('combobox',{name:'Style section',exact:true}).selectOption('1');

@@ -1426,6 +1426,10 @@ def attach_measurement(pid):
         context['measured'] = payload
         db.execute('UPDATE studio_projects SET dna=?,context=? WHERE project_id=?', (json.dumps(dna, ensure_ascii=False), json.dumps(context, ensure_ascii=False), pid))
 
+def _refresh_overall(scores):
+    if all(key in scores for key in SCORE_KEYS):
+        scores['overall'] = round(sum(float(scores[key]) for key in SCORE_KEYS) / len(SCORE_KEYS), 1)
+
 def blend_effect_similarity(report, frame_similarity):
     """Average the rule with a measured frame. No measurement leaves the rule uncompared."""
     scores = report.setdefault('scores', {})
@@ -1439,11 +1443,13 @@ def blend_effect_similarity(report, frame_similarity):
         report['comparison_note'] = FRAMES_NOT_COMPARED
         scores['effect_similarity'] = rule
         report.pop('measured_effect_similarity', None)
+        _refresh_overall(scores)
         return report
     scores['effect_similarity'] = round((rule + float(frame_similarity)) / 2, 1)
     report['measured_effect_similarity'] = frame_similarity
     report['compared'] = True
     report['comparison_note'] = ''
+    _refresh_overall(scores)
     return report
 
 def score_output(pid):
