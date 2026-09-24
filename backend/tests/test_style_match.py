@@ -48,7 +48,7 @@ def test_build_uses_supported_effects_and_skips_the_rest():
     assert 'SECRET REFERENCE LINE' not in blob
     assert 'Highlight the price' not in blob
     assert 'trending audio' not in blob
-    assert edit['clips'][0]['zoom'] == 1 and edit['clips'][0]['zoom_end'] is None and edit['clips'][0]['transition'] == 'fade'
+    assert edit['clips'][0]['zoom'] == 1 and edit['clips'][0]['zoom_end'] is None and edit['clips'][0]['transition'] == 'cut'
     assert edit['clips'][1]['zoom'] == 1 and edit['clips'][1]['transition'] == 'cut'
     assert abs(sum(c['end'] - c['start'] for c in edit['clips']) - 40) < 0.05
     gaps = {g['id']: g['essential'] for g in report['gaps']}
@@ -325,8 +325,19 @@ def test_detail_track_mask_and_unusable_spans_change_the_cut():
 
 def test_named_wipe_uses_the_existing_wipe_filter():
     row = shot(transition={'en': 'wipe', 'zh': '划'})
-    edit, _report = build([row], 40, [], False)
+    words, _report = build([row], 40, [], False)
+    assert words['clips'][0]['transition'] == 'cut'
+    measured = shot(transition={'en': 'cut', 'zh': '切'}, picture={'join': 'wipe', 'graphic': False, 'fade': False})
+    edit, _report = build([measured], 40, [], False)
     assert edit['clips'][0]['transition'] == 'wipe'
+    risen = shot(transition={'en': 'cut', 'zh': '切'}, picture={'join': 'wipe-up', 'graphic': False, 'fade': False})
+    bottom, bottom_report = build([risen], 40, [], False)
+    assert bottom['clips'][0]['transition'] == 'wipe-up'
+    assert 'wipe_up' not in {gap['id'] for gap in bottom_report['gaps']}
+    dropped = shot(transition={'en': 'fade', 'zh': '淡入'}, picture={'join': 'wipe-down', 'graphic': False, 'fade': False})
+    stayed, stayed_report = build([dropped], 40, [], False)
+    assert stayed['clips'][0]['transition'] == 'cut'
+    assert any(gap['id'] == 'wipe_down' and gap['essential'] is False for gap in stayed_report['gaps'])
 
 def test_measured_vertical_composition_frames_the_subject():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1.35, 'x': 0.5, 'y': 0.78, 'y_end': 0.22, 'split': False, 'graphic': False})

@@ -54,24 +54,28 @@ def _has(blob, needles):
     return any(re.search(r'(^|[^a-z])' + re.escape(needle) + r'([^a-z]|$)', blob) for needle in needles)
 
 def _transition(shot):
+    """A join comes from a measured picture. A transition sentence does not set one."""
     from .transitions import KINDS
-    blob = plain(shot.get('transition')).lower()
-    name = 'cut'
-    # The transition sentence only. Motion copy that says "zoom" is not a join.
-    for needle, kind in (('circle', 'circle'), ('wipe', 'wipe'), ('crossfade', 'crossfade'), ('dissolve', 'crossfade'), ('fade', 'fade'), ('zoom', 'zoom')):
-        if _has(blob, (needle,)):
-            name = kind
-            break
     picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
     measured = str(picture.get('join') or '').lower()
-    if name == 'cut' and measured == 'zoom' and 'zoom' in KINDS:
-        name = 'zoom'
-    elif name == 'cut' and measured in ('wipe-right', 'wiperight', 'wipe') and 'wipe' in KINDS:
-        # A right arrival is wipe-right in the picture. wipeleft is what actually reveals that side.
-        name = 'wipe'
-    if name == 'cut' and (picture.get('graphic') or picture.get('fade')):
+    # wipeleft reveals the new picture from the right. wipeup reveals it from the bottom.
+    mapped = {
+        'zoom': 'zoom',
+        'wipe': 'wipe',
+        'wipe-right': 'wipe',
+        'wiperight': 'wipe',
+        'wipe-up': 'wipe-up',
+        'wipeup': 'wipe-up',
+        'fade': 'fade',
+        'crossfade': 'crossfade',
+        'circle': 'circle',
+    }
+    kind = mapped.get(measured)
+    if kind in KINDS or kind == 'fade':
+        return kind
+    if picture.get('graphic') or picture.get('fade'):
         return 'fade'
-    return name
+    return 'cut'
 
 def _shot_type(shot):
     blob = plain(shot.get('visual_type')).lower()
@@ -868,6 +872,10 @@ def _gaps(shots, edit, source=None):
             found.append({'id': 'zoom_transition', 'essential': False})
         if join in ('wipe-right', 'wiperight') and applied not in ('wipe', 'wipe-right'):
             found.append({'id': 'wipe_right', 'essential': False})
+        if join in ('wipe-up', 'wipeup') and applied != 'wipe-up':
+            found.append({'id': 'wipe_up', 'essential': False})
+        if join in ('wipe-down', 'wipedown'):
+            found.append({'id': 'wipe_down', 'essential': False})
     screens = [c.get('screen') for c in clips if c.get('screen') is not None]
     if screens and not all(_owned_frame_is_screen(source, stamp) for stamp in screens):
         found.append({'id': 'owned_screen_frame', 'essential': False, 'note': 'owned frame, not a reference screenshot'})

@@ -416,6 +416,14 @@ def _join(path, at):
     # wipeleft is the installed xfade that shows the new picture on the right first.
     if None not in left + right and _arrived(*right) and _stayed(*left):
         return 'wipe-right'
+    band = max(16, height // 2)
+    top = [_level(path, f'crop={width}:{band}:0:0', stamp) for stamp in (before, at, after)]
+    bottom = [_level(path, f'crop={width}:{band}:0:{height - band}', stamp) for stamp in (before, at, after)]
+    # wipeup shows the new picture on the bottom first.
+    if None not in top + bottom and _arrived(*bottom) and _stayed(*top):
+        return 'wipe-up'
+    if None not in top + bottom and _arrived(*top) and _stayed(*bottom):
+        return 'wipe-down'
     crop_w, crop_h = max(16, width // 3), max(16, height // 3)
     center = [_level(path, f'crop={crop_w}:{crop_h}:{(width - crop_w) // 2}:{(height - crop_h) // 2}', stamp) for stamp in (before, at, after)]
     corner = [_level(path, 'crop=24:24:0:0', stamp) for stamp in (before, at, after)]
@@ -557,6 +565,7 @@ def picture_of(path, start, end):
         'mask': mask,
         'lower': lower,
         'fade': edge is not None and middle is not None and middle - edge >= 22,
+        'join': _join(path, float(start)),
         'vignette': shade > 0,
         'shade': shade,
         'blur': softness,
@@ -981,11 +990,6 @@ def annotate_pictures(path, shots):
         picture = shot.get('picture')
         if not isinstance(picture, dict):
             continue
-        label = shot.get('transition')
-        if isinstance(label, dict):
-            word = str(label.get('en') or '')
-            if word in ('cut', 'fade', 'crossfade', 'zoom', 'wipe', 'circle', 'wipe-right'):
-                picture['join'] = word
         try:
             motion = title_motion(path, float(shot['start']), float(shot['end']))
         except Exception:

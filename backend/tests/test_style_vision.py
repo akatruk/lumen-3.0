@@ -177,6 +177,9 @@ def test_join_names_only_reproducible_transitions(tmp_path):
     other = tmp_path / 'other.mp4'
     _video(other, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]hstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
     assert _join(other, 0.6) == 'wipe-right'
+    risen = tmp_path / 'risen.mp4'
+    _video(risen, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]vstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
+    assert _join(risen, 0.6) == 'wipe-up'
     opened = tmp_path / 'opened.mp4'
     _video(opened, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=60x80:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]overlay=60:80[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
     assert _join(opened, 0.6) == 'circle'
@@ -194,10 +197,11 @@ def test_measured_zoom_and_right_wipe_render_on_owned_clips(tmp_path, monkeypatc
     wipe = tmp_path / 'wipe-ref.mp4'
     _video(wipe, '-f', 'lavfi', '-i', 'color=red:s=160x240:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=red:s=80x240:r=30:d=0.2', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=80x240:r=30:d=0.2', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=160x240:r=30:d=0.9', '-filter_complex', '[1:v][2:v]hstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
     assert _join(wipe, 1.0) == 'wipe-right'
-    assert _transition({'transition': {'en': 'zoom', 'zh': '缩放'}}) == 'zoom'
+    assert _transition({'transition': {'en': 'zoom', 'zh': '缩放'}}) == 'cut'
     assert _transition({'transition': {'en': 'cut', 'zh': '切'}, 'motion': {'en': 'a zoom through the room', 'zh': ''}, 'reusable_method': {'en': 'zoom on the speaker', 'zh': ''}}) == 'cut'
     assert _transition({'transition': {'en': 'cut', 'zh': '切'}, 'picture': {'join': 'zoom'}}) == 'zoom'
     assert _transition({'transition': {'en': 'cut', 'zh': '切'}, 'picture': {'join': 'wipe-right'}}) == 'wipe'
+    assert _transition({'transition': {'en': 'fade', 'zh': '淡入'}, 'picture': {'join': 'wipe-up', 'fade': False, 'graphic': False}}) == 'wipe-up'
     missed = {'clips': [{'transition': 'cut'}], 'subtitles': False, 'captions': []}
     quiet = {'transition': {'en': 'cut', 'zh': ''}, 'subtitle_emphasis': {'en': '', 'zh': ''}}
     assert {gap['id']: gap['essential'] for gap in _gaps([{**quiet, 'picture': {'join': 'zoom'}}], missed)}['zoom_transition'] is False
@@ -243,6 +247,16 @@ def test_measured_zoom_and_right_wipe_render_on_owned_clips(tmp_path, monkeypatc
     rendered = ' '.join(str(part) for args in calls for part in args)
     sentinel = tmp_path / 'do-not-render.mp4'
     assert str(zoom) not in rendered and str(wipe) not in rendered and str(sentinel) not in rendered
+    calls.clear()
+    lower = tmp_path / 'owned-lower.mp4'
+    upper = tmp_path / 'owned-upper.mp4'
+    for path, color in ((lower, 'black'), (upper, '0xE8E4DC')):
+        real('-f', 'lavfi', '-i', f'color={color}:s=160x240:d=1:r=30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path)
+    apply(lower, upper, 'wipe-up', 1)
+    assert 'wipeup' in ' '.join(str(part) for args in calls for part in args)
+    band_top = rgb(upper, 0.08, 'crop=160:80:0:0,scale=8:8')
+    band_bottom = rgb(upper, 0.08, 'crop=160:80:0:160,scale=8:8')
+    assert sum(band_bottom) / len(band_bottom) > sum(band_top) / len(band_top) + 20
 
 def test_grade_follows_measured_yuv_without_copying_the_frame(tmp_path):
     dark = tmp_path / 'dark.mp4'

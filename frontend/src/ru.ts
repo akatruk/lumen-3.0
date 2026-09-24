@@ -985,6 +985,7 @@ export const ru: Record<string, string> = {
   "Why this helps": "Почему это поможет",
   "Why this reference technique fits": "Почему подходит приём из референса",
   "Wipe left": "Сдвиг влево",
+  "Wipe up": "Появление снизу",
   "Workspace": "Рабочее пространство",
   "Workspace invitation code": "Код приглашения",
   "Yellow": "Жёлтый",
