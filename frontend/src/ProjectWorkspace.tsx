@@ -36,6 +36,7 @@ type WorkspaceContextValue = {
   task: WorkspaceTask;
   setTask: (t: WorkspaceTask) => void;
   previewTarget: HTMLDivElement | null;
+  styleTarget: HTMLDivElement | null;
   scenesTarget: HTMLDivElement | null;
   actionsTarget: HTMLDivElement | null;
   deliveryTarget: HTMLDivElement | null;
@@ -85,6 +86,7 @@ export function ProjectWorkspace({
   const [previewTarget, setPreviewTarget] = useState<HTMLDivElement | null>(
       null,
     ),
+    [styleTarget, setStyleTarget] = useState<HTMLDivElement | null>(null),
     [scenesTarget, setScenesTarget] = useState<HTMLDivElement | null>(null),
     [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(null);
   const [deliveryTarget,setDeliveryTarget]=useState<HTMLDivElement|null>(null);
@@ -271,6 +273,7 @@ export function ProjectWorkspace({
         task,
         setTask,
         previewTarget,
+        styleTarget,
         scenesTarget,
         actionsTarget,
         deliveryTarget,
@@ -441,6 +444,7 @@ export function ProjectWorkspace({
                 </button>
               )}
             </div>
+            <div ref={setStyleTarget} className="ws-style-slot" />
             <div ref={setScenesTarget} className="ws-scene-slot" />
             {!p.studio && p.analysis && (
               <div className="ws-scenes">
