@@ -300,6 +300,7 @@ def test_color_moves_only_when_the_reference_was_measured():
     assert moved['grade']['brightness'] == 0.02 and moved['grade']['contrast'] == 1.05 and moved['grade']['rs'] == 0.01
     chain = motion_filter(moved, 1080, 1920, 3)
     assert 'contrast=1.0500' in chain and 'colorbalance=rs=0.0100' in chain and 'exposure=0.080' in chain
+    assert 'gamma=1.0000' in chain and 'gs=0.0000' in chain
     assert 'eq=contrast=1.04:brightness=0.02:saturation=1.06:gamma=1.02' not in chain
     assert 'grade' in graded_report['applied'] and 'exposure' in graded_report['applied'] and 'enhance' not in graded_report['applied']
     small = motion_filter(moved, 480, 848, 3)
@@ -313,6 +314,19 @@ def test_color_moves_only_when_the_reference_was_measured():
     assert 'exposure=' not in held_chain and 'contrast=1.0500' in held_chain
     quiet = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'enhance': True}, 480, 640, 2)
     assert 'eq=' not in quiet and 'exposure=' not in quiet
+    tuned = dict(grade, gamma=0.86, gs=-0.12)
+    shifted, shifted_report = build([shot()], 40, [], False, measured={'grade': tuned})
+    assert shifted['clips'][0]['enhance'] is False
+    assert shifted['clips'][0]['grade']['brightness'] == 0.02 and shifted['clips'][0]['grade']['contrast'] == 1.05 and shifted['clips'][0]['grade']['rs'] == 0.01
+    assert shifted['clips'][0]['grade']['gamma'] == 0.86 and shifted['clips'][0]['grade']['gs'] == -0.12
+    shifted_chain = motion_filter(shifted['clips'][0], 1080, 1920, 3)
+    assert 'gamma=0.8600' in shifted_chain and 'gs=-0.1200' in shifted_chain
+    assert 'enhance' not in shifted_report['applied']
+    words = shot(motion={'en': 'color grade with a green gamma shift', 'zh': '绿色伽马'}, reusable_method={'en': 'grade the green', 'zh': '调色'}, information_density={'en': 'green grade', 'zh': '绿色'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    spoken, _spoken_report = build([words], 40, [], False)
+    assert spoken['clips'][0]['grade'] is None and spoken['clips'][0]['enhance'] is False and spoken['clips'][0]['cutout'] is False
+    spoken_chain = motion_filter(spoken['clips'][0], 1080, 1920, 3)
+    assert 'gamma=' not in spoken_chain and 'gs=' not in spoken_chain
 
 def test_detail_track_mask_and_unusable_spans_change_the_cut():
     row = shot(motion={'en': 'follow the subject with a mask and slow motion', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
@@ -399,9 +413,17 @@ def test_measured_tiles_replace_the_word_count():
     edit, _report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
     assert edit['clips'][0]['diagram'] == 4 and edit['clips'][0]['text'] == 'Visa'
     assert 'SECRET' not in edit['clips'][0]['text']
-    words = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'illustration', 'zh': '插画'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    words = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'illustration diagram infographic drawing', 'zh': '插画'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     spoken, _report = build([words], 40, [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证'}], False)
-    assert spoken['clips'][0]['diagram'] == 2
+    assert spoken['clips'][0]['diagram'] == 0 and spoken['clips'][0]['text'] == ''
+    counted = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'graphic': False, 'split': False, 'screen': False, 'tiles': 3, 'illustration': True})
+    drawn, _report = build([counted], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
+    assert drawn['clips'][0]['diagram'] == 3
+    flagged = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'graphic': False, 'split': False, 'screen': False, 'illustration': True})
+    marked, _report = build([flagged], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
+    assert marked['clips'][0]['diagram'] == 2
+    single = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'graphic': False, 'split': False, 'screen': False, 'tiles': 1})
+    assert build([single], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)[0]['clips'][0]['diagram'] == 0
 
 def test_screenshot_and_illustration_use_owned_material():
     screen = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'screen': True, 'graphic': False, 'split': False})
@@ -410,8 +432,12 @@ def test_screenshot_and_illustration_use_owned_material():
     assert 'screen' in shown_report['applied']
     drawn = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'illustration', 'zh': '插画'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     edit, report = build([drawn], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
-    assert edit['clips'][0]['diagram'] >= 1 and edit['clips'][0]['text'] == 'Visa' and edit['clips'][0]['art'] == ''
-    assert 'diagram' in report['applied'] and 'SECRET' not in edit['clips'][0]['text']
+    assert edit['clips'][0]['diagram'] == 0 and edit['clips'][0]['text'] == '' and edit['clips'][0]['art'] == ''
+    assert 'diagram' not in report['applied'] and 'SECRET' not in edit['clips'][0]['text']
+    counted = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'}, picture={'zoom': 1, 'graphic': False, 'split': False, 'screen': False, 'tiles': 3})
+    owned, owned_report = build([counted], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
+    assert owned['clips'][0]['diagram'] == 3 and owned['clips'][0]['text'] == 'Visa' and owned['clips'][0]['art'] == ''
+    assert 'diagram' in owned_report['applied'] and 'SECRET' not in owned['clips'][0]['text']
 
 def test_graphic_without_figures_holds_another_owned_frame():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'zoom_end': None, 'x': 0.5, 'x_end': None, 'split': False, 'graphic': True, 'fade': False})
@@ -436,14 +462,22 @@ def test_words_alone_do_not_split_mask_or_overlay():
     assert 'lower' in lower_report['applied']
 
 def test_kinetic_caption_adds_a_second_owned_word():
-    row = shot(motion={'en': 'kinetic title', 'zh': '动效标题'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'})
+    row = shot(motion={'en': 'kinetic title overlay', 'zh': '动效标题'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'})
     spoken = [{'start': 0, 'end': 4, 'original': 'Visa paperwork', 'en': 'Visa paperwork', 'zh': '签证材料'}]
     edit, _report = build([row], 40, spoken, False)
-    assert edit['clips'][0]['kinetic'] is True
-    assert edit['clips'][0]['text'].split() == ['paperwork', 'Visa']
+    assert edit['clips'][0]['kinetic'] is False and edit['clips'][0]['text'] == ''
+    assert edit['clips'][0]['title_x'] is None and edit['clips'][0]['title_y'] is None
     assert 'SECRET' not in edit['clips'][0]['text']
-    one = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)[0]
-    assert one['clips'][0]['text'] == 'Visa'
+    measured = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'}, picture={'title': {'in': 0.2, 'out': 0.8, 'x0': 0.18, 'y0': 0.22, 'x1': 0.7, 'y1': 0.58, 'w': 0.42, 'h': 0.14}})
+    moved, _report = build([measured], 40, spoken, False)
+    assert moved['clips'][0]['kinetic'] is True
+    assert moved['clips'][0]['text'].split() == ['paperwork', 'Visa']
+    assert moved['clips'][0]['title_x'] < moved['clips'][0]['title_x_end']
+    assert moved['clips'][0]['title_y'] < moved['clips'][0]['title_y_end']
+    assert moved['clips'][0]['title_w'] == 0.42 and moved['clips'][0]['title_h'] == 0.14
+    assert 'SECRET' not in moved['clips'][0]['text']
+    one = build([measured], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)[0]
+    assert one['clips'][0]['text'] == 'Visa' and one['clips'][0]['kinetic'] is True
 
 def test_kinetic_words_follow_the_reference_rhythm(tmp_path):
     from backend import media
@@ -503,6 +537,27 @@ def test_measured_strength_replaces_the_fixed_blur_glow_and_shadow():
     assert clip['glow'] is True and clip['shadow'] is True
     assert {'blur', 'glow', 'shadow'} <= set(report['applied'])
 
+def test_words_do_not_write_slow_roll_orbit_focus_mask_or_split_ratio():
+    from backend.timeline import motion_filter
+    words = shot(motion={'en': 'slow motion roll orbit and rack focus', 'zh': '慢'}, transition={'en': 'diagonal wipe', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    named, _report = build([words], 40, [], False)
+    clip = named['clips'][0]
+    assert clip['speed'] == 1 and clip['speed_end'] is None and clip['transition'] == 'cut'
+    assert clip['roll'] == 0 and clip['roll_end'] is None and clip['orbit_x'] == 0 and clip['orbit_y'] == 0
+    assert clip['focus'] is None and clip['mask_rx'] is None and clip['split_at'] is None
+    measured = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': True, 'split_at': 0.25, 'graphic': False, 'mask': False, 'speed': 0.75, 'speed_end': 0.75, 'roll': 12, 'orbit_y': -0.2, 'focus': 'out', 'join': 'diagbr'})
+    edit, report = build([measured], 40, [], False)
+    written = edit['clips'][0]
+    assert written['speed'] == 0.75 and written['speed_end'] is None
+    assert written['roll'] == 12 and written['orbit_y'] == -0.2 and written['focus'] == 'out'
+    assert written['split'] is True and written['split_at'] == 0.25 and written['transition'] == 'diagbr'
+    assert 'speed_ramp' not in {gap['id'] for gap in report['gaps']}
+    chain = motion_filter(written, 180, 240, 2)
+    assert 'rotate=' in chain and 'setpts=PTS/0.7500' in chain
+    window = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'mask': True, 'mask_rx': 0.28, 'mask_ry': 0.4})
+    masked, _masked_report = build([window], 40, [], False)
+    assert masked['clips'][0]['mask'] is True and masked['clips'][0]['mask_rx'] == 0.28 and masked['clips'][0]['mask_ry'] == 0.4
+
 def test_a_measured_pace_changes_speed_inside_the_shot():
     words = shot(motion={'en': 'speed ramp', 'zh': '变速'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     named, named_report = build([words], 40, [], False)
@@ -512,6 +567,13 @@ def test_a_measured_pace_changes_speed_inside_the_shot():
     edit, report = build([measured], 40, [], False)
     assert edit['clips'][0]['speed'] == 1 and edit['clips'][0]['speed_end'] == 1.45
     assert 'speed' in report['applied']
+    slow = shot(motion={'en': 'slow motion', 'zh': '慢'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'speed': 0.75, 'speed_end': 0.75})
+    held_speed, held_report = build([slow], 40, [], False)
+    assert held_speed['clips'][0]['speed'] == 0.75 and held_speed['clips'][0]['speed_end'] is None
+    assert 'speed' in held_report['applied']
+    spoken = shot(motion={'en': 'slow motion', 'zh': '慢'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    words_only, _words_report = build([spoken], 40, [], False)
+    assert words_only['clips'][0]['speed'] == 1 and words_only['clips'][0]['speed_end'] is None
 
 def test_icon_plate_follows_the_owned_percent(tmp_path):
     import subprocess
@@ -638,8 +700,7 @@ def test_style_match_stays_off_until_requested(client):
 
 def test_owned_keyword_is_emphasized_at_the_reference_flash(tmp_path):
     from backend import media
-    from backend.media import ass_available, emphasize_caption, write_subtitles
-    from backend.schemas import Caption
+    from backend.media import ass_available, emphasize_caption
     from backend.style_vision import highlight_moments
     flash = tmp_path / 'flash.mp4'
     media.ffmpeg(
@@ -673,32 +734,37 @@ def test_owned_keyword_is_emphasized_at_the_reference_flash(tmp_path):
     ]
     edit, report = build([row], 2, spoken, False)
     assert report['note'] == 'owned_only'
-    assert edit['captions'][1]['emphasis_en'] == ['Visa']
-    assert edit['captions'][0]['emphasis_en'] == [] and edit['captions'][2]['emphasis_en'] == []
+    assert edit['captions'] == [] and 'emphasis' not in report['applied']
+    assert edit['clips'][0]['text'] == '' and edit['clips'][0]['kinetic'] is False
     blob = json.dumps(edit)
-    assert 'SECRET REFERENCE LINE' not in blob and 'Highlight the price' not in blob
-    assert all('SECRET' not in term and 'Highlight' not in term and 'price' not in term.lower() for cap in edit['captions'] for term in cap['emphasis_en'] + cap['emphasis_zh'])
-    tagged = emphasize_caption('Pay with Visa', edit['captions'][1]['emphasis_en'], 'en', '&H00FFFFFF')
+    assert 'SECRET REFERENCE LINE' not in blob and 'Highlight the price' not in blob and 'Visa' not in blob
+    from backend.style_match import _highlight_spans
+    spans = _highlight_spans(row, 0, 2)
+    assert spans and abs(spans[0][0] - 1.0) < 0.05
+    popped = dict(row, picture={**row['picture'], 'emphasis': {'in': fractions[0], 'out': 0.65}})
+    timed, _timed_report = build([popped], 2, spoken, False)
+    assert timed['captions'] == [] and timed['clips'][0]['text'] == '' and timed['clips'][0]['kinetic'] is False
+    tagged = emphasize_caption('Pay with Visa', ['Visa'], 'en', '&H00FFFFFF')
     assert '{\\c&H0000FFFF}Visa' in tagged and 'Highlight the price' not in tagged
-    ass = tmp_path / 'captions.ass'
-    write_subtitles(ass, [Caption.model_validate(edit['captions'][1])], [(0, 2)], 'en', 180, 240, {'color': 'white'})
-    caption_file = ass.read_text()
-    assert 'Visa' in caption_file and '{\\c' in caption_file
-    assert 'Highlight the price' not in caption_file and 'SECRET REFERENCE LINE' not in caption_file
     quiet = [{'start': 0, 'end': 2, 'original': 'to be', 'en': 'to be', 'zh': '好'}]
     empty, empty_report = build([row], 2, quiet, False)
-    assert empty['captions'][0]['emphasis_en'] == [] and empty['captions'][0]['emphasis_zh'] == []
+    assert empty['captions'] == []
+    assert empty['clips'][0]['text'] == '' and empty['clips'][0]['kinetic'] is False
     dumped = json.dumps(empty)
     assert 'Visa' not in dumped and 'Highlight the price' not in dumped and 'SECRET REFERENCE LINE' not in dumped
     assert empty_report['note'] == 'owned_only' and 'emphasis' not in empty_report['applied']
+    named = shot(motion={'en': 'keyword overlay title', 'zh': '标题'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': '', 'zh': ''})
+    words_only, _words_report = build([named], 2, spoken, False)
+    assert words_only['captions'] == [] and words_only['clips'][0]['text'] == '' and words_only['clips'][0]['kinetic'] is False
     if ass_available():
         source = tmp_path / 'owned.mp4'
         media.ffmpeg('-f', 'lavfi', '-i', 'color=0x203028:s=180x240:r=30:d=2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', source)
         folder = tmp_path / 'render'
         folder.mkdir()
         media.render(source, folder, media.probe(source), type('A', (), {'transcript': []})(), [], 'en', 'original', manual=edit)
-        burned = (folder / 'captions.ass').read_text()
-        assert 'Visa' in burned and 'Highlight the price' not in burned and 'SECRET REFERENCE LINE' not in burned
+        assert not (folder / 'captions.ass').exists()
+        burned = ''.join(path.read_text() for path in folder.glob('*.ass'))
+        assert '{\\c' not in burned and 'Highlight the price' not in burned and 'SECRET REFERENCE LINE' not in burned
 
 def test_effect_similarity_waits_until_frames_are_compared():
     edit, report = build(dna()[0]['analysis']['shots'], 40, [], False)
@@ -725,6 +791,12 @@ def test_effect_similarity_waits_until_frames_are_compared():
     assert missed['compared'] is False and missed['scores']['effect_similarity'] == 40
     assert missed['comparison_note'] == 'Frames have not been compared yet.'
     assert 'measured_effect_similarity' not in missed
+    titled = shot(motion={'en': 'kinetic title on the lower plate', 'zh': '标题'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'animated title card', 'zh': '标题'}, information_density={'en': 'title', 'zh': '标题'}, subtitle_emphasis={'en': 'kinetic', 'zh': ''}, music={'en': '', 'zh': ''}, visual_type={'en': 'title card', 'zh': '标题'})
+    _titled_edit, titled_report = build([titled], 4, [], False)
+    assert titled_report['compared'] is False
+    assert titled_report['comparison_note'] == 'Frames have not been compared yet.'
+    assert titled_report.get('measured_effect_similarity') is None
+    assert titled_report['scores']['effect_similarity'] == titled_report['effect_similarity_rule']
     row = shot(motion={'en': 'follow the subject and replace the background', 'zh': '跟踪换背景'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     tracked, tracked_report = build([row], 40, [], False)
     assert tracked['clips']
@@ -1041,7 +1113,7 @@ def test_reference_fraction_lands_on_the_owned_timeline():
     assert 'SECRET REFERENCE LINE' not in json.dumps(edit)
     rows = [{**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4} for index in range(30)]
     many, _report = build([shot(**quiet)], 40, [], False, measured={'duration': 12, 'shots': rows})
-    assert len(many['clips']) <= 24
+    assert len(many['clips']) == 30
     assert 'SECRET REFERENCE LINE' not in json.dumps(many)
 
 def test_overlay_window_is_absent_outside_the_measured_span(tmp_path, monkeypatch):
@@ -1071,9 +1143,11 @@ def test_overlay_window_is_absent_outside_the_measured_span(tmp_path, monkeypatc
     spoken = [{'start': 0.0, 'end': 0.7, 'original': 'Hello', 'en': 'Hello', 'zh': '你好'}, {'start': 0.7, 'end': 1.4, 'original': 'Pay with Visa', 'en': 'Pay with Visa', 'zh': '签证'}, {'start': 1.4, 'end': 2.0, 'original': 'Thanks', 'en': 'Thanks', 'zh': '谢谢'}]
     flash = shot(start=0, end=2, picture={'zoom': 1, 'highlights': [0.5], 'emphasis': {'in': 0.5, 'out': 0.65}}, **quiet)
     emphasized, _report = build([flash], 2, spoken, True)
-    middle = next(row for row in emphasized['captions'] if 'Visa' in row['en'])
-    assert middle['start'] == 0.7 and middle['end'] == 1.4 and middle['emphasis_en']
-    assert all(not row['emphasis_en'] for row in emphasized['captions'] if 'Visa' not in row['en'])
+    assert emphasized['captions'] == []
+    assert emphasized['clips'][0]['text'] == '' and emphasized['clips'][0]['kinetic'] is False
+    from backend.style_match import _highlight_spans
+    window = _highlight_spans(flash, 0, 2)
+    assert window and abs(window[0][0] - 1.0) < 0.05 and window[0][1] <= 1.4
     card_row = shot(start=0, end=2, picture={'zoom': 1, 'card': {'in': 0.25, 'out': 0.75}, 'graphic': False, 'split': False}, **quiet)
     carded, _report = build([card_row], 2, [], False, script='Price 40')
     card = carded['clips'][0]['card']

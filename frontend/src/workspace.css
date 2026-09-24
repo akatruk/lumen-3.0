@@ -1001,5 +1001,9 @@
 .layer-row-card .layer-lane > span { background: #c9e6ed; }
 .layer-row-progress .layer-lane > span { background: #f6d6c8; }
 .layer-row-blur .layer-lane > span { background: #d9d3ee; }
+.layer-row-glow .layer-lane > span { background: #fff4d2; }
+.layer-row-shadow .layer-lane > span { background: #d7dfd3; }
+.layer-row-speed .layer-lane > span { background: #c9d7f2; }
 .layer-row-join .layer-lane > span { background: #f3e3a8; }
+.layer-row-broll .layer-lane > span { background: #d8eeb8; }
 .layer-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: #163e32; pointer-events: none; }

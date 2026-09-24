@@ -1,5 +1,7 @@
 """Measurements taken from an uploaded reference. Reference pixels are never copied into the export."""
+import math
 import re
+import subprocess
 from . import media
 
 def _stats(path, vf, frames=8):
@@ -18,6 +20,8 @@ def _stats(path, vf, frames=8):
         'u': sum(us) / len(us) if us else 128,
         'v': sum(vs) / len(vs) if vs else 128,
         'sat': sum(sats) / len(sats) if sats else None,
+        'ylow': sum(lows) / len(lows) if lows else None,
+        'yhigh': sum(highs) / len(highs) if highs else None,
         'spread': spread,
         'ydif': sum(difs) / len(difs) if difs else None,
         'ymax': sum(peaks) / len(peaks) if peaks else None,
@@ -46,12 +50,118 @@ def _spread_edge(path, at, width, height):
         return None
     return full.get('spread') or 0, _softness(path, at, width, height)
 
+def _stamp_grid(path, at, cols=8, rows=12):
+    """Coarse luma at one stamp. The cells are discarded after the fractions are read."""
+    vf = f'trim=start={max(0, at):.3f}:duration=0.04,scale={cols}:{rows}:flags=area,format=gray'
+    try:
+        completed = subprocess.run(
+            ['ffmpeg', '-hide_banner', '-nostdin', '-v', 'error', '-threads', '2', '-i', str(path), '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
+            capture_output=True, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    need = cols * rows
+    raw = completed.stdout
+    if completed.returncode or len(raw) < need:
+        return None
+    return [list(raw[row * cols:(row + 1) * cols]) for row in range(rows)]
+
+def _box_score(left, right):
+    """How close two placement fractions are. Glyphs and source pixels are not compared."""
+    pos = math.hypot(float(left['x']) - float(right['x']), float(left['y']) - float(right['y']))
+    size = abs(float(left['w']) - float(right['w'])) + abs(float(left['h']) - float(right['h']))
+    return max(0.0, min(100.0, 100 - (pos + 0.35 * size) * 160))
+
+def _marks_score(left, right):
+    """Score marks that both sides actually have. A missing mark adds nothing."""
+    if not left or not right:
+        return None
+    left = sorted(left, key=lambda box: (box['x'], box['y']))
+    right = sorted(right, key=lambda box: (box['x'], box['y']))
+    count = min(len(left), len(right))
+    return sum(_box_score(left[index], right[index]) for index in range(count)) / count
+
+def _places_from(grid):
+    """Subject, graphics, lower plate, and a title or kinetic line. Absent parts stay unset."""
+    rows, cols = len(grid), len(grid[0])
+    flat = [cell for line in grid for cell in line]
+    floor, peak = min(flat), max(flat)
+    if peak - floor < 28:
+        return None, None
+    hot = [[cell >= 80 and cell >= floor + 36 for cell in line] for line in grid]
+    count = sum(cell for line in hot for cell in line)
+    if count == 0 or count > cols * rows * 0.8:
+        return None, None
+    masses, plates, titles = [], [], []
+    for cells in _components(hot, cols, rows):
+        if not cells or len(cells) > cols * rows * 0.8:
+            continue
+        box = _span(cells, cols, rows)
+        plate = box['y'] >= 0.72 and box['w'] >= 0.7 and box['h'] <= 0.28
+        if plate:
+            plates.append(box)
+        elif _thin(cells) and box['w'] <= 0.85:
+            titles.append(box)
+        elif box['w'] <= 0.92 or box['h'] <= 0.92:
+            masses.append(box)
+    layout = {}
+    if masses:
+        masses.sort(key=lambda box: box['w'] * box['h'], reverse=True)
+        layout['subject'] = masses[0]
+        if len(masses) > 1:
+            layout['graphics'] = masses[1:]
+    if plates:
+        plates.sort(key=lambda box: box['w'] * box['h'], reverse=True)
+        layout['lower'] = plates[0]
+    return (layout or None), (titles or None)
+
+def _stamp_places(path, at):
+    """Layout and type fractions at one stamp. Unreadable frames contribute nothing."""
+    try:
+        grid = _stamp_grid(path, at)
+    except Exception:
+        return None, None
+    if not grid:
+        return None, None
+    try:
+        return _places_from(grid)
+    except Exception:
+        return None, None
+
+def _layout_term(left, right):
+    """Placement of the subject, graphics, and lower plate. A missing layout adds nothing."""
+    if not left or not right:
+        return None
+    boxes = []
+    other = []
+    for source, found in ((left, boxes), (right, other)):
+        if source.get('subject'):
+            found.append(source['subject'])
+        if source.get('lower'):
+            found.append(source['lower'])
+        found.extend(source.get('graphics') or [])
+    return _marks_score(boxes, other)
+
+def _blend_measured(contrast, layout, typed):
+    """Contrast and edge stay in the blend. Layout and type join only when both frames have them."""
+    parts = [sum(contrast) / len(contrast)]
+    if layout:
+        parts.append(sum(layout) / len(layout))
+    if typed:
+        parts.append(sum(typed) / len(typed))
+    return round(sum(parts) / len(parts), 1)
+
 def frame_similarity(reference, output):
-    """Average contrast and edge strength across the rendered picture, not one early frame."""
+    """Contrast, edge, layout, and type at 20%, 45%, 70%, and 90% of the picture.
+
+    Layout is where the subject, graphics, and lower plate sit. Type is the title
+    box or the kinetic line, as placement and size, not glyphs. A missing layout
+    or a frame with no type is left out. None when no frame can be read.
+    """
     ref_meta, out_meta = media.probe(reference), media.probe(output)
     ref_w, ref_h = int(ref_meta['width']), int(ref_meta['height'])
     out_w, out_h = int(out_meta['width']), int(out_meta['height'])
-    scores = []
+    contrast, layout, typed = [], [], []
     for ref_at, out_at in zip(_picture_stamps(ref_meta['duration']), _picture_stamps(out_meta['duration'])):
         ref = _spread_edge(reference, ref_at, ref_w, ref_h)
         out = _spread_edge(output, out_at, out_w, out_h)
@@ -60,10 +170,18 @@ def frame_similarity(reference, output):
         spread_gap = abs(ref[0] - out[0])
         soft_gap = abs(ref[1] - out[1])
         score = 100 - min(50, spread_gap / 3) - min(50, soft_gap * 10)
-        scores.append(max(0, min(100, score)))
-    if not scores:
+        contrast.append(max(0, min(100, score)))
+        ref_layout, ref_type = _stamp_places(reference, ref_at)
+        out_layout, out_type = _stamp_places(output, out_at)
+        placed = _layout_term(ref_layout, out_layout)
+        if placed is not None:
+            layout.append(placed)
+        letters = _marks_score(ref_type, out_type)
+        if letters is not None:
+            typed.append(letters)
+    if not contrast:
         return None
-    return round(sum(scores) / len(scores), 1)
+    return _blend_measured(contrast, layout, typed)
 
 def flat_background(path):
     meta = media.probe(path)
@@ -134,6 +252,24 @@ def scene_shots(path, duration):
 def _clamp(value, low, high):
     return max(low, min(high, value))
 
+def _mid_gamma(sample):
+    """Where average luma sits between the low and high bands. A flat frame stays at 1."""
+    low, high = sample.get('ylow'), sample.get('yhigh')
+    if low is None or high is None:
+        return 1.0
+    span = float(high) - float(low)
+    if span < 16:
+        return 1.0
+    mid = (float(sample.get('y') or 0) - float(low)) / span
+    # 0.5 is a neutral ramp. ffmpeg gamma above 1 lifts the midtones.
+    return _clamp(1 + (mid - 0.5) * 1.6, 0.8, 1.4)
+
+def _green_shift(reference, owned):
+    """colorbalance gs from U and V. Near 128 stays 0. Positive adds green."""
+    def cast(sample):
+        return ((128 - float(sample.get('u') or 128)) + (128 - float(sample.get('v') or 128))) / 2
+    return _clamp((cast(reference) - cast(owned)) / 128, -0.2, 0.2)
+
 def grade_between(reference, owned):
     """Move owned color toward the reference with the existing grade sliders."""
     if not reference or not owned:
@@ -146,13 +282,20 @@ def grade_between(reference, owned):
     contrast = 1.0
     if own_spread and ref_spread and own_spread >= 8 and ref_spread >= 8:
         contrast = _clamp(ref_spread / own_spread, 0.8, 1.4)
+    own_gamma, ref_gamma = _mid_gamma(owned), _mid_gamma(reference)
+    gamma = _clamp(ref_gamma / own_gamma, 0.8, 1.4)
+    if abs(gamma - 1) < 0.02:
+        gamma = 1.0
+    gs = _green_shift(reference, owned)
+    if abs(gs) < 0.02:
+        gs = 0.0
     return {
         'brightness': round(_clamp((reference['y'] - owned['y']) / 255, -0.2, 0.2), 4),
         'contrast': round(contrast, 4),
         'saturation': round(saturation, 4),
-        'gamma': 1.0,
+        'gamma': round(gamma, 4),
         'rs': round(_clamp((reference['v'] - owned['v']) / 128, -0.3, 0.3), 4),
-        'gs': 0.0,
+        'gs': round(gs, 4),
         'bs': round(_clamp((reference['u'] - owned['u']) / 128, -0.3, 0.3), 4),
     }
 
@@ -510,6 +653,15 @@ def _join(path, at):
         return 'zoom'
     if None not in center + corner and _arrived(*center) and _stayed(*corner):
         return 'circle'
+    # diagtl travels toward the top left, so the new picture is already in the opposite corner.
+    side = 28
+    def corner_levels(x, y):
+        return [_level(path, f'crop={side}:{side}:{x}:{y}', stamp) for stamp in (before, at, after)]
+    tl, tr = corner_levels(0, 0), corner_levels(max(0, width - side), 0)
+    bl, br = corner_levels(0, max(0, height - side)), corner_levels(max(0, width - side), max(0, height - side))
+    for arrived, stayed, kind in ((br, tl, 'diagtl'), (bl, tr, 'diagtr'), (tr, bl, 'diagbl'), (tl, br, 'diagbr')):
+        if None not in arrived + stayed and _arrived(*arrived) and _stayed(*stayed):
+            return kind
     gap = abs(old - new)
     if gap >= 18 and abs(now - (old + new) / 2) <= gap * 0.35:
         return 'crossfade'
@@ -641,6 +793,18 @@ def picture_of(path, start, end):
     length = float(meta.get('duration') or 0) or float(end - start) or 1.0
     fraction = round(max(0.0, min(1.0, screen_at / length)), 3) if screen else None
     mask = _window(path, stamp, width, height)
+    radii = None
+    if mask:
+        try:
+            radii = _ellipse(path, stamp, width, height)
+        except Exception:
+            radii = None
+    split_at = None
+    if not mask and abs(left - right) >= 28:
+        try:
+            split_at = _split_at(path, stamp, width, height)
+        except Exception:
+            split_at = None
     lower = False if mask else _lower_strip(path, stamp, width, height)
     hold = 0.0
     release = 1.0
@@ -674,9 +838,12 @@ def picture_of(path, start, end):
         'x_end': x_end if abs(x_end - x) >= 0.2 else None,
         'y': y,
         'y_end': y_end if abs(y_end - y) >= 0.2 else None,
-        'split': (not mask) and abs(left - right) >= 28 and abs(mid - (left + right) / 2) <= 14,
+        'split': split_at is not None,
+        'split_at': split_at,
         'graphic': graphic,
         'mask': mask,
+        'mask_rx': None if not radii else radii[0],
+        'mask_ry': None if not radii else radii[1],
         'lower': lower,
         'fade': edge is not None and middle is not None and middle - edge >= 22,
         'join': _join(path, float(start)),
@@ -896,7 +1063,7 @@ def _bloom(path, at, width, height):
     return round(min(1.4, max(0.4, (ring - corner) / 50)), 2)
 
 def pace_of(path, start, end):
-    """Name a speed change only when the two halves of a shot move differently."""
+    """Name a ramp when the halves differ, or 0.75 when both halves hold the same slow motion."""
     span = end - start
     if span < 0.8:
         return None
@@ -910,51 +1077,222 @@ def pace_of(path, start, end):
         return 1.0, 1.45
     if opening >= closing + 3 and opening >= max(1, closing) * 1.4:
         return 1.45, 0.8
+    # A freeze and ordinary motion stay at 1. Slowed action sits between those.
+    if 8 <= opening <= 24 and 8 <= closing <= 24 and abs(opening - closing) < 6:
+        return 0.75, 0.75
     return None
 
+def _peak_column(path, at, width, top, band, cols=4):
+    col_w = max(12, width // cols)
+    scores = []
+    for index in range(cols):
+        left = min(width - col_w, index * col_w)
+        level = _level(path, f'crop={col_w}:{band}:{left}:{top}', at)
+        scores.append(0 if level is None else level)
+    if max(scores) - min(scores) < 22:
+        return None
+    peak = max(range(cols), key=lambda index: scores[index])
+    return (peak + 0.5) / cols
+
+def roll_of(path, start, end):
+    """Degrees of tilt for a bright column. A level column stays unset."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 90 or height < 90 or span < 0.5:
+        return None
+    band = max(16, height // 6)
+    top_y = min(height - band, max(0, int(height * 0.08)))
+    bot_y = max(0, height - band - int(height * 0.08))
+    rise = max(1.0, (bot_y + band / 2) - (top_y + band / 2))
+
+    def tilt(frac):
+        at = float(start) + span * frac
+        top = _peak_column(path, at, width, top_y, band)
+        bottom = _peak_column(path, at, width, bot_y, band)
+        if top is None or bottom is None:
+            return None
+        return math.degrees(math.atan2((bottom - top) * width, rise))
+
+    early, late = tilt(0.25), tilt(0.75)
+    if early is None and late is None:
+        return None
+    if early is None:
+        early = late
+    if late is None:
+        late = early
+    early, late = max(-18, min(18, early)), max(-18, min(18, late))
+    if abs(early) < 6 and abs(late) < 6:
+        return None
+    found = {'roll': round(early, 1)}
+    if abs(late - early) >= 8:
+        found['roll_end'] = round(late, 1)
+    return found
+
+def orbit_of(path, start, end):
+    """A bow off the straight line from the opening to the close. A pan stays linear."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 90 or height < 90 or span < 0.6:
+        return None
+    points = []
+    for frac in (0.15, 0.5, 0.85):
+        _zoom, x, y = _subject(_grid(path, float(start) + span * frac, width, height))
+        points.append((x, y))
+    (x0, y0), (xm, ym), (x1, y1) = points
+    bow_x, bow_y = xm - (x0 + x1) / 2, ym - (y0 + y1) / 2
+    if abs(bow_x) < 0.12 and abs(bow_y) < 0.12:
+        return None
+    return {
+        'orbit_x': round(max(-0.35, min(0.35, bow_x)), 2),
+        'orbit_y': round(max(-0.35, min(0.35, bow_y)), 2),
+    }
+
+def _region(path, at, crop):
+    sample = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.08,{crop},signalstats,metadata=print:file=-', frames=1)
+    if not sample or sample.get('spread') is None:
+        return None
+    return sample['y'], sample['spread']
+
+def focus_of(path, start, end):
+    """in when a flat subject arrives in the center, out when that subject softens and a corner sharpens."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 90 or height < 90 or span < 0.8:
+        return None
+    cw, ch = max(24, width // 3), max(24, height // 3)
+    center = f'crop={cw}:{ch}:{(width - cw) // 2}:{(height - ch) // 2}'
+    corner = 'crop=40:40:4:4'
+
+    def pair(frac):
+        at = float(start) + span * frac
+        return _region(path, at, center), _region(path, at, corner)
+
+    early, late = pair(0.2), pair(0.8)
+    if early[0] is None or early[1] is None or late[0] is None or late[1] is None:
+        return None
+    (early_y, early_spread), (early_corner_y, early_corner_spread) = early
+    (late_y, late_spread), (late_corner_y, late_corner_spread) = late
+    # A flat bright patch that turns into a gradient has lost focus. A pan that goes dark does not.
+    if early_y >= early_corner_y + 40 and early_spread <= 12 and late_spread >= early_spread + 18 and late_corner_y >= early_corner_y + 40 and late_corner_spread <= 16:
+        return 'out'
+    if late_y >= late_corner_y + 40 and late_spread <= 12 and early_spread >= late_spread + 18 and early_corner_y >= late_corner_y + 40 and early_corner_spread <= 16:
+        return 'in'
+    return None
+
+def _ellipse(path, at, width, height):
+    """Semi-axes of a bright window, as fractions of the frame."""
+    if width < 80 or height < 80:
+        return None
+    corner = _level(path, 'crop=16:16:0:0', at)
+    if corner is None:
+        return None
+
+    def span(count, along):
+        bright = []
+        for index in range(count):
+            if along == 'x':
+                cell = max(8, width // count)
+                left = min(width - cell, index * (width // count))
+                crop = f'crop={cell}:12:{left}:{(height - 12) // 2}'
+            else:
+                cell = max(8, height // count)
+                top = min(height - cell, index * (height // count))
+                crop = f'crop=12:{cell}:{(width - 12) // 2}:{top}'
+            level = _level(path, crop, at)
+            bright.append(level is not None and level >= corner + 28)
+        if bright.count(True) < 2:
+            return None
+        first = bright.index(True)
+        last = count - 1 - bright[::-1].index(True)
+        return (last - first + 1) / count / 2
+
+    rx, ry = span(8, 'x'), span(8, 'y')
+    if rx is None or ry is None:
+        return None
+    return round(max(0.18, min(0.48, rx)), 2), round(max(0.18, min(0.48, ry)), 2)
+
+def _split_at(path, at, width, height):
+    """Fraction where a flat left side meets a flat right side."""
+    if width < 80 or height < 80:
+        return None
+    cols = 8
+    col_w = max(8, width // cols)
+    scores = []
+    for index in range(cols):
+        left = min(width - col_w, index * (width // cols))
+        level = _level(path, f'crop={col_w}:{height}:{left}:0', at)
+        scores.append(0 if level is None else level)
+    jumps = [abs(scores[index + 1] - scores[index]) for index in range(cols - 1)]
+    if not jumps or max(jumps) < 28:
+        return None
+    index = jumps.index(max(jumps))
+    if index < 1 or index > cols - 3:
+        return None
+    boundary = index + 1
+    left_body = scores[:boundary][:-1] or scores[:boundary]
+    right_body = scores[boundary:][1:] or scores[boundary:]
+    if max(left_body) - min(left_body) > 22 or max(right_body) - min(right_body) > 22:
+        return None
+    if abs(sum(left_body) / len(left_body) - sum(right_body) / len(right_body)) < 28:
+        return None
+    return round(boundary / cols, 2)
+
 def title_motion(path, start, end):
-    """When a bright upper-band mark appears, slides, and leaves. Positions are fractions, not pixels."""
+    """When a bright mark appears, slides, and leaves. X and y are frame fractions, not pixels."""
     meta = media.probe(path)
     width, height = int(meta['width']), int(meta['height'])
     span = float(end) - float(start)
     if width < 80 or height < 80 or span < 0.6:
         return None
-    cols = 4
+    cols = rows = 4
     col_w = max(16, width // cols)
-    band_h = max(16, height // 5)
-    band_y = min(height - band_h, max(0, int(height * 0.08)))
+    row_h = max(16, height // rows)
     stamps = (0.12, 0.32, 0.52, 0.72, 0.9)
     grid = []
     for frac in stamps:
         at = float(start) + span * frac
-        scores = []
+        down = []
+        for index in range(rows):
+            top = min(height - row_h, index * (height // rows))
+            level = _level(path, f'crop={width}:{row_h}:0:{top}', at)
+            down.append(0 if level is None else level)
+        peak_row = max(range(rows), key=lambda index: down[index])
+        band_top = min(height - row_h, peak_row * (height // rows))
+        across = []
         for index in range(cols):
-            left = min(width - col_w, index * col_w)
-            level = _level(path, f'crop={col_w}:{band_h}:{left}:{band_y}', at)
-            scores.append(0 if level is None else level)
-        grid.append(scores)
-    present = [index for index, scores in enumerate(grid) if max(scores) - min(scores) >= 22 and max(scores) >= 36]
+            left = min(width - col_w, index * (width // cols))
+            level = _level(path, f'crop={col_w}:{row_h}:{left}:{band_top}', at)
+            across.append(0 if level is None else level)
+        grid.append((across, down))
+
+    def lively(scores):
+        return max(scores) - min(scores) >= 22 and max(scores) >= 36
+
+    present = [index for index, (across, down) in enumerate(grid) if lively(across) or lively(down)]
     if not present:
         return None
     first, last = present[0], present[-1]
 
-    def center(scores):
-        peak = max(range(cols), key=lambda index: scores[index])
-        return round(min(0.92, max(0.08, (peak + 0.5) / cols)), 2)
+    def center(scores, count):
+        peak = max(range(count), key=lambda index: scores[index])
+        return round(min(0.92, max(0.08, (peak + 0.5) / count)), 2)
 
-    x0, x1 = center(grid[first]), center(grid[last])
-    y = round(min(0.85, max(0.08, (band_y + band_h / 2) / height)), 2)
+    x0, x1 = center(grid[first][0], cols), center(grid[last][0], cols)
+    y0, y1 = center(grid[first][1], rows), center(grid[last][1], rows)
     entered, left = first > 0, last < len(grid) - 1
-    if not (entered or left or abs(x1 - x0) >= 0.15):
+    if not (entered or left or abs(x1 - x0) >= 0.15 or abs(y1 - y0) >= 0.15):
         return None
-    found = {'in': round(stamps[first], 2), 'out': round(max(stamps[first] + 0.12, stamps[last]), 2), 'x0': x0, 'y0': y, 'x1': x1, 'y1': y}
+    found = {'in': round(stamps[first], 2), 'out': round(max(stamps[first] + 0.12, stamps[last]), 2), 'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1}
     try:
         sample = present[len(present) // 2]
         spans = _group_spans(path, float(start) + span * stamps[sample], width, height)
     except Exception:
         spans = []
     if spans:
-        mark = min(spans, key=lambda item: (abs(float(item['y']) - y), abs(float(item['x']) - x0)))
+        mark = min(spans, key=lambda item: (abs(float(item['y']) - y0), abs(float(item['x']) - x0)))
         if mark.get('w') and mark.get('h'):
             found['w'], found['h'] = mark['w'], mark['h']
     return found
@@ -1324,80 +1662,122 @@ def callout_at(path, start, end):
         return 0.0
     return float(window['in'])
 
+SHOT_CAP = 40
+
+def _later_window(shot):
+    """The later shot's own range after a join. The joined clip still ends at that shot."""
+    window = shot.get('picture_at') if isinstance(shot, dict) else None
+    if isinstance(window, (list, tuple)) and len(window) >= 2:
+        try:
+            start, end = float(window[0]), float(window[1])
+        except (TypeError, ValueError):
+            start = end = None
+        else:
+            if end > start:
+                return start, end
+    return float(shot['start']), float(shot['end'])
+
 def kept_shots(shots):
-    """Shots the edit keeps. The shortest adjacent pair joins until at most 24 remain."""
+    """Shots the edit keeps. Past 40, the shortest pair joins and the later picture stays."""
     merged = [dict(shot) for shot in shots or []]
-    while len(merged) > 24:
+    while len(merged) > SHOT_CAP:
         lengths = [max(0.28, float(shot['end']) - float(shot['start'])) for shot in merged]
         index = min(range(len(lengths) - 1), key=lambda n: lengths[n] + lengths[n + 1])
         nxt = merged[index + 1]
         kept = {**merged[index], 'end': nxt['end']}
         if nxt.get('shot_out') is not None:
             kept['shot_out'] = nxt['shot_out']
+        if isinstance(nxt.get('picture'), dict):
+            kept['picture'] = nxt['picture']
+        window = nxt.get('picture_at')
+        if not (isinstance(window, (list, tuple)) and len(window) >= 2):
+            window = (float(nxt['start']), float(nxt['end']))
+        kept['picture_at'] = (float(window[0]), float(window[1]))
         merged[index] = kept
         del merged[index + 1]
     return merged
 
 def annotate_pictures(path, shots):
-    """Measure every shot the edit keeps. A longer scene list is joined down to 24 first."""
+    """Measure every shot the edit keeps. A longer scene list joins down to 40 first."""
     rows = list(shots or [])
-    if len(rows) > 24:
+    if len(rows) > SHOT_CAP:
         rows = kept_shots(rows)
         if isinstance(shots, list):
             shots[:] = rows
     for shot in rows:
+        start, end = _later_window(shot)
         try:
-            shot['picture'] = picture_of(path, float(shot['start']), float(shot['end']))
+            shot['picture'] = picture_of(path, start, end)
         except Exception:
             shot['picture'] = None
         picture = shot.get('picture')
         if not isinstance(picture, dict):
             continue
         try:
-            marks = support_of(path, float(shot['start']), float(shot['end']), picture)
+            marks = support_of(path, start, end, picture)
         except Exception:
             marks = None
         if isinstance(marks, dict):
             picture.update(marks)
         try:
-            span = join_span(path, float(shot['start'])) if str(picture.get('join') or 'cut') not in ('', 'cut') else None
+            span = join_span(path, start) if str(picture.get('join') or 'cut') not in ('', 'cut') else None
         except Exception:
             span = None
         if span:
             picture['join_seconds'] = span
         try:
-            pace = pace_of(path, float(shot['start']), float(shot['end']))
+            pace = pace_of(path, start, end)
         except Exception:
             pace = None
         if pace:
             picture['speed'], picture['speed_end'] = pace
         try:
-            motion = title_motion(path, float(shot['start']), float(shot['end']))
+            tilt = roll_of(path, start, end)
+        except Exception:
+            tilt = None
+        if isinstance(tilt, dict):
+            picture['roll'] = tilt['roll']
+            if tilt.get('roll_end') is not None:
+                picture['roll_end'] = tilt['roll_end']
+        try:
+            bow = orbit_of(path, start, end)
+        except Exception:
+            bow = None
+        if isinstance(bow, dict):
+            picture['orbit_x'], picture['orbit_y'] = bow['orbit_x'], bow['orbit_y']
+        try:
+            pull = focus_of(path, start, end)
+        except Exception:
+            pull = None
+        if pull in ('in', 'out'):
+            picture['focus'] = pull
+        try:
+            motion = title_motion(path, start, end)
         except Exception:
             motion = None
         if motion:
             picture['title'] = motion
         try:
-            pops = highlight_moments(path, float(shot['start']), float(shot['end']))
+            pops = highlight_moments(path, start, end)
         except Exception:
             pops = []
         if pops:
             picture['highlights'] = pops
             picture['emphasis'] = {'in': pops[0], 'out': round(min(1.0, float(pops[-1]) + 0.15), 2)}
         try:
-            moment = card_moment(path, float(shot['start']), float(shot['end']))
+            moment = card_moment(path, start, end)
         except Exception:
             moment = None
         if moment:
             picture['card'] = moment
         try:
-            appearances = kinetic_appearances(path, float(shot['start']), float(shot['end']))
+            appearances = kinetic_appearances(path, start, end)
         except Exception:
             appearances = []
         if appearances:
             picture['kinetic_at'] = appearances
         try:
-            window = callout_window(path, float(shot['start']), float(shot['end']))
+            window = callout_window(path, start, end)
         except Exception:
             window = None
         if isinstance(window, dict):
@@ -1407,7 +1787,7 @@ def annotate_pictures(path, shots):
         else:
             picture['callout'] = 0.0
         try:
-            places = graphic_places(path, float(shot['start']), float(shot['end']))
+            places = graphic_places(path, start, end)
         except Exception:
             places = None
         if isinstance(places, dict):

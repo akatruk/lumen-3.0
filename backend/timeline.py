@@ -53,14 +53,30 @@ def motion_filter(clip,width,height,length):
     z0=clip['zoom'];z1=clip.get('zoom_end') if clip.get('zoom_end') is not None else z0
     x0=clip['x'];x1=clip.get('x_end') if clip.get('x_end') is not None else x0
     y0=clip['y'];y1=clip.get('y_end') if clip.get('y_end') is not None else y0
+    ox=max(-0.35, min(0.35, _num(clip, 'orbit_x', 0)))
+    oy=max(-0.35, min(0.35, _num(clip, 'orbit_y', 0)))
+    bowing=abs(ox)>=0.08 or abs(oy)>=0.08
     rx=max(4, min(64, int(clip.get('shake_rx') or 16))) if clip.get('stabilize') else 0
     pre=f'deshake=rx={rx}:ry={rx}:edge=0,' if rx else ''
-    if (z0,x0,y0)==(z1,x1,y1):
+    if (z0,x0,y0)==(z1,x1,y1) and not bowing:
         base=f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
     else:
         n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1);progress=f'min(on/{n},1)'
         # zoompan resamples with bilinear. A 2x lanczos source keeps a punch-in from softening a small frame.
-        base=f"scale=iw*2:ih*2:flags=lanczos,fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({x0}+({x1}-{x0})*{progress})':y='(ih-ih/zoom)*({y0}+({y1}-{y0})*{progress})':d=1:s={width}x{height}:fps=30,"
+        arc=f'4*{progress}*(1-{progress})'
+        xfrac=f'min(1\\,max(0\\,{x0}+({x1}-{x0})*{progress}+{ox:.4f}*({arc})))' if bowing else f'{x0}+({x1}-{x0})*{progress}'
+        yfrac=f'min(1\\,max(0\\,{y0}+({y1}-{y0})*{progress}+{oy:.4f}*({arc})))' if bowing else f'{y0}+({y1}-{y0})*{progress}'
+        base=f"scale=iw*2:ih*2:flags=lanczos,fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({xfrac})':y='(ih-ih/zoom)*({yfrac})':d=1:s={width}x{height}:fps=30,"
+    roll0=_num(clip,'roll',0)
+    roll1=clip.get('roll_end')
+    roll1=roll0 if roll1 is None else _num(clip,'roll_end',roll0)
+    if abs(roll0)>=4 or abs(roll1)>=4:
+        a0, a1 = roll0*3.14159265/180, roll1*3.14159265/180
+        if abs(a1-a0)<0.05:
+            base+=f"rotate={a0:.5f}:ow=iw:oh=ih:fillcolor=0x101614,"
+        else:
+            span=max(0.08, float(length))
+            base+=f"rotate='{a0:.5f}+({a1-a0:.5f})*min(t/{span:.3f}\\,1)':ow=iw:oh=ih:fillcolor=0x101614,"
     speed,end,_average=playback(clip,length)
     if abs(end-speed)>0.04: base+=_ramp(speed,end,length)
     elif abs(speed-1)>0.04: base+=f'setpts=PTS/{speed:.4f},'

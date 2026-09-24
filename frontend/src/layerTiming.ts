@@ -1,7 +1,7 @@
 /** Clip-relative windows already stored on a clip. This does not measure or round a new exit. */
 
 export type LayerWindow = { start: number; end: number };
-export type LayerId = "shot" | "blur" | "join" | "callout" | "card" | "progress";
+export type LayerId = "shot" | "blur" | "glow" | "shadow" | "speed" | "join" | "broll" | "callout" | "card" | "progress";
 export type ClipLayer = { id: LayerId; windows: LayerWindow[] };
 
 export type TimedClip = {
@@ -16,6 +16,14 @@ export type TimedClip = {
   effect_at?: number;
   effect_end?: number;
   blur?: number;
+  glow?: boolean;
+  glow_amount?: number;
+  shadow?: boolean;
+  shade?: number;
+  speed?: number | null;
+  speed_end?: number | null;
+  external_broll?: { start: number; end: number } | null;
+  cutaway?: { start: number; end: number } | null;
   transition?: string;
   transition_seconds?: number | null;
   progress?: number;
@@ -94,18 +102,75 @@ export function progressBar(clip: TimedClip): LayerWindow | null {
   return { start: opened, end: exitAt(finite(clip.progress_end) ?? 1, span, opened) };
 }
 
-/** Blur starts with the measured hold and stays to the clip end. The filter has no exit. */
-export function blurBar(clip: TimedClip): LayerWindow | null {
+/** A measured hold through the clip end. These filters enable from effect_at and have no exit. */
+function holdThroughEnd(clip: TimedClip): LayerWindow | null {
   const span = clipSpan(clip);
-  const amount = finite(clip.blur);
-  if (!span || amount === null || amount < 0.4) return null;
+  if (!span) return null;
   const at = finite(clip.effect_at) ?? 0;
   const opened = at >= 0.2 ? Math.max(0, Math.min(0.98, at)) * span : 0;
   if (opened >= span) return null;
   return { start: opened, end: span };
 }
 
-const JOINS = new Set(["crossfade", "zoom", "wipe", "wipe-up", "wipe-down", "circle"]);
+/** Blur starts with the measured hold and stays to the clip end. The filter has no exit. */
+export function blurBar(clip: TimedClip): LayerWindow | null {
+  const amount = finite(clip.blur);
+  if (amount === null || amount < 0.4) return null;
+  return holdThroughEnd(clip);
+}
+
+function amountOn(flag: boolean | undefined, amount: number | null, floor: number): boolean {
+  return flag === true || (amount !== null && amount >= floor);
+}
+
+/** Glow uses the same hold as the unsharp gate. Off means no row. */
+export function glowBar(clip: TimedClip): LayerWindow | null {
+  if (!amountOn(clip.glow, finite(clip.glow_amount), 0.2)) return null;
+  return holdThroughEnd(clip);
+}
+
+/** Shadow uses the same hold as the vignette gate. Off means no row. */
+export function shadowBar(clip: TimedClip): LayerWindow | null {
+  if (!amountOn(clip.shadow, finite(clip.shade), 0.2)) return null;
+  return holdThroughEnd(clip);
+}
+
+/** Insert start and end are clip-relative seconds, the same clock as a card window. */
+function insertInside(insert: { start: number; end: number } | null | undefined, span: number): LayerWindow | null {
+  if (!insert) return null;
+  const start = finite(insert.start);
+  const end = finite(insert.end);
+  if (start === null || end === null || start < 0 || end > span || end <= start) return null;
+  return { start, end };
+}
+
+export function brollBar(clip: TimedClip): LayerWindow | null {
+  const span = clipSpan(clip);
+  if (!span) return null;
+  return insertInside(clip.external_broll, span) || insertInside(clip.cutaway, span);
+}
+
+/** A hold other than 1×, or a ramp, spans the clip. Speed 1 with no end has no row. */
+export function speedBar(clip: TimedClip): LayerWindow | null {
+  const span = clipSpan(clip);
+  const speed = finite(clip.speed);
+  if (!span || speed === null) return null;
+  const closing = finite(clip.speed_end);
+  const ramp = closing !== null && Math.abs(closing - speed) > 0.08;
+  const hold = Math.abs(speed - 1) > 0.04 && (closing === null || Math.abs(closing - speed) <= 0.08);
+  if (!ramp && !hold) return null;
+  return { start: 0, end: span };
+}
+
+export function speedText(clip: TimedClip): string {
+  const speed = finite(clip.speed) ?? 1;
+  const closing = finite(clip.speed_end);
+  const mark = (value: number) => `${Number(value.toFixed(2))}×`;
+  if (closing !== null && Math.abs(closing - speed) > 0.08) return `${mark(speed)}–${mark(closing)}`;
+  return mark(speed);
+}
+
+const JOINS = new Set(["crossfade", "zoom", "wipe", "wipe-up", "wipe-down", "circle", "diagtl", "diagtr", "diagbl", "diagbr"]);
 
 /** Incoming half of a measured join, or both ends of a fade through black. A cut has no row. */
 export function joinBars(clip: TimedClip): LayerWindow[] {
@@ -135,8 +200,16 @@ export function clipLayers(clip: TimedClip): ClipLayer[] {
   const layers: ClipLayer[] = [{ id: "shot", windows: [{ start: 0, end: span }] }];
   const blur = blurBar(clip);
   if (blur) layers.push({ id: "blur", windows: [blur] });
+  const glow = glowBar(clip);
+  if (glow) layers.push({ id: "glow", windows: [glow] });
+  const shadow = shadowBar(clip);
+  if (shadow) layers.push({ id: "shadow", windows: [shadow] });
+  const speed = speedBar(clip);
+  if (speed) layers.push({ id: "speed", windows: [speed] });
   const join = joinBars(clip);
   if (join.length) layers.push({ id: "join", windows: join });
+  const broll = brollBar(clip);
+  if (broll) layers.push({ id: "broll", windows: [broll] });
   const callout = calloutBars(clip);
   if (callout.length) layers.push({ id: "callout", windows: callout });
   const card = cardBar(clip);

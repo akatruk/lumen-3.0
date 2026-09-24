@@ -8,7 +8,8 @@ only the picture blends.
 # ffmpeg wipeleft reveals the incoming picture from the right. wiperight reveals it
 # from the left, so a right-arrival uses wipe rather than a second filter name.
 # wipeup shows the new picture on the bottom first. wipedown shows it on the top first.
-KINDS={'crossfade':'fade','zoom':'zoomin','wipe':'wipeleft','wipe-up':'wipeup','wipe-down':'wipedown','circle':'circleopen'}
+# diagtl travels toward the top left: the new picture arrives at the opposite corner.
+KINDS={'crossfade':'fade','zoom':'zoomin','wipe':'wipeleft','wipe-up':'wipeup','wipe-down':'wipedown','circle':'circleopen','diagtl':'diagtl','diagtr':'diagtr','diagbl':'diagbl','diagbr':'diagbr'}
 
 def apply(previous,current,kind,duration,blend=None):
     from .media import ffmpeg,probe

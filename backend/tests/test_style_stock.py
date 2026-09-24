@@ -220,6 +220,7 @@ def test_still_search_failure_does_not_fail_the_cut(monkeypatch):
     assert 'style_match_failed' not in {gap['id'] for gap in report['gaps']}
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'), reason='FFmpeg required')
+@pytest.mark.skipif(not media.ass_available(), reason='FFmpeg ass filter required')
 def test_render_inputs_are_the_owned_source_and_the_licensed_still(monkeypatch, tmp_path):
     from backend.schemas import Analysis
     reference = tmp_path / 'SECRET-reference.mp4'

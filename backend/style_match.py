@@ -72,6 +72,10 @@ def _transition(shot):
         'wipeup': 'wipe-up',
         'wipe-down': 'wipe-down',
         'wipedown': 'wipe-down',
+        'diagtl': 'diagtl',
+        'diagtr': 'diagtr',
+        'diagbl': 'diagbl',
+        'diagbr': 'diagbr',
         'fade': 'fade',
         'crossfade': 'crossfade',
         'circle': 'circle',
@@ -318,11 +322,6 @@ def _caption_at(captions, moment):
             return cap
     return None
 
-def _owned_terms(text):
-    if not text:
-        return []
-    return [word for word in _keywords(text) if word in text][:3]
-
 def _highlight_spans(shot, start, end):
     """Map a measured highlight onto the owned clip. A stored start gets an exit so it does not cover the shot."""
     picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
@@ -345,24 +344,8 @@ def _highlight_spans(shot, start, end):
     return spans
 
 def _emphasize_owned_hits(captions, shots, cuts):
-    """Emphasize an owned keyword already in the caption that overlaps the measured window. Speech times stay put."""
-    saw = False
-    for index, (start, end) in enumerate(cuts):
-        shot = shots[index % len(shots)] if shots else {}
-        spans = _highlight_spans(shot, start, end)
-        if not spans:
-            continue
-        saw = True
-        for cap in captions:
-            if not any(cap.end > left + 1e-3 and cap.start < right - 1e-3 for left, right in spans):
-                continue
-            en = _owned_terms(cap.en or cap.original)
-            zh = _owned_terms(cap.zh)
-            if en and not cap.emphasis_en:
-                cap.emphasis_en = en
-            if zh and not cap.emphasis_zh:
-                cap.emphasis_zh = zh
-    return saw
+    """A bright pop stays a measured time mark. It does not write keyword emphasis or callout text."""
+    return False
 
 def _bars(facts):
     peak = max((item[2] for item in facts), default=0) or 1
@@ -602,7 +585,7 @@ def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=Fal
         'cutout': bool(flat or chroma) and _has(blob, ('cutout', 'cut out', 'green screen')),
         'mask': bool((shot.get('picture') or {}).get('mask')),
         'speed': 1.35 if ref_len < 0.55 else 1.0,
-        'kinetic': _has(blob, ('kinetic', 'animated title', 'title card')),
+        'kinetic': isinstance(picture.get('title'), dict) or bool(_kinetic_fractions(picture)),
     }
 
 def _screen_fraction(picture):
@@ -678,6 +661,55 @@ def _measured_groups(picture):
         found.append({'x': round(x, 2), 'y': round(y, 2), 'w': width, 'h': height})
     return found
 
+def _camera(picture, fx):
+    """Roll, orbit, focus, mask radii, and the split ratio. Words do not set them."""
+    picture = picture if isinstance(picture, dict) else {}
+
+    def num(key, lo, hi):
+        try:
+            value = float(picture.get(key))
+        except (TypeError, ValueError):
+            return None
+        if value != value:
+            return None
+        return max(lo, min(hi, value))
+
+    roll = num('roll', -18, 18) or 0.0
+    roll_end = num('roll_end', -18, 18)
+    if abs(roll) < 4 and (roll_end is None or abs(roll_end) < 4):
+        roll, roll_end = 0.0, None
+    elif roll_end is not None and abs(roll_end - roll) < 4:
+        roll_end = None
+    orbit_x = num('orbit_x', -0.35, 0.35) or 0.0
+    orbit_y = num('orbit_y', -0.35, 0.35) or 0.0
+    if abs(orbit_x) < 0.08:
+        orbit_x = 0.0
+    if abs(orbit_y) < 0.08:
+        orbit_y = 0.0
+    focus = picture.get('focus') if picture.get('focus') in ('in', 'out') else None
+    masked = bool(fx.get('mask') and not fx.get('cutout') and not fx.get('split'))
+    mask_rx = num('mask_rx', 0.18, 0.48) if masked else None
+    mask_ry = num('mask_ry', 0.18, 0.48) if masked else None
+    split_at = num('split_at', 0.2, 0.8) if fx.get('split') else None
+    return roll, roll_end, orbit_x, orbit_y, focus, mask_rx, mask_ry, split_at
+
+def _tile_count(picture, open_shot, screen):
+    """Illustration tiles from a counted frame or illustration measured on the picture. Words add none."""
+    if not open_shot or screen is not None:
+        return 0
+    picture = picture if isinstance(picture, dict) else {}
+    if picture.get('graphic') or picture.get('mask') or picture.get('screen'):
+        return 0
+    try:
+        tiles = int(picture.get('tiles') or 0)
+    except (TypeError, ValueError):
+        tiles = 0
+    if tiles >= 2:
+        return min(4, tiles)
+    if picture.get('illustration'):
+        return 2
+    return 0
+
 def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look=None, ref_len=None, progress=0, progress_play=False, script=''):
     look = look or {}
     frame = _frame(shot or {})
@@ -690,24 +722,31 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     words = _keywords(spoken)
     blob = _blob([shot or {}])
     picture = shot.get('picture') or {}
-    callout = bool(words) and (_wants_captions([shot or {}]) or _has(blob, ('title', 'overlay', 'callout', 'keyword', 'kinetic', 'icon')) or look.get('lower') or look.get('bar') or picture.get('lower'))
+    callout = bool(words) and (_wants_captions([shot or {}]) or _has(blob, ('callout', 'icon')) or look.get('lower') or look.get('bar') or picture.get('lower'))
     moment = _moment(picture)
     card = _card(facts, end - start) if (allow_card and _has(blob, ('chart', 'number', 'statistic', 'progress'))) or picture.get('graphic') or moment else None
     fx = _effects(shot, end - start if ref_len is None else ref_len, look.get('flat'), chroma=bool(look.get('chroma')), look_split=bool(look.get('split')), look_shake=bool(look.get('shake')))
     slot = end - start if ref_len is None else ref_len
     opening, closing = picture.get('speed'), picture.get('speed_end')
-    if slot >= 0.55 and opening is not None and closing is not None and abs(float(opening) - float(closing)) > 0.08:
-        speed, speed_end = max(0.5, min(2, float(opening))), max(0.5, min(2, float(closing)))
+    try:
+        opening_f = float(opening) if opening is not None else None
+        closing_f = float(closing) if closing is not None else None
+    except (TypeError, ValueError):
+        opening_f = closing_f = None
+    if slot >= 0.55 and opening_f is not None and closing_f is not None and (abs(opening_f - closing_f) > 0.08 or abs(opening_f - 1) > 0.04):
+        speed, speed_end = max(0.5, min(2, opening_f)), max(0.5, min(2, closing_f))
+        if abs(speed - speed_end) <= 0.08:
+            speed_end = None
     else:
         speed, speed_end = fx['speed'], None
+    roll, roll_end, orbit_x, orbit_y, focus, mask_rx, mask_ry, split_at = _camera(picture, fx)
     open_shot = not fx['split'] and not fx['cutout'] and not (picture.get('graphic') and facts)
     wants_screen = open_shot and (bool(picture.get('screen')) or _has(blob, ('screenshot', 'screen recording', 'screen capture')))
     fraction = _screen_fraction(picture) if wants_screen else None
     if wants_screen and fraction is None:
         fraction = 0.5
     screen = _owned_screen_time(fraction, start, end, duration) if fraction is not None else None
-    tiles = int(picture.get('tiles') or 0)
-    diagram = (tiles if 1 <= tiles <= 4 else max(1, min(4, len(words) or 3))) if open_shot and screen is None and _has(blob, ('illustration', 'diagram', 'infographic', 'drawing')) else 0
+    diagram = _tile_count(picture, open_shot, screen)
     text = (words[0][:40] if callout else '')
     if diagram and words and not text:
         text = words[0][:40]
@@ -755,21 +794,22 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     raw_exposure = look.get('exposure')
     # A missing measurement is not a light shift, and a measured 0 stays 0. Never invent 0.18.
     exposure = 0.0 if raw_exposure is None else float(raw_exposure)
-    icon = bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram)
+    room = not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram
     try:
         chip_at = float(picture.get('callout') or 0)
     except (TypeError, ValueError):
         chip_at = 0.0
-    chip_room = title_x is None and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram
-    placed = 0.2 <= chip_at <= 0.98 and bool(owned) and chip_room
-    if placed:
-        icon = True
-        if not text:
-            text = owned[0][:40]
+    # A measured plate or a measured chip owns the lower third. A title on the same frame does not remove it. Words do not.
+    measured_plate = bool(look.get('lower') or picture.get('lower'))
+    measured_chip = room and 0.2 <= chip_at <= 0.98
+    lower_on = bool(room and measured_plate) or measured_chip
+    icon = bool(lower_on and owned)
+    placed = bool(measured_chip and owned)
+    if placed and not text:
+        text = owned[0][:40]
         if not text.startswith(('● ', '▮ ')):
             text = ('● ' + text)[:160]
-    elif chip_at >= 0.2 and not owned:
-        icon = False
+    elif measured_chip and not owned:
         text = ''
     radius = int(look.get('shake_rx') or 0)
     shake_rx = max(4, min(64, radius)) if fx['stabilize'] and radius else 16 if fx['stabilize'] else 0
@@ -887,16 +927,22 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         enhance=False,
         speed=speed,
         speed_end=speed_end,
+        roll=roll,
+        roll_end=roll_end,
+        orbit_x=orbit_x,
+        orbit_y=orbit_y,
+        focus=focus,
         blur=fx['blur'],
         glow=fx['glow'],
         glow_amount=fx['glow_amount'],
         shadow=fx['shadow'],
         shade=fx['shade'],
         split=fx['split'],
+        split_at=split_at,
         stabilize=fx['stabilize'],
         shake_rx=shake_rx,
         cutout=fx['cutout'],
-        kinetic=bool(text) and (title_x is not None or fx['kinetic'] or bool(hits)),
+        kinetic=bool(text) and (title_x is not None or bool(hits)),
         title_in=0 if title_in is None else title_in,
         title_out=1 if title_out is None else title_out,
         title_x=title_x,
@@ -907,6 +953,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         title_h=title_h,
         kinetic_at=hits,
         mask=bool(fx['mask'] and not fx['cutout'] and not fx['split']),
+        mask_rx=mask_rx,
+        mask_ry=mask_ry,
         track=False,
         exposure=exposure,
         key_side=key_side,
@@ -925,7 +973,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         chart_y=chart_y,
         chart_w=chart_w,
         chart_h=chart_h,
-        lower=icon,
+        lower=lower_on,
         icon=icon,
         lower_x=lower_x,
         lower_y=lower_y,
@@ -1711,7 +1759,12 @@ def _refresh_overall(scores):
         scores['overall'] = round(sum(float(scores[key]) for key in SCORE_KEYS) / len(SCORE_KEYS), 1)
 
 def blend_effect_similarity(report, frame_similarity):
-    """Average the rule with the measured frames. No measurement leaves the rule uncompared."""
+    """Average the rule with the measured frames. No measurement leaves the rule uncompared.
+
+    The measured number already blends contrast and edge with layout and type when
+    the frames show those parts. A missing part is not in that number, and words
+    never supply it.
+    """
     scores = report.setdefault('scores', {})
     rule = report.get('effect_similarity_rule')
     if rule is None:

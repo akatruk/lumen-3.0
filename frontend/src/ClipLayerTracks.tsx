@@ -1,6 +1,6 @@
 import { translate, contentLanguage } from "./locale";
 import type { Lang } from "./types";
-import { clipLayers, clipSpan, formatSeconds, type TimedClip } from "./layerTiming";
+import { clipLayers, clipSpan, formatSeconds, speedText, type TimedClip } from "./layerTiming";
 
 type CardCopy = { en: string; zh: string };
 type LayerClip = TimedClip & {
@@ -36,22 +36,24 @@ export function ClipLayerTracks({
     card: t("Data cards", "数据卡片"),
     progress: t("Progress bar", "进度条"),
     blur: t("Blur", "模糊"),
+    glow: t("Glow", "发光"),
+    shadow: t("Shadow", "阴影"),
+    speed: t("Speed", "速度"),
+    broll: t("B-roll", "补充画面"),
     join:
-      clip.transition === "crossfade"
-        ? t("Cross dissolve", "叠化")
-        : clip.transition === "zoom"
-          ? t("Zoom transition", "缩放转场")
-          : clip.transition === "wipe"
-            ? t("Wipe left", "向左擦除")
-            : clip.transition === "wipe-up"
-              ? t("Wipe up", "从下方出现")
-              : clip.transition === "wipe-down"
-                ? t("Wipe down", "从上方出现")
-                : clip.transition === "circle"
-                  ? t("Circle mask", "圆形遮罩")
-                  : clip.transition === "fade"
-                    ? t("Fade through black", "淡入淡出至黑场")
-                    : t("Transition", "转场"),
+      {
+        crossfade: t("Cross dissolve", "叠化"),
+        zoom: t("Zoom transition", "缩放转场"),
+        wipe: t("Wipe left", "向左擦除"),
+        "wipe-up": t("Wipe up", "从下方出现"),
+        "wipe-down": t("Wipe down", "从上方出现"),
+        circle: t("Circle mask", "圆形遮罩"),
+        fade: t("Fade through black", "淡入淡出至黑场"),
+        diagtl: t("Wipe from the top left", "从左上角擦除"),
+        diagtr: t("Wipe from the top right", "从右上角擦除"),
+        diagbl: t("Wipe from the bottom left", "从左下角擦除"),
+        diagbr: t("Wipe from the bottom right", "从右下角擦除"),
+      }[clip.transition || ""] || t("Transition", "转场"),
   };
   const spoken = contentLanguage(lang);
   const head = playhead != null && playhead >= 0 && playhead <= span ? (playhead / span) * 100 : null;
@@ -79,7 +81,9 @@ export function ClipLayerTracks({
                   ? clip.text
                   : layer.id === "card"
                     ? clip.card?.primary?.[spoken] || clip.card?.title?.[spoken] || ""
-                    : names[layer.id]}
+                    : layer.id === "speed"
+                      ? speedText(clip)
+                      : names[layer.id]}
               </span>
             ))}
             {head != null && <i className="layer-playhead" style={{ left: `${head}%` }} />}

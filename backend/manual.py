@@ -41,7 +41,7 @@ class Clip(Span):
     x_end: float | None=Field(default=None,ge=0,le=1)
     y_end: float | None=Field(default=None,ge=0,le=1)
     audio_fade_ms: int=Field(default=0,ge=0,le=100)
-    transition: Literal['cut','fade','crossfade','zoom','wipe','wipe-up','wipe-down','circle']='cut'
+    transition: Literal['cut','fade','crossfade','zoom','wipe','wipe-up','wipe-down','circle','diagtl','diagtr','diagbl','diagbr']='cut'
     transition_seconds: float | None=Field(default=None,ge=.8,le=2.4)
 
     zoom: float=Field(default=1,ge=1,le=3)
@@ -50,12 +50,18 @@ class Clip(Span):
     enhance: bool=False
     speed: float=Field(default=1,ge=.5,le=2)
     speed_end: float | None=Field(default=None,ge=.5,le=2)
+    roll: float=Field(default=0,ge=-18,le=18)
+    roll_end: float | None=Field(default=None,ge=-18,le=18)
+    orbit_x: float=Field(default=0,ge=-.4,le=.4)
+    orbit_y: float=Field(default=0,ge=-.4,le=.4)
+    focus: Literal['in','out'] | None=None
     blur: float=Field(default=0,ge=0,le=12)
     glow: bool=False
     glow_amount: float=Field(default=0,ge=0,le=1.5)
     shadow: bool=False
     shade: float=Field(default=0,ge=0,le=1.35)
     split: bool=False
+    split_at: float | None=Field(default=None,ge=.2,le=.8)
     stabilize: bool=False
     shake_rx: int=Field(default=16,ge=0,le=64)
     cutout: bool=False
@@ -92,6 +98,8 @@ class Clip(Span):
     stock_still: str=Field(default='',pattern=r'^$|^[a-f0-9]{32}$')
     panel: float | None=Field(default=None,ge=0)
     mask: bool=False
+    mask_rx: float | None=Field(default=None,ge=.16,le=.48)
+    mask_ry: float | None=Field(default=None,ge=.16,le=.48)
     track: bool=False
     exposure: float=Field(default=0,ge=-1,le=1)
     key_side: Literal['left','right','top'] | None=None

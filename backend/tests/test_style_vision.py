@@ -4,7 +4,7 @@ from backend import media
 from backend.manual import Edit
 from backend.style_match import build
 from backend.style_pictures import measured_still
-from backend.style_vision import _join, annotate_pictures, black_spans, chroma_plate, color_sample, flat_background, frame_similarity, freeze_spans, grade_between, graphic_places, highlight_window, join_span, kept_shots, light_between, lights_of, measure, pace_of, picture_of, reference_layout, support_of, title_motion, visual_track
+from backend.style_vision import _join, annotate_pictures, black_spans, chroma_plate, color_sample, flat_background, focus_of, frame_similarity, freeze_spans, grade_between, graphic_places, highlight_window, join_span, kept_shots, light_between, lights_of, measure, orbit_of, pace_of, picture_of, reference_layout, roll_of, support_of, title_motion, visual_track
 from backend.timeline import motion_filter
 from backend.media import write_kinetic
 
@@ -306,11 +306,62 @@ def test_grade_follows_measured_yuv_without_copying_the_frame(tmp_path):
     matched = grade_between(owned, owned)
     assert lifted['brightness'] == 0.2
     assert light_between(lit, owned) > 0.5
-    assert grade_between(tinted, owned)['rs'] > lifted['rs']
-    assert grade_between(tinted, owned)['saturation'] > 1
+    tinted_grade = grade_between(tinted, owned)
+    assert tinted_grade['rs'] > lifted['rs']
+    assert tinted_grade['saturation'] > 1
+    assert tinted_grade['gamma'] == 1 and tinted_grade['gs'] < 0
     assert matched['brightness'] == 0 and matched['contrast'] == 1 and matched['saturation'] == 1 and matched['rs'] == 0
+    assert matched['gamma'] == 1 and matched['gs'] == 0
+    assert lifted['gamma'] == 1 and lifted['gs'] == 0
     assert light_between(owned, owned) == 0
     assert set(lifted) == {'brightness', 'contrast', 'saturation', 'gamma', 'rs', 'gs', 'bs'}
+
+def test_gamma_and_green_shift_follow_one_frame(tmp_path):
+    flat = tmp_path / 'flat.mp4'
+    green = tmp_path / 'green.mp4'
+    crushed = tmp_path / 'crushed.mp4'
+    lifted_mid = tmp_path / 'lifted-mid.mp4'
+    gray = tmp_path / 'mid-gray.mp4'
+    _video(flat, '-f', 'lavfi', '-i', 'color=0x202020:s=160x160:r=30:d=1')
+    _video(green, '-f', 'lavfi', '-i', 'color=0x003010:s=160x160:r=30:d=1')
+    _video(crushed, '-f', 'lavfi', '-i', 'nullsrc=s=160x160:r=30:d=1,geq=lum=pow(X/W\\,2)*255:cb=128:cr=128')
+    _video(lifted_mid, '-f', 'lavfi', '-i', 'nullsrc=s=160x160:r=30:d=1,geq=lum=pow(X/W\\,0.45)*255:cb=128:cr=128')
+    _video(gray, '-f', 'lavfi', '-i', 'color=0x606060:s=160x160:r=30:d=1')
+    neutral = color_sample(flat)
+    matched = grade_between(neutral, neutral)
+    assert matched['gamma'] == 1 and matched['gs'] == 0
+    cast = grade_between(color_sample(green), neutral)
+    assert 0 < cast['gs'] <= 0.2 and cast['gamma'] == 1
+    dark_mid = grade_between(color_sample(crushed), neutral)
+    assert 0.8 <= dark_mid['gamma'] < 1
+    bright_mid = grade_between(color_sample(lifted_mid), neutral)
+    assert 1 < bright_mid['gamma'] <= 1.4
+    chain = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'grade': cast}, 1080, 1920, 1)
+    assert f"gs={cast['gs']:.4f}" in chain and 'eq=' in chain
+    tone = {'brightness': 0, 'contrast': 1, 'saturation': 1, 'gamma': dark_mid['gamma'], 'rs': 0, 'gs': 0, 'bs': 0}
+    assert f"gamma={dark_mid['gamma']:.4f}" in motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'grade': tone}, 1080, 1920, 1)
+
+    def level(path, vf):
+        proc = media.ffmpeg('-ss', '0.2', '-i', path, '-vf', vf, '-frames:v', '1', '-f', 'null', '-')
+        return float(re.search(r'YAVG=([\d.]+)', proc[0] + '\n' + proc[1]).group(1))
+
+    def green_of(path):
+        return level(path, 'format=gbrp,extractplanes=g,signalstats,metadata=print')
+
+    def render(source, name, grade):
+        folder = tmp_path / name
+        folder.mkdir()
+        media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 0.4, 'grade': grade}]).model_dump())
+        return folder / 'result.mp4'
+
+    quiet = render(flat, 'neutral', matched)
+    moved = render(flat, 'cast', cast)
+    without = render(flat, 'no-gs', {**cast, 'gs': 0})
+    assert abs(green_of(quiet) - green_of(flat)) < 3
+    assert abs(green_of(moved) - green_of(without)) > 8
+    darker = render(gray, 'gamma', tone)
+    plain = render(gray, 'gamma-one', {**tone, 'gamma': 1})
+    assert level(darker, 'signalstats,metadata=print') < level(plain, 'signalstats,metadata=print') - 4
 
 def test_key_fill_and_rim_come_from_the_frame(tmp_path):
     flat = tmp_path / 'flat-light.mp4'
@@ -360,6 +411,28 @@ def test_pace_ramps_only_when_the_shot_changes_speed(tmp_path):
     held = {'start': 0, 'end': 1.8}
     annotate_pictures(still, [held])
     assert 'speed' not in held['picture']
+    flicker = tmp_path / 'flicker.mp4'
+    _video(flicker, '-f', 'lavfi', '-i', 'color=0x111111:s=160x160:r=30:d=1.8', '-f', 'lavfi', '-i', 'color=white:s=80x80:r=30:d=1.8', '-filter_complex', "[0:v][1:v]overlay=x='10+120*mod(n,2)':y='10+80*mod(n,2)'")
+    assert pace_of(flicker, 0, 1.8) is None
+    slowed = tmp_path / 'slow.mp4'
+    _video(slowed, '-i', flicker, '-vf', 'setpts=4*PTS,fps=30')
+    assert pace_of(slowed, 0, 1.8) == (0.75, 0.75)
+    gentle = tmp_path / 'gentle.mp4'
+    _video(gentle, '-f', 'lavfi', '-i', 'color=0x334455:s=160x160:r=30:d=1.8', '-f', 'lavfi', '-i', 'color=0xEEF2F6:s=24x140:r=30:d=1.8', '-filter_complex', "[0:v][1:v]overlay=x='10+80*t':y=10")
+    assert pace_of(gentle, 0, 1.8) is None
+    slow_shot = {'start': 0, 'end': 1.8, 'motion': {'en': 'static hold', 'zh': '固定'}, 'transition': {'en': 'cut', 'zh': '切'}, 'reusable_method': {'en': '', 'zh': ''}, 'information_density': {'en': '', 'zh': ''}, 'subtitle_emphasis': {'en': '', 'zh': ''}, 'music': {'en': '', 'zh': ''}}
+    annotate_pictures(slowed, [slow_shot])
+    assert slow_shot['picture']['speed'] == 0.75 and slow_shot['picture']['speed_end'] == 0.75
+    slow_edit, slow_report = build([slow_shot], 4, [], False)
+    assert slow_edit['clips'][0]['speed'] == 0.75 and slow_edit['clips'][0]['speed_end'] is None
+    assert 'speed_ramp' not in {gap['id'] for gap in slow_report['gaps']}
+    constant = motion_filter(slow_edit['clips'][0], 160, 240, 1.8)
+    assert 'setpts=PTS/0.7500' in constant and 'sqrt' not in constant
+    named = {'start': 0, 'end': 1.8, 'motion': {'en': 'slow motion', 'zh': '慢'}, 'transition': {'en': 'cut', 'zh': '切'}, 'reusable_method': {'en': '', 'zh': ''}, 'information_density': {'en': '', 'zh': ''}, 'subtitle_emphasis': {'en': '', 'zh': ''}, 'music': {'en': '', 'zh': ''}}
+    annotate_pictures(still, [named])
+    assert 'speed' not in named['picture']
+    worded, _worded = build([named], 4, [], False)
+    assert worded['clips'][0]['speed'] == 1 and worded['clips'][0]['speed_end'] is None
     chain = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'speed_end': 1.45}, 160, 240, 1.5)
     assert 'sqrt' in chain and 'PTS/1.0000' not in chain
     source = tmp_path / 'source.mp4'
@@ -410,6 +483,39 @@ def test_similarity_reads_later_frames(tmp_path):
     drifted = frame_similarity(sharp, late)
     assert same is not None and same >= 90
     assert drifted is not None and drifted < same - 10
+
+def test_similarity_scores_layout_and_type_on_the_same_stamps(tmp_path):
+    from backend.style_vision import _stamp_places
+    dark = 'color=0x111111:s=180x240:r=30:d=1.6'
+    block = 'drawbox=x={x}:y=70:w=50:h=80:color=white:t=fill'
+    left, right = tmp_path / 'left.mp4', tmp_path / 'right.mp4'
+    _video(left, '-f', 'lavfi', '-i', dark, '-vf', block.format(x=20))
+    _video(right, '-f', 'lavfi', '-i', dark, '-vf', block.format(x=110))
+    left_layout, left_type = _stamp_places(left, 0.4)
+    right_layout, right_type = _stamp_places(right, 0.4)
+    assert left_type is None and right_type is None
+    assert left_layout['subject']['x'] < right_layout['subject']['x'] - 0.2
+    placed = frame_similarity(left, left)
+    shifted = frame_similarity(left, right)
+    assert placed is not None and placed >= 85
+    assert shifted is not None and shifted < placed - 12
+    late = tmp_path / 'late-block.mp4'
+    _video(late, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.5', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.1', '-filter_complex', '[0:v]drawbox=x=20:y=70:w=50:h=80:color=white:t=fill[a];[1:v]drawbox=x=110:y=70:w=50:h=80:color=white:t=fill[b];[a][b]concat=n=2:v=1:a=0')
+    drifted = frame_similarity(left, late)
+    assert drifted is not None and drifted < placed - 12
+    line = 'drawbox=x={x}:y=24:w=46:h=14:color=white:t=fill'
+    titled, moved = tmp_path / 'titled.mp4', tmp_path / 'moved-title.mp4'
+    _video(titled, '-f', 'lavfi', '-i', dark, '-vf', block.format(x=20) + ',' + line.format(x=24))
+    _video(moved, '-f', 'lavfi', '-i', dark, '-vf', block.format(x=20) + ',' + line.format(x=112))
+    titled_layout, titled_type = _stamp_places(titled, 0.4)
+    moved_layout, moved_type = _stamp_places(moved, 0.4)
+    assert titled_type and moved_type
+    assert abs(titled_layout['subject']['x'] - moved_layout['subject']['x']) < 0.08
+    assert min(mark['x'] for mark in titled_type) < min(mark['x'] for mark in moved_type) - 0.2
+    same_line = frame_similarity(titled, titled)
+    moved_line = frame_similarity(titled, moved)
+    assert same_line is not None and same_line >= 85
+    assert moved_line is not None and moved_line < same_line - 12
 
 def test_illustration_tiles_follow_the_bright_blocks(tmp_path):
     one = tmp_path / 'one-tile.mp4'
@@ -545,6 +651,34 @@ def test_owned_words_follow_a_measured_title(tmp_path):
         assert 'Visa' in burned and '\\move' in burned and 'SECRET' not in burned
 
 
+def test_title_motion_follows_vertical_and_horizontal(tmp_path):
+    rising = tmp_path / 'rising.mp4'
+    _video(rising, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2.4', '-f', 'lavfi', '-i', 'color=white:s=36x32:r=30:d=2.4', '-filter_complex', "[0:v][1:v]overlay=x=70:y='12+150*min(max((t-0.35)/1.4,0),1)':enable='between(t,0.35,2.05)'")
+    plain = tmp_path / 'still.mp4'
+    _video(plain, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2.4')
+    assert title_motion(plain, 0, 2.4) is None
+    down = title_motion(rising, 0, 2.4)
+    assert down['y0'] < down['y1'] - 0.12
+    assert down['in'] < 0.55 < down['out']
+    diagonal = tmp_path / 'diagonal.mp4'
+    _video(diagonal, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2.4', '-f', 'lavfi', '-i', 'color=white:s=36x32:r=30:d=2.4', '-filter_complex', "[0:v][1:v]overlay=x='8+110*min(max((t-0.35)/1.4,0),1)':y='16+140*min(max((t-0.35)/1.4,0),1)':enable='between(t,0.35,2.05)'")
+    both = title_motion(diagonal, 0, 2.4)
+    assert both['x0'] < both['x1'] and both['y0'] < both['y1'] - 0.12
+    script_path = tmp_path / 'path.ass'
+    write_kinetic(script_path, 'Visa days', 1.6, 180, 240, origin=(both['x0'], both['y0']), dest=(both['x1'], both['y1']), mark=(both.get('w') or 0.36, both.get('h') or 0.14))
+    script = script_path.read_text()
+    assert 'Noto Sans' in script and 'SECRET' not in script
+    moves = re.findall(r'\\move\((\d+),(\d+),(\d+),(\d+),', script)
+    assert len(moves) == 2
+    assert int(moves[0][0]) < int(moves[0][2]) and int(moves[0][1]) < int(moves[0][3])
+    assert int(moves[1][0]) < int(moves[1][2]) and int(moves[1][1]) < int(moves[1][3])
+    parked = tmp_path / 'parked.ass'
+    write_kinetic(parked, 'Visa days', 1.6, 180, 240)
+    parked_moves = re.findall(r'\\move\((\d+),(\d+),(\d+),(\d+),', parked.read_text())
+    assert parked_moves[1][0] == parked_moves[1][2]
+    assert 'Noto Sans' in parked.read_text()
+
+
 def test_graphic_places_follow_the_bright_mark(tmp_path):
     flat = tmp_path / 'flat.mp4'
     _video(flat, '-f', 'lavfi', '-i', 'color=0x446688:s=180x240:r=30:d=1.2')
@@ -581,10 +715,23 @@ def test_measurement_follows_the_shots_the_edit_keeps(tmp_path, monkeypatch):
     monkeypatch.setattr('backend.style_vision.picture_of', fake)
     kept = kept_shots(raw)
     vision = measure(path)
-    assert len(kept) == 24
-    assert len(vision['shots']) == 24
+    assert len(kept) == 30
+    assert len(vision['shots']) == 30
     assert seen == [shot['start'] for shot in kept]
-    assert any(start >= 2.4 for start in seen)
+    assert any(start >= 9.6 for start in seen)
+
+
+def test_a_joined_shot_keeps_the_later_picture():
+    raw = [{'start': index * 0.4, 'end': (index + 1) * 0.4, 'picture': {'zoom': index + 1}} for index in range(45)]
+    merged = kept_shots(raw)
+    assert len(merged) == 40
+    joined = [shot for shot in merged if shot['end'] - shot['start'] > 0.5]
+    assert joined
+    for shot in joined:
+        start, end = shot['picture_at']
+        assert abs(end - shot['end']) < 1e-6
+        assert end - start <= 0.41
+        assert shot['picture']['zoom'] == round(end / 0.4)
 
 
 def test_later_shots_keep_the_measured_join_and_frame(tmp_path, monkeypatch):
@@ -681,3 +828,82 @@ def test_frame_measurement_sets_photo_illustration_and_a_second_cover(tmp_path):
     assert 0 < single['insert'] < 1 and 'cutaways' not in single and 'photo' not in single
     words = {'picture': {'zoom': 1, 'screen': False}, 'reusable_method': {'en': 'illustration photo cutaway', 'zh': '插画'}}
     assert measured_still(words) is False
+
+
+def test_constant_slow_camera_mask_split_and_diagonal_come_from_frames(tmp_path):
+    raw = tmp_path / 'flicker.mp4'
+    _video(raw, '-f', 'lavfi', '-i', 'color=0x111111:s=160x160:r=30:d=1.8', '-f', 'lavfi', '-i', 'color=white:s=50x80:r=30:d=1.8', '-filter_complex', "[0:v][1:v]overlay=x='20+70*mod(n,2)':y=40")
+    held = tmp_path / 'slow.mp4'
+    _video(held, '-i', raw, '-vf', 'setpts=4*PTS,fps=30', '-t', '1.8')
+    assert pace_of(held, 0, 1.8) == (0.75, 0.75)
+    assert pace_of(raw, 0, 1.8) is None
+    quiet = {'start': 0, 'end': 1.8, 'motion': {'en': 'slow motion', 'zh': '慢'}, 'transition': {'en': 'cut', 'zh': '切'}, 'reusable_method': {'en': '', 'zh': ''}, 'information_density': {'en': '', 'zh': ''}, 'subtitle_emphasis': {'en': '', 'zh': ''}, 'music': {'en': '', 'zh': ''}}
+    row = dict(quiet)
+    annotate_pictures(held, [row])
+    edit, report = build([row], 4, [], False)
+    assert edit['clips'][0]['speed'] == 0.75 and edit['clips'][0]['speed_end'] is None
+    assert 'speed_ramp' not in {gap['id'] for gap in report['gaps']}
+
+    tilted = tmp_path / 'tilted.mp4'
+    _video(tilted, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.8', '-vf', "geq=lum='if(lt(abs(Y/H-X/W),0.05),220,16)':cb=128:cr=128")
+    level = tmp_path / 'level.mp4'
+    _video(level, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.8', '-vf', "geq=lum='if(lt(abs(X-W/2),8),220,16)':cb=128:cr=128")
+    lean = roll_of(tilted, 0, 0.8)
+    assert lean and abs(lean['roll']) >= 6
+    assert roll_of(level, 0, 0.8) is None
+
+    bowed = tmp_path / 'bowed.mp4'
+    _video(bowed, '-f', 'lavfi', '-i', 'color=0x111111:s=160x160:r=30:d=1.8', '-f', 'lavfi', '-i', 'color=white:s=36x36:r=30:d=1.8', '-filter_complex', "[0:v][1:v]overlay=x=62:y='if(between(t,0.5,1.2),12,62)'")
+    straight = tmp_path / 'straight.mp4'
+    _video(straight, '-f', 'lavfi', '-i', 'color=0x111111:s=160x160:r=30:d=1.8', '-f', 'lavfi', '-i', 'color=white:s=36x36:r=30:d=1.8', '-filter_complex', "[0:v][1:v]overlay=x='8+80*t':y=62")
+    bow = orbit_of(bowed, 0, 1.8)
+    assert bow and abs(bow['orbit_y']) >= 0.12
+    assert orbit_of(straight, 0, 1.8) is None
+
+    sharp = tmp_path / 'sharp.mp4'
+    soft = tmp_path / 'soft.mp4'
+    pull = tmp_path / 'pull.mp4'
+    _video(sharp, '-f', 'lavfi', '-i', 'color=0x111111:s=160x160:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=white:s=70x70:r=30:d=0.9', '-filter_complex', 'overlay=45:45')
+    _video(soft, '-f', 'lavfi', '-i', 'color=0x111111:s=160x160:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=white:s=70x70:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=white:s=48x48:r=30:d=0.9', '-filter_complex', '[0:v][1:v]overlay=45:45,gblur=sigma=16[base];[base][2:v]overlay=4:4')
+    _video(pull, '-i', sharp, '-i', soft, '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
+    assert focus_of(pull, 0, 1.8) == 'out'
+    assert focus_of(sharp, 0, 0.9) is None
+
+    wide = tmp_path / 'wide-ellipse.mp4'
+    narrow = tmp_path / 'narrow-ellipse.mp4'
+    _video(wide, '-f', 'lavfi', '-i', 'color=0x101614:s=180x240:r=30:d=0.4', '-vf', "geq=lum='if(lt(pow((X-W/2)/(W*0.38),2)+pow((Y-H/2)/(H*0.42),2),1),210,16)':cb=128:cr=128")
+    _video(narrow, '-f', 'lavfi', '-i', 'color=0x101614:s=180x240:r=30:d=0.4', '-vf', "geq=lum='if(lt(pow((X-W/2)/(W*0.32),2)+pow((Y-H/2)/(H*0.36),2),1),210,16)':cb=128:cr=128")
+    wide_picture, narrow_picture = picture_of(wide, 0, 0.4), picture_of(narrow, 0, 0.4)
+    assert wide_picture['mask'] and narrow_picture['mask']
+    assert wide_picture['mask_rx'] > narrow_picture['mask_rx']
+
+    half = tmp_path / 'half-split.mp4'
+    uneven = tmp_path / 'uneven-split.mp4'
+    _video(half, '-f', 'lavfi', '-i', 'color=red:s=90x240:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=90x240:r=30:d=0.4', '-filter_complex', 'hstack=inputs=2')
+    _video(uneven, '-f', 'lavfi', '-i', 'color=red:s=54x240:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=126x240:r=30:d=0.4', '-filter_complex', 'hstack=inputs=2')
+    half_picture, uneven_picture = picture_of(half, 0, 0.4), picture_of(uneven, 0, 0.4)
+    assert half_picture['split'] and 0.45 <= half_picture['split_at'] <= 0.6
+    assert uneven_picture['split'] and uneven_picture['split_at'] < half_picture['split_at']
+
+    diagonal = tmp_path / 'diagonal.mp4'
+    unknown = tmp_path / 'unknown.mp4'
+    _video(diagonal, '-f', 'lavfi', '-i', 'color=red:s=160x160:r=30:d=1', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=160x160:r=30:d=1', '-filter_complex', '[0:v][1:v]xfade=transition=diagtl:duration=0.4:offset=0.4')
+    _video(unknown, '-f', 'lavfi', '-i', 'color=red:s=160x160:r=30:d=1', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=160x160:r=30:d=1', '-filter_complex', '[0:v][1:v]xfade=transition=distance:duration=0.4:offset=0.4')
+    assert _join(diagonal, 0.6) == 'diagtl'
+    assert _join(unknown, 0.6) == 'cut'
+
+    chain = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 0.75, 'roll': 12, 'orbit_y': -0.2}, 160, 160, 1.2)
+    assert 'setpts=PTS/0.7500' in chain and 'rotate=' in chain and '-0.2000' in chain
+    source = tmp_path / 'plate.mp4'
+    _video(source, '-f', 'lavfi', '-i', 'color=white:s=180x240:r=30:d=0.8')
+    folder = tmp_path / 'window'
+    folder.mkdir()
+    media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 0.6, 'mask': True, 'mask_rx': 0.22, 'mask_ry': 0.22, 'roll': 10, 'focus': 'out'}]).model_dump())
+
+    def luma(path, x, y, at):
+        proc = media.ffmpeg('-ss', str(at), '-i', path, '-vf', f'crop=8:8:{x}:{y},signalstats,metadata=print', '-frames:v', '1', '-f', 'null', '-')
+        return float(re.search(r'YAVG=([\d.]+)', proc[0] + '\n' + proc[1]).group(1))
+
+    rendered = folder / 'result.mp4'
+    assert luma(rendered, 86, 110, 0.2) > 120
+    assert luma(rendered, 150, 110, 0.2) < 40

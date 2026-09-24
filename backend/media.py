@@ -193,6 +193,7 @@ def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest
     first=tokens[0][:40] if tokens else ''
     second=tokens[1][:40] if len(tokens) > 1 else ''
     size=max(28,int(h*0.045))
+    end_x=end_y=100
     if isinstance(mark,(tuple,list)) and len(mark)>=2 and mark[1] is not None:
         try:
             frac=float(mark[1])
@@ -200,7 +201,30 @@ def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest
             frac=None
         if frac and frac==frac and frac>0:
             size=max(12,int(round(h*min(1.0,frac))))
+        try:
+            wide=float(mark[0]) if mark[0] is not None else 0.0
+        except (TypeError,ValueError):
+            wide=0.0
+        if wide and frac and wide==wide and frac==frac and wide>0 and frac>0:
+            end_x=max(40,min(160,int(round(100*wide/frac))))
     travel=min(900,int(max(0.2,length)*450))
+
+    def move_tag(x0,y0,x1,y1,start_ms,travel_ms):
+        # Noto Sans CJK SC is the face the renderer has. The path is the measured one.
+        return '{\\move('+f'{x0:.0f},{y0:.0f},{x1:.0f},{y1:.0f},{start_ms},{start_ms+travel_ms}'+f')\\fscx40\\fscy40\\t({start_ms},{start_ms+min(700,travel_ms)},\\fscx{end_x}\\fscy{end_y})'+'}'
+
+    def measured_ends():
+        if origin is None:
+            return None
+        try:
+            x0,y0=float(origin[0])*w,float(origin[1])*h
+            if dest:
+                x1,y1=float(dest[0])*w,float(dest[1])*h
+            else:
+                x1,y1=x0,y0
+        except (TypeError,ValueError,IndexError):
+            return None
+        return x0,y0,x1,y1
     header=f'''[Script Info]
 ScriptType: v4.00+
 PlayResX: {w}
@@ -233,7 +257,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 finish=min(span, start + 0.05)
             move_from=int(start * 1000)
             hop=min(900, int(max(0.2, max(0.05, finish - start)) * 450))
-            tags='{\\move('+f'{w*0.12:.0f},{h*0.2:.0f},{w*0.5:.0f},{h*0.2:.0f},{move_from},{move_from+hop}'+f')\\fscx40\\fscy40\\t({move_from},{move_from+min(700,hop)},\\fscx100\\fscy100)'+'}'
+            ends=measured_ends()
+            if ends:
+                x_from,y_from,x_to,y_to=ends
+            else:
+                x_from,y_from,x_to,y_to=w*0.12,h*0.2,w*0.5,h*0.2
+            tags=move_tag(x_from,y_from,x_to,y_to,move_from,hop)
             events.append(f'Dialogue: 0,{ass_time(start)},{ass_time(finish)},Default,,0,0,0,,{tags}{word}\n')
         path.write_text(header+''.join(events),encoding='utf-8')
         return
@@ -251,15 +280,27 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         x1,y1=dest if dest else origin
         x_from,y_from,x_to,y_to=float(x0)*w,float(y0)*h,float(x1)*w,float(y1)*h
     move_from=int(begin * 1000)
-    tags='{\\move('+f'{x_from:.0f},{y_from:.0f},{x_to:.0f},{y_to:.0f},{move_from},{move_from+travel}'+f')\\fscx40\\fscy40\\t({move_from},{move_from+min(700,travel)},\\fscx100\\fscy100)'+'}'
+    tags=move_tag(x_from,y_from,x_to,y_to,move_from,travel)
     events=[f'Dialogue: 0,{ass_time(begin)},{ass_time(dialogue_end)},Default,,0,0,0,,{tags}{first}\n']
     step=(begin + min(0.7, max(0.28, (dialogue_end - begin) * 0.42))) if begin else min(0.7, max(0.28, dialogue_end * 0.42))
     if second and dialogue_end > step + 0.2:
         follow_from=int(step * 1000)
         span=min(600, int((dialogue_end - step) * 1000))
-        y=y_to if origin is not None else h * 0.34
-        follow_x=x_to if origin is not None else w * 0.5
-        follow='{\\move('+f'{follow_x:.0f},{y+36:.0f},{follow_x:.0f},{y:.0f},{follow_from},{follow_from+span}'+f')\\fscx40\\fscy40\\t({follow_from},{follow_from+span},\\fscx100\\fscy100)'+'}'
+        moved=origin is not None and (abs(x_to-x_from)>=max(2.0,w*0.04) or abs(y_to-y_from)>=max(2.0,h*0.04))
+        if moved:
+            gap=36
+            if isinstance(mark,(tuple,list)) and len(mark)>=2 and mark[1] is not None:
+                try:
+                    tall=float(mark[1])
+                except (TypeError,ValueError):
+                    tall=0
+                if tall and tall==tall and tall>0:
+                    gap=max(8,int(round(h*min(1.0,tall))))
+            follow=move_tag(x_from,y_from+gap,x_to,y_to+gap,follow_from,span)
+        else:
+            y=y_to if origin is not None else h * 0.34
+            follow_x=x_to if origin is not None else w * 0.5
+            follow=move_tag(follow_x,y+36,follow_x,y,follow_from,span)
         events.append(f'Dialogue: 0,{ass_time(step)},{ass_time(dialogue_end)},Default,,0,0,0,,{follow}{second}\n')
     path.write_text(header+''.join(events),encoding='utf-8')
 
@@ -353,6 +394,33 @@ def _bar_origin(clip):
     top=max(0.0, min(max(0.0, 0.98-stack), top))
     return left, top, step, bar_h, span_w
 
+def _split_widths(width, ratio):
+    """Even pixel widths for a measured left share. An unset ratio stays half."""
+    try:
+        ratio = 0.5 if ratio is None else float(ratio)
+    except (TypeError, ValueError):
+        ratio = 0.5
+    if ratio != ratio:
+        ratio = 0.5
+    ratio = max(0.2, min(0.8, ratio))
+    left = max(2, int(round(width * ratio)) // 2 * 2)
+    left = min(left, max(2, width - 2))
+    if (width - left) % 2:
+        left = max(2, left - 1)
+    return left, width - left
+
+def _mask_axes(clip):
+    """Ellipse semi-axes. An unmeasured mask keeps the original 0.38 by 0.42 window."""
+    rx, ry = 0.38, 0.42
+    try:
+        if clip.get('mask_rx') is not None:
+            rx = max(0.18, min(0.48, float(clip['mask_rx'])))
+        if clip.get('mask_ry') is not None:
+            ry = max(0.18, min(0.48, float(clip['mask_ry'])))
+    except (TypeError, ValueError):
+        return 0.38, 0.42
+    return rx, ry
+
 def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None):
     if manual:
         from .manual import Edit,check
@@ -398,14 +466,19 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 marks=[item for item in (clip.get('kinetic_at') or []) if isinstance(item,(int,float))]
                 tw, th = _frame_frac(clip.get('title_w')), _frame_frac(clip.get('title_h'))
                 title_mark=(tw, th) if clip.get('title_w') is not None and clip.get('title_h') is not None and tw and th else None
+                origin=dest=None
+                if clip.get('title_x') is not None:
+                    title_y=clip.get('title_y') if clip.get('title_y') is not None else 0.2
+                    origin=(clip['title_x'], title_y)
+                    dest=(clip.get('title_x_end') if clip.get('title_x_end') is not None else clip['title_x'], clip.get('title_y_end') if clip.get('title_y_end') is not None else title_y)
                 if clip.get('kinetic') and len(marks)>=2:
-                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark)
+                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest)
                 elif clip.get('kinetic') and clip.get('title_x') is not None:
                     span=b-a
-                    write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=(clip['title_x'],clip.get('title_y') if clip.get('title_y') is not None else 0.2),dest=(clip.get('title_x_end') if clip.get('title_x_end') is not None else clip['title_x'],clip.get('title_y_end') if clip.get('title_y_end') is not None else (clip.get('title_y') if clip.get('title_y') is not None else 0.2)),mark=title_mark)
+                    write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=origin,dest=dest,mark=title_mark)
                 elif clip.get('kinetic') and marks:
-                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark)
-                elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed,mark=title_mark)
+                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest)
+                elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed,mark=title_mark,origin=origin,dest=dest)
                 else: write_subtitles(title,[Caption(start=opened,end=closed,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
                 title_path=str(title.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{title_path}'"
@@ -453,7 +526,8 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             inputs=['-ss',a,'-i',source,'-f','lavfi','-i',f'color=c=0x{plate}:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}']
             filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('mask'):
-            graph=f"[0:v]{base_vf.rstrip(',')},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(pow((X-W/2)/(W*0.38),2)+pow((Y-H/2)/(H*0.42),2),1),255,0)'[key];color=c=0x101614:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}[plate];[plate][key]overlay=format=auto{post}[v]"
+            rx, ry = _mask_axes(clip)
+            graph=f"[0:v]{base_vf.rstrip(',')},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(pow((X-W/2)/(W*{rx:.3f}),2)+pow((Y-H/2)/(H*{ry:.3f}),2),1),255,0)'[key];color=c=0x101614:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}[plate];[plate][key]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('graphic') and clip.get('bars') and not clip.get('cutout') and not clip.get('split') and not clip.get('mask'):
             origin=_bar_origin(clip)
@@ -512,14 +586,22 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x={chip_x}:y={(band-chip)//2}:w={plate}:h={chip}:color=0x{_paint(clip)}@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={fade_out:.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={band_top}{show}:format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('split') and clip.get('panel') is not None:
-            half=max(2,(w//2)//2*2)
-            graph=f"[0:v]{base_vf.rstrip(',')},crop={half}:{h}:0:0,scale={half}:{h},setsar=1[left];[1:v]scale={half}:{h}:force_original_aspect_ratio=increase,crop={half}:{h},setsar=1,fps=30[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
+            left_w, right_w = _split_widths(w, clip.get('split_at'))
+            graph=f"[0:v]{base_vf.rstrip(',')},crop={left_w}:{h}:0:0,scale={left_w}:{h},setsar=1[left];[1:v]scale={right_w}:{h}:force_original_aspect_ratio=increase,crop={right_w}:{h},setsar=1,fps=30[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
             inputs=['-ss',a,'-i',source,'-ss',clip['panel'],'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('split'):
-            graph=f"[0:v]{base_vf.rstrip(',')},split[leftsrc][rightsrc];[leftsrc]crop=iw/2:ih:0:0[left];[rightsrc]crop=iw/2:ih:iw/2:0[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
+            left_w, right_w = _split_widths(w, clip.get('split_at'))
+            graph=f"[0:v]{base_vf.rstrip(',')},split[leftsrc][rightsrc];[leftsrc]crop={left_w}:{h}:0:0[left];[rightsrc]crop={right_w}:{h}:{left_w}:0[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         else:
-            inputs=['-ss',a,'-i',source];filters=['-vf',vf,'-map','0:v:0']
+            if manual and clip.get('focus') in ('in', 'out'):
+                frames=max(1, int(round(max(b-a, 0.08)*30)))
+                weight=f'N/{frames}' if clip['focus']=='out' else f'(1-N/{frames})'
+                chain=vf.rstrip(',')
+                graph=f"[0:v]{chain},split[sharp][soft];[soft]gblur=sigma=8[blurred];[sharp][blurred]blend=all_expr='A*(1-{weight})+B*{weight}'[v]"
+                inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            else:
+                inputs=['-ss',a,'-i',source];filters=['-vf',vf,'-map','0:v:0']
         if manual and rate>1 and inputs[:2]==['-ss',a]:
             inputs=['-ss',a,'-t',f'{(b-a)*rate:.4f}',*inputs[2:]]
         audio=[]
