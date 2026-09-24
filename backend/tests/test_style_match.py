@@ -182,6 +182,9 @@ def test_approve_renders_the_saved_edit_and_keeps_the_selected_delivery(client, 
     with connect() as db:
         payload = json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'", (pid,)).fetchone()[0])
     assert payload['quality_review'] is False and payload['decisions'] == []
+    with connect() as db:
+        kinds = [row['kind'] for row in db.execute("SELECT kind FROM jobs WHERE project_id=? AND status='queued'", (pid,)).fetchall()]
+    assert kinds == ['studio_render']
     assert payload['manual']['music']['asset_id'] == aid and payload['manual']['clips'][0]['zoom'] == 1.05
     assert payload['voice_id'] == voice
     assert 'reference_source' not in json.dumps(payload) and 'REFERENCE-PIXELS' not in json.dumps(payload)
@@ -357,11 +360,11 @@ def test_measured_tiles_replace_the_word_count():
 def test_screenshot_and_illustration_use_owned_material():
     screen = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'screen': True, 'graphic': False, 'split': False})
     shown, shown_report = build([screen], 40, [], False)
-    assert shown['clips'][0]['screen'] is not None and shown['clips'][0]['still'] is None
+    assert shown['clips'][0]['screen'] is not None and shown['clips'][0]['still'] is None and shown['clips'][0]['art'] == ''
     assert 'screen' in shown_report['applied']
     drawn = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'illustration', 'zh': '插画'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     edit, report = build([drawn], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
-    assert edit['clips'][0]['diagram'] >= 1 and edit['clips'][0]['text'] == 'Visa'
+    assert edit['clips'][0]['diagram'] >= 1 and edit['clips'][0]['text'] == 'Visa' and edit['clips'][0]['art'] == ''
     assert 'diagram' in report['applied'] and 'SECRET' not in edit['clips'][0]['text']
 
 def test_graphic_without_figures_holds_another_owned_frame():
@@ -679,6 +682,45 @@ def test_effect_similarity_waits_until_frames_are_compared():
     assert gaps['motion_tracking'] is False
     assert gaps['background_replacement'] is False
 
+def test_score_output_blends_the_rule_with_measured_frames(client, monkeypatch):
+    pid = create(client, style_match=True).json()['id']
+    report = {
+        'scores': {'shot_structure': 100, 'visual_pacing': 100, 'effect_similarity': 100, 'motion_graphic_style': 100, 'color_treatment': 100, 'production_quality': 100, 'overall': 100},
+        'effect_similarity_rule': 100,
+        'compared': False,
+        'comparison_note': 'Frames have not been compared yet.',
+        'applied': [],
+        'gaps': [],
+        'sections': [],
+        'note': 'owned_only',
+    }
+    render_id = 'r' * 32
+    with connect() as db:
+        current = studio.state(pid, db)
+        context = current['context']
+        context['style_report'] = report
+        context['style_match'] = True
+        db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context), pid))
+        db.execute('UPDATE projects SET result=? WHERE id=?', (json.dumps({'render_id': render_id}), pid))
+    folder = settings.data_dir / pid
+    (folder / 'renders' / render_id).mkdir(parents=True)
+    (folder / 'renders' / render_id / 'result.mp4').write_bytes(b'finished')
+    (folder / 'reference_source').write_bytes(b'reference-pixels')
+    monkeypatch.setattr('backend.style_vision.color_sample', lambda *_args, **_kwargs: None)
+    monkeypatch.setattr('backend.style_vision.frame_similarity', lambda reference, output: 40)
+    from backend.style_match import score_output
+    score_output(pid)
+    stored = studio.state(pid)['context']['style_report']
+    assert stored['compared'] is True
+    assert stored['scores']['effect_similarity'] == 70
+    assert stored['measured_effect_similarity'] == 40
+    assert stored['effect_similarity_rule'] == 100
+    assert stored['scores']['overall'] == 95.0
+    assert stored['comparison_note'] == ''
+    untouched = (folder / 'reference_source').read_bytes()
+    assert untouched == b'reference-pixels'
+    assert (folder / 'renders' / render_id / 'result.mp4').read_bytes() == b'finished'
+
 def test_owned_number_lands_on_the_reference_card_moment(tmp_path):
     from types import SimpleNamespace
     from backend import media
@@ -986,6 +1028,15 @@ def test_overlay_window_is_absent_outside_the_measured_span(tmp_path, monkeypatc
     carded, _report = build([card_row], 2, [], False, script='Price 40')
     card = carded['clips'][0]['card']
     assert abs(card['start'] - 0.5) < 0.08 and abs(card['end'] - 1.5) < 0.08
+    open_card = shot(start=0, end=2, picture={'zoom': 1, 'card': {'in': 0.25}, 'graphic': False, 'split': False}, **quiet)
+    held_card, _report = build([open_card], 2, [], False, script='Price 40')
+    staying = held_card['clips'][0]['card']
+    assert abs(staying['start'] - 0.5) < 0.08 and abs(staying['end'] - 2) < 0.05
+    late = shot(start=0, end=2, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'lower': True, 'callout': 0.92, 'callout_out': 0.97, 'blur': 0}, **quiet)
+    late_edit, _report = build([late], 2, [{'start': 0, 'end': 2, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
+    assert late_edit['clips'][0]['effect_at'] == 0.92 and late_edit['clips'][0]['effect_end'] == 0.97
+    bar, _report = build([shot(**quiet)], 10, [], False, measured={'layout': {'bar': True, 'bar_in': 0.25, 'lower': False, 'split': False, 'shake': False}})
+    assert bar['clips'][0]['progress_at'] == 0.25 and bar['clips'][0]['progress_end'] == 1
     card_file = tmp_path / 'card.ass'
     write_card(card_file, card, 'en', 180, 240)
     burned = card_file.read_text()

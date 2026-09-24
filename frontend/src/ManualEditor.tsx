@@ -58,6 +58,7 @@ type Clip = {
   icon?: boolean;
   mark?: number;
   effect_at?: number;
+  effect_end?: number;
   still?: number | null;
   screen?: number | null;
   bezel?: number;
@@ -135,6 +136,7 @@ export function ManualEditor({
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
+    [playError, setPlayError] = useState(""),
     [selected, setSelected] = useState(0),
     [before, setBefore] = useState(false),
     [time, setTime] = useState(0);
@@ -269,7 +271,10 @@ export function ManualEditor({
       pending.current = null;
     }
     setTime(start);
-    void video.current.play().catch(() => {});
+    setPlayError("");
+    void video.current.play().catch(() => {
+      setPlayError(t("Could not play this preview.", "无法播放此预览。"));
+    });
   }
   if (!edit)
     return (
@@ -509,6 +514,7 @@ export function ManualEditor({
             {t("Play selected range", "播放选定范围")}
           </button>
         </div>
+        {playError && <p role="alert">{playError}</p>}
         <div className="manual-screen" style={{ aspectRatio: ratio }}>
           <video
             ref={video}

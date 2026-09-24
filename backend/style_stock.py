@@ -35,6 +35,9 @@ def attach(pid, edit, shots, script, report, duration, only=None):
     from .manual import Edit, check
     from .style_match import _blob, _has, _insert_fraction, _local_insert, _measured_insert, _ref_span
     clips = edit.get('clips') or []
+    # One Commons clip for the whole cut. A second section does not add another.
+    if any(i != only and clip.get('external_broll') for i, clip in enumerate(clips)):
+        return edit, report
     indexes = [only] if only is not None else range(len(clips))
     ref = _ref_span(shots)
     fraction = None

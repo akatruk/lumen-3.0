@@ -335,8 +335,8 @@ def render_job(p,payload):
         try:
             current = state(p['id'])
             if current.get('context', {}).get('style_match'):
-                from .style_pictures import allow, attach_art
-                payload['manual'] = attach_art(p['id'], payload['manual'], allow())
+                from .style_pictures import attach_art
+                payload['manual'] = attach_art(p['id'], payload['manual'])
         except Exception:
             pass
     from .worker import render_job as legacy_render

@@ -84,7 +84,7 @@ class Clip(Span):
     progress_at: float=Field(default=0,ge=0,le=1)
     progress_end: float=Field(default=1,ge=0,le=1)
     progress_play: bool=False
-    effect_at: float=Field(default=0,ge=0,le=0.85)
+    effect_at: float=Field(default=0,ge=0,le=0.98)
     effect_end: float=Field(default=1,ge=0,le=1)
     plate: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
     grade: Grade | None=None

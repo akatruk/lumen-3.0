@@ -374,18 +374,30 @@ def _owned_fill(facts):
     return None
 
 def _bar_window(look):
-    """Map a measured reference bar onto the owned clip. Untimed bars span the clip."""
-    if not look or not look.get('bar') or look.get('bar_in') is None or look.get('bar_out') is None:
+    """Map a measured reference bar onto the owned clip. A missing exit stays to the end."""
+    if not look or not look.get('bar'):
         return 0.0, 1.0
-    start = round(max(0.0, min(1.0, float(look.get('bar_in') or 0))), 2)
-    end = round(max(0.0, min(1.0, float(look.get('bar_out')))), 2)
-    if end < start + 0.04:
-        end = min(1.0, round(start + 0.04, 2))
+    try:
+        start = float(look.get('bar_in') if look.get('bar_in') is not None else 0)
+    except (TypeError, ValueError):
+        start = 0.0
+    raw_out = look.get('bar_out')
+    if raw_out is None:
+        end = 1.0
+    else:
+        try:
+            end = float(raw_out)
+        except (TypeError, ValueError):
+            end = 1.0
+    start = round(max(0.0, min(0.98, start)), 2)
+    end = round(max(0.0, min(1.0, end)), 2)
+    if end <= start:
+        end = 1.0
     return start, end
 
 def _card(facts, length):
     from .visuals import CardText, DataItem, VisualCard
-    span = min(length - 0.05, 3.0)
+    span = float(length)
     if span < 0.7 or not facts:
         return None
     source = CardText(en='From your script', zh='来自你的脚本')
@@ -394,9 +406,9 @@ def _card(facts, length):
             items = [DataItem(label=CardText(en=label, zh=label), value=value) for label, _figure, value in facts]
             animation = 'grow' if 0.6 <= span - 0.3 else 'none'
             label, figure, _value = facts[0]
-            return VisualCard(kind='bar_chart', start=0.15, end=round(span, 3), title=CardText(en=label, zh=label), primary=CardText(en=figure, zh=figure), source=source, items=items, animation=animation, animation_seconds=0.6)
+            return VisualCard(kind='bar_chart', start=0.0, end=span, title=CardText(en=label, zh=label), primary=CardText(en=figure, zh=figure), source=source, items=items, animation=animation, animation_seconds=0.6)
         label, figure, _value = facts[0]
-        return VisualCard(kind='number', start=0.15, end=round(span, 3), title=CardText(en=label, zh=label), primary=CardText(en=figure, zh=figure), source=source)
+        return VisualCard(kind='number', start=0.0, end=span, title=CardText(en=label, zh=label), primary=CardText(en=figure, zh=figure), source=source)
     except Exception:
         return None
 
@@ -410,7 +422,7 @@ def _moment(picture):
     except (TypeError, ValueError):
         return None
     if moment.get('out') is None:
-        closed = min(1.0, round(opened + 0.35, 3))
+        closed = 1.0
     else:
         try:
             closed = float(moment.get('out'))
@@ -706,7 +718,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     except (TypeError, ValueError):
         chip_at = 0.0
     chip_room = title_x is None and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram
-    placed = 0.2 <= chip_at <= 0.85 and bool(owned) and chip_room
+    placed = 0.2 <= chip_at <= 0.98 and bool(owned) and chip_room
     if placed:
         icon = True
         if not text:
@@ -720,10 +732,10 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     shake_rx = max(4, min(64, radius)) if fx['stabilize'] and radius else 16 if fx['stabilize'] else 0
     effect_at = float(picture.get('hold') or 0)
     if placed and effect_at < 0.2:
-        effect_at = min(0.85, chip_at)
+        effect_at = min(0.98, chip_at)
     mapped = _local_insert(shot.get('event_at'), start, end, duration) if shot.get('event_at') is not None and (fx['blur'] or fx['glow'] or fx['shadow']) else None
     if mapped is not None and end > start:
-        effect_at = min(0.85, mapped / (end - start))
+        effect_at = min(0.98, mapped / (end - start))
     elif effect_at < 0.2 or not (fx['blur'] or fx['glow'] or fx['shadow'] or icon):
         effect_at = 0
     effect_end = 1.0
@@ -739,7 +751,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     if card is not None and shot.get('card_at') is not None:
         local_in = _clip_fraction(shot['card_at'], duration, start, end)
         if shot.get('card_to') is None:
-            local_out = min(1.0, local_in + 0.35)
+            local_out = 1.0
         else:
             local_out = _clip_fraction(shot['card_to'], duration, start, end)
         _time_card(card, end - start, {'in': local_in, 'out': max(local_in + 0.001, local_out)})

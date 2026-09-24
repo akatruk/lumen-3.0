@@ -816,9 +816,10 @@ def card_moment(path, start, end):
     if not present:
         return None
     opened = round(present[0], 2)
-    closed = round(min(1, max(present[0] + 0.12, present[-1])), 2)
+    # The last sample is still a card, so the exit was not measured.
+    closed = 1.0 if present[-1] == stamps[-1] else round(present[-1], 2)
     if closed <= opened:
-        closed = min(1, round(opened + 0.12, 2))
+        closed = 1.0
     if closed <= opened:
         return None
     return {'in': opened, 'out': closed}
@@ -919,7 +920,7 @@ def callout_window(path, start, end):
         last = index
     if first is None:
         return None
-    opened = round(min(0.85, (first / fps) / span), 2)
+    opened = round(min(0.98, (first / fps) / span), 2)
     if last >= count - 1:
         closed = 1.0
     else:

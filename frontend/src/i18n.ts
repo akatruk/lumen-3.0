@@ -2,6 +2,7 @@ import { translateRecord } from './locale';
 const bilingualWords = {
   en: {
     studio: "Video studio",
+    look: "Visual effects",
     trends: "Trends",
     library: "Your projects",
     settings: "Workspace",
@@ -262,6 +263,7 @@ const bilingualWords = {
   },
   zh: {
     studio: "视频工作室",
+    look: "视觉效果",
     trends: "趋势",
     library: "项目库",
     settings: "工作空间",

@@ -278,7 +278,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 def callout_bounds(clip, span):
     """Seconds the owned callout is on. An unset exit keeps the previous full-clip end."""
     span=max(0.0, float(span or 0))
-    opened=max(0.0, min(0.85, float(clip.get('effect_at') or 0)))*span
+    opened=max(0.0, min(0.98, float(clip.get('effect_at') or 0)))*span
     raw=clip.get('effect_end')
     try:
         end_f=1.0 if raw is None else max(0.0, min(1.0, float(raw)))

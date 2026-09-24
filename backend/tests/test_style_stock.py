@@ -67,6 +67,27 @@ def test_measured_insert_places_one_stock_clip_at_the_same_fraction(monkeypatch)
     assert reference not in blob and 'SECRET REFERENCE LINE' not in blob
     assert 'broll' not in {gap['id'] for gap in report['gaps']}
 
+def test_two_cover_shots_keep_a_single_commons_clip(monkeypatch):
+    calls = {'n': 0}
+    def query(**kwargs):
+        calls['n'] += 1
+        return [page()]
+    monkeypatch.setattr(stock, 'query', query)
+    monkeypatch.setattr(stock, 'import_licensed', lambda pid, item: ('a' * 32, 2.0))
+    quiet = dict(information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'})
+    first = shot(reusable_method={'en': 'b-roll of the coast', 'zh': '空镜'}, **quiet)
+    second = shot(start=2, end=4, reusable_method={'en': 'stock footage of the coast', 'zh': '素材'}, **quiet)
+    spoken = [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}]
+    edit, report = build([first, second], 40, spoken, False, script='ocean waves')
+    edit, report = attach('p' * 32, edit, [first, second], 'ocean waves', report, 40)
+    assert calls['n'] == 1
+    assert sum(1 for clip in edit['clips'] if clip.get('external_broll')) == 1
+    assert all(clip.get('art') == '' for clip in edit['clips'])
+    assert 'SECRET' not in json.dumps(edit)
+    again, _report = attach('p' * 32, edit, [first, second], 'ocean waves', report, 40)
+    assert calls['n'] == 1
+    assert sum(1 for clip in again['clips'] if clip.get('external_broll')) == 1
+
 def test_missing_stock_leaves_the_essential_broll_gap(monkeypatch):
     reference = '/tmp/SECRET-reference.mp4'
     monkeypatch.setattr(stock, 'query', lambda **kwargs: [])

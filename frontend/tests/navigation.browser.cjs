@@ -13,6 +13,11 @@ try{
  await button('New project',page.locator('aside')).click();await page.getByRole('textbox',{name:'Search Douyin',exact:true}).fill('travel');await button('Search Douyin').click();await button('Load more').click();assert.equal(await page.locator('.douyin-card').count(),1);await button('Add reference').click();assert(await button('Added').isDisabled());await button('Remove').click();await button('Add reference').click();
  await page.locator('input[type=file]').setInputFiles({name:'owned.mp4',mimeType:'video/mp4',buffer:Buffer.from('qa fixture')});await page.locator('input[name=title]').fill('QA project');await page.locator('textarea[name=script]').fill('QA travel narrative');await page.locator('input[name=audience]').fill('Travellers');await page.locator('input[name=tone]').fill('Clear');await page.locator('input[name=rights]').check();await button('Analyze & build my plan').click();await page.locator('.ws-heading h1').waitFor();assert(writes.some(w=>w.path.endsWith('/upload/complete')));assert.equal(uploadConfig().title,'QA project');
  });
+ await test('visual effect plaque saves a look and compares the frame',async({page,button})=>{
+ await button('Visual effects',page.locator('aside nav')).click();await page.getByRole('heading',{name:'Visual effect plaque'}).waitFor();await button('Punch').click();await button('Blur').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('lumen_effect_board')));assert.equal(saved.name,'punch');assert.equal(saved.effects.blur,true);assert.equal(saved.effects.glow,false);
+ const compare=page.getByRole('slider',{name:'Compare'});await compare.fill('24');assert.equal(await compare.inputValue(),'24');
+ });
  await test('guide mode and chapter seeking',async({page,button})=>{
  await page.route('**/tutorial/*.mp4',r=>r.fulfill({path:process.env.WORKSPACE_MEDIA,contentType:'video/mp4'}));await button('Video guide',page.locator('aside nav')).click();await page.locator('.tutorial-tabs button').first().click();assert.equal(await page.locator('.tutorial-tabs button').first().getAttribute('aria-pressed'),'true');await page.locator('.tutorial-tabs button').nth(1).click();await page.locator('.tutorial-chapters button').first().click();assert.equal(await page.locator('.tutorial-tabs button').nth(1).getAttribute('aria-pressed'),'true');
  });

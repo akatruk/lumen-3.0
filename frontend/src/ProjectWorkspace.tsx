@@ -21,6 +21,7 @@ import {
   Layers,
   CheckCircle2,
 } from "lucide-react";
+import { MenuSlide } from "./MenuSlide";
 import type { Project, Lang } from "./types";
 import { contentLanguage } from "./locale";
 import { StatusBadge, TaskProgress } from "./TaskStatus";
@@ -36,6 +37,7 @@ type WorkspaceContextValue = {
   task: WorkspaceTask;
   setTask: (t: WorkspaceTask) => void;
   previewTarget: HTMLDivElement | null;
+  styleTarget: HTMLDivElement | null;
   scenesTarget: HTMLDivElement | null;
   actionsTarget: HTMLDivElement | null;
   deliveryTarget: HTMLDivElement | null;
@@ -85,6 +87,7 @@ export function ProjectWorkspace({
   const [previewTarget, setPreviewTarget] = useState<HTMLDivElement | null>(
       null,
     ),
+    [styleTarget, setStyleTarget] = useState<HTMLDivElement | null>(null),
     [scenesTarget, setScenesTarget] = useState<HTMLDivElement | null>(null),
     [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(null);
   const [deliveryTarget,setDeliveryTarget]=useState<HTMLDivElement|null>(null);
@@ -271,6 +274,7 @@ export function ProjectWorkspace({
         task,
         setTask,
         previewTarget,
+        styleTarget,
         scenesTarget,
         actionsTarget,
         deliveryTarget,
@@ -326,9 +330,11 @@ export function ProjectWorkspace({
           </div>
         </header>
         <div className="ws-grid">
-          <nav
+          <MenuSlide
             className="ws-tools"
-            aria-label={w("Инструменты проекта", "Project tools", "项目工具")}
+            label={w("Инструменты проекта", "Project tools", "项目工具")}
+            marker='button[aria-pressed="true"]'
+            active={task}
           >
             {tools.map(([key, Icon, label]) => (
               <button
@@ -340,7 +346,7 @@ export function ProjectWorkspace({
                 <span>{label}</span>
               </button>
             ))}
-          </nav>
+          </MenuSlide>
           <section className="ws-preview">
             <div className="ws-preview-heading">
               <button className="text-button" onClick={openVersions}>
@@ -441,6 +447,7 @@ export function ProjectWorkspace({
                 </button>
               )}
             </div>
+            <div ref={setStyleTarget} className="ws-style-slot" />
             <div ref={setScenesTarget} className="ws-scene-slot" />
             {!p.studio && p.analysis && (
               <div className="ws-scenes">
@@ -491,7 +498,9 @@ export function ProjectWorkspace({
               <span className="eyebrow">
                 {w("ИНСТРУМЕНТЫ", "TOOLS", "工具")}
               </span>
-              <h2>{tools.find((t) => t[0] === task)?.[2]}</h2>
+              <h2 key={task} className="ws-menu-title">
+                {tools.find((t) => t[0] === task)?.[2]}
+              </h2>
             </header>
             {children}
           </aside>

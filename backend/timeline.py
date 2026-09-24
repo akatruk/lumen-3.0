@@ -12,7 +12,7 @@ def compile_timeline(edit):
         if clip.text:
             title_start,title_end=row['start'],row['end']
             if clip.effect_end<0.999:
-                title_start=row['start']+max(0,min(clip.effect_at,0.85))*length
+                title_start=row['start']+max(0,min(clip.effect_at,0.98))*length
                 title_end=row['start']+max(clip.effect_at,clip.effect_end)*length
                 if title_end<=title_start: title_start,title_end=row['start'],row['end']
             titles.append({'decision_id':clip.id,'start':round(title_start,6),'end':round(title_end,6),'text':clip.text})
@@ -78,7 +78,7 @@ def motion_filter(clip,width,height,length):
     elif clip.get('enhance') and not short:
         base+='eq=contrast=1.04:brightness=0.02:saturation=1.06:gamma=1.02,'
     at=float(clip.get('effect_at') or 0)
-    opened=max(0.0, min(at, 0.85)) * float(length) if at >= 0.2 else 0.0
+    opened=max(0.0, min(at, 0.98)) * float(length) if at >= 0.2 else 0.0
     gate=f":enable='gte(t\\,{opened:.3f})'" if opened >= 0.2 else ''
     if _num(clip,'blur',0)>=0.4: base+=f"gblur=sigma={min(12,_num(clip,'blur',0)):.2f}{gate},"
     if clip.get('glow'):
