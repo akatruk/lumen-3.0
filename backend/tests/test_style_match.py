@@ -267,6 +267,24 @@ def test_measured_shots_keep_short_beats_fast_and_match_color():
     assert 'speed' in report['applied'] and 'grade' in report['applied'] and 'blur' not in report['applied']
     assert abs(sum(c['end'] - c['start'] for c in edit['clips']) - 40) < 1
 
+def test_measured_lights_are_not_turned_on_by_words():
+    from backend.timeline import motion_filter
+    words = shot(motion={'en': 'key light with fill light and a rim light', 'zh': '光'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    spoken, spoken_report = build([words], 40, [], False)
+    clip = spoken['clips'][0]
+    assert clip['key_amount'] == 0 and clip['fill_amount'] == 0 and clip['rim_amount'] == 0
+    assert 'geq=' not in motion_filter(clip, 180, 240, 2)
+    gaps = {gap['id']: gap['essential'] for gap in spoken_report['gaps']}
+    assert gaps['key_light'] is False and gaps['fill_light'] is False and gaps['rim_light'] is False
+    lights = {'key': 'left', 'key_amount': 0.2, 'fill': 'right', 'fill_amount': 0.08, 'rim_amount': 0.1}
+    lit, lit_report = build([shot()], 40, [], False, measured={'lights': lights})
+    moved = lit['clips'][0]
+    assert moved['key_side'] == 'left' and moved['key_amount'] == 0.2
+    assert moved['fill_side'] == 'right' and moved['fill_amount'] == 0.08 and moved['rim_amount'] == 0.1
+    assert 'geq=' in motion_filter(moved, 180, 240, 2)
+    closed = {gap['id'] for gap in lit_report['gaps']}
+    assert 'key_light' not in closed and 'fill_light' not in closed and 'rim_light' not in closed
+
 def test_color_moves_only_when_the_reference_was_measured():
     from backend.timeline import motion_filter
     plain, report = build(dna()[0]['analysis']['shots'], 40, [], False)
@@ -334,6 +352,12 @@ def test_named_wipe_uses_the_existing_wipe_filter():
     bottom, bottom_report = build([risen], 40, [], False)
     assert bottom['clips'][0]['transition'] == 'wipe-up'
     assert 'wipe_up' not in {gap['id'] for gap in bottom_report['gaps']}
+    long = shot(transition={'en': 'cut', 'zh': '切'}, picture={'join': 'wipe-up', 'join_seconds': 1.2, 'graphic': False, 'fade': False})
+    stretched, _stretched_report = build([long], 40, [], False)
+    assert stretched['clips'][0]['transition'] == 'wipe-up' and stretched['clips'][0]['transition_seconds'] == 1.2
+    named = shot(transition={'en': 'a long wipe', 'zh': '长划'})
+    words, _words_report = build([named], 40, [], False)
+    assert words['clips'][0]['transition'] == 'cut' and words['clips'][0]['transition_seconds'] is None
     dropped = shot(transition={'en': 'fade', 'zh': '淡入'}, picture={'join': 'wipe-down', 'graphic': False, 'fade': False})
     stayed, stayed_report = build([dropped], 40, [], False)
     assert stayed['clips'][0]['transition'] == 'wipe-down'

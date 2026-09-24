@@ -35,6 +35,23 @@ export function ClipLayerTracks({
     callout: t("Text", "文字"),
     card: t("Data cards", "数据卡片"),
     progress: t("Progress bar", "进度条"),
+    blur: t("Blur", "模糊"),
+    join:
+      clip.transition === "crossfade"
+        ? t("Cross dissolve", "叠化")
+        : clip.transition === "zoom"
+          ? t("Zoom transition", "缩放转场")
+          : clip.transition === "wipe"
+            ? t("Wipe left", "向左擦除")
+            : clip.transition === "wipe-up"
+              ? t("Wipe up", "从下方出现")
+              : clip.transition === "wipe-down"
+                ? t("Wipe down", "从上方出现")
+                : clip.transition === "circle"
+                  ? t("Circle mask", "圆形遮罩")
+                  : clip.transition === "fade"
+                    ? t("Fade through black", "淡入淡出至黑场")
+                    : t("Transition", "转场"),
   };
   const spoken = contentLanguage(lang);
   const head = playhead != null && playhead >= 0 && playhead <= span ? (playhead / span) * 100 : null;
@@ -62,9 +79,7 @@ export function ClipLayerTracks({
                   ? clip.text
                   : layer.id === "card"
                     ? clip.card?.primary?.[spoken] || clip.card?.title?.[spoken] || ""
-                    : layer.id === "shot"
-                      ? names.shot
-                      : names.progress}
+                    : names[layer.id]}
               </span>
             ))}
             {head != null && <i className="layer-playhead" style={{ left: `${head}%` }} />}

@@ -2,7 +2,7 @@ const {test}=require('node:test');const assert=require('node:assert/strict');con
 const file=path.resolve(__dirname,'../src/layerTiming.ts');
 const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const exposed={};vm.runInNewContext(code,{exports:exposed});
-const {calloutBars,cardBar,progressBar,clipLayers}=exposed;
+const {calloutBars,cardBar,progressBar,blurBar,joinBars,clipLayers}=exposed;
 const plain=value=>JSON.parse(JSON.stringify(value));
 
 test('callout reads effect_at and effect_end and caps entrance at 0.98',()=>{
@@ -36,4 +36,17 @@ test('card and progress read stored windows and omit an absent layer',()=>{
   assert.equal(progressBar({start:0,end:4,progress:0,progress_at:0.25,progress_end:0.75}),null);
   assert.deepEqual(plain(clipLayers({start:0,end:2,text:''}).map(layer=>layer.id)),['shot']);
   assert.deepEqual(plain(clipLayers({start:0,end:2,text:'Hi',effect_at:0,effect_end:1,card:{start:0,end:2},progress:0.5,progress_at:0,progress_end:1}).map(layer=>layer.id)),['shot','callout','card','progress']);
+});
+
+test('blur and the join get their own rows from the stored clip',()=>{
+  assert.deepEqual(plain(blurBar({start:0,end:2,blur:2,effect_at:0.25,effect_end:0.5})),{start:0.5,end:2});
+  assert.deepEqual(plain(blurBar({start:0,end:2,blur:2,effect_at:0})),{start:0,end:2});
+  assert.equal(blurBar({start:0,end:2,blur:0.2,effect_at:0.5}),null);
+  assert.equal(blurBar({start:0,end:2,blur:0}),null);
+  assert.deepEqual(plain(joinBars({start:0,end:4,transition:'cut'})),[]);
+  assert.deepEqual(plain(joinBars({start:0,end:4,transition:'wipe-down'})),[{start:0,end:0.4}]);
+  assert.deepEqual(plain(joinBars({start:0,end:4,transition:'wipe-up',transition_seconds:1.2})),[{start:0,end:0.6}]);
+  assert.deepEqual(plain(joinBars({start:0,end:1,transition:'crossfade',transition_seconds:2.4})),[{start:0,end:0.25}]);
+  assert.deepEqual(plain(joinBars({start:0,end:4,transition:'fade'})),[{start:0,end:0.25},{start:3.75,end:4}]);
+  assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',blur:1.5,transition:'wipe-down'}).map(layer=>layer.id)),['shot','blur','join']);
 });

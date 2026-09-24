@@ -29,6 +29,9 @@ GAP_RULES = (
     ('glow', ('glow', 'bloom'), False),
     ('shadow', ('drop shadow', 'shadows', 'shadow'), False),
     ('stabilize', ('stabilize', 'stabilisation', 'shaky'), False),
+    ('key_light', ('key light', 'keylight'), False),
+    ('fill_light', ('fill light',), False),
+    ('rim_light', ('rim light', 'hair light', 'backlight'), False),
 )
 STOP = {'the', 'a', 'an', 'and', 'or', 'to', 'of', 'in', 'on', 'for', 'is', 'it', 'this', 'that', 'with', 'from', 'your', 'none', 'na'}
 FACT = re.compile(r'(?P<label>[A-Za-z\u0400-\u04FF][A-Za-z\u0400-\u04FF0-9 ]{1,40}?)\s+(?P<num>\d+(?:[.,]\d+)?)(?P<unit>\s*(?:%|percent|days|day|years|year|months|month|bedrooms|baths))?', re.I)
@@ -79,6 +82,18 @@ def _transition(shot):
     if picture.get('graphic') or picture.get('fade'):
         return 'fade'
     return 'cut'
+
+def _join_seconds(picture, kind):
+    """A measured blend longer than the default 800 ms window. Words do not set it."""
+    if kind == 'cut' or not isinstance(picture, dict):
+        return None
+    try:
+        span = float(picture.get('join_seconds'))
+    except (TypeError, ValueError):
+        return None
+    if span != span or span <= 0.8:
+        return None
+    return round(min(2.4, span), 2)
 
 def _shot_type(shot):
     blob = plain(shot.get('visual_type')).lower()
@@ -638,6 +653,31 @@ def _measured_point(picture, key):
         return None, None
     return round(x, 2), round(y, 2)
 
+def _measured_size(raw):
+    """Width and height fractions. A missing axis, or words with no frame, leave the Lumen default."""
+    if not isinstance(raw, dict):
+        return None, None
+    width, height = _unit_fraction(raw.get('w')), _unit_fraction(raw.get('h'))
+    if width is None or height is None or width <= 0 or height <= 0:
+        return None, None
+    return round(width, 2), round(height, 2)
+
+def _measured_groups(picture):
+    """Separated bright groups, each with its own center. One averaged point is not a group list."""
+    raw = picture.get('groups') if isinstance(picture, dict) else None
+    if not isinstance(raw, list):
+        return []
+    found = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        x, y = _unit_fraction(item.get('x')), _unit_fraction(item.get('y'))
+        if x is None or y is None:
+            continue
+        width, height = _measured_size(item)
+        found.append({'x': round(x, 2), 'y': round(y, 2), 'w': width, 'h': height})
+    return found
+
 def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look=None, ref_len=None, progress=0, progress_play=False, script=''):
     look = look or {}
     frame = _frame(shot or {})
@@ -673,6 +713,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         text = words[0][:40]
     motion = picture.get('title') if isinstance(picture.get('title'), dict) else None
     title_in = title_out = title_x = title_y = title_x_end = title_y_end = None
+    title_w = title_h = None
     if motion and words:
         lead = words[0][:40]
         text = f'{lead} {words[1]}'[:80] if len(words) >= 2 and words[1] not in lead.split() else lead
@@ -682,6 +723,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         title_y = max(0, min(1, float(motion.get('y0') or 0.2)))
         title_x_end = max(0, min(1, float(motion.get('x1') if motion.get('x1') is not None else title_x)))
         title_y_end = max(0, min(1, float(motion.get('y1') if motion.get('y1') is not None else title_y)))
+        title_w, title_h = _measured_size(motion)
     elif fx['kinetic'] and len(words) >= 2:
         lead = text or words[0][:40]
         if words[1] not in lead.split():
@@ -788,10 +830,40 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         if begin >= 0.2 and begin + window <= (end - start) + 1e-6:
             cutaway = cutaway.model_copy(update={'start': begin, 'end': round(begin + window, 3)})
     progress_at, progress_end = _bar_window(look)
-    card_x, card_y = _measured_point(picture, 'card_place') if card is not None else (None, None)
     lower_x, lower_y = _measured_point(picture, 'lower_place') if icon else (None, None)
     chart_ready = bool(picture.get('graphic') and facts and not fx['split'] and not fx['cutout'])
-    chart_x, chart_y = _measured_point(picture, 'chart_place') if chart_ready else (None, None)
+    groups = _measured_groups(picture)
+    card_x = card_y = card_w = card_h = None
+    chart_x = chart_y = chart_w = chart_h = None
+    if len(groups) >= 2:
+        # Stable order: card, then bars, then the kinetic title. An extra group stays empty.
+        slots = []
+        if card is not None:
+            slots.append('card')
+        if chart_ready:
+            slots.append('bars')
+        if text and (motion is not None or fx['kinetic'] or bool(hits) or title_x is not None):
+            slots.append('title')
+        for slot, group in zip(slots, groups):
+            if slot == 'card':
+                card_x, card_y, card_w, card_h = group['x'], group['y'], group['w'], group['h']
+            elif slot == 'bars':
+                chart_x, chart_y, chart_w, chart_h = group['x'], group['y'], group['w'], group['h']
+            elif slot == 'title':
+                if title_x is None:
+                    title_x = title_x_end = group['x']
+                    title_y = title_y_end = group['y']
+                if title_w is None:
+                    title_w, title_h = group['w'], group['h']
+    else:
+        if card is not None:
+            card_x, card_y = _measured_point(picture, 'card_place')
+            card_w, card_h = _measured_size(picture.get('card_place') if isinstance(picture, dict) else None)
+        if chart_ready:
+            chart_x, chart_y = _measured_point(picture, 'chart_place')
+            chart_w, chart_h = _measured_size(picture.get('chart_place') if isinstance(picture, dict) else None)
+    kind = _transition(shot or {})
+    key_side, key_amount, fill_side, fill_amount, rim_amount = _clip_lights(look)
     return Clip(
         id=ident,
         start=start,
@@ -803,10 +875,11 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         x_end=frame['x_end'],
         y_end=frame['y_end'],
         motion_seconds=round(min(end - start, 4.0), 3) if moving else None,
-        transition=_transition(shot or {}),
+        transition=kind,
+        transition_seconds=_join_seconds(picture, kind),
         shot_type=_shot_type(shot or {}),
         text=text,
-        audio_fade_ms=16 if _transition(shot or {}) != 'cut' else 0,
+        audio_fade_ms=16 if kind != 'cut' else 0,
         cutaway=cutaway,
         effect_at=round(effect_at, 2),
         effect_end=round(effect_end, 2),
@@ -830,10 +903,17 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         title_y=title_y,
         title_x_end=title_x_end,
         title_y_end=title_y_end,
+        title_w=title_w,
+        title_h=title_h,
         kinetic_at=hits,
         mask=bool(fx['mask'] and not fx['cutout'] and not fx['split']),
         track=False,
         exposure=exposure,
+        key_side=key_side,
+        key_amount=key_amount,
+        fill_side=fill_side,
+        fill_amount=fill_amount,
+        rim_amount=rim_amount,
         progress=max(0, min(1, float(progress or 0))),
         progress_at=progress_at,
         progress_end=progress_end,
@@ -843,6 +923,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         bars=_bars(facts) if chart_ready else [],
         chart_x=chart_x,
         chart_y=chart_y,
+        chart_w=chart_w,
+        chart_h=chart_h,
         lower=icon,
         icon=icon,
         lower_x=lower_x,
@@ -850,6 +932,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         mark=(_owned_fill(facts) or 0) if icon else 0,
         card_x=card_x,
         card_y=card_y,
+        card_w=card_w,
+        card_h=card_h,
         panel=_panel_start(start, end, duration) if fx['split'] and not fx['cutout'] else None,
         still=(_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if picture.get('graphic') and not facts and not fx['split'] and not fx['cutout'] and screen is None and not diagram else None,
         screen=screen,
@@ -888,6 +972,9 @@ def _gaps(shots, edit, source=None):
         found.append({'id': 'owned_title', 'essential': True})
     if any(c.get('track') for c in clips): done.add('motion_tracking')
     if any(c.get('mask') for c in clips): done.add('mask')
+    if any((c.get('key_amount') or 0) >= 0.04 for c in clips): done.add('key_light')
+    if any((c.get('fill_amount') or 0) >= 0.04 for c in clips): done.add('fill_light')
+    if any((c.get('rim_amount') or 0) >= 0.04 for c in clips): done.add('rim_light')
     for index, shot in enumerate(shots or []):
         picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
         join = str(picture.get('join') or '')
@@ -1118,16 +1205,8 @@ def _clip_fraction(fraction, duration, start, end):
     return max(0.0, min(1.0, (float(at) - float(start)) / span))
 
 def _scaled(shots, duration):
-    merged = [dict(shot) for shot in shots]
-    while len(merged) > 24:
-        lengths = [max(0.28, float(shot['end']) - float(shot['start'])) for shot in merged]
-        index = min(range(len(lengths) - 1), key=lambda n: lengths[n] + lengths[n + 1])
-        nxt = merged[index + 1]
-        kept = {**merged[index], 'end': nxt['end']}
-        if nxt.get('shot_out') is not None:
-            kept['shot_out'] = nxt['shot_out']
-        merged[index] = kept
-        del merged[index + 1]
+    from .style_vision import kept_shots
+    merged = kept_shots(shots)
     lengths = [max(0.28, float(shot['end']) - float(shot['start'])) for shot in merged]
     total = sum(lengths) or 1
     cursor = 0.0
@@ -1144,7 +1223,27 @@ def _scaled(shots, duration):
 def _look(measured):
     measured = measured or {}
     layout = measured.get('layout') or {}
-    return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'exposure': measured.get('exposure') or 0, 'split': layout.get('split'), 'bar': layout.get('bar'), 'bar_in': layout.get('bar_in'), 'bar_out': layout.get('bar_out'), 'lower': layout.get('lower'), 'shake': layout.get('shake'), 'shake_rx': int(layout.get('shake_rx') or 0)}
+    lights = measured.get('lights') if isinstance(measured.get('lights'), dict) else None
+    return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'exposure': measured.get('exposure') or 0, 'lights': lights, 'split': layout.get('split'), 'bar': layout.get('bar'), 'bar_in': layout.get('bar_in'), 'bar_out': layout.get('bar_out'), 'lower': layout.get('lower'), 'shake': layout.get('shake'), 'shake_rx': int(layout.get('shake_rx') or 0)}
+
+def _clip_lights(look):
+    """Copy a measured key, fill, and rim. A lighting sentence does not set one."""
+    lights = look.get('lights') if isinstance(look.get('lights'), dict) else {}
+
+    def amount(name, cap, present):
+        if not present:
+            return 0.0
+        try:
+            value = float(lights.get(name) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+        if value != value or value < 0.04:
+            return 0.0
+        return round(min(cap, value), 3)
+
+    key = lights.get('key') if lights.get('key') in ('left', 'right', 'top') else None
+    fill = lights.get('fill') if lights.get('fill') in ('left', 'right', 'bottom') else None
+    return key, amount('key_amount', 0.35, bool(key)), fill, amount('fill_amount', 0.2, bool(fill)), amount('rim_amount', 0.35, True)
 
 def _speech_hit(start, end, transcript):
     return any(max(0, min(end, float(row.get('end', 0))) - max(start, float(row.get('start', 0)))) > 0.2 for row in transcript or [])
@@ -1568,7 +1667,7 @@ def attach_measurement(pid):
     from . import media
     from .config import settings
     from .studio import state
-    from .style_vision import chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, measure, reference_layout, unusable_spans, visual_track
+    from .style_vision import chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, lights_of, measure, reference_layout, unusable_spans, visual_track
     folder = settings.data_dir / pid
     item = project(pid)
     current = state(pid)
@@ -1591,6 +1690,7 @@ def attach_measurement(pid):
         'chroma': quiet(lambda: chroma_plate(source), None),
         'grade': grade,
         'exposure': exposure,
+        'lights': quiet(lambda: lights_of(reference), None) if reference else None,
         'silences': silences,
         'unusable': quiet(lambda: unusable_spans(source), []),
         'track': quiet(lambda: visual_track(source), None),
@@ -1611,7 +1711,7 @@ def _refresh_overall(scores):
         scores['overall'] = round(sum(float(scores[key]) for key in SCORE_KEYS) / len(SCORE_KEYS), 1)
 
 def blend_effect_similarity(report, frame_similarity):
-    """Average the rule with a measured frame. No measurement leaves the rule uncompared."""
+    """Average the rule with the measured frames. No measurement leaves the rule uncompared."""
     scores = report.setdefault('scores', {})
     rule = report.get('effect_similarity_rule')
     if rule is None:

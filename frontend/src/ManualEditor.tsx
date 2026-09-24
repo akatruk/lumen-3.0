@@ -31,6 +31,7 @@ type Clip = {
   motion_seconds?:number|null;
   zoom_end?: number|null; x_end?: number|null; y_end?: number|null;
   transition?: 'cut'|'fade'|'crossfade'|'zoom'|'wipe'|'wipe-up'|'wipe-down'|'circle';
+  transition_seconds?: number|null;
   start: number;
   end: number;
   zoom: number;
@@ -52,6 +53,11 @@ type Clip = {
   mask?: boolean;
   track?: boolean;
   exposure?: number;
+  key_side?: 'left'|'right'|'top'|null;
+  key_amount?: number;
+  fill_side?: 'left'|'right'|'bottom'|null;
+  fill_amount?: number;
+  rim_amount?: number;
   progress?: number;
   graphic?: boolean;
   bars?: number[];

@@ -185,7 +185,7 @@ def emphasize_caption(chunk,terms,language,base_color):
     accent='&H00FFFF00' if base_color=='&H0000FFFF' else '&H0000FFFF'
     return re.sub('|'.join(patterns),lambda m:r'{\c'+accent+'}'+m.group(0)+r'{\c'+base_color+'}',chunk,flags=re.IGNORECASE if language=='en' else 0)
 
-def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest=None, at=None):
+def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest=None, at=None, mark=None):
     tokens=[re.sub(r'[{}\\\r\n]',' ',piece).strip() for piece in str(text or '').split()]
     tokens=[piece for piece in tokens if piece][:3]
     if tokens and tokens[0] in {'●', '▮'} and len(tokens) > 1:
@@ -193,6 +193,13 @@ def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest
     first=tokens[0][:40] if tokens else ''
     second=tokens[1][:40] if len(tokens) > 1 else ''
     size=max(28,int(h*0.045))
+    if isinstance(mark,(tuple,list)) and len(mark)>=2 and mark[1] is not None:
+        try:
+            frac=float(mark[1])
+        except (TypeError,ValueError):
+            frac=None
+        if frac and frac==frac and frac>0:
+            size=max(12,int(round(h*min(1.0,frac))))
     travel=min(900,int(max(0.2,length)*450))
     header=f'''[Script Info]
 ScriptType: v4.00+
@@ -315,16 +322,36 @@ def _frame_frac(value):
     return max(0.0, min(1.0, number))
 
 def _bar_origin(clip):
-    """Top-left of the owned bars when a chart center was measured. None keeps the fixed stack."""
-    cx, cy = _frame_frac(clip.get('chart_x')), _frame_frac(clip.get('chart_y'))
-    if cx is None or cy is None or clip.get('chart_x') is None or clip.get('chart_y') is None:
-        return None
+    """Top-left, step, thickness, and width of the owned bars.
+
+    A measured center moves the stack. A measured size sets its span.
+    None keeps the fixed inset.
+    """
     count=max(1, len(list(clip.get('bars') or [])[:5]))
-    left, top, step, bar_h, span_w = 0.12, 0.22, 0.12, 0.06, 0.76
-    stack=(count-1)*step+bar_h
-    moved_left=max(0.02, min(0.92, left+(cx-(left+span_w/2))))
-    moved_top=max(0.02, min(max(0.02, 0.98-stack), top+(cy-(top+stack/2))))
-    return moved_left, moved_top
+    cw, ch = _frame_frac(clip.get('chart_w')), _frame_frac(clip.get('chart_h'))
+    sized=clip.get('chart_w') is not None and clip.get('chart_h') is not None and cw and ch
+    cx, cy = _frame_frac(clip.get('chart_x')), _frame_frac(clip.get('chart_y'))
+    placed=clip.get('chart_x') is not None and clip.get('chart_y') is not None and cx is not None and cy is not None
+    if not sized and not placed:
+        return None
+    if sized:
+        span_w=max(0.08, min(0.92, cw))
+        stack=max(0.06, min(0.92, ch))
+        bar_h=stack/(count+max(0, count-1)*0.45)
+        step=bar_h*1.45 if count>1 else bar_h
+    else:
+        left, top, step, bar_h, span_w = 0.12, 0.22, 0.12, 0.06, 0.76
+        stack=(count-1)*step+bar_h
+        moved_left=max(0.02, min(0.92, left+(cx-(left+span_w/2))))
+        moved_top=max(0.02, min(max(0.02, 0.98-stack), top+(cy-(top+stack/2))))
+        return moved_left, moved_top, step, bar_h, span_w
+    if placed:
+        left, top = cx-span_w/2, cy-stack/2
+    else:
+        left, top = 0.12, 0.22
+    left=max(0.0, min(max(0.0, 0.98-span_w), left))
+    top=max(0.0, min(max(0.0, 0.98-stack), top))
+    return left, top, step, bar_h, span_w
 
 def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None):
     if manual:
@@ -369,14 +396,16 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 title=folder/f'title-{i}.ass'
                 opened,closed=callout_bounds(clip,b-a)
                 marks=[item for item in (clip.get('kinetic_at') or []) if isinstance(item,(int,float))]
+                tw, th = _frame_frac(clip.get('title_w')), _frame_frac(clip.get('title_h'))
+                title_mark=(tw, th) if clip.get('title_w') is not None and clip.get('title_h') is not None and tw and th else None
                 if clip.get('kinetic') and len(marks)>=2:
-                    write_kinetic(title,clip['text'],b-a,w,h,at=marks)
+                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark)
                 elif clip.get('kinetic') and clip.get('title_x') is not None:
                     span=b-a
-                    write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=(clip['title_x'],clip.get('title_y') if clip.get('title_y') is not None else 0.2),dest=(clip.get('title_x_end') if clip.get('title_x_end') is not None else clip['title_x'],clip.get('title_y_end') if clip.get('title_y_end') is not None else (clip.get('title_y') if clip.get('title_y') is not None else 0.2)))
+                    write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=(clip['title_x'],clip.get('title_y') if clip.get('title_y') is not None else 0.2),dest=(clip.get('title_x_end') if clip.get('title_x_end') is not None else clip['title_x'],clip.get('title_y_end') if clip.get('title_y_end') is not None else (clip.get('title_y') if clip.get('title_y') is not None else 0.2)),mark=title_mark)
                 elif clip.get('kinetic') and marks:
-                    write_kinetic(title,clip['text'],b-a,w,h,at=marks)
-                elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed)
+                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark)
+                elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed,mark=title_mark)
                 else: write_subtitles(title,[Caption(start=opened,end=closed,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
                 title_path=str(title.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{title_path}'"
@@ -384,7 +413,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 from .visuals import write_card
                 card_path=folder/f'card-{i}.ass'
                 placed=(clip.get('card_x'), clip.get('card_y')) if clip.get('card_x') is not None and clip.get('card_y') is not None else None
-                write_card(card_path,clip['card'],language,w,h,placed)
+                cw, ch = _frame_frac(clip.get('card_w')), _frame_frac(clip.get('card_h'))
+                card_size=(cw, ch) if clip.get('card_w') is not None and clip.get('card_h') is not None and cw and ch else None
+                write_card(card_path,clip['card'],language,w,h,placed,card_size)
                 escaped=str(card_path.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{escaped}'"
             if clip.get('progress'):
@@ -429,8 +460,8 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             if origin is None:
                 boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
             else:
-                left,top=origin
-                boxes=','.join(f"drawbox=x=iw*{left:.3f}:y=ih*{top+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
+                left,top,step,bar_h,span_w=origin
+                boxes=','.join(f"drawbox=x=iw*{left:.3f}:y=ih*{top+n*step:.3f}:w=iw*{max(0.08,min(1,float(val)))*span_w:.3f}:h=ih*{bar_h:.3f}:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
             span=max(b-a,0.2); fade_d=min(0.25,span/4)
             graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
@@ -502,7 +533,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         ffmpeg(*args,timeout=900)
         if manual and i>0:
             from .transitions import KINDS,apply
-            if clip['transition'] in KINDS:apply(parts[i-1],part,clip['transition'],b-a)
+            if clip['transition'] in KINDS:apply(parts[i-1],part,clip['transition'],b-a,clip.get('transition_seconds'))
     listing=folder/'concat.txt'
     listing.write_text(''.join(f"file '{p.name}'\n" for p in parts))
     base=folder/'assembled.mp4'

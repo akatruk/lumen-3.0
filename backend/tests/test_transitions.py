@@ -34,3 +34,21 @@ def test_transition_blends_before_boundary_without_extending_source(tmp_path):
     assert not media.probe(before)['has_audio'] and not media.probe(after)['has_audio']
     assert abs(media.probe(before)['duration']+media.probe(after)['duration']-2)<.08
     assert not list(tmp_path.glob('*.transition*.mp4'))
+
+def test_measured_blend_runs_past_the_default_side(tmp_path):
+    def pair(name):
+        before = tmp_path / f'{name}-before.mp4'
+        after = tmp_path / f'{name}-after.mp4'
+        for path, color in ((before, 'black'), (after, '0xE8E4DC')):
+            media.ffmpeg('-f', 'lavfi', '-i', f'color={color}:s=160x240:d=4:r=30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path)
+        return before, after
+
+    def level(path):
+        raw = subprocess.check_output(['ffmpeg', '-v', 'error', '-ss', '3.5', '-i', str(path), '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
+        return sum(raw) / len(raw)
+
+    short_before, short_after = pair('short')
+    long_before, long_after = pair('long')
+    apply(short_before, short_after, 'crossfade', 4)
+    apply(long_before, long_after, 'crossfade', 4, 1.2)
+    assert level(long_before) > level(short_before) + 10

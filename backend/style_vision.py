@@ -27,21 +27,43 @@ def _stats(path, vf, frames=8):
 def color_sample(path):
     return _stats(path, 'fps=1,signalstats,metadata=print:file=-')
 
-def frame_similarity(reference, output):
-    """How close the rendered frame is to the reference on spread and edge strength."""
-    ref_meta, out_meta = media.probe(reference), media.probe(output)
-    ref_at = min(0.3, max(0.05, float(ref_meta['duration']) * 0.25))
-    out_at = min(0.3, max(0.05, float(out_meta['duration']) * 0.25))
-    ref = _stats(reference, f'trim=start={ref_at:.3f}:duration=0.12,signalstats,metadata=print:file=-', frames=1)
-    out = _stats(output, f'trim=start={out_at:.3f}:duration=0.12,signalstats,metadata=print:file=-', frames=1)
-    if not ref or not out:
+def _picture_stamps(duration):
+    """Points across the picture. A short file keeps the one stamp that fits."""
+    length = float(duration or 0)
+    if length <= 0.2:
+        return [min(0.05, max(0.0, length / 2))]
+    stamps = []
+    for frac in (0.2, 0.45, 0.7, 0.9):
+        at = min(max(0.05, length * frac), max(0.05, length - 0.1))
+        if not stamps or at - stamps[-1] >= 0.08:
+            stamps.append(at)
+    return stamps
+
+def _spread_edge(path, at, width, height):
+    """Contrast spread and edge softness at one stamp. None when the frame cannot be read."""
+    full = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.08,signalstats,metadata=print:file=-', frames=1)
+    if not full:
         return None
-    soft_ref = _softness(reference, ref_at, int(ref_meta['width']), int(ref_meta['height']))
-    soft_out = _softness(output, out_at, int(out_meta['width']), int(out_meta['height']))
-    spread_gap = abs((ref.get('spread') or 0) - (out.get('spread') or 0))
-    soft_gap = abs(soft_ref - soft_out)
-    score = 100 - min(50, spread_gap / 3) - min(50, soft_gap * 10)
-    return round(max(0, min(100, score)), 1)
+    return full.get('spread') or 0, _softness(path, at, width, height)
+
+def frame_similarity(reference, output):
+    """Average contrast and edge strength across the rendered picture, not one early frame."""
+    ref_meta, out_meta = media.probe(reference), media.probe(output)
+    ref_w, ref_h = int(ref_meta['width']), int(ref_meta['height'])
+    out_w, out_h = int(out_meta['width']), int(out_meta['height'])
+    scores = []
+    for ref_at, out_at in zip(_picture_stamps(ref_meta['duration']), _picture_stamps(out_meta['duration'])):
+        ref = _spread_edge(reference, ref_at, ref_w, ref_h)
+        out = _spread_edge(output, out_at, out_w, out_h)
+        if ref is None or out is None:
+            continue
+        spread_gap = abs(ref[0] - out[0])
+        soft_gap = abs(ref[1] - out[1])
+        score = 100 - min(50, spread_gap / 3) - min(50, soft_gap * 10)
+        scores.append(max(0, min(100, score)))
+    if not scores:
+        return None
+    return round(sum(scores) / len(scores), 1)
 
 def flat_background(path):
     meta = media.probe(path)
@@ -143,6 +165,63 @@ def light_between(reference, owned):
     if abs(exposure) < 0.05:
         return 0
     return round(exposure, 3)
+
+def lights_of(path, at=None):
+    """Key, fill, and rim from one frame. A flat frame has none. The picture itself is not returned."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    duration = float(meta.get('duration') or 0)
+    if width < 90 or height < 90:
+        return None
+    if at is None:
+        at = duration * 0.5 if duration > 0.3 else 0.08
+    half = max(16, width // 2)
+    band = max(12, height // 6)
+    side = 16
+
+    def level(crop):
+        return _level(path, crop, at)
+
+    left = level(f'crop={half}:{height}:0:0')
+    right = level(f'crop={half}:{height}:{width - half}:0')
+    top = level(f'crop={width}:{band}:0:0')
+    bottom = level(f'crop={width}:{band}:0:{height - band}')
+    center = level(f'crop=32:32:{(width - 32) // 2}:{(height - 32) // 2}')
+    mid_x, mid_y = width // 2, height // 2
+    edges = [
+        level(f'crop={side}:{band}:0:{max(0, mid_y - band // 2)}'),
+        level(f'crop={side}:{band}:{width - side}:{max(0, mid_y - band // 2)}'),
+        level(f'crop={band}:{side}:{max(0, mid_x - band // 2)}:0'),
+        level(f'crop={band}:{side}:{max(0, mid_x - band // 2)}:{height - side}'),
+    ]
+    corners = [
+        level('crop=16:16:0:0'),
+        level(f'crop=16:16:{width - 16}:0'),
+        level(f'crop=16:16:0:{height - 16}'),
+        level(f'crop=16:16:{width - 16}:{height - 16}'),
+    ]
+    if None in (left, right, top, bottom, center) or any(value is None for value in edges + corners):
+        return None
+    corner = sum(corners) / 4
+    edge = sum(edges) / 4
+    found = {}
+    candidates = (('left', left, right), ('right', right, left), ('top', top, (left + right) / 2))
+    name, bright, other = max(candidates, key=lambda row: row[1] - row[2])
+    if bright >= other + 18 and bright >= center + 8:
+        found['key'] = name
+        found['key_amount'] = round(min(0.35, max(0.08, (bright - other) / 220)), 3)
+        if name == 'left':
+            fill_name, fill_level = 'right', right
+        elif name == 'right':
+            fill_name, fill_level = 'left', left
+        else:
+            fill_name, fill_level = 'bottom', bottom
+        if fill_level >= corner + 16 and bright >= fill_level + 14:
+            found['fill'] = fill_name
+            found['fill_amount'] = round(min(0.2, max(0.04, (fill_level - corner) / 400)), 3)
+    if edge >= center + 12 and edge >= corner + 18:
+        found['rim_amount'] = round(min(0.35, max(0.06, (edge - center) / 200)), 3)
+    return found or None
 
 def _timed_levels(path):
     out, err = media.ffmpeg('-i', path, '-vf', 'fps=1,signalstats,metadata=print:file=-', '-an', '-f', 'null', '-', timeout=240)
@@ -436,6 +515,39 @@ def _join(path, at):
         return 'crossfade'
     return 'cut'
 
+def join_span(path, at):
+    """Full seconds a boundary stays unsettled. None when that is the default blend or shorter."""
+    meta = media.probe(path)
+    width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
+    if width < 80 or height < 80 or at < 0.2 or duration - at < 0.2:
+        return None
+    crop = f'crop={width}:{height}:0:0'
+    early = max(0.04, at - 1.2)
+    late = min(duration - 0.04, at + 1.2)
+    settled_before = _level(path, crop, early)
+    settled_after = _level(path, crop, late)
+    if settled_before is None or settled_after is None or abs(settled_before - settled_after) < 18:
+        return None
+
+    def edge(origin, step, limit, target):
+        found = origin
+        stamp = origin
+        while True:
+            nxt = stamp + step
+            if step < 0 and nxt < limit or step > 0 and nxt > limit:
+                break
+            level = _level(path, crop, nxt)
+            if level is None or abs(level - target) <= 12:
+                break
+            stamp = nxt
+            found = stamp
+        return found
+
+    span = round(edge(at, 0.1, late, settled_after) - edge(at, -0.1, early, settled_before), 2)
+    if span <= 0.8:
+        return None
+    return min(2.4, span)
+
 def _bands(path, at, width, height):
     crop_w = max(16, width // 3)
     scores = []
@@ -553,6 +665,8 @@ def picture_of(path, start, end):
             release = left
     edge = _level(path, f'crop={width}:{height}:0:0', min(start + 0.02, max(start, end - 0.08)))
     middle = _level(path, f'crop={width}:{height}:0:0', (start + end) / 2)
+    tiles = _tiles(path, stamp, width, height)
+    graphic = (not mask) and mid >= left + 22 and mid >= right + 22
     return {
         'zoom': zoom,
         'zoom_end': zoom_end if abs(zoom_end - zoom) >= 0.1 else None,
@@ -561,7 +675,7 @@ def picture_of(path, start, end):
         'y': y,
         'y_end': y_end if abs(y_end - y) >= 0.2 else None,
         'split': (not mask) and abs(left - right) >= 28 and abs(mid - (left + right) / 2) <= 14,
-        'graphic': (not mask) and mid >= left + 22 and mid >= right + 22,
+        'graphic': graphic,
         'mask': mask,
         'lower': lower,
         'fade': edge is not None and middle is not None and middle - edge >= 22,
@@ -575,8 +689,72 @@ def picture_of(path, start, end):
         'screen': screen,
         'bezel': bezel,
         'fraction': fraction,
-        'tiles': _tiles(path, stamp, width, height),
+        'tiles': tiles,
+        'illustration': (not screen) and (not mask) and tiles >= 2 and not graphic,
     }
+
+def _cover_fractions(path, start, end):
+    """Fractions where a full-frame cover replaces the opening. At most two."""
+    span = float(end) - float(start)
+    if span < 0.8:
+        return []
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    if width < 90 or height < 90:
+        return []
+    series = _series(path, start, end, f'crop={width}:{height}:0:0', fps=4, limit=8)
+    if len(series) < 4:
+        return []
+    base = series[0]
+    flags = [abs(value - base) >= 22 for value in series]
+    runs = []
+    for index, flag in enumerate(flags):
+        if not flag:
+            continue
+        if runs and index == runs[-1][1] + 1:
+            runs[-1] = (runs[-1][0], index)
+        else:
+            runs.append((index, index))
+    found = []
+    for start_index, _last in runs:
+        if start_index <= 0:
+            continue
+        found.append(round(min(0.98, (start_index / 4) / span), 2))
+        if len(found) == 2:
+            break
+    return found
+
+def _still_photo(path, start, end):
+    """A detailed frame that does not move. A flat color and a moving shot are not a photo."""
+    span = float(end) - float(start)
+    if span < 0.8:
+        return False
+    window = span * 0.34
+    early = _stats(path, f'trim=start={max(0, start):.3f}:duration={window:.3f},signalstats,metadata=print:file=-', frames=4)
+    late = _stats(path, f'trim=start={max(0, end - window):.3f}:duration={window:.3f},signalstats,metadata=print:file=-', frames=4)
+    if not early or not late or early.get('ydif') is None or late.get('ydif') is None:
+        return False
+    if early['ydif'] > 1.2 or late['ydif'] > 1.2:
+        return False
+    return (early.get('spread') or 0) >= 28 or (late.get('spread') or 0) >= 28
+
+def support_of(path, start, end, picture):
+    """Photo, illustration, a second cover, and the insert fraction. Words do not set these."""
+    if not isinstance(picture, dict) or picture.get('screen') or picture.get('mask'):
+        return None
+    found = {}
+    if picture.get('illustration') and not picture.get('graphic'):
+        found['illustration'] = True
+    if str(picture.get('join') or 'cut') in ('', 'cut') and not picture.get('fade'):
+        covers = _cover_fractions(path, start, end)
+        if len(covers) >= 2:
+            found['cutaways'] = [{'in': item} for item in covers]
+            found['insert'] = covers[0]
+        elif len(covers) == 1:
+            found['insert'] = covers[0]
+    if 'photo' not in found and 'illustration' not in found and 'insert' not in found and not picture.get('split') and _still_photo(path, start, end):
+        found['photo'] = True
+    return found or None
 
 def _tiles(path, at, width, height):
     """How many of the four equal illustration slots are brighter than the corner."""
@@ -769,7 +947,17 @@ def title_motion(path, start, end):
     entered, left = first > 0, last < len(grid) - 1
     if not (entered or left or abs(x1 - x0) >= 0.15):
         return None
-    return {'in': round(stamps[first], 2), 'out': round(max(stamps[first] + 0.12, stamps[last]), 2), 'x0': x0, 'y0': y, 'x1': x1, 'y1': y}
+    found = {'in': round(stamps[first], 2), 'out': round(max(stamps[first] + 0.12, stamps[last]), 2), 'x0': x0, 'y0': y, 'x1': x1, 'y1': y}
+    try:
+        sample = present[len(present) // 2]
+        spans = _group_spans(path, float(start) + span * stamps[sample], width, height)
+    except Exception:
+        spans = []
+    if spans:
+        mark = min(spans, key=lambda item: (abs(float(item['y']) - y), abs(float(item['x']) - x0)))
+        if mark.get('w') and mark.get('h'):
+            found['w'], found['h'] = mark['w'], mark['h']
+    return found
 
 def highlight_moments(path, start, end):
     """Fractions of a shot where a short local bright or saturated patch pops, then is gone in the neighbor sample."""
@@ -982,54 +1170,70 @@ def _place_point(cells, cols, rows):
         'y': round(min(0.96, max(0.04, sum(ys) / len(ys))), 2),
     }
 
-def _classify_places(hot, cols, rows):
-    """One measured center each for a solid card, a full-width plate or small chip, and separated bars."""
-    cells = [(row, col) for row in range(rows) for col in range(cols) if hot[row][col]]
-    if not cells or len(cells) > cols * rows * 0.8:
-        return None
-    found = {}
-    full_rows = [row for row in range(rows) if sum(hot[row]) == cols]
-    band = full_rows and len(full_rows) <= 2 and full_rows[-1] - full_rows[0] + 1 == len(full_rows)
-    if band:
-        group = [cell for cell in cells if cell[0] in full_rows]
-        others = [cell for cell in cells if cell[0] not in full_rows]
-        if group and len(others) <= 1:
-            found['lower_place'] = _place_point(group, cols, rows)
-            cells = others
-    hot_rows = sorted({row for row, _col in cells})
-    gaps = any(hot_rows[index + 1] - hot_rows[index] > 1 for index in range(len(hot_rows) - 1))
-    partial = bool(hot_rows) and all(sum(hot[row]) < cols for row in hot_rows)
-    if gaps and len(hot_rows) >= 2 and partial:
-        found['chart_place'] = _place_point(cells, cols, rows)
-        cells = []
-    if len(cells) <= 2 and cells and 'lower_place' not in found:
-        found['lower_place'] = _place_point(cells, cols, rows)
-        cells = []
-    if cells:
-        used_rows = {row for row, _col in cells}
-        used_cols = {col for _row, col in cells}
-        box = len(used_rows) * len(used_cols)
-        solid = box and len(cells) / box >= 0.65 and max(used_rows) - min(used_rows) + 1 == len(used_rows)
-        wide_band = len(used_cols) == cols and len(used_rows) <= 2
-        if solid and not wide_band:
-            found['card_place'] = _place_point(cells, cols, rows)
-    return found or None
+def _span(cells, cols, rows):
+    """Center plus width and height, all fractions of the frame. The box is the luma cells, not copied pixels."""
+    point = _place_point(cells, cols, rows)
+    used_cols = [col for _row, col in cells]
+    used_rows = [row for row, _col in cells]
+    point['w'] = round((max(used_cols) - min(used_cols) + 1) / cols, 2)
+    point['h'] = round((max(used_rows) - min(used_rows) + 1) / rows, 2)
+    return point
 
-def graphic_places(path, start, end):
-    """Centers of a card, an icon/lower plate, and a bar chart, as frame fractions.
+def _components(hot, cols, rows):
+    seen = [[False] * cols for _row in range(rows)]
+    found = []
+    for row in range(rows):
+        for col in range(cols):
+            if not hot[row][col] or seen[row][col]:
+                continue
+            cells = []
+            stack = [(row, col)]
+            seen[row][col] = True
+            while stack:
+                cur_row, cur_col = stack.pop()
+                cells.append((cur_row, cur_col))
+                for next_row, next_col in ((cur_row - 1, cur_col), (cur_row + 1, cur_col), (cur_row, cur_col - 1), (cur_row, cur_col + 1)):
+                    if next_row < 0 or next_col < 0 or next_row >= rows or next_col >= cols or seen[next_row][next_col] or not hot[next_row][next_col]:
+                        continue
+                    seen[next_row][next_col] = True
+                    stack.append((next_row, next_col))
+            found.append(cells)
+    return found
 
-    A flat frame and a full-frame fill have no position. Fractions only: the reference picture is not returned.
-    """
-    meta = media.probe(path)
-    width, height = int(meta['width']), int(meta['height'])
-    span = float(end) - float(start)
-    if width < 80 or height < 80 or span < 0.4:
-        return None
-    at = float(start) + span * 0.5
-    sample = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.08,signalstats,metadata=print:file=-', frames=1)
-    if not sample or (sample.get('spread') or 0) < 24:
-        return None
-    cols, rows = 4, 6
+def _thin(cells):
+    used = [row for row, _col in cells]
+    return max(used) - min(used) + 1 <= 2
+
+def _overlap_x(left, right):
+    return bool({col for _row, col in left} & {col for _row, col in right})
+
+def _clusters(components):
+    """Stack thin marks that share a column. Side-by-side groups stay apart."""
+    count = len(components)
+    parent = list(range(count))
+
+    def find(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    for i, left in enumerate(components):
+        if not _thin(left):
+            continue
+        for j in range(i + 1, count):
+            right = components[j]
+            if _thin(right) and _overlap_x(left, right):
+                parent[find(i)] = find(j)
+    grouped = {}
+    for index, cells in enumerate(components):
+        grouped.setdefault(find(index), []).append(cells)
+    return list(grouped.values())
+
+def _cluster_cells(cluster):
+    return [cell for group in cluster for cell in group]
+
+def _luma_hot(path, at, width, height, cols=4, rows=6):
     cell_w, cell_h = max(8, width // cols), max(8, height // rows)
     grid = []
     for row in range(rows):
@@ -1041,8 +1245,77 @@ def graphic_places(path, start, end):
             line.append(0.0 if level is None else level)
         grid.append(line)
     floor = min(value for line in grid for value in line)
-    hot = [[value >= 80 and value >= floor + 36 for value in line] for line in grid]
-    return _classify_places(hot, cols, rows)
+    return [[value >= 80 and value >= floor + 36 for value in line] for line in grid]
+
+def _group_spans(path, at, width, height):
+    """Each separated bright group, with its own center and size. A bar stack stays one group."""
+    hot = _luma_hot(path, at, width, height)
+    if not hot:
+        return []
+    cols, rows = len(hot[0]), len(hot)
+    components = _components(hot, cols, rows)
+    spans = []
+    for cluster in _clusters(components):
+        cells = _cluster_cells(cluster)
+        if not cells or len(cells) > cols * rows * 0.8:
+            continue
+        spans.append(_span(cells, cols, rows))
+    return spans
+
+def _classify_places(hot, cols, rows):
+    """One measured center for a card, a plate, or a bar stack. Separated groups are not averaged."""
+    cells = [(row, col) for row in range(rows) for col in range(cols) if hot[row][col]]
+    if not cells or len(cells) > cols * rows * 0.8:
+        return None
+    clusters = _clusters(_components(hot, cols, rows))
+    if len(clusters) >= 2:
+        ordered = sorted(clusters, key=lambda cluster: (min(row for row, _col in _cluster_cells(cluster)), min(col for _row, col in _cluster_cells(cluster))))
+        return {'groups': [_span(_cluster_cells(cluster), cols, rows) for cluster in ordered]}
+    found = {}
+    full_rows = [row for row in range(rows) if sum(hot[row]) == cols]
+    band = full_rows and len(full_rows) <= 2 and full_rows[-1] - full_rows[0] + 1 == len(full_rows)
+    if band:
+        group = [cell for cell in cells if cell[0] in full_rows]
+        others = [cell for cell in cells if cell[0] not in full_rows]
+        if group and len(others) <= 1:
+            found['lower_place'] = _span(group, cols, rows)
+            cells = others
+    hot_rows = sorted({row for row, _col in cells})
+    gaps = any(hot_rows[index + 1] - hot_rows[index] > 1 for index in range(len(hot_rows) - 1))
+    partial = bool(hot_rows) and all(sum(hot[row]) < cols for row in hot_rows)
+    if gaps and len(hot_rows) >= 2 and partial:
+        found['chart_place'] = _span(cells, cols, rows)
+        cells = []
+    if len(cells) <= 2 and cells and 'lower_place' not in found:
+        found['lower_place'] = _span(cells, cols, rows)
+        cells = []
+    if cells:
+        used_rows = {row for row, _col in cells}
+        used_cols = {col for _row, col in cells}
+        box = len(used_rows) * len(used_cols)
+        solid = box and len(cells) / box >= 0.65 and max(used_rows) - min(used_rows) + 1 == len(used_rows)
+        wide_band = len(used_cols) == cols and len(used_rows) <= 2
+        if solid and not wide_band:
+            found['card_place'] = _span(cells, cols, rows)
+    return found or None
+
+def graphic_places(path, start, end):
+    """Centers and sizes of bright graphic groups, as frame fractions.
+
+    One solid card, a full-width plate, or a stacked bar chart keeps a single center.
+    Separated groups each keep their own center and size. A flat frame and a full-frame fill have no position.
+    Fractions only: the reference picture is not returned.
+    """
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 80 or height < 80 or span < 0.4:
+        return None
+    at = float(start) + span * 0.5
+    sample = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.08,signalstats,metadata=print:file=-', frames=1)
+    if not sample or (sample.get('spread') or 0) < 24:
+        return None
+    return _classify_places(_luma_hot(path, at, width, height), 4, 6)
 
 def callout_at(path, start, end):
     """Fraction of the shot where a small side or lower chip appears. A flat frame, a full-frame card, or a chip already present at the open is 0."""
@@ -1051,8 +1324,28 @@ def callout_at(path, start, end):
         return 0.0
     return float(window['in'])
 
+def kept_shots(shots):
+    """Shots the edit keeps. The shortest adjacent pair joins until at most 24 remain."""
+    merged = [dict(shot) for shot in shots or []]
+    while len(merged) > 24:
+        lengths = [max(0.28, float(shot['end']) - float(shot['start'])) for shot in merged]
+        index = min(range(len(lengths) - 1), key=lambda n: lengths[n] + lengths[n + 1])
+        nxt = merged[index + 1]
+        kept = {**merged[index], 'end': nxt['end']}
+        if nxt.get('shot_out') is not None:
+            kept['shot_out'] = nxt['shot_out']
+        merged[index] = kept
+        del merged[index + 1]
+    return merged
+
 def annotate_pictures(path, shots):
-    for shot in list(shots or [])[:6]:
+    """Measure every shot the edit keeps. A longer scene list is joined down to 24 first."""
+    rows = list(shots or [])
+    if len(rows) > 24:
+        rows = kept_shots(rows)
+        if isinstance(shots, list):
+            shots[:] = rows
+    for shot in rows:
         try:
             shot['picture'] = picture_of(path, float(shot['start']), float(shot['end']))
         except Exception:
@@ -1060,6 +1353,18 @@ def annotate_pictures(path, shots):
         picture = shot.get('picture')
         if not isinstance(picture, dict):
             continue
+        try:
+            marks = support_of(path, float(shot['start']), float(shot['end']), picture)
+        except Exception:
+            marks = None
+        if isinstance(marks, dict):
+            picture.update(marks)
+        try:
+            span = join_span(path, float(shot['start'])) if str(picture.get('join') or 'cut') not in ('', 'cut') else None
+        except Exception:
+            span = None
+        if span:
+            picture['join_seconds'] = span
         try:
             pace = pace_of(path, float(shot['start']), float(shot['end']))
         except Exception:
@@ -1109,11 +1414,14 @@ def annotate_pictures(path, shots):
             for key in ('card_place', 'lower_place', 'chart_place'):
                 if isinstance(places.get(key), dict):
                     picture[key] = places[key]
+            groups = [item for item in (places.get('groups') or []) if isinstance(item, dict) and item.get('x') is not None and item.get('y') is not None]
+            if len(groups) >= 2:
+                picture['groups'] = groups
     return shots
 
 def measure(path):
     meta = media.probe(path)
-    shots = scene_shots(path, meta['duration'])
+    shots = kept_shots(scene_shots(path, meta['duration']))
     annotate_pictures(path, shots)
     return {
         'duration': meta['duration'],

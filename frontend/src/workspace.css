@@ -1000,4 +1000,6 @@
 .layer-row-callout .layer-lane > span { background: #e7d9f7; }
 .layer-row-card .layer-lane > span { background: #c9e6ed; }
 .layer-row-progress .layer-lane > span { background: #f6d6c8; }
+.layer-row-blur .layer-lane > span { background: #d9d3ee; }
+.layer-row-join .layer-lane > span { background: #f3e3a8; }
 .layer-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: #163e32; pointer-events: none; }

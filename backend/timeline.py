@@ -90,4 +90,33 @@ def motion_filter(clip,width,height,length):
         if angle<0.2: angle=3.1416/5
         base+=f"vignette=angle={min(1.35,angle):.3f}{gate},"
     if abs(_num(clip,'exposure',0))>0.02: base+=f"exposure={_num(clip,'exposure',0):.3f},"
+    base+=_directional_light(clip)
     return pre+base
+
+def _directional_light(clip):
+    """A measured key, fill, or rim. Amounts are fractions, not a copied frame."""
+    key, fill = clip.get('key_side') or '', clip.get('fill_side') or ''
+    key_amount, fill_amount, rim_amount = _num(clip, 'key_amount', 0), _num(clip, 'fill_amount', 0), _num(clip, 'rim_amount', 0)
+    if key_amount < 0.04 and fill_amount < 0.04 and rim_amount < 0.04:
+        return ''
+    term = 'lum(X,Y)'
+    if key_amount >= 0.04:
+        gain = min(0.35, key_amount) * 70
+        if key == 'left':
+            term += f'+{gain:.2f}*(W-X)/W'
+        elif key == 'right':
+            term += f'+{gain:.2f}*X/W'
+        elif key == 'top':
+            term += f'+{gain:.2f}*(H-Y)/H'
+    if fill_amount >= 0.04:
+        gain = min(0.2, fill_amount) * 50
+        if fill == 'right':
+            term += f'+{gain:.2f}*X/W'
+        elif fill == 'left':
+            term += f'+{gain:.2f}*(W-X)/W'
+        elif fill == 'bottom':
+            term += f'+{gain:.2f}*Y/H'
+    if rim_amount >= 0.04:
+        gain = min(0.35, rim_amount) * 28
+        term += f'+{gain:.2f}*((1-4*X/W*(1-X/W))+(1-4*Y/H*(1-Y/H)))'
+    return f"geq=lum='{term}':cb='cb(X,Y)':cr='cr(X,Y)',"

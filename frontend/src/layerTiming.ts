@@ -1,7 +1,7 @@
 /** Clip-relative windows already stored on a clip. This does not measure or round a new exit. */
 
 export type LayerWindow = { start: number; end: number };
-export type LayerId = "shot" | "callout" | "card" | "progress";
+export type LayerId = "shot" | "blur" | "join" | "callout" | "card" | "progress";
 export type ClipLayer = { id: LayerId; windows: LayerWindow[] };
 
 export type TimedClip = {
@@ -15,6 +15,9 @@ export type TimedClip = {
   kinetic_at?: number[];
   effect_at?: number;
   effect_end?: number;
+  blur?: number;
+  transition?: string;
+  transition_seconds?: number | null;
   progress?: number;
   progress_at?: number;
   progress_end?: number;
@@ -91,10 +94,49 @@ export function progressBar(clip: TimedClip): LayerWindow | null {
   return { start: opened, end: exitAt(finite(clip.progress_end) ?? 1, span, opened) };
 }
 
+/** Blur starts with the measured hold and stays to the clip end. The filter has no exit. */
+export function blurBar(clip: TimedClip): LayerWindow | null {
+  const span = clipSpan(clip);
+  const amount = finite(clip.blur);
+  if (!span || amount === null || amount < 0.4) return null;
+  const at = finite(clip.effect_at) ?? 0;
+  const opened = at >= 0.2 ? Math.max(0, Math.min(0.98, at)) * span : 0;
+  if (opened >= span) return null;
+  return { start: opened, end: span };
+}
+
+const JOINS = new Set(["crossfade", "zoom", "wipe", "wipe-up", "wipe-down", "circle"]);
+
+/** Incoming half of a measured join, or both ends of a fade through black. A cut has no row. */
+export function joinBars(clip: TimedClip): LayerWindow[] {
+  const span = clipSpan(clip);
+  const kind = clip.transition || "cut";
+  if (!span || kind === "cut") return [];
+  if (kind === "fade") {
+    const fade = Math.min(0.25, span / 4);
+    if (fade <= 0) return [];
+    return [
+      { start: 0, end: fade },
+      { start: span - fade, end: span },
+    ];
+  }
+  if (!JOINS.has(kind)) return [];
+  let side = 0.4;
+  const measured = finite(clip.transition_seconds);
+  if (measured !== null && measured > 0.8) side = Math.max(0.4, measured / 2);
+  const length = Math.min(side, span / 4, span);
+  if (length <= 0) return [];
+  return [{ start: 0, end: length }];
+}
+
 export function clipLayers(clip: TimedClip): ClipLayer[] {
   const span = clipSpan(clip);
   if (!span) return [];
   const layers: ClipLayer[] = [{ id: "shot", windows: [{ start: 0, end: span }] }];
+  const blur = blurBar(clip);
+  if (blur) layers.push({ id: "blur", windows: [blur] });
+  const join = joinBars(clip);
+  if (join.length) layers.push({ id: "join", windows: join });
   const callout = calloutBars(clip);
   if (callout.length) layers.push({ id: "callout", windows: callout });
   const card = cardBar(clip);

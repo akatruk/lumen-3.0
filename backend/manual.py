@@ -42,6 +42,7 @@ class Clip(Span):
     y_end: float | None=Field(default=None,ge=0,le=1)
     audio_fade_ms: int=Field(default=0,ge=0,le=100)
     transition: Literal['cut','fade','crossfade','zoom','wipe','wipe-up','wipe-down','circle']='cut'
+    transition_seconds: float | None=Field(default=None,ge=.8,le=2.4)
 
     zoom: float=Field(default=1,ge=1,le=3)
     x: float=Field(default=.5,ge=0,le=1)
@@ -65,6 +66,8 @@ class Clip(Span):
     title_y: float | None=Field(default=None,ge=0,le=1)
     title_x_end: float | None=Field(default=None,ge=0,le=1)
     title_y_end: float | None=Field(default=None,ge=0,le=1)
+    title_w: float | None=Field(default=None,ge=0,le=1)
+    title_h: float | None=Field(default=None,ge=0,le=1)
     kinetic_at: list[Annotated[float, Field(ge=0, le=1)]]=Field(default_factory=list, max_length=8)
     graphic: bool=False
     bars: list[float]=Field(default_factory=list,max_length=5)
@@ -77,6 +80,10 @@ class Clip(Span):
     lower_y: float | None=Field(default=None,ge=0,le=1)
     chart_x: float | None=Field(default=None,ge=0,le=1)
     chart_y: float | None=Field(default=None,ge=0,le=1)
+    chart_w: float | None=Field(default=None,ge=0,le=1)
+    chart_h: float | None=Field(default=None,ge=0,le=1)
+    card_w: float | None=Field(default=None,ge=0,le=1)
+    card_h: float | None=Field(default=None,ge=0,le=1)
     still: float | None=Field(default=None,ge=0)
     screen: float | None=Field(default=None,ge=0)
     bezel: float=Field(default=0.1,ge=0.04,le=0.32)
@@ -87,6 +94,11 @@ class Clip(Span):
     mask: bool=False
     track: bool=False
     exposure: float=Field(default=0,ge=-1,le=1)
+    key_side: Literal['left','right','top'] | None=None
+    key_amount: float=Field(default=0,ge=0,le=.35)
+    fill_side: Literal['left','right','bottom'] | None=None
+    fill_amount: float=Field(default=0,ge=0,le=.2)
+    rim_amount: float=Field(default=0,ge=0,le=.35)
     progress: float=Field(default=0,ge=0,le=1)
     progress_at: float=Field(default=0,ge=0,le=1)
     progress_end: float=Field(default=1,ge=0,le=1)

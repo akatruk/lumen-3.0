@@ -43,32 +43,53 @@ class VisualCard(Span):
         if self.kind=='comparison' and self.secondary is None:raise ValueError('comparison_requires_two_values')
         return self
 
-def _card_shift(place):
-    """Move the owned card onto a measured center. A missing measurement keeps the fixed panel."""
-    if not isinstance(place,(tuple,list)) or len(place)<2 or place[0] is None or place[1] is None:
+def _pair(value):
+    if not isinstance(value,(tuple,list)) or len(value)<2 or value[0] is None or value[1] is None:
         return None
     try:
-        cx,cy=float(place[0]),float(place[1])
+        a,b=float(value[0]),float(value[1])
     except (TypeError,ValueError):
         return None
-    if cx!=cx or cy!=cy:
+    if a!=a or b!=b or a<0 or b<0:
         return None
-    panel_w=0.58 if abs(cx-0.5)>=0.12 else 0.90
-    panel_h=0.41
+    return a,b
+
+def _card_shift(place, size=None):
+    """Move and size the owned card from measured fractions. A missing measurement keeps the fixed panel."""
+    sized=_pair(size)
+    if sized and (sized[0] <= 0 or sized[1] <= 0):
+        sized=None
+    point=_pair(place)
+    if sized:
+        panel_w=min(0.96,max(0.08,sized[0]))
+        panel_h=min(0.96,max(0.08,sized[1]))
+    elif point is None:
+        return None
+    else:
+        panel_w=0.58 if abs(point[0]-0.5)>=0.12 else 0.90
+        panel_h=0.41
+    if point is None:
+        point=(0.5,0.485)
+    cx,cy=point
     cx=min(max(cx,panel_w/2+0.02),1-(panel_w/2+0.02))
     cy=min(max(cy,panel_h/2+0.02),1-(panel_h/2+0.02))
-    return {'cx':cx,'cy':cy,'left':cx-panel_w/2,'right':cx+panel_w/2,'top':cy-panel_h/2,'bottom':cy+panel_h/2,'dx':cx-0.5,'dy':cy-0.485}
+    return {'cx':cx,'cy':cy,'left':cx-panel_w/2,'right':cx+panel_w/2,'top':cy-panel_h/2,'bottom':cy+panel_h/2,'dx':cx-0.5,'dy':cy-0.485,'panel_h':panel_h,'sized':sized is not None}
 
-def write_card(path,card,language,w,h,place=None):
+def write_card(path,card,language,w,h,place=None,size=None):
     from .media import ass_time
-    shift=_card_shift(place)
+    shift=_card_shift(place,size)
+    scale=(shift['panel_h']/0.41) if shift and shift.get('sized') else 1.0
     def clean(text):return re.sub(r'[{}\\\r\n]',' ',text).strip()
     def value(key):return clean(card[key][language])
     # Font shrinks to keep even 48 CJK characters inside the safe horizontal area.
     def event(text,y,size,color='&H00FFFFFF',layer=1):
-        size=min(size,w*.82/max(1,len(text)))
-        x=w/2 if shift is None else w*shift['cx']
-        y_frac=y if shift is None else y+shift['dy']
+        size=min(size*scale,w*.82/max(1,len(text)))
+        if shift is None:
+            x,y_frac=w/2,y
+        elif shift.get('sized'):
+            x,y_frac=w*shift['cx'],shift['cy']+(y-0.485)*scale
+        else:
+            x,y_frac=w*shift['cx'],y+shift['dy']
         tags=r'{\an5\pos('+f'{x:.1f},{h*y_frac:.1f}'+r')\fs'+f'{size:.1f}'+r'\c'+color+r'\fad(150,150)}'
         return f'Dialogue: {layer},{ass_time(card["start"])},{ass_time(card["end"])},Default,,0,0,0,,{tags}{text}\n'
     header=f'''[Script Info]
