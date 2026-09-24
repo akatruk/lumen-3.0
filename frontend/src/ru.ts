@@ -540,6 +540,7 @@ export const ru: Record<string, string> = {
   "Planning reserves $0.50 per attempt, with at most one repair, within your project budget. Rendering runs sequentially.": "Планирование резервирует $0,50 за попытку с одним возможным исправлением в рамках бюджета проекта. Рендер выполняется последовательно.",
   "Platform versions": "Версии для платформ",
   "Play selected range": "Воспроизвести выбранный диапазон",
+  "Could not play this preview.": "Не удалось воспроизвести этот просмотр.",
   "Playback did not start. Press Play in the video above to watch this moment.": "Воспроизведение не началось. Нажмите кнопку воспроизведения в видео выше.",
   "Please sign in again.": "Войдите снова.",
   "Please wait before trying again.": "Подождите перед повторной попыткой.",

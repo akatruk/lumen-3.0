@@ -21,6 +21,7 @@ import {
   Layers,
   CheckCircle2,
 } from "lucide-react";
+import { MenuSlide } from "./MenuSlide";
 import type { Project, Lang } from "./types";
 import { contentLanguage } from "./locale";
 import { StatusBadge, TaskProgress } from "./TaskStatus";
@@ -326,9 +327,11 @@ export function ProjectWorkspace({
           </div>
         </header>
         <div className="ws-grid">
-          <nav
+          <MenuSlide
             className="ws-tools"
-            aria-label={w("Инструменты проекта", "Project tools", "项目工具")}
+            label={w("Инструменты проекта", "Project tools", "项目工具")}
+            marker='button[aria-pressed="true"]'
+            active={task}
           >
             {tools.map(([key, Icon, label]) => (
               <button
@@ -340,7 +343,7 @@ export function ProjectWorkspace({
                 <span>{label}</span>
               </button>
             ))}
-          </nav>
+          </MenuSlide>
           <section className="ws-preview">
             <div className="ws-preview-heading">
               <button className="text-button" onClick={openVersions}>
@@ -491,7 +494,9 @@ export function ProjectWorkspace({
               <span className="eyebrow">
                 {w("ИНСТРУМЕНТЫ", "TOOLS", "工具")}
               </span>
-              <h2>{tools.find((t) => t[0] === task)?.[2]}</h2>
+              <h2 key={task} className="ws-menu-title">
+                {tools.find((t) => t[0] === task)?.[2]}
+              </h2>
             </header>
             {children}
           </aside>

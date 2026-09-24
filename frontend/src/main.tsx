@@ -4,6 +4,7 @@ import { LanguageSelect } from './LanguageSelect';
 import { translate, contentLanguage, readLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
 import { TutorialVideos } from "./TutorialVideos";
+import { MenuSlide } from "./MenuSlide";
 import React, {
   useState,
   useEffect,
@@ -140,6 +141,9 @@ function App() {
     [nav, setNav] = useState(false),
     [error, setError] = useState(""),
     [missingProject, setMissingProject] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const menuWasOpen = useRef(false);
   useEffect(() => {
     const change = () => {
       const r = initialRoute();
@@ -164,6 +168,22 @@ function App() {
     document.documentElement.lang = lang;
     localStorage.setItem("lumen_language", lang);
   }, [lang]);
+  useEffect(() => {
+    if (nav) {
+      menuWasOpen.current = true;
+      sidebarRef.current?.querySelector<HTMLElement>("nav button")?.focus();
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key === "Escape") setNav(false);
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }
+    if (menuWasOpen.current) {
+      menuWasOpen.current = false;
+      const button = menuButton.current;
+      if (button && getComputedStyle(button).display !== "none") button.focus();
+    }
+  }, [nav]);
   const refresh = async () => {
     try {
       setItems(await api("/projects"));
@@ -274,7 +294,7 @@ function App() {
               onClick={() => setNav(false)}
             />
           )}
-          <aside className={"sidebar " + (nav ? "mobile-open" : "")}>
+          <aside ref={sidebarRef} className={"sidebar " + (nav ? "mobile-open" : "")}>
             <button className="logo" onClick={() => navigate("studio")}>
               <Mark />
               <span>
@@ -296,7 +316,12 @@ function App() {
               {t("newProject")}
             </button>
             <div className="nav-label">{translate(lang, "WORKSPACE", "WORKSPACE")}</div>
-            <nav>
+            <MenuSlide
+              className="sidebar-nav"
+              label={translate(lang, "WORKSPACE", "WORKSPACE")}
+              marker="button.active"
+              active={pid ? "" : page}
+            >
               {[
                 ["studio", ScanLine],
                 ["trends", TrendingUp],
@@ -319,7 +344,7 @@ function App() {
                   </button>
                 );
               })}
-            </nav>
+            </MenuSlide>
             <div className="sidebar-note">
               <span className="tiny-orbit">
                 <Sparkles size={20} />
@@ -345,8 +370,10 @@ function App() {
             <header className="topbar">
               <div className="breadcrumb">
                 <button
+                  ref={menuButton}
                   className="icon mobile-menu"
                   aria-label={t("menu")}
+                  aria-expanded={nav}
                   onClick={() => setNav(true)}
                 >
                   <Menu size={21} />
