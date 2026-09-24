@@ -974,6 +974,76 @@ def callout_window(path, start, end):
             closed = min(1.0, round(opened + 0.08, 2))
     return {'in': opened, 'out': closed}
 
+def _place_point(cells, cols, rows):
+    xs = [(col + 0.5) / cols for _row, col in cells]
+    ys = [(row + 0.5) / rows for row, _col in cells]
+    return {
+        'x': round(min(0.96, max(0.04, sum(xs) / len(xs))), 2),
+        'y': round(min(0.96, max(0.04, sum(ys) / len(ys))), 2),
+    }
+
+def _classify_places(hot, cols, rows):
+    """One measured center each for a solid card, a full-width plate or small chip, and separated bars."""
+    cells = [(row, col) for row in range(rows) for col in range(cols) if hot[row][col]]
+    if not cells or len(cells) > cols * rows * 0.8:
+        return None
+    found = {}
+    full_rows = [row for row in range(rows) if sum(hot[row]) == cols]
+    band = full_rows and len(full_rows) <= 2 and full_rows[-1] - full_rows[0] + 1 == len(full_rows)
+    if band:
+        group = [cell for cell in cells if cell[0] in full_rows]
+        others = [cell for cell in cells if cell[0] not in full_rows]
+        if group and len(others) <= 1:
+            found['lower_place'] = _place_point(group, cols, rows)
+            cells = others
+    hot_rows = sorted({row for row, _col in cells})
+    gaps = any(hot_rows[index + 1] - hot_rows[index] > 1 for index in range(len(hot_rows) - 1))
+    partial = bool(hot_rows) and all(sum(hot[row]) < cols for row in hot_rows)
+    if gaps and len(hot_rows) >= 2 and partial:
+        found['chart_place'] = _place_point(cells, cols, rows)
+        cells = []
+    if len(cells) <= 2 and cells and 'lower_place' not in found:
+        found['lower_place'] = _place_point(cells, cols, rows)
+        cells = []
+    if cells:
+        used_rows = {row for row, _col in cells}
+        used_cols = {col for _row, col in cells}
+        box = len(used_rows) * len(used_cols)
+        solid = box and len(cells) / box >= 0.65 and max(used_rows) - min(used_rows) + 1 == len(used_rows)
+        wide_band = len(used_cols) == cols and len(used_rows) <= 2
+        if solid and not wide_band:
+            found['card_place'] = _place_point(cells, cols, rows)
+    return found or None
+
+def graphic_places(path, start, end):
+    """Centers of a card, an icon/lower plate, and a bar chart, as frame fractions.
+
+    A flat frame and a full-frame fill have no position. Fractions only: the reference picture is not returned.
+    """
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 80 or height < 80 or span < 0.4:
+        return None
+    at = float(start) + span * 0.5
+    sample = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.08,signalstats,metadata=print:file=-', frames=1)
+    if not sample or (sample.get('spread') or 0) < 24:
+        return None
+    cols, rows = 4, 6
+    cell_w, cell_h = max(8, width // cols), max(8, height // rows)
+    grid = []
+    for row in range(rows):
+        line = []
+        for col in range(cols):
+            left = min(width - cell_w, col * (width // cols))
+            top = min(height - cell_h, row * (height // rows))
+            level = _level(path, f'crop={cell_w}:{cell_h}:{left}:{top}', at)
+            line.append(0.0 if level is None else level)
+        grid.append(line)
+    floor = min(value for line in grid for value in line)
+    hot = [[value >= 80 and value >= floor + 36 for value in line] for line in grid]
+    return _classify_places(hot, cols, rows)
+
 def callout_at(path, start, end):
     """Fraction of the shot where a small side or lower chip appears. A flat frame, a full-frame card, or a chip already present at the open is 0."""
     window = callout_window(path, start, end)
@@ -990,6 +1060,12 @@ def annotate_pictures(path, shots):
         picture = shot.get('picture')
         if not isinstance(picture, dict):
             continue
+        try:
+            pace = pace_of(path, float(shot['start']), float(shot['end']))
+        except Exception:
+            pace = None
+        if pace:
+            picture['speed'], picture['speed_end'] = pace
         try:
             motion = title_motion(path, float(shot['start']), float(shot['end']))
         except Exception:
@@ -1025,6 +1101,14 @@ def annotate_pictures(path, shots):
                 picture['callout_out'] = float(window['out'])
         else:
             picture['callout'] = 0.0
+        try:
+            places = graphic_places(path, float(shot['start']), float(shot['end']))
+        except Exception:
+            places = None
+        if isinstance(places, dict):
+            for key in ('card_place', 'lower_place', 'chart_place'):
+                if isinstance(places.get(key), dict):
+                    picture[key] = places[key]
     return shots
 
 def measure(path):

@@ -27,6 +27,19 @@ def _art_file(source, name):
         return None
     return art
 
+def _licensed_still(clip, asset_paths):
+    """Downloaded Commons still. Missing files stay out of the filter graph."""
+    ident = str((clip or {}).get('stock_still') or '')
+    if not re.fullmatch(r'[a-f0-9]{32}', ident):
+        return None
+    found = (asset_paths or {}).get(ident)
+    if not found:
+        return None
+    image = Path(found)
+    if not image.is_file():
+        return None
+    return image
+
 def ffmpeg(*args, timeout=600):
     # A missing subtitle filter should fail as itself, before FFmpeg hides the reason.
     if any(re.search(r'(^|[,\s])ass=', str(arg)) for arg in args) and not ass_available():
@@ -292,6 +305,27 @@ def _paint(clip, fallback='F4F1EA'):
     ink = str((clip or {}).get('ink') or '')
     return ink.upper() if re.fullmatch(r'[0-9A-Fa-f]{6}', ink) else fallback
 
+def _frame_frac(value):
+    try:
+        number=float(value)
+    except (TypeError, ValueError):
+        return None
+    if number!=number:
+        return None
+    return max(0.0, min(1.0, number))
+
+def _bar_origin(clip):
+    """Top-left of the owned bars when a chart center was measured. None keeps the fixed stack."""
+    cx, cy = _frame_frac(clip.get('chart_x')), _frame_frac(clip.get('chart_y'))
+    if cx is None or cy is None or clip.get('chart_x') is None or clip.get('chart_y') is None:
+        return None
+    count=max(1, len(list(clip.get('bars') or [])[:5]))
+    left, top, step, bar_h, span_w = 0.12, 0.22, 0.12, 0.06, 0.76
+    stack=(count-1)*step+bar_h
+    moved_left=max(0.02, min(0.92, left+(cx-(left+span_w/2))))
+    moved_top=max(0.02, min(max(0.02, 0.98-stack), top+(cy-(top+stack/2))))
+    return moved_left, moved_top
+
 def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None):
     if manual:
         from .manual import Edit,check
@@ -349,7 +383,8 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             if clip.get('card'):
                 from .visuals import write_card
                 card_path=folder/f'card-{i}.ass'
-                write_card(card_path,clip['card'],language,w,h)
+                placed=(clip.get('card_x'), clip.get('card_y')) if clip.get('card_x') is not None and clip.get('card_y') is not None else None
+                write_card(card_path,clip['card'],language,w,h,placed)
                 escaped=str(card_path.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{escaped}'"
             if clip.get('progress'):
@@ -390,7 +425,12 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             graph=f"[0:v]{base_vf.rstrip(',')},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(pow((X-W/2)/(W*0.38),2)+pow((Y-H/2)/(H*0.42),2),1),255,0)'[key];color=c=0x101614:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}[plate];[plate][key]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('graphic') and clip.get('bars') and not clip.get('cutout') and not clip.get('split') and not clip.get('mask'):
-            boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
+            origin=_bar_origin(clip)
+            if origin is None:
+                boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
+            else:
+                left,top=origin
+                boxes=','.join(f"drawbox=x=iw*{left:.3f}:y=ih*{top+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
             span=max(b-a,0.2); fade_d=min(0.25,span/4)
             graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
@@ -407,6 +447,11 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={inner_w}:{inner_h}:force_original_aspect_ratio=increase,crop={inner_w}:{inner_h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f}[shot];color=c=0x10140F:s={w}x{h}:r=30:d={span:.3f}[plate];[plate][shot]overlay={bezel_x}:{bezel_y}:format=auto,format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[frame];[fg][frame]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source,'-ss',clip['screen'],'-t','0.12','-i',source]
             filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and _licensed_still(clip, asset_paths) and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_licensed_still(clip, asset_paths)]
+            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('diagram') and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
             span=max(b-a,0.2); fade_d=min(0.25,span/4)
             spots=((0.18,0.32),(0.56,0.32),(0.18,0.58),(0.56,0.58))[:int(clip['diagram'])]
@@ -421,13 +466,19 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             span=max(b-a,0.2); fade_d=min(0.25,span/4); band=max(24,(h//6)//2*2); chip=max(12,(band//2)//2*2)
             mark=max(0,min(1,float(clip.get('mark') or 0)))
             plate=max(chip, int((w-24)*mark)) if mark>0.02 else chip
+            band_top, chip_x = h-band, 12
+            cy, cx = _frame_frac(clip.get('lower_y')), _frame_frac(clip.get('lower_x'))
+            if clip.get('lower_y') is not None and cy is not None:
+                band_top=max(0, min(h-band, int(round(cy*h-band/2))))
+            if clip.get('lower_x') is not None and cx is not None:
+                chip_x=max(0, min(max(0, w-plate), int(round(cx*w-plate/2))))
             opened,closed=callout_bounds(clip,span)
             if float(clip.get('effect_at') or 0)<0.2 and float(clip.get('effect_end') if clip.get('effect_end') is not None else 1)>=0.999:
                 opened=0
             limited=closed<span-0.02
             show=f":enable='gte(t\\,{opened:.3f})*lt(t\\,{closed:.3f})'" if limited or opened else ''
             fade_out=max(opened, closed-fade_d) if limited else max(opened, span-fade_d)
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={plate}:h={chip}:color=0x{_paint(clip)}@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={fade_out:.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}{show}:format=auto{post}[v]"
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x={chip_x}:y={(band-chip)//2}:w={plate}:h={chip}:color=0x{_paint(clip)}@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={fade_out:.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={band_top}{show}:format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('split') and clip.get('panel') is not None:
             half=max(2,(w//2)//2*2)

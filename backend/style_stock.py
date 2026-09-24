@@ -31,7 +31,7 @@ def _open_broll(edit, report):
         report['applied'] = [name for name in (report.get('applied') or []) if name != 'cutaway']
     return edit, report
 
-def attach(pid, edit, shots, script, report, duration, only=None):
+def _attach_video(pid, edit, shots, script, report, duration, only=None):
     from .manual import Edit, check
     from .style_match import _blob, _has, _insert_fraction, _local_insert, _measured_insert, _ref_span
     clips = edit.get('clips') or []
@@ -108,4 +108,14 @@ def attach(pid, edit, shots, script, report, duration, only=None):
     if 'stock' not in applied:
         applied.append('stock')
     report['applied'] = applied
+    return edit, report
+
+def attach(pid, edit, shots, script, report, duration, only=None):
+    """One licensed video, then at most two extra licensed stills. A still failure keeps the cut."""
+    edit, report = _attach_video(pid, edit, shots, script, report, duration, only)
+    try:
+        from .style_pictures import attach_stills
+        edit, report = attach_stills(pid, edit, shots, script, report, duration, only)
+    except Exception:
+        return edit, report
     return edit, report

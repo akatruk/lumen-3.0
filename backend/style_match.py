@@ -59,6 +59,7 @@ def _transition(shot):
     picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
     measured = str(picture.get('join') or '').lower()
     # wipeleft reveals the new picture from the right. wipeup reveals it from the bottom.
+    # wipedown reveals it from the top.
     mapped = {
         'zoom': 'zoom',
         'wipe': 'wipe',
@@ -66,6 +67,8 @@ def _transition(shot):
         'wiperight': 'wipe',
         'wipe-up': 'wipe-up',
         'wipeup': 'wipe-up',
+        'wipe-down': 'wipe-down',
+        'wipedown': 'wipe-down',
         'fade': 'fade',
         'crossfade': 'crossfade',
         'circle': 'circle',
@@ -569,20 +572,21 @@ def _cutaway(shot, start, end, duration):
     return Cutaway(start=round(local, 3), end=local_end, source_start=src)
 
 def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=False):
+    """Blur, glow, shadow and pace come from the measured picture. Words do not turn them on."""
     blob = _blob([shot or {}])
     picture = shot.get('picture') or {}
     soft, bloom, shade = float(picture.get('blur') or 0), float(picture.get('glow') or 0), float(picture.get('shade') or 0)
     return {
-        'blur': soft if soft >= 1 else 2.0 if _has(blob, ('blur', 'bokeh')) else 0,
-        'glow': bloom >= 0.4 or _has(blob, ('glow', 'bloom')),
-        'glow_amount': bloom if bloom >= 0.4 else 0.8 if _has(blob, ('glow', 'bloom')) else 0,
-        'shadow': shade >= 0.4 or bool(picture.get('vignette')) or _has(blob, ('drop shadow', 'shadows', 'shadow')),
+        'blur': soft if soft >= 1 else 0,
+        'glow': bloom >= 0.4,
+        'glow_amount': bloom if bloom >= 0.4 else 0,
+        'shadow': shade >= 0.4 or bool(picture.get('vignette')),
         'shade': shade if shade >= 0.4 else 0,
         'split': bool(look_split) or bool((shot.get('picture') or {}).get('split')),
         'stabilize': bool(look_shake),
         'cutout': bool(flat or chroma) and _has(blob, ('cutout', 'cut out', 'green screen')),
         'mask': bool((shot.get('picture') or {}).get('mask')),
-        'speed': 1.35 if ref_len < 0.55 else 0.75 if _has(blob, ('slow motion', 'slow-mo')) else 1.0,
+        'speed': 1.35 if ref_len < 0.55 else 1.0,
         'kinetic': _has(blob, ('kinetic', 'animated title', 'title card')),
     }
 
@@ -623,6 +627,16 @@ def _owned_frame_is_screen(source, at):
         return bool(_screen(path, float(at), int(meta['width']), int(meta['height'])))
     except Exception:
         return False
+
+def _measured_point(picture, key):
+    """A measured frame center. Words and a missing axis do not invent the other coordinate."""
+    raw = picture.get(key) if isinstance(picture, dict) else None
+    if not isinstance(raw, dict):
+        return None, None
+    x, y = _unit_fraction(raw.get('x')), _unit_fraction(raw.get('y'))
+    if x is None or y is None:
+        return None, None
+    return round(x, 2), round(y, 2)
 
 def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look=None, ref_len=None, progress=0, progress_play=False, script=''):
     look = look or {}
@@ -774,6 +788,10 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         if begin >= 0.2 and begin + window <= (end - start) + 1e-6:
             cutaway = cutaway.model_copy(update={'start': begin, 'end': round(begin + window, 3)})
     progress_at, progress_end = _bar_window(look)
+    card_x, card_y = _measured_point(picture, 'card_place') if card is not None else (None, None)
+    lower_x, lower_y = _measured_point(picture, 'lower_place') if icon else (None, None)
+    chart_ready = bool(picture.get('graphic') and facts and not fx['split'] and not fx['cutout'])
+    chart_x, chart_y = _measured_point(picture, 'chart_place') if chart_ready else (None, None)
     return Clip(
         id=ident,
         start=start,
@@ -821,11 +839,17 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         progress_end=progress_end,
         progress_play=bool(progress_play),
         plate='1A1F1C' if fx['cutout'] else '',
-        graphic=bool(picture.get('graphic') and facts and not fx['split'] and not fx['cutout']),
-        bars=_bars(facts) if picture.get('graphic') and facts and not fx['split'] and not fx['cutout'] else [],
+        graphic=chart_ready,
+        bars=_bars(facts) if chart_ready else [],
+        chart_x=chart_x,
+        chart_y=chart_y,
         lower=icon,
         icon=icon,
+        lower_x=lower_x,
+        lower_y=lower_y,
         mark=(_owned_fill(facts) or 0) if icon else 0,
+        card_x=card_x,
+        card_y=card_y,
         panel=_panel_start(start, end, duration) if fx['split'] and not fx['cutout'] else None,
         still=(_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if picture.get('graphic') and not facts and not fx['split'] and not fx['cutout'] and screen is None and not diagram else None,
         screen=screen,
@@ -874,7 +898,7 @@ def _gaps(shots, edit, source=None):
             found.append({'id': 'wipe_right', 'essential': False})
         if join in ('wipe-up', 'wipeup') and applied != 'wipe-up':
             found.append({'id': 'wipe_up', 'essential': False})
-        if join in ('wipe-down', 'wipedown'):
+        if join in ('wipe-down', 'wipedown') and applied != 'wipe-down':
             found.append({'id': 'wipe_down', 'essential': False})
     screens = [c.get('screen') for c in clips if c.get('screen') is not None]
     if screens and not all(_owned_frame_is_screen(source, stamp) for stamp in screens):
@@ -1200,9 +1224,51 @@ def _best_takes(cuts, transcript, unusable):
             if max(0, min(end, keep_end) - max(start, keep_start)) > 0.2:
                 continue
             drop.append({'start': start, 'end': end})
-    if not drop:
+    chosen = _punch(cuts, drop, []) if drop else list(cuts)
+    parent = list(range(len(chosen)))
+
+    def find(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    for i, (start, end) in enumerate(chosen):
+        for j in range(i + 1, len(chosen)):
+            other_start, other_end = chosen[j]
+            if min(end, other_end) - max(start, other_start) > 0.2:
+                parent[find(j)] = find(i)
+    clusters = {}
+    for index in range(len(chosen)):
+        clusters.setdefault(find(index), []).append(index)
+    drop_at = set()
+    for members in clusters.values():
+        if len(members) < 2:
+            continue
+        winners = []
+        for index in members:
+            start, end = chosen[index]
+            length = end - start
+            if length <= 0:
+                continue
+            spoken = False
+            for row in transcript:
+                try:
+                    row_start, row_end = float(row['start']), float(row['end'])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if min(end, row_end) - max(start, row_start) > 0:
+                    spoken = True
+                    break
+            if spoken and _overlap(start, end, holes) <= 0.2 * length:
+                winners.append(index)
+        if len(winners) != 1:
+            continue
+        drop_at.update(index for index in members if index != winners[0])
+    kept = [cut for index, cut in enumerate(chosen) if index not in drop_at]
+    if not kept:
         return list(cuts)
-    return _punch(cuts, drop, [])
+    return kept
 
 def _title_word(title):
     for word in re.findall(r'[A-Za-z\u0400-\u04FF]{3,}', title or ''):

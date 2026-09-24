@@ -984,6 +984,7 @@ export const ru: Record<string, string> = {
   "Why other cuts stayed unchanged": "Почему другие склейки не изменились",
   "Why this helps": "Почему это поможет",
   "Why this reference technique fits": "Почему подходит приём из референса",
+  "Wipe down": "Появление сверху",
   "Wipe left": "Сдвиг влево",
   "Wipe up": "Появление снизу",
   "Workspace": "Рабочее пространство",
@@ -1150,5 +1151,8 @@ export const ru: Record<string, string> = {
   "Open the visual effect plaque": "Открыть плашку визуальных эффектов",
   "This cut follows your visual effect plaque.": "Этот монтаж следует вашей плашке визуальных эффектов.",
   "Effect rule score": "Оценка по правилу эффектов",
-  "Frames have not been compared yet.": "Кадры ещё не сравнивались."
+  "Frames have not been compared yet.": "Кадры ещё не сравнивались.",
+  "Progress bar": "Полоса прогресса",
+  "Layer timing": "Время слоёв",
+  "Entrance and exit already measured for this clip.": "Вход и выход этого фрагмента уже измерены."
 };

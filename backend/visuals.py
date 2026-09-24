@@ -43,14 +43,33 @@ class VisualCard(Span):
         if self.kind=='comparison' and self.secondary is None:raise ValueError('comparison_requires_two_values')
         return self
 
-def write_card(path,card,language,w,h):
+def _card_shift(place):
+    """Move the owned card onto a measured center. A missing measurement keeps the fixed panel."""
+    if not isinstance(place,(tuple,list)) or len(place)<2 or place[0] is None or place[1] is None:
+        return None
+    try:
+        cx,cy=float(place[0]),float(place[1])
+    except (TypeError,ValueError):
+        return None
+    if cx!=cx or cy!=cy:
+        return None
+    panel_w=0.58 if abs(cx-0.5)>=0.12 else 0.90
+    panel_h=0.41
+    cx=min(max(cx,panel_w/2+0.02),1-(panel_w/2+0.02))
+    cy=min(max(cy,panel_h/2+0.02),1-(panel_h/2+0.02))
+    return {'cx':cx,'cy':cy,'left':cx-panel_w/2,'right':cx+panel_w/2,'top':cy-panel_h/2,'bottom':cy+panel_h/2,'dx':cx-0.5,'dy':cy-0.485}
+
+def write_card(path,card,language,w,h,place=None):
     from .media import ass_time
+    shift=_card_shift(place)
     def clean(text):return re.sub(r'[{}\\\r\n]',' ',text).strip()
     def value(key):return clean(card[key][language])
     # Font shrinks to keep even 48 CJK characters inside the safe horizontal area.
     def event(text,y,size,color='&H00FFFFFF',layer=1):
         size=min(size,w*.82/max(1,len(text)))
-        tags=r'{\an5\pos('+f'{w/2:.1f},{h*y:.1f}'+r')\fs'+f'{size:.1f}'+r'\c'+color+r'\fad(150,150)}'
+        x=w/2 if shift is None else w*shift['cx']
+        y_frac=y if shift is None else y+shift['dy']
+        tags=r'{\an5\pos('+f'{x:.1f},{h*y_frac:.1f}'+r')\fs'+f'{size:.1f}'+r'\c'+color+r'\fad(150,150)}'
         return f'Dialogue: {layer},{ass_time(card["start"])},{ass_time(card["end"])},Default,,0,0,0,,{tags}{text}\n'
     header=f'''[Script Info]
 ScriptType: v4.00+
@@ -63,23 +82,29 @@ Style: Default,Noto Sans CJK SC,36,&H00FFFFFF,&H00FFFFFF,&H00101614,&H00101614,-
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
     # A vector panel avoids shell filters containing user-supplied text.
-    panel=r'{\an7\pos(0,0)\p1\c&H00161410\alpha&H18\fad(150,150)}'+f'm {w*.05:.0f} {h*.28:.0f} l {w*.95:.0f} {h*.28:.0f} {w*.95:.0f} {h*.69:.0f} {w*.05:.0f} {h*.69:.0f}'
+    if shift is None:
+        panel=r'{\an7\pos(0,0)\p1\c&H00161410\alpha&H18\fad(150,150)}'+f'm {w*.05:.0f} {h*.28:.0f} l {w*.95:.0f} {h*.28:.0f} {w*.95:.0f} {h*.69:.0f} {w*.05:.0f} {h*.69:.0f}'
+    else:
+        left,right,top,bottom=w*shift['left'],w*shift['right'],h*shift['top'],h*shift['bottom']
+        panel=r'{\an7\pos(0,0)\p1\c&H00161410\alpha&H18\fad(150,150)}'+f'm {left:.0f} {top:.0f} l {right:.0f} {top:.0f} {right:.0f} {bottom:.0f} {left:.0f} {bottom:.0f}'
     rows=f'Dialogue: 0,{ass_time(card["start"])},{ass_time(card["end"])},Default,,0,0,0,,{panel}\n'
     rows+=event(value('title'),.34,h*.035)
+    dx=0 if shift is None else shift['dx']
+    dy=0 if shift is None else shift['dy']
     if card['kind']=='map':
         from .map_cards import map_rows
-        rows+=map_rows(card,language,w,h,ass_time,clean)
+        rows+=map_rows(card,language,w,h,ass_time,clean,dx,dy)
     elif card['kind']=='timeline':
-        rows+=milestone_rows(card,language,w,h,event,ass_time,clean)
+        rows+=milestone_rows(card,language,w,h,event,ass_time,clean,dx,dy)
     elif card['kind'] in ('bar_chart','ranking'):
-        rows+=data_rows(card,language,w,h,event,ass_time,clean)
+        rows+=data_rows(card,language,w,h,event,ass_time,clean,dx,dy)
     else:rows+=event(value('primary'),.44 if card['kind']=='comparison' else .48,h*.08,'&H009EEF D1'.replace(' ',''))
     if card['kind']=='comparison':rows+=event(value('secondary'),.54,h*.065)
     rows+=event(value('source'),.64,h*.023)
     path.write_text(header+rows,encoding='utf-8')
 
 
-def data_rows(card,language,w,h,event,ass_time,clean):
+def data_rows(card,language,w,h,event,ass_time,clean,dx=0.0,dy=0.0):
     items=card['items']
     if card['kind']=='ranking':items=sorted(items,key=lambda item:item['value'],reverse=True)
     maximum=max(item['value'] for item in items) or 1
@@ -90,7 +115,7 @@ def data_rows(card,language,w,h,event,ass_time,clean):
         prefix=f'{index+1}. ' if card['kind']=='ranking' else ''
         text=prefix+clean(item['label'][language])+f"  {item['value']:g}"
         rows+=event(text,y,h*min(.024,step*.5))
-        left=w*.13;right=left+w*.74*item['value']/maximum;top=h*(y+step*.22);bottom=top+h*.008
+        left=w*.13+(w*dx if dx else 0);right=left+w*.74*item['value']/maximum;top=h*(y+step*.22)+(h*dy if dy else 0);bottom=top+h*.008
         # Shared zero baseline and maximum, with proportional bar length.
         tags=r'{\an7\pos(0,0)\p1\c&H009EEFD1\fad(150,150)}'
         if card.get('animation')=='grow':
@@ -104,11 +129,11 @@ def data_rows(card,language,w,h,event,ass_time,clean):
     return rows
 
 
-def milestone_rows(card,language,w,h,event,ass_time,clean):
+def milestone_rows(card,language,w,h,event,ass_time,clean,dx=0.0,dy=0.0):
     # Equal spacing preserves editorial order; it does not imply elapsed duration.
     milestones=card['milestones'];step=.205/len(milestones)
     rows=event(clean(card['primary'][language]),.385,h*.021)
-    x=w*.11;top=h*.42;bottom=h*(.42+(len(milestones)-1)*step)
+    x=w*.11+(w*dx if dx else 0);top=h*.42+(h*dy if dy else 0);bottom=h*(.42+(len(milestones)-1)*step)+(h*dy if dy else 0)
     tags=r'{\an7\pos(0,0)\p1\c&H009EEFD1\fad(150,150)}'
     line=f'm {x:.2f} {top:.2f} l {x+max(4,w*.0125):.2f} {top:.2f} {x+max(4,w*.0125):.2f} {bottom:.2f} {x:.2f} {bottom:.2f}'
     rows+=f'Dialogue: 1,{ass_time(card["start"])},{ass_time(card["end"])},Default,,0,0,0,,{tags}{line}\n'

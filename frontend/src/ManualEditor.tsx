@@ -17,6 +17,7 @@ import {CutawayEditor,type Cutaway} from './CutawayEditor';
 import {VisualCardEditor,type VisualCard} from './VisualCardEditor';
 import {TimelineRegenerate} from './TimelineRegenerate';
 import {TimelineTracks} from './TimelineTracks';
+import {ClipLayerTracks} from './ClipLayerTracks';
 import { useEffect, useRef, useState } from "react";
 import type { Lang, ContentLang } from "./types";
 type Clip = {
@@ -29,7 +30,7 @@ type Clip = {
   shot_type?: 'presenter'|'close_up'|'medium'|'broll'|'document'|'archive'|'news';
   motion_seconds?:number|null;
   zoom_end?: number|null; x_end?: number|null; y_end?: number|null;
-  transition?: 'cut'|'fade'|'crossfade'|'zoom'|'wipe'|'wipe-up'|'circle';
+  transition?: 'cut'|'fade'|'crossfade'|'zoom'|'wipe'|'wipe-up'|'wipe-down'|'circle';
   start: number;
   end: number;
   zoom: number;
@@ -59,6 +60,12 @@ type Clip = {
   mark?: number;
   effect_at?: number;
   effect_end?: number;
+  title_in?: number;
+  title_out?: number;
+  title_x?: number | null;
+  kinetic_at?: number[];
+  progress_at?: number;
+  progress_end?: number;
   still?: number | null;
   screen?: number | null;
   bezel?: number;
@@ -390,7 +397,8 @@ export function ManualEditor({
               <label>{w('Длительность движения камеры, сек','Camera movement duration, seconds','镜头运动时长（秒）')}<input type="number" min="0.08" max={c.end-c.start} step="0.1" value={Math.min(c.end-c.start,c.motion_seconds||c.end-c.start)} onChange={e=>clipChange(i,{motion_seconds:Number(e.target.value)})}/></label>
               <p>{w('После движения кадр удерживается до конца сцены.','After the move, the framing holds until the scene ends.','运动完成后，构图保持到场景结束。')}</p>
               {Math.min(c.end-c.start,c.motion_seconds||c.end-c.start)>12&&(c.zoom_end??c.zoom)!==c.zoom&&<p className="ws-delivery-warning">{w('Движение растянуто на длинную сцену и может быть едва заметно.','The move spans a long scene and may be barely noticeable.','运动跨越较长场景，可能难以察觉。')} <button onClick={()=>clipChange(i,{motion_seconds:Math.min(4,c.end-c.start)})}>{w('Приближение за 4 секунды','Zoom over 4 seconds','4 秒内缩放')}</button></p>}
-              <section className="inspector-transition"><label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade" disabled={i===0}>{t('Cross dissolve','叠化')}</option><option value="zoom" disabled={i===0}>{t('Zoom transition','缩放转场')}</option><option value="wipe" disabled={i===0}>{t('Wipe left','向左擦除')}</option><option value="wipe-up" disabled={i===0}>{t('Wipe up','从下方出现')}</option><option value="circle" disabled={i===0}>{t('Circle mask','圆形遮罩')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>{i===0&&<small>{w('У первой сцены нет входящего перехода. Можно использовать затухание через чёрный.','The first scene has no incoming transition. You can use a fade through black.','第一个镜头没有入场转场，可以使用黑场淡入淡出。')}</small>}</section>
+              <section className="inspector-transition"><label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade" disabled={i===0}>{t('Cross dissolve','叠化')}</option><option value="zoom" disabled={i===0}>{t('Zoom transition','缩放转场')}</option><option value="wipe" disabled={i===0}>{t('Wipe left','向左擦除')}</option><option value="wipe-up" disabled={i===0}>{t('Wipe up','从下方出现')}</option><option value="wipe-down" disabled={i===0}>{t('Wipe down','从上方出现')}</option><option value="circle" disabled={i===0}>{t('Circle mask','圆形遮罩')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>{i===0&&<small>{w('У первой сцены нет входящего перехода. Можно использовать затухание через чёрный.','The first scene has no incoming transition. You can use a fade through black.','第一个镜头没有入场转场，可以使用黑场淡入淡出。')}</small>}</section>
+              <ClipLayerTracks clip={c} lang={lang} playhead={selected===i?time-c.start:null}/>
               <details className="inspector-text"><summary>{w('Текст на сцене','Scene text','镜头文字')}{c.text&&<span className="inspector-dot"/>}</summary><label>
                 {t("Text overlay for this clip", "此片段的叠加文字")}
                 <input

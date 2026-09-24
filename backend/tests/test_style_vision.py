@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from backend import media
 from backend.manual import Edit
 from backend.style_match import build
-from backend.style_vision import _join, annotate_pictures, black_spans, chroma_plate, color_sample, flat_background, frame_similarity, freeze_spans, grade_between, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, title_motion, visual_track
+from backend.style_vision import _join, annotate_pictures, black_spans, chroma_plate, color_sample, flat_background, frame_similarity, freeze_spans, grade_between, graphic_places, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, title_motion, visual_track
 from backend.timeline import motion_filter
 from backend.media import write_kinetic
 
@@ -180,6 +180,9 @@ def test_join_names_only_reproducible_transitions(tmp_path):
     risen = tmp_path / 'risen.mp4'
     _video(risen, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]vstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
     assert _join(risen, 0.6) == 'wipe-up'
+    fallen = tmp_path / 'fallen.mp4'
+    _video(fallen, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]vstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
+    assert _join(fallen, 0.6) == 'wipe-down'
     opened = tmp_path / 'opened.mp4'
     _video(opened, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=60x80:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]overlay=60:80[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
     assert _join(opened, 0.6) == 'circle'
@@ -202,6 +205,8 @@ def test_measured_zoom_and_right_wipe_render_on_owned_clips(tmp_path, monkeypatc
     assert _transition({'transition': {'en': 'cut', 'zh': '切'}, 'picture': {'join': 'zoom'}}) == 'zoom'
     assert _transition({'transition': {'en': 'cut', 'zh': '切'}, 'picture': {'join': 'wipe-right'}}) == 'wipe'
     assert _transition({'transition': {'en': 'fade', 'zh': '淡入'}, 'picture': {'join': 'wipe-up', 'fade': False, 'graphic': False}}) == 'wipe-up'
+    assert _transition({'transition': {'en': 'wipe down', 'zh': ''}}) == 'cut'
+    assert _transition({'transition': {'en': 'fade', 'zh': '淡入'}, 'picture': {'join': 'wipe-down', 'fade': False, 'graphic': False}}) == 'wipe-down'
     missed = {'clips': [{'transition': 'cut'}], 'subtitles': False, 'captions': []}
     quiet = {'transition': {'en': 'cut', 'zh': ''}, 'subtitle_emphasis': {'en': '', 'zh': ''}}
     assert {gap['id']: gap['essential'] for gap in _gaps([{**quiet, 'picture': {'join': 'zoom'}}], missed)}['zoom_transition'] is False
@@ -257,6 +262,18 @@ def test_measured_zoom_and_right_wipe_render_on_owned_clips(tmp_path, monkeypatc
     band_top = rgb(upper, 0.08, 'crop=160:80:0:0,scale=8:8')
     band_bottom = rgb(upper, 0.08, 'crop=160:80:0:160,scale=8:8')
     assert sum(band_bottom) / len(band_bottom) > sum(band_top) / len(band_top) + 20
+    calls.clear()
+    top = tmp_path / 'owned-top.mp4'
+    bottom = tmp_path / 'owned-bottom.mp4'
+    for path, color in ((top, 'black'), (bottom, '0xE8E4DC')):
+        real('-f', 'lavfi', '-i', f'color={color}:s=160x240:d=1:r=30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path)
+    apply(top, bottom, _transition({'transition': {'en': 'fade', 'zh': ''}, 'picture': {'join': 'wipe-down', 'fade': False, 'graphic': False}}), 1)
+    rendered_down = ' '.join(str(part) for args in calls for part in args)
+    assert 'wipedown' in rendered_down
+    assert str(zoom) not in rendered_down and str(wipe) not in rendered_down
+    down_top = rgb(bottom, 0.08, 'crop=160:80:0:0,scale=8:8')
+    down_bottom = rgb(bottom, 0.08, 'crop=160:80:0:160,scale=8:8')
+    assert sum(down_top) / len(down_top) > sum(down_bottom) / len(down_bottom) + 20
 
 def test_grade_follows_measured_yuv_without_copying_the_frame(tmp_path):
     dark = tmp_path / 'dark.mp4'
@@ -286,6 +303,15 @@ def test_pace_ramps_only_when_the_shot_changes_speed(tmp_path):
     still = tmp_path / 'still.mp4'
     _video(still, '-f', 'lavfi', '-i', 'color=0x446688:s=160x160:r=30:d=1.8')
     assert pace_of(still, 0, 1.8) is None
+    row = {'start': 0, 'end': 1.8, 'motion': {'en': 'slow motion', 'zh': '慢'}, 'transition': {'en': 'cut', 'zh': '切'}, 'reusable_method': {'en': '', 'zh': ''}, 'information_density': {'en': '', 'zh': ''}, 'subtitle_emphasis': {'en': '', 'zh': ''}, 'music': {'en': '', 'zh': ''}}
+    annotate_pictures(accelerate, [row])
+    assert row['picture']['speed'] == 1.0 and row['picture']['speed_end'] == 1.45
+    edit, report = build([row], 4, [], False)
+    assert edit['clips'][0]['speed'] == 1 and edit['clips'][0]['speed_end'] == 1.45
+    assert 'speed_ramp' not in {gap['id'] for gap in report['gaps']}
+    held = {'start': 0, 'end': 1.8}
+    annotate_pictures(still, [held])
+    assert 'speed' not in held['picture']
     chain = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'speed_end': 1.45}, 160, 240, 1.5)
     assert 'sqrt' in chain and 'PTS/1.0000' not in chain
     source = tmp_path / 'source.mp4'
@@ -459,3 +485,25 @@ def test_owned_words_follow_a_measured_title(tmp_path):
         assert abs(rendered['metadata']['duration'] - 2.4) < 0.4
         burned = (folder / 'title-0.ass').read_text()
         assert 'Visa' in burned and '\\move' in burned and 'SECRET' not in burned
+
+
+def test_graphic_places_follow_the_bright_mark(tmp_path):
+    flat = tmp_path / 'flat.mp4'
+    _video(flat, '-f', 'lavfi', '-i', 'color=0x446688:s=180x240:r=30:d=1.2')
+    assert graphic_places(flat, 0, 1.2) is None
+    card = tmp_path / 'card.mp4'
+    _video(card, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.2', '-vf', 'drawbox=x=8:y=12:w=78:h=70:color=white:t=fill')
+    found = graphic_places(card, 0, 1.2)
+    assert found['card_place']['x'] < 0.4 and found['card_place']['y'] < 0.4
+    assert 'lower_place' not in found and 'chart_place' not in found
+    plate = tmp_path / 'plate.mp4'
+    _video(plate, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.2', '-vf', 'drawbox=x=0:y=16:w=180:h=40:color=0xF4F1EA:t=fill')
+    band = graphic_places(plate, 0, 1.2)
+    assert band['lower_place']['y'] < 0.4 and 'card_place' not in band and 'chart_place' not in band
+    chart = tmp_path / 'chart.mp4'
+    _video(chart, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.2', '-vf', 'drawbox=x=8:y=124:w=120:h=28:color=white:t=fill,drawbox=x=8:y=204:w=50:h=28:color=white:t=fill')
+    bars = graphic_places(chart, 0, 1.2)
+    assert bars['chart_place']['y'] > 0.5 and 'card_place' not in bars and 'lower_place' not in bars
+    shots = [{'start': 0, 'end': 1.2}]
+    annotate_pictures(card, shots)
+    assert shots[0]['picture']['card_place']['y'] < 0.4

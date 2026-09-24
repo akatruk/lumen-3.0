@@ -87,6 +87,7 @@ def render_job(p,payload):
     if delivery and delivery['voice']:result['voiceover']={k:delivery['voice'][k] for k in ('language','voice')}
     if asset_paths:
         used_assets={c['external_broll']['asset_id'] for c in manual['clips'] if c['approved'] and c.get('external_broll')}
+        used_assets.update(c['stock_still'] for c in manual['clips'] if c['approved'] and c.get('stock_still'))
         if manual.get('music'):used_assets.add(manual['music']['asset_id'])
         with connect() as db:
             result['asset_credits']=[{'asset_id':ident,'title':row['title'],'attribution':row['attribution']} for ident in sorted(used_assets) if (row:=db.execute('SELECT title,attribution FROM studio_assets WHERE id=? AND project_id=?',(ident,pid)).fetchone())]

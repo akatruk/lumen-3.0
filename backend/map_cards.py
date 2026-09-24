@@ -13,8 +13,8 @@ def land():
         rings.extend(p[0] for p in polygons)
     return rings
 
-def map_rows(card,language,w,h,stamp,clean):
-    width=min(w*.80,h*.46);height=width/2;left=(w-width)/2;top=h*.49-height/2
+def map_rows(card,language,w,h,stamp,clean,dx=0.0,dy=0.0):
+    width=min(w*.80,h*.46);height=width/2;left=(w-width)/2+(w*dx if dx else 0);top=h*.49-height/2+(h*dy if dy else 0)
     def xy(lon,lat):return left+(lon+180)/360*width,top+(90-lat)/180*height
     drawing=[]
     for ring in land():

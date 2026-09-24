@@ -6,7 +6,8 @@ ranges are introduced. Audio stays sample-identical; only the picture blends.
 """
 # ffmpeg wipeleft reveals the incoming picture from the right. wiperight reveals it
 # from the left, so a right-arrival uses wipe rather than a second filter name.
-KINDS={'crossfade':'fade','zoom':'zoomin','wipe':'wipeleft','wipe-up':'wipeup','circle':'circleopen'}
+# wipeup shows the new picture on the bottom first. wipedown shows it on the top first.
+KINDS={'crossfade':'fade','zoom':'zoomin','wipe':'wipeleft','wipe-up':'wipeup','wipe-down':'wipedown','circle':'circleopen'}
 
 def apply(previous,current,kind,duration):
     from .media import ffmpeg,probe

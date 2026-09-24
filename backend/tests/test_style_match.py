@@ -261,10 +261,10 @@ def test_measured_shots_keep_short_beats_fast_and_match_color():
     measured = {'shots': [{'start': 0, 'end': 0.4, 'motion': {'en': 'fast punch in', 'zh': '快推'}, 'transition': {'en': 'cut', 'zh': '切'}}, {'start': 0.4, 'end': 2.4, 'motion': {'en': 'blur and glow with shadows', 'zh': '模糊'}, 'transition': {'en': 'fade', 'zh': '淡入'}}], 'flat': True, 'grade': grade, 'silences': [{'start': 30, 'end': 36}]}
     edit, report = build([shot()], 40, [], False, measured=measured)
     assert edit['clips'][0]['speed'] == 1.35
-    assert edit['clips'][1]['blur'] == 2 and edit['clips'][1]['glow'] and edit['clips'][1]['shadow']
+    assert edit['clips'][1]['blur'] == 0 and edit['clips'][1]['glow'] is False and edit['clips'][1]['shadow'] is False
     assert edit['clips'][0]['grade']['brightness'] == 0.02
     assert edit['clips'][0]['enhance'] is False
-    assert 'speed' in report['applied'] and 'grade' in report['applied'] and 'blur' in report['applied']
+    assert 'speed' in report['applied'] and 'grade' in report['applied'] and 'blur' not in report['applied']
     assert abs(sum(c['end'] - c['start'] for c in edit['clips']) - 40) < 1
 
 def test_color_moves_only_when_the_reference_was_measured():
@@ -300,7 +300,7 @@ def test_detail_track_mask_and_unusable_spans_change_the_cut():
     row = shot(motion={'en': 'follow the subject with a mask and slow motion', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     edit, report = build([row], 40, [], False, measured={'track': {'x0': 0.22, 'x1': 0.78}, 'unusable': [{'start': 8, 'end': 14}], 'chroma': 'green'})
     assert edit['clips'][0]['track'] is False and edit['clips'][0]['x'] == 0.22 and edit['clips'][0]['x_end'] == 0.78
-    assert edit['clips'][0]['mask'] is False and edit['clips'][0]['speed'] == 0.75
+    assert edit['clips'][0]['mask'] is False and edit['clips'][0]['speed'] == 1 and edit['clips'][0]['speed_end'] is None
     gaps = {gap['id']: gap['essential'] for gap in report['gaps']}
     assert gaps['motion_tracking'] is False and 'mask' in gaps
     window = shot(motion={'en': 'follow the subject with a mask and slow motion', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'mask': True, 'lower': False})
@@ -336,8 +336,8 @@ def test_named_wipe_uses_the_existing_wipe_filter():
     assert 'wipe_up' not in {gap['id'] for gap in bottom_report['gaps']}
     dropped = shot(transition={'en': 'fade', 'zh': '淡入'}, picture={'join': 'wipe-down', 'graphic': False, 'fade': False})
     stayed, stayed_report = build([dropped], 40, [], False)
-    assert stayed['clips'][0]['transition'] == 'cut'
-    assert any(gap['id'] == 'wipe_down' and gap['essential'] is False for gap in stayed_report['gaps'])
+    assert stayed['clips'][0]['transition'] == 'wipe-down'
+    assert 'wipe_down' not in {gap['id'] for gap in stayed_report['gaps']}
 
 def test_measured_vertical_composition_frames_the_subject():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1.35, 'x': 0.5, 'y': 0.78, 'y_end': 0.22, 'split': False, 'graphic': False})
@@ -511,9 +511,12 @@ def test_a_measured_entrance_times_the_effect_and_words_do_not():
     late = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'mask': False, 'lower': True, 'hold': 0.5, 'blur': 0})
     edit, _report = build([late], 40, [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证'}], False)
     assert edit['clips'][0]['lower'] is True and edit['clips'][0]['effect_at'] == 0.5
-    words = shot(motion={'en': 'soft blur', 'zh': '虚化'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
-    blurred, _report = build([words], 40, [], False)
-    assert blurred['clips'][0]['blur'] == 2 and blurred['clips'][0]['effect_at'] == 0
+    words = shot(motion={'en': 'soft blur glow and drop shadow in slow motion', 'zh': '虚化'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    blurred, word_report = build([words], 40, [], False)
+    assert blurred['clips'][0]['blur'] == 0 and blurred['clips'][0]['glow'] is False and blurred['clips'][0]['shadow'] is False
+    assert blurred['clips'][0]['speed'] == 1 and blurred['clips'][0]['speed_end'] is None and blurred['clips'][0]['effect_at'] == 0
+    spoken = {gap['id']: gap['essential'] for gap in word_report['gaps']}
+    assert spoken['blur'] is False and spoken['glow'] is False and spoken['shadow'] is False and spoken['speed_ramp'] is False
 
 def test_owned_percent_sets_the_progress_and_the_icon_plate():
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': '', 'zh': ''})
@@ -1139,6 +1142,27 @@ def test_best_take_needs_speech_and_a_usable_frame():
     assert _best_takes(cuts, transcript, [{'start': 30, 'end': 32}]) == cuts
     assert _best_takes(cuts, transcript, [{'start': 1, 'end': 3}, {'start': 13, 'end': 15}]) == cuts
 
+def test_overlapping_takes_keep_one_speaking_usable_cut():
+    from backend.style_match import _best_takes
+    good, bad = (0, 4), (3.5, 8)
+    cuts = [good, bad]
+    transcript = [
+        {'start': 0.4, 'end': 2.2, 'original': 'Harbor opens Monday', 'en': 'Harbor opens Monday'},
+        {'start': 4.4, 'end': 6.2, 'original': 'Weather stays clear', 'en': 'Weather stays clear'},
+    ]
+    assert _best_takes(cuts, transcript, [{'start': 4, 'end': 8}]) == [good]
+    assert _best_takes(cuts, None, [{'start': 4, 'end': 8}]) == cuts
+    assert _best_takes(cuts, [], [{'start': 4, 'end': 8}]) == cuts
+    assert _best_takes(cuts, transcript, None) == cuts
+    assert _best_takes(cuts, transcript, []) == cuts
+    assert _best_takes(cuts, transcript, [{'start': 30, 'end': 32}]) == cuts
+    assert _best_takes(cuts, transcript, [{'start': 0, 'end': 8}]) == cuts
+    longer = [(0, 4), (3.5, 12)]
+    spoken = [{'start': 0.4, 'end': 2.2, 'original': 'Harbor opens Monday', 'en': 'Harbor opens Monday'}]
+    assert _best_takes(longer, spoken, [{'start': 30, 'end': 32}]) == [(0, 4)]
+    silent = [{'start': 4.4, 'end': 6.2, 'original': 'Weather stays clear', 'en': 'Weather stays clear'}]
+    assert _best_takes(cuts, silent, [{'start': 4, 'end': 8}]) == cuts
+
 def test_column_shift_follows_without_a_picture_and_does_not_track_a_face():
     quiet = dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     followed, report = build([shot(**quiet)], 40, [], False, measured={'track': {'x0': 0.22, 'x1': 0.78}})
@@ -1171,3 +1195,107 @@ def test_owned_color_and_short_name_stay_on_existing_graphics(monkeypatch):
     painted, painted_report = build([shot(**quiet)], 40, spoken, False, title='Harbor guide', source='owned.mp4', measured={'layout': layout})
     assert painted['clips'][0]['ink'] == '224466'
     assert 'owned_brand' not in {gap['id'] for gap in painted_report['gaps']}
+
+
+def test_measured_graphic_position_moves_owned_ink(tmp_path, monkeypatch):
+    import re
+    from types import SimpleNamespace
+    from backend import media
+    from backend.manual import Edit
+    from backend.style_vision import graphic_places
+    from backend.visuals import write_card
+    reference_card = tmp_path / 'reference-card.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.2', '-vf', 'drawbox=x=8:y=12:w=78:h=70:color=white:t=fill', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', reference_card)
+    reference_plate = tmp_path / 'reference-plate.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.2', '-vf', 'drawbox=x=0:y=16:w=180:h=40:color=0xF4F1EA:t=fill', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', reference_plate)
+    reference_chart = tmp_path / 'reference-chart.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.2', '-vf', 'drawbox=x=8:y=124:w=120:h=28:color=white:t=fill,drawbox=x=8:y=204:w=50:h=28:color=white:t=fill', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', reference_chart)
+    card_place = graphic_places(reference_card, 0, 1.2)['card_place']
+    lower_place = graphic_places(reference_plate, 0, 1.2)['lower_place']
+    chart_place = graphic_places(reference_chart, 0, 1.2)['chart_place']
+    assert card_place['y'] < 0.4 and lower_place['y'] < 0.4 and chart_place['y'] > 0.5
+    quiet = dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'})
+    named = dict(quiet, observation={'en': 'show a chart, an icon, and a card', 'zh': '图表图标卡片'}, information_density={'en': 'chart icon card', 'zh': '图表'})
+    spoken = [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证'}]
+    base = {'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False}
+    measured_card = shot(start=0, end=4, picture={**base, 'card': {'in': 0.25, 'out': 0.75}, 'card_place': card_place}, **quiet)
+    card_edit, _report = build([measured_card], 4, [], False, script='Price 80')
+    card_clip = card_edit['clips'][0]
+    length = card_clip['end'] - card_clip['start']
+    assert card_clip['card']['primary']['en'] == '80'
+    assert abs(card_clip['card']['start'] - 0.25 * length) < 0.2
+    assert card_clip['card_x'] == card_place['x'] and card_clip['card_y'] == card_place['y']
+    assert card_clip['card_x'] < 0.4 and card_clip['track'] is False
+    assert 'SECRET' not in json.dumps(card_edit)
+    word_card = shot(start=0, end=4, picture={**base, 'card': {'in': 0.25, 'out': 0.75}}, **named)
+    word_card_edit, _report = build([word_card], 4, [], False, script='Price 80')
+    assert word_card_edit['clips'][0]['card']['primary']['en'] == '80'
+    assert word_card_edit['clips'][0]['card_x'] is None and word_card_edit['clips'][0]['card_y'] is None
+    measured_plate = shot(start=0, end=4, picture={**base, 'lower': True, 'lower_place': lower_place}, **quiet)
+    plate_edit, _report = build([measured_plate], 4, spoken, False)
+    plate_clip = plate_edit['clips'][0]
+    assert plate_clip['icon'] is True and plate_clip['lower'] is True
+    assert plate_clip['lower_x'] == lower_place['x'] and plate_clip['lower_y'] == lower_place['y']
+    assert plate_clip['lower_y'] < 0.4 and plate_clip['track'] is False
+    word_plate = shot(start=0, end=4, picture={**base, 'lower': True}, **named)
+    word_plate_edit, _report = build([word_plate], 4, spoken, False)
+    assert word_plate_edit['clips'][0]['icon'] is True
+    assert word_plate_edit['clips'][0]['lower_x'] is None and word_plate_edit['clips'][0]['lower_y'] is None
+    measured_chart = shot(start=0, end=4, picture={**base, 'graphic': True, 'chart_place': chart_place}, **quiet)
+    chart_edit, _report = build([measured_chart], 4, [], False, script='Price 80 and deposit 20')
+    chart_clip = chart_edit['clips'][0]
+    assert chart_clip['graphic'] is True and len(chart_clip['bars']) >= 2
+    assert chart_clip['chart_x'] == chart_place['x'] and chart_clip['chart_y'] == chart_place['y']
+    assert chart_clip['chart_y'] > 0.5 and chart_clip['card_x'] is None and chart_clip['track'] is False
+    assert '80' in json.dumps(chart_clip['bars']) or chart_clip['bars'][0] == 1
+    word_chart = shot(start=0, end=4, picture={**base, 'graphic': True}, **named)
+    word_chart_edit, _report = build([word_chart], 4, [], False, script='Price 80 and deposit 20')
+    assert word_chart_edit['clips'][0]['graphic'] is True and word_chart_edit['clips'][0]['chart_x'] is None and word_chart_edit['clips'][0]['chart_y'] is None
+    owned = tmp_path / 'owned.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x224466:s=180x240:r=30:d=4.2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', owned)
+    calls = []
+    real = media.ffmpeg
+    def spy(*args, **kwargs):
+        calls.append(tuple(str(part) for part in args))
+        return real(*args, **kwargs)
+    monkeypatch.setattr(media, 'ffmpeg', spy)
+    references = (reference_card, reference_plate, reference_chart)
+
+    def rendered(clip, folder):
+        calls.clear()
+        folder.mkdir()
+        media.render(owned, folder, media.probe(owned), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[clip], subtitles=False, captions=[]).model_dump())
+        joined = '\n'.join(' '.join(call) for call in calls)
+        assert str(owned) in joined
+        for path in references:
+            assert str(path) not in joined and path.name not in joined
+        return joined
+
+    card_file = tmp_path / 'owned-card.ass'
+    write_card(card_file, card_clip['card'], 'en', 180, 240, (card_clip['card_x'], card_clip['card_y']))
+    script = card_file.read_text()
+    assert '80' in script and 'Price' in script and 'SECRET' not in script
+    assert str(reference_card) not in script and reference_card.name not in script
+    poses = [(float(x), float(y)) for x, y in re.findall(r'\\pos\(([0-9.]+),([0-9.]+)\)', script)]
+    text = [(x, y) for x, y in poses if y > 1]
+    assert text and min(y for _x, y in text) < 240 * 0.34 - 8
+    assert min(x for x, _y in text) < 90 - 8
+    assert 'm 9 67' not in script
+    fixed_card = tmp_path / 'fixed-card.ass'
+    write_card(fixed_card, word_card_edit['clips'][0]['card'], 'en', 180, 240)
+    assert 'm 9 67' in fixed_card.read_text()
+    if media.ass_available():
+        burned = rendered(card_clip, tmp_path / 'card-render')
+        assert '80' in (tmp_path / 'card-render' / 'card-0.ass').read_text()
+        assert str(reference_card) not in burned
+    plate_graph = rendered({**plate_clip, 'text': '', 'kinetic': False, 'card': None}, tmp_path / 'plate-render')
+    overlay = re.search(r'overlay=x=0:y=(\d+)', plate_graph)
+    assert overlay and int(overlay.group(1)) < 80
+    assert 'overlay=x=0:y=200' not in plate_graph
+    chart_body = {**chart_clip, 'text': '', 'kinetic': False, 'kinetic_at': [], 'card': None}
+    chart_graph = rendered(chart_body, tmp_path / 'chart-render')
+    assert 'y=ih*0.220' not in chart_graph and 'drawbox' in chart_graph
+    fixed_graph = rendered({**word_chart_edit['clips'][0], 'text': '', 'kinetic': False, 'kinetic_at': [], 'card': None}, tmp_path / 'fixed-chart')
+    assert 'y=ih*0.220' in fixed_graph and 'drawbox' in fixed_graph
+    fixed_plate = rendered({**word_plate_edit['clips'][0], 'text': '', 'kinetic': False, 'card': None}, tmp_path / 'fixed-plate')
+    assert 'overlay=x=0:y=200' in fixed_plate

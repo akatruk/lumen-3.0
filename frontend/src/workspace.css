@@ -989,3 +989,15 @@
 .ws-delivery-status .ws-delivery-warning { margin: 0 20px 16px; }
 .ws-delivery-warning p { margin: 6px 0; }
 .ws-delivery-warning button { margin-top: 6px; }
+
+.layer-tracks { margin: 12px 0 4px; }
+.layer-tracks p { margin: 0 0 8px; font-size: 12px; line-height: 1.4; color: #52654f; }
+.layer-scale { display: flex; justify-content: space-between; margin: 0 0 4px 96px; font-size: 10px; color: #758198; font-variant-numeric: tabular-nums; }
+.layer-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 8px; align-items: center; margin: 4px 0; }
+.layer-row strong { font-size: 11px; font-weight: 650; line-height: 1.2; }
+.layer-lane { position: relative; height: 22px; background: #e7eee4; border-radius: 4px; overflow: hidden; }
+.layer-lane > span { position: absolute; top: 2px; height: 18px; min-width: 4px; border-radius: 3px; background: #b7d498; color: #163e32; font-size: 10px; line-height: 18px; padding: 0 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box; }
+.layer-row-callout .layer-lane > span { background: #e7d9f7; }
+.layer-row-card .layer-lane > span { background: #c9e6ed; }
+.layer-row-progress .layer-lane > span { background: #f6d6c8; }
+.layer-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: #163e32; pointer-events: none; }
