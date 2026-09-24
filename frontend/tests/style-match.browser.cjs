@@ -28,7 +28,11 @@ const report={
   x.data.studio.context.style_report=report;
   x.data.studio.context.style_match_status='pending';
   await x.goto();
-  await x.page.getByRole('heading',{name:'Automatic style match'}).waitFor();
+  const fold=x.page.locator('.ws-preview .style-match-fold');
+  await fold.waitFor();
+  assert.equal(await x.page.locator('.ws-inspector .style-match-fold').count(),0);
+  assert.equal(await fold.evaluate(el=>el.open),false);
+  await fold.locator('summary').click();
   await x.page.getByText('Needs your input').first().waitFor();
   await x.page.getByText('Not reproduced').first().waitFor();
   await x.page.getByText('Exposure and color were lifted slightly.').waitFor();

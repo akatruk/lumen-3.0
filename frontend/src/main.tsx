@@ -4,6 +4,7 @@ import { LanguageSelect } from './LanguageSelect';
 import { translate, contentLanguage, readLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
 import { TutorialVideos } from "./TutorialVideos";
+import { LookBoard } from "./LookBoard";
 import React, {
   useState,
   useEffect,
@@ -76,7 +77,7 @@ function initialRoute() {
   return {
     pid: /^project\/[a-f0-9]{32}$/.test(h) ? h.slice(8) : null,
     trend,
-    page: trend ? "trends" : ["studio", "library", "settings", "guide", "trends"].includes(h) ? h : "studio",
+    page: trend ? "trends" : ["studio", "look", "library", "settings", "guide", "trends"].includes(h) ? h : "studio",
   };
 }
 const active = (p: { status: string }) =>
@@ -299,6 +300,7 @@ function App() {
             <nav>
               {[
                 ["studio", ScanLine],
+                ["look", SlidersHorizontal],
                 ["trends", TrendingUp],
                 ["library", LayoutGrid],
                 ["settings", Settings2],
@@ -429,6 +431,8 @@ function App() {
                   void refresh();
                 }}
               />
+            ) : page === "look" ? (
+              <LookBoard lang={lang} />
             ) : page === "trends" ? (
               <Trends
                 lang={lang}

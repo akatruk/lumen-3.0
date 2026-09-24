@@ -58,6 +58,7 @@ type Clip = {
   icon?: boolean;
   mark?: number;
   effect_at?: number;
+  effect_end?: number;
   still?: number | null;
   screen?: number | null;
   bezel?: number;
