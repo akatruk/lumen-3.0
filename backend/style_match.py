@@ -667,6 +667,45 @@ def _context(db, pid):
     current = state(pid, db)
     return current, json.loads(json.dumps(current['context']))
 
+def _carry_selected_music(db, pid, edit):
+    """Keep a selected music bed on the next picture without changing the saved edit."""
+    shaped = json.loads(json.dumps(edit))
+    if shaped.get('music'):
+        return shaped
+    result = (project(pid) or {}).get('result') or {}
+    render_id = result.get('render_id') or ''
+    if not render_id:
+        return shaped
+    from .final_music import config_of
+    from .final_output import current
+    selected = current(db, pid, render_id)
+    music = config_of(selected, result) if selected else None
+    if not music:
+        return shaped
+    try:
+        from .music import Music
+        shaped['music'] = Music.model_validate(music).model_dump()
+    except Exception:
+        return json.loads(json.dumps(edit))
+    return shaped
+
+def _selected_voice_id(db, pid):
+    result = (project(pid) or {}).get('result') or {}
+    render_id = result.get('render_id') or ''
+    if not render_id:
+        return ''
+    from .final_music import voice_of
+    from .final_output import current
+    selected = current(db, pid, render_id)
+    return voice_of(selected) if selected else ''
+
+def _style_render_payload(db, pid, current, edit):
+    payload = {'revision': current['revision'], 'plan': current['plan'], 'decisions': [], 'manual': _carry_selected_music(db, pid, edit), 'quality_review': False}
+    voice_id = _selected_voice_id(db, pid)
+    if voice_id:
+        payload['voice_id'] = voice_id
+    return payload
+
 def _store(db, pid, edit, report, status, render):
     current, context = _context(db, pid)
     context['style_match'] = True
@@ -677,7 +716,7 @@ def _store(db, pid, edit, report, status, render):
     if not render:
         return
     current, _context_again = _context(db, pid)
-    enqueue(db, pid, 'studio_render', {'revision': current['revision'], 'plan': current['plan'], 'decisions': [], 'manual': edit, 'quality_review': False})
+    enqueue(db, pid, 'studio_render', _style_render_payload(db, pid, current, edit))
     db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
 
 def match_project(pid):
@@ -812,15 +851,36 @@ def score_output(pid):
 @router.post('/projects/{pid}/style-match/approve')
 def approve(pid: str, user=Depends(current_user)):
     from .studio import owned, state
-    owned(pid, user)
+    from .manual import Edit, check, read
+    item = owned(pid, user)
     with connect() as db:
         db.lock()
+        if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
+            raise HTTPException(409, 'job_already_running')
         current = state(pid, db)
         if not current['context'].get('style_match') or not current['context'].get('style_report'):
             raise HTTPException(422, 'style_match_off')
+        edit = read(pid, db)
+        if not edit:
+            raise HTTPException(422, 'save_manual_first')
+        payload = _style_render_payload(db, pid, current, edit)
+        checked = Edit.model_validate(payload['manual'])
+        check(checked, item['metadata']['duration'])
+        if not any(c.approved for c in checked.clips):
+            raise HTTPException(422, 'no_approved_changes')
+        if any(not c.approved for c in checked.clips):
+            raise HTTPException(422, 'approve_shots_first')
+        from .assets import validate as validate_assets
+        validate_assets(checked, pid, db)
+        from .render_audio import summary as audio_summary
+        audio = audio_summary(db, project(pid), [(c.start, c.end) for c in checked.clips])
+        if audio and audio.get('error'):
+            raise HTTPException(422, audio['error'])
         context = json.loads(json.dumps(current['context']))
         context['style_match_status'] = 'approved'
         db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
+        enqueue(db, pid, 'studio_render', payload)
+        db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
     return {'ok': True, 'style_match_status': 'approved'}
 
 @router.post('/projects/{pid}/style-match/regenerate')

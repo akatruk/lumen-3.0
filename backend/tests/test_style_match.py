@@ -138,16 +138,111 @@ def test_section_regenerate_changes_one_clip(client, monkeypatch):
     assert config['clips'][0]['zoom'] == 1.2
     assert [(c['start'], c['end']) for c in config['clips']] == before
 
-def test_approve_records_the_cut_without_another_render(client, monkeypatch):
+def test_approve_renders_the_saved_edit_and_keeps_the_selected_delivery(client, monkeypatch):
+    import uuid
+    from backend.final_output import current, path as delivery_path
+    from backend.music import Music
+    from backend.worker import run_once
+    bare = create(client, style_match=True).json()['id']
+    analyze(bare, monkeypatch)
+    with connect() as db:
+        db.execute("UPDATE jobs SET status='complete' WHERE project_id=?", (bare,))
+        db.execute('DELETE FROM studio_manual WHERE project_id=?', (bare,))
+    missing = client.post(f'/api/studio/projects/{bare}/style-match/approve')
+    assert missing.status_code == 422 and missing.json()['detail'] == 'save_manual_first'
+    with connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'", (bare,)).fetchone()[0] == 0
+    assert (settings.data_dir / bare / 'source').read_bytes() == b'owned-source-only'
     pid = create(client, style_match=True).json()['id']
     analyze(pid, monkeypatch)
+    aid, voice, render_id = 'e' * 32, 'd' * 32, 'c' * 32
     with connect() as db:
         db.execute("UPDATE jobs SET status='complete' WHERE project_id=?", (pid,))
-        before = db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='studio_render'", (pid,)).fetchone()[0]
+        config = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
+        config['clips'][0]['zoom'] = 1.05
+        config['clips'][0]['zoom_end'] = None
+        config['music'] = Music(asset_id=aid).model_dump()
+        db.execute('UPDATE studio_manual SET config=? WHERE project_id=?', (json.dumps(config), pid))
+        db.execute('INSERT INTO studio_assets VALUES(?,?,?,?,?,?,?)', (aid, pid, uuid.uuid4().hex, 'Test track', 'Synthetic', json.dumps({'kind': 'music', 'duration': 60}), 0))
+        master = {'render_id': render_id, 'timeline': [[0, 40]], 'metadata': {'duration': 40, 'width': 320, 'height': 568, 'has_audio': False}}
+        db.execute('UPDATE projects SET result=? WHERE id=?', (json.dumps(master), pid))
+        db.execute('INSERT INTO dubbing_versions(id,project_id,request_id,master_id,language,voice,kind,status,snapshot,created) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                   (voice, pid, uuid.uuid4().hex, render_id, 'ru', 'ru-male', 'video', 'ready', json.dumps({'master': master}), time.time()))
+        db.execute('INSERT INTO project_final_outputs(project_id,master_id,version_id,updated) VALUES(?,?,?,?)', (pid, render_id, voice, time.time()))
+    folder = settings.data_dir / pid
+    (folder / 'renders' / render_id).mkdir(parents=True)
+    (folder / 'renders' / render_id / 'result.mp4').write_bytes(b'finished-cut')
+    (folder / 'dubbing' / voice).mkdir(parents=True)
+    (folder / 'dubbing' / voice / 'video.mp4').write_bytes(b'chosen-voice')
+    (folder / 'reference_source').write_bytes(b'REFERENCE-PIXELS-NOT-A-SOURCE')
     assert client.post(f'/api/studio/projects/{pid}/style-match/approve').status_code == 200
     assert studio.state(pid)['context']['style_match_status'] == 'approved'
     with connect() as db:
-        assert db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='studio_render'", (pid,)).fetchone()[0] == before
+        payload = json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'", (pid,)).fetchone()[0])
+    assert payload['quality_review'] is False and payload['decisions'] == []
+    assert payload['manual']['music']['asset_id'] == aid and payload['manual']['clips'][0]['zoom'] == 1.05
+    assert payload['voice_id'] == voice
+    assert 'reference_source' not in json.dumps(payload) and 'REFERENCE-PIXELS' not in json.dumps(payload)
+    assert client.post(f'/api/studio/projects/{pid}/style-match/regenerate').status_code == 409
+    assert client.post(f'/api/studio/projects/{pid}/style-match/sections/0/regenerate').status_code == 409
+    assert client.post(f'/api/studio/projects/{pid}/style-match/approve').status_code == 409
+    with connect() as db:
+        db.execute("UPDATE jobs SET status='complete' WHERE project_id=? AND status='queued'", (pid,))
+        assert db.execute('SELECT version_id FROM project_final_outputs WHERE project_id=?', (pid,)).fetchone()['version_id'] == voice
+    assert client.post(f'/api/studio/projects/{pid}/style-match/approve').status_code == 200
+    with connect() as db:
+        second = json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'", (pid,)).fetchone()[0])
+        assert db.execute('SELECT version_id FROM project_final_outputs WHERE project_id=?', (pid,)).fetchone()['version_id'] == voice
+    assert second['quality_review'] is False and second['manual']['music']['asset_id'] == aid and second['voice_id'] == voice
+    assert second['manual']['clips'][0]['zoom'] == 1.05 and 'reference_source' not in json.dumps(second)
+    from backend import media, render_audio
+    monkeypatch.setattr('backend.style_match.score_output', lambda *_a, **_k: None)
+    def prepare(_pid, _voice, render_folder, _timeline):
+        (render_folder / 'voice-clean.wav').write_bytes(b'voice')
+        (render_folder / 'voice-subtitles.vtt').write_text('WEBVTT\n')
+        return render_folder / 'voice-clean.wav'
+    def render_picture(source, render_folder, *_args, **kwargs):
+        assert source.read_bytes() == b'owned-source-only'
+        assert kwargs['manual']['clips'][0]['zoom'] == 1.05
+        assert kwargs['manual']['music']['asset_id'] == aid
+        assert kwargs.get('voice_audio')
+        (render_folder / 'result.mp4').write_bytes(b'new-picture-with-voice-and-music')
+        (render_folder / 'music-free.mp4').write_bytes(b'music-free-picture')
+        clips = [c for c in kwargs['manual']['clips'] if c.get('approved', True)]
+        return {'music': kwargs['manual']['music'], 'metadata': {'duration': 40, 'has_audio': True, 'width': 320, 'height': 568}, 'timeline': [(c['start'], c['end']) for c in clips], 'applied': [], 'generated_clips': 0}
+    monkeypatch.setattr(render_audio, 'prepare', prepare)
+    monkeypatch.setattr(media, 'render', render_picture)
+    assert run_once()
+    rendered = project(pid)
+    assert rendered['result']['render_id'] != render_id
+    assert (folder / 'renders' / render_id / 'result.mp4').read_bytes() == b'finished-cut'
+    with connect() as db:
+        selected = current(db, pid, rendered['result']['render_id'])
+    assert selected['delivery'] == 'mix' and selected['voice'] == 'ru-male'
+    assert json.loads(selected['music'])['asset_id'] == aid
+    played = delivery_path(pid, selected).read_bytes()
+    downloaded = client.get(f'/api/projects/{pid}/media/result').content
+    assert played == downloaded == b'new-picture-with-voice-and-music'
+    assert downloaded != (folder / 'source').read_bytes()
+    assert downloaded != (folder / 'reference_source').read_bytes()
+    with connect() as db:
+        db.execute("UPDATE jobs SET status='complete' WHERE project_id=? AND status='queued'", (pid,))
+    assert client.post(f'/api/studio/projects/{pid}/style-match/approve').status_code == 200
+    def fail_render(source, render_folder, *_args, **_kwargs):
+        (render_folder / 'result.mp4').write_bytes(source.read_bytes())
+        raise ValueError('media_processing_failed')
+    monkeypatch.setattr(media, 'render', fail_render)
+    assert run_once()
+    failed = project(pid)
+    assert failed['result']['render_id'] == rendered['result']['render_id']
+    assert failed['status'] == 'failed'
+    with connect() as db:
+        kept = current(db, pid, failed['result']['render_id'])
+    played = delivery_path(pid, kept).read_bytes()
+    downloaded = client.get(f'/api/projects/{pid}/media/result').content
+    assert played == downloaded == b'new-picture-with-voice-and-music'
+    assert downloaded != (folder / 'source').read_bytes()
+    assert (folder / 'renders' / render_id / 'result.mp4').read_bytes() == b'finished-cut'
     app.dependency_overrides[current_user] = lambda: {'id': 'v', 'email': 'other@example.com'}
     assert client.post(f'/api/studio/projects/{pid}/style-match/approve').status_code == 404
 
