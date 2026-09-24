@@ -2,7 +2,8 @@ import re
 from types import SimpleNamespace
 from backend import media
 from backend.manual import Edit
-from backend.style_vision import _join, black_spans, chroma_plate, color_sample, flat_background, frame_similarity, freeze_spans, grade_between, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, visual_track
+from backend.style_match import build
+from backend.style_vision import _join, annotate_pictures, black_spans, chroma_plate, color_sample, flat_background, frame_similarity, freeze_spans, grade_between, highlight_window, light_between, measure, pace_of, picture_of, reference_layout, title_motion, visual_track
 from backend.timeline import motion_filter
 from backend.media import write_kinetic
 
@@ -175,13 +176,73 @@ def test_join_names_only_reproducible_transitions(tmp_path):
     assert _join(wipe, 0.6) == 'wipe'
     other = tmp_path / 'other.mp4'
     _video(other, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=90x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]hstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
-    assert _join(other, 0.6) == 'cut'
+    assert _join(other, 0.6) == 'wipe-right'
     opened = tmp_path / 'opened.mp4'
     _video(opened, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=60x80:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]overlay=60:80[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
     assert _join(opened, 0.6) == 'circle'
     blend = tmp_path / 'blend.mp4'
     _video(blend, '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56', '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.08', '-f', 'lavfi', '-i', 'color=blue:s=180x240:r=30:d=0.56', '-filter_complex', '[1:v][2:v]blend=all_mode=average[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
     assert _join(blend, 0.6) == 'crossfade'
+
+def test_measured_zoom_and_right_wipe_render_on_owned_clips(tmp_path, monkeypatch):
+    import subprocess
+    from backend.style_match import _gaps, _transition
+    from backend.transitions import apply
+    zoom = tmp_path / 'zoom-ref.mp4'
+    _video(zoom, '-f', 'lavfi', '-i', 'color=red:s=160x240:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=red:s=160x240:r=30:d=0.2', '-f', 'lavfi', '-i', 'color=white:s=52x80:r=30:d=0.2', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=160x240:r=30:d=0.9', '-filter_complex', '[1:v][2:v]overlay=54:80[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
+    assert _join(zoom, 1.0) == 'zoom'
+    wipe = tmp_path / 'wipe-ref.mp4'
+    _video(wipe, '-f', 'lavfi', '-i', 'color=red:s=160x240:r=30:d=0.9', '-f', 'lavfi', '-i', 'color=red:s=80x240:r=30:d=0.2', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=80x240:r=30:d=0.2', '-f', 'lavfi', '-i', 'color=0xE8E4DC:s=160x240:r=30:d=0.9', '-filter_complex', '[1:v][2:v]hstack=inputs=2[m];[0:v][m][3:v]concat=n=3:v=1:a=0')
+    assert _join(wipe, 1.0) == 'wipe-right'
+    assert _transition({'transition': {'en': 'zoom', 'zh': '缩放'}}) == 'zoom'
+    assert _transition({'transition': {'en': 'cut', 'zh': '切'}, 'motion': {'en': 'a zoom through the room', 'zh': ''}, 'reusable_method': {'en': 'zoom on the speaker', 'zh': ''}}) == 'cut'
+    assert _transition({'transition': {'en': 'cut', 'zh': '切'}, 'picture': {'join': 'zoom'}}) == 'zoom'
+    assert _transition({'transition': {'en': 'cut', 'zh': '切'}, 'picture': {'join': 'wipe-right'}}) == 'wipe'
+    missed = {'clips': [{'transition': 'cut'}], 'subtitles': False, 'captions': []}
+    quiet = {'transition': {'en': 'cut', 'zh': ''}, 'subtitle_emphasis': {'en': '', 'zh': ''}}
+    assert {gap['id']: gap['essential'] for gap in _gaps([{**quiet, 'picture': {'join': 'zoom'}}], missed)}['zoom_transition'] is False
+    assert {gap['id']: gap['essential'] for gap in _gaps([{**quiet, 'picture': {'join': 'wipe-right'}}], missed)}['wipe_right'] is False
+    kept = {'clips': [{'transition': 'wipe'}], 'subtitles': False, 'captions': []}
+    assert 'wipe_right' not in {gap['id'] for gap in _gaps([{**quiet, 'picture': {'join': 'wipe-right'}, 'transition': {'en': 'wipe-right', 'zh': ''}}], kept)}
+
+    def rgb(path, stamp, crop):
+        return subprocess.check_output(['ffmpeg', '-v', 'error', '-ss', str(stamp), '-i', str(path), '-vf', crop, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
+
+    calls = []
+    real = media.ffmpeg
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return real(*args, **kwargs)
+
+    before = tmp_path / 'owned-before.mp4'
+    after = tmp_path / 'owned-after.mp4'
+    for path, color in ((before, 'black'), (after, '0xE8E4DC')):
+        real('-f', 'lavfi', '-i', f'color={color}:s=160x240:d=1:r=30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path)
+    hard_cut = tmp_path / 'hard-cut.mp4'
+    hard_cut.write_bytes(after.read_bytes())
+    monkeypatch.setattr(media, 'ffmpeg', spy)
+    apply(before, after, 'zoom', 1)
+    assert abs(media.probe(before)['duration'] - 1) < 0.08
+    assert abs(media.probe(after)['duration'] - 1) < 0.08
+    # zoomin holds the outgoing picture, so the blend is visible on the incoming clip.
+    hard = rgb(hard_cut, 0.08, 'scale=16:16')
+    mixed = rgb(after, 0.08, 'scale=16:16')
+    assert sum(abs(a - b) for a, b in zip(hard, mixed)) / len(hard) > 8
+    calls.clear()
+    left = tmp_path / 'owned-left.mp4'
+    right = tmp_path / 'owned-right.mp4'
+    for path, color in ((left, 'black'), (right, '0xE8E4DC')):
+        real('-f', 'lavfi', '-i', f'color={color}:s=160x240:d=1:r=30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path)
+    apply(left, right, _transition({'transition': {'en': 'cut', 'zh': ''}, 'picture': {'join': 'wipe-right'}}), 1)
+    assert abs(media.probe(left)['duration'] - 1) < 0.08
+    assert abs(media.probe(right)['duration'] - 1) < 0.08
+    side_l = rgb(right, 0.08, 'crop=80:240:0:0,scale=8:8')
+    side_r = rgb(right, 0.08, 'crop=80:240:80:0,scale=8:8')
+    assert sum(side_r) / len(side_r) > sum(side_l) / len(side_l) + 20
+    rendered = ' '.join(str(part) for args in calls for part in args)
+    sentinel = tmp_path / 'do-not-render.mp4'
+    assert str(zoom) not in rendered and str(wipe) not in rendered and str(sentinel) not in rendered
 
 def test_grade_follows_measured_yuv_without_copying_the_frame(tmp_path):
     dark = tmp_path / 'dark.mp4'
@@ -340,3 +401,47 @@ def test_a_plate_that_appears_later_starts_the_effect_then(tmp_path):
     write_kinetic(caption, 'Visa days', 1.6, 180, 240, begin=0.5)
     lines = [line for line in caption.read_text().splitlines() if line.startswith('Dialogue:')]
     assert lines[0].split(',')[1] == '0:00:00.50'
+
+def test_owned_words_follow_a_measured_title(tmp_path):
+    reference = tmp_path / 'reference.mp4'
+    _video(reference, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2.4', '-f', 'lavfi', '-i', 'color=white:s=48x40:r=30:d=2.4', '-filter_complex', "[0:v][1:v]overlay=x='8+100*min(max((t-0.45)/1.2,0),1)':y=24:enable='between(t,0.45,1.75)'")
+    plain = tmp_path / 'plain.mp4'
+    _video(plain, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2.4')
+    assert title_motion(plain, 0, 2.4) is None
+    motion = title_motion(reference, 0, 2.4)
+    assert motion['in'] < 0.5 < motion['out'] < 0.95
+    assert motion['x0'] < motion['x1']
+    shots = [{'start': 0, 'end': 2.4, 'picture': None}]
+    annotate_pictures(reference, shots)
+    assert shots[0]['picture']['title']['x0'] < shots[0]['picture']['title']['x1']
+    row = dict(start=0, end=2.4, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考原文'}, visual_type={'en': 'presenter', 'zh': '主讲'}, narrative_role={'en': 'hook', 'zh': '开场'}, motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, subtitle_emphasis={'en': 'none', 'zh': '无'}, music={'en': '', 'zh': ''}, emotion={'en': 'calm', 'zh': '平静'}, information_density={'en': 'low', 'zh': '低'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, picture={'title': motion})
+    spoken = [{'start': 0, 'end': 2.4, 'original': 'Visa days', 'en': 'Visa days', 'zh': 'Visa days'}]
+    edit, report = build([row], 2.4, spoken, False)
+    blob = __import__('json').dumps(edit)
+    assert 'SECRET REFERENCE LINE' not in blob
+    clip = edit['clips'][0]
+    assert clip['kinetic'] is True and 'Visa' in clip['text'] and 'SECRET' not in clip['text']
+    assert clip['title_x'] < clip['title_x_end'] and clip['title_in'] < clip['title_out'] < 1
+    assert all(gap['id'] != 'owned_title' for gap in report['gaps'])
+    empty, missing = build([row], 2.4, [], False, script='')
+    assert empty['clips'][0]['text'] == '' and empty['clips'][0]['kinetic'] is False
+    assert any(gap['id'] == 'owned_title' and gap['essential'] is True for gap in missing['gaps'])
+    ass = tmp_path / 'move.ass'
+    length = clip['end'] - clip['start']
+    write_kinetic(ass, clip['text'], length, 180, 240, begin=clip['title_in'] * length, end=clip['title_out'] * length, origin=(clip['title_x'], clip['title_y']), dest=(clip['title_x_end'], clip['title_y_end']))
+    script = ass.read_text()
+    assert 'Visa' in script and 'SECRET' not in script
+    move = re.search(r'\\move\((\d+),(\d+),(\d+),(\d+),', script)
+    assert int(move.group(1)) < int(move.group(3))
+    first = next(line for line in script.splitlines() if line.startswith('Dialogue:'))
+    assert first.split(',')[2] != '0:00:02.40'
+    source = tmp_path / 'owned.mp4'
+    _video(source, '-f', 'lavfi', '-i', 'color=0x224466:s=180x240:r=30:d=2.4')
+    assert source.resolve() != reference.resolve()
+    if media.ass_available():
+        folder = tmp_path / 'render'
+        folder.mkdir()
+        rendered = media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=edit)
+        assert abs(rendered['metadata']['duration'] - 2.4) < 0.4
+        burned = (folder / 'title-0.ass').read_text()
+        assert 'Visa' in burned and '\\move' in burned and 'SECRET' not in burned

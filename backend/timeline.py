@@ -9,7 +9,13 @@ def compile_timeline(edit):
              'shot_type':clip.shot_type,'locked':clip.locked,'motion':{'from':[clip.zoom,clip.x,clip.y],'to':[clip.zoom_end if clip.zoom_end is not None else clip.zoom,clip.x_end if clip.x_end is not None else clip.x,clip.y_end if clip.y_end is not None else clip.y]},'transition':clip.transition,'audio_fade_ms':clip.audio_fade_ms}
         row['motion']['duration']=min(length,clip.motion_seconds or length)
         shots.append(row)
-        if clip.text:titles.append({'decision_id':clip.id,'start':row['start'],'end':row['end'],'text':clip.text})
+        if clip.text:
+            title_start,title_end=row['start'],row['end']
+            if clip.effect_end<0.999:
+                title_start=row['start']+max(0,min(clip.effect_at,0.85))*length
+                title_end=row['start']+max(clip.effect_at,clip.effect_end)*length
+                if title_end<=title_start: title_start,title_end=row['start'],row['end']
+            titles.append({'decision_id':clip.id,'start':round(title_start,6),'end':round(title_end,6),'text':clip.text})
         if clip.card:inserts.append(clip.card.model_dump()|{'decision_id':clip.id,'start':round(cursor+clip.card.start,6),'end':round(cursor+clip.card.end,6)})
         if clip.cutaway:cutaways.append({'decision_id':clip.id,'start':round(cursor+clip.cutaway.start,6),'end':round(cursor+clip.cutaway.end,6),'source_start':clip.cutaway.source_start,'source_end':clip.cutaway.source_start+clip.cutaway.end-clip.cutaway.start,'audio':'base_source','locked':clip.locked})
         if clip.external_broll:
@@ -53,19 +59,27 @@ def motion_filter(clip,width,height,length):
         base=f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
     else:
         n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1);progress=f'min(on/{n},1)'
-        base=f"fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({x0}+({x1}-{x0})*{progress})':y='(ih-ih/zoom)*({y0}+({y1}-{y0})*{progress})':d=1:s={width}x{height}:fps=30,"
+        # zoompan resamples with bilinear. A 2x lanczos source keeps a punch-in from softening a small frame.
+        base=f"scale=iw*2:ih*2:flags=lanczos,fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({x0}+({x1}-{x0})*{progress})':y='(ih-ih/zoom)*({y0}+({y1}-{y0})*{progress})':d=1:s={width}x{height}:fps=30,"
     speed,end,_average=playback(clip,length)
     if abs(end-speed)>0.04: base+=_ramp(speed,end,length)
     elif abs(speed-1)>0.04: base+=f'setpts=PTS/{speed:.4f},'
     grade=clip.get('grade') or None
+    short=min(width,height)<720
     if grade:
-        base+=f"eq=contrast={_num(grade,'contrast',1):.4f}:brightness={_num(grade,'brightness',0):.4f}:saturation={_num(grade,'saturation',1):.4f}:gamma={_num(grade,'gamma',1):.4f},"
+        contrast=_num(grade,'contrast',1)
+        saturation=_num(grade,'saturation',1)
+        if short:
+            # Match color on a small frame. A full contrast or saturation lift looks softer than the source.
+            contrast=1+(contrast-1)*0.25
+            saturation=1+(saturation-1)*0.25
+        base+=f"eq=contrast={contrast:.4f}:brightness={_num(grade,'brightness',0):.4f}:saturation={saturation:.4f}:gamma={_num(grade,'gamma',1):.4f},"
         base+=f"colorbalance=rs={_num(grade,'rs',0):.4f}:gs={_num(grade,'gs',0):.4f}:bs={_num(grade,'bs',0):.4f},"
-    elif clip.get('enhance'):
-        # A small lift only. It does not copy a reference grade.
+    elif clip.get('enhance') and not short:
         base+='eq=contrast=1.04:brightness=0.02:saturation=1.06:gamma=1.02,'
     at=float(clip.get('effect_at') or 0)
-    gate=f":enable='gte(t\\,{at:.3f})'" if at>=0.2 else ''
+    opened=max(0.0, min(at, 0.85)) * float(length) if at >= 0.2 else 0.0
+    gate=f":enable='gte(t\\,{opened:.3f})'" if opened >= 0.2 else ''
     if _num(clip,'blur',0)>=0.4: base+=f"gblur=sigma={min(12,_num(clip,'blur',0)):.2f}{gate},"
     if clip.get('glow'):
         amount=_num(clip,'glow_amount',0)

@@ -1,7 +1,7 @@
 """Source-only manual edits, versioned with the director plan. No AI calls."""
 import json
 import uuid
-from typing import Literal
+from typing import Annotated, Literal
 from fastapi import APIRouter,Depends,HTTPException,Request
 from pydantic import Field
 from .schemas import Strict,Span,Caption
@@ -59,6 +59,13 @@ class Clip(Span):
     shake_rx: int=Field(default=16,ge=0,le=64)
     cutout: bool=False
     kinetic: bool=False
+    title_in: float=Field(default=0,ge=0,le=1)
+    title_out: float=Field(default=1,ge=0,le=1)
+    title_x: float | None=Field(default=None,ge=0,le=1)
+    title_y: float | None=Field(default=None,ge=0,le=1)
+    title_x_end: float | None=Field(default=None,ge=0,le=1)
+    title_y_end: float | None=Field(default=None,ge=0,le=1)
+    kinetic_at: list[Annotated[float, Field(ge=0, le=1)]]=Field(default_factory=list, max_length=8)
     graphic: bool=False
     bars: list[float]=Field(default_factory=list,max_length=5)
     lower: bool=False
@@ -74,7 +81,11 @@ class Clip(Span):
     track: bool=False
     exposure: float=Field(default=0,ge=-1,le=1)
     progress: float=Field(default=0,ge=0,le=1)
+    progress_at: float=Field(default=0,ge=0,le=1)
+    progress_end: float=Field(default=1,ge=0,le=1)
+    progress_play: bool=False
     effect_at: float=Field(default=0,ge=0,le=0.85)
+    effect_end: float=Field(default=1,ge=0,le=1)
     plate: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
     grade: Grade | None=None
     text: str=Field(default='',max_length=160)

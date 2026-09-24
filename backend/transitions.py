@@ -1,16 +1,19 @@
 """Centered moving-shot transitions; preserve each clip's duration and audio.
 
-A short tail/head (at most 150 ms each) is stretched across the 300 ms
-transition window. No frames outside approved source ranges are introduced.
-Audio remains sample-identical; visual timing displacement is bounded by 150 ms.
+The blend is long enough to see (up to 400 ms on each side of the join) and
+never longer than a quarter of either clip. No frames outside approved source
+ranges are introduced. Audio stays sample-identical; only the picture blends.
 """
+# ffmpeg wipeleft reveals the incoming picture from the right. wiperight reveals it
+# from the left, so a right-arrival uses wipe rather than a second filter name.
 KINDS={'crossfade':'fade','zoom':'zoomin','wipe':'wipeleft','circle':'circleopen'}
 
 def apply(previous,current,kind,duration):
     from .media import ffmpeg,probe
     previous_duration=probe(previous)['duration']
     # Whole frames make the split and concatenation stable at the render rate.
-    frames=min(4,int(previous_duration*30/4),int(duration*30/4))
+    # 12 frames is 400 ms. The old cap of 4 frames (133 ms) read as a hard cut.
+    frames=min(12,int(previous_duration*30/4),int(duration*30/4))
     if frames<1:return
     half=frames/30
     window=2*half

@@ -2,6 +2,7 @@
 
 Reference files, dialogue, music and packaging never become export inputs. Effects the renderer cannot reproduce are listed on the fidelity report.
 """
+import copy
 import json
 import re
 from fastapi import APIRouter, Depends, HTTPException
@@ -12,6 +13,7 @@ from .schemas import Caption
 
 router = APIRouter(prefix='/api/studio')
 SCORE_KEYS = ('shot_structure', 'visual_pacing', 'effect_similarity', 'motion_graphic_style', 'color_treatment', 'production_quality')
+FRAMES_NOT_COMPARED = 'Frames have not been compared yet.'
 GAP_RULES = (
     ('motion_tracking', ('tracking', 'track the', 'follow the subject'), False),
     ('presenter_cutout', ('cutout', 'cut out', 'green screen'), False),
@@ -60,13 +62,22 @@ def _motion(shot):
     return 1.0, None
 
 def _transition(shot):
+    from .transitions import KINDS
     blob = plain(shot.get('transition')).lower()
     name = 'cut'
+    # The transition sentence only. Motion copy that says "zoom" is not a join.
     for needle, kind in (('circle', 'circle'), ('wipe', 'wipe'), ('crossfade', 'crossfade'), ('dissolve', 'crossfade'), ('fade', 'fade'), ('zoom', 'zoom')):
         if _has(blob, (needle,)):
             name = kind
             break
-    if name == 'cut' and ((shot.get('picture') or {}).get('graphic') or (shot.get('picture') or {}).get('fade')):
+    picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
+    measured = str(picture.get('join') or '').lower()
+    if name == 'cut' and measured == 'zoom' and 'zoom' in KINDS:
+        name = 'zoom'
+    elif name == 'cut' and measured in ('wipe-right', 'wiperight', 'wipe') and 'wipe' in KINDS:
+        # A right arrival is wipe-right in the picture. wipeleft is what actually reveals that side.
+        name = 'wipe'
+    if name == 'cut' and (picture.get('graphic') or picture.get('fade')):
         return 'fade'
     return name
 
@@ -266,6 +277,89 @@ def _captions(transcript, emphasize):
         rows.append(row)
     return rows
 
+def _highlight_fractions(shot):
+    picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
+    raw = picture.get('highlights')
+    if not isinstance(raw, (list, tuple)):
+        return []
+    found = []
+    for item in raw:
+        try:
+            frac = float(item)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= frac <= 1:
+            found.append(frac)
+    return found
+
+def _kinetic_fractions(picture):
+    raw = picture.get('kinetic_at') if isinstance(picture, dict) else None
+    if not isinstance(raw, (list, tuple)):
+        return []
+    found = []
+    for item in raw:
+        try:
+            frac = float(item)
+        except (TypeError, ValueError):
+            continue
+        if frac == frac and 0 <= frac <= 1:
+            found.append(round(frac, 2))
+        if len(found) >= 8:
+            break
+    return found
+
+def _caption_at(captions, moment):
+    for cap in captions:
+        if cap.start - 1e-3 <= moment < cap.end + 1e-3:
+            return cap
+    return None
+
+def _owned_terms(text):
+    if not text:
+        return []
+    return [word for word in _keywords(text) if word in text][:3]
+
+def _highlight_spans(shot, start, end):
+    """Map a measured highlight onto the owned clip. A stored start gets an exit so it does not cover the shot."""
+    picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
+    length = max(0.0, end - start)
+    emphasis = picture.get('emphasis') if isinstance(picture, dict) else None
+    if isinstance(emphasis, dict) and emphasis.get('in') is not None:
+        try:
+            inn = float(emphasis.get('in'))
+            out = min(1.0, float(emphasis['out'])) if emphasis.get('out') is not None else min(1.0, inn + 0.15)
+        except (TypeError, ValueError):
+            inn = out = None
+        else:
+            if out <= inn:
+                out = min(1.0, inn + 0.15)
+            if 0 <= inn < out:
+                return [(start + inn * length, start + out * length)]
+    spans = []
+    for frac in _highlight_fractions(shot):
+        spans.append((start + frac * length, start + min(1.0, frac + 0.15) * length))
+    return spans
+
+def _emphasize_owned_hits(captions, shots, cuts):
+    """Emphasize an owned keyword already in the caption that overlaps the measured window. Speech times stay put."""
+    saw = False
+    for index, (start, end) in enumerate(cuts):
+        shot = shots[index % len(shots)] if shots else {}
+        spans = _highlight_spans(shot, start, end)
+        if not spans:
+            continue
+        saw = True
+        for cap in captions:
+            if not any(cap.end > left + 1e-3 and cap.start < right - 1e-3 for left, right in spans):
+                continue
+            en = _owned_terms(cap.en or cap.original)
+            zh = _owned_terms(cap.zh)
+            if en and not cap.emphasis_en:
+                cap.emphasis_en = en
+            if zh and not cap.emphasis_zh:
+                cap.emphasis_zh = zh
+    return saw
+
 def _bars(facts):
     peak = max((item[2] for item in facts), default=0) or 1
     return [round(max(0.08, min(1, item[2] / peak)), 3) for item in facts[:5]]
@@ -278,6 +372,16 @@ def _owned_fill(facts):
         ratio = value / 100 if value > 1 else value
         return round(max(0, min(1, ratio)), 3)
     return None
+
+def _bar_window(look):
+    """Map a measured reference bar onto the owned clip. Untimed bars span the clip."""
+    if not look or not look.get('bar') or look.get('bar_in') is None or look.get('bar_out') is None:
+        return 0.0, 1.0
+    start = round(max(0.0, min(1.0, float(look.get('bar_in') or 0))), 2)
+    end = round(max(0.0, min(1.0, float(look.get('bar_out')))), 2)
+    if end < start + 0.04:
+        end = min(1.0, round(start + 0.04, 2))
+    return start, end
 
 def _card(facts, length):
     from .visuals import CardText, DataItem, VisualCard
@@ -296,6 +400,41 @@ def _card(facts, length):
     except Exception:
         return None
 
+def _moment(picture):
+    """Owned-clip fraction for a measured number card. Raw reference timestamps are not used."""
+    moment = picture.get('card') if isinstance(picture, dict) else None
+    if not isinstance(moment, dict):
+        return None
+    try:
+        opened = float(moment.get('in'))
+    except (TypeError, ValueError):
+        return None
+    if moment.get('out') is None:
+        closed = min(1.0, round(opened + 0.35, 3))
+    else:
+        try:
+            closed = float(moment.get('out'))
+        except (TypeError, ValueError):
+            return None
+    if not 0 <= opened < closed <= 1:
+        return None
+    return {'in': opened, 'out': closed}
+
+def _time_card(card, length, moment):
+    start = max(0.0, min(length, moment['in'] * length))
+    end = max(start, min(length, moment['out'] * length))
+    if end - start < 0.5:
+        end = min(length, start + 0.5)
+        if end - start < 0.5:
+            start = max(0.0, end - 0.5)
+    start, end = round(start, 3), round(min(length, end), 3)
+    if end <= start or end - start < 0.5 or end > length + 1e-9:
+        return
+    card.start = start
+    card.end = end
+    if card.animation == 'grow' and card.animation_seconds > card.end - card.start - 0.15:
+        card.animation = 'none'
+
 def _panel_start(start, end, duration):
     window = min(1.2, max(0.5, (end - start) * 0.45))
     if duration - end >= window:
@@ -304,10 +443,111 @@ def _panel_start(start, end, duration):
         return 0.0
     return None
 
+def _ref_span(shots):
+    ends = []
+    for shot in shots or []:
+        if not isinstance(shot, dict):
+            continue
+        try:
+            ends.append(float(shot.get('end') or 0))
+        except (TypeError, ValueError):
+            continue
+    return max(ends) if ends else 0.0
+
+def _fraction_of(value, ref_duration):
+    """A measured insert start. Numbers in 0..1 are fractions of the reference."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        number = float(value)
+        if 0 <= number <= 1:
+            return number
+        if ref_duration and 0 <= number <= float(ref_duration) + 1e-6:
+            return max(0.0, min(1.0, number / float(ref_duration)))
+        return None
+    if not isinstance(value, dict):
+        return None
+    if value.get('fraction') is not None:
+        return _fraction_of(value.get('fraction'), ref_duration)
+    if value.get('in') is not None:
+        return _fraction_of(value.get('in'), ref_duration)
+    if value.get('start') is None and value.get('at') is None:
+        return None
+    try:
+        start = float(value.get('start', value.get('at')))
+        end = float(value['end']) if value.get('end') is not None else None
+    except (TypeError, ValueError):
+        return None
+    if end is not None and end > 1 and ref_duration:
+        return max(0.0, min(1.0, start / float(ref_duration)))
+    if 0 <= start <= 1:
+        return start
+    if ref_duration and 0 <= start <= float(ref_duration) + 1e-6:
+        return max(0.0, min(1.0, start / float(ref_duration)))
+    return None
+
+def _measured_insert(shot, ref_duration):
+    """Cutaway, graphic cover, or b-roll window already measured on the reference."""
+    if not isinstance(shot, dict):
+        return None
+    picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
+    for source in (picture, shot):
+        for key in ('insert', 'cover', 'cutaway', 'broll'):
+            if key not in source:
+                continue
+            frac = _fraction_of(source.get(key), ref_duration)
+            if frac is not None:
+                return frac
+        graphic = source.get('graphic')
+        if isinstance(graphic, dict):
+            frac = _fraction_of(graphic, ref_duration)
+            if frac is not None:
+                return frac
+    return None
+
+def _insert_fraction(shot, ref_duration):
+    """Where the reference covers the presenter, as a fraction of the reference."""
+    measured = _measured_insert(shot, ref_duration)
+    if measured is not None:
+        return measured
+    if not isinstance(shot, dict):
+        return None
+    blob = (plain(shot.get('visual_type')) + ' ' + plain(shot.get('reusable_method')) + ' ' + plain(shot.get('narrative_role'))).lower()
+    if not _has(blob, ('b-roll', 'broll', 'cutaway', 'stock footage')):
+        return None
+    try:
+        start = float(shot.get('start') or 0)
+    except (TypeError, ValueError):
+        start = 0.0
+    length = float(ref_duration or 0)
+    if length <= 0:
+        return 0.0
+    return max(0.0, min(1.0, start / length))
+
+def _local_insert(fraction, start, end, duration):
+    """Owned-clip start. Same fraction mapping as highlights and number cards."""
+    try:
+        fraction = float(fraction)
+        start, end, duration = float(start), float(end), float(duration)
+    except (TypeError, ValueError):
+        return None
+    span = end - start
+    if span <= 0 or not 0 <= fraction <= 1:
+        return None
+    moment = start + span * fraction
+    absolute = fraction * duration
+    if start - 1e-6 <= absolute < end:
+        moment = absolute
+    local = moment - start
+    if local < -1e-6 or local >= span:
+        return None
+    return max(0.0, local)
+
 def _cutaway(shot, start, end, duration):
     from .manual import Cutaway
     blob = (plain(shot.get('visual_type')) + ' ' + plain(shot.get('reusable_method')) + ' ' + plain(shot.get('narrative_role'))).lower()
-    if not _has(blob, ('b-roll', 'broll', 'cutaway')):
+    fraction = _insert_fraction(shot, _ref_span([shot]))
+    if not _has(blob, ('b-roll', 'broll', 'cutaway')) and not fraction:
         return None
     length = end - start
     window = min(1.2, length * 0.45)
@@ -319,10 +559,16 @@ def _cutaway(shot, start, end, duration):
         src = 0.0
     else:
         return None
-    local_end = round(0.12 + window, 3)
+    local = 0.12
+    if fraction:
+        mapped = _local_insert(fraction, start, end, duration)
+        if mapped is None or mapped + window > length + 1e-9:
+            return None
+        local = mapped
+    local_end = round(local + window, 3)
     if local_end > length or src + window > duration + 1e-6:
         return None
-    return Cutaway(start=0.12, end=local_end, source_start=src)
+    return Cutaway(start=round(local, 3), end=local_end, source_start=src)
 
 def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=False):
     blob = _blob([shot or {}])
@@ -342,7 +588,45 @@ def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=Fal
         'kinetic': _has(blob, ('kinetic', 'animated title', 'title card')),
     }
 
-def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look=None, ref_len=None, progress=0):
+def _screen_fraction(picture):
+    """Fraction of the reference where a screen was seen. Not a reference timestamp."""
+    if not isinstance(picture, dict) or picture.get('fraction') is None:
+        return None
+    try:
+        value = float(picture['fraction'])
+    except (TypeError, ValueError):
+        return None
+    if value != value:
+        return None
+    return max(0.0, min(1.0, value))
+
+def _owned_screen_time(fraction, start, end, duration):
+    """Owned-source timestamp: fraction of the owned duration, inside this clip."""
+    moment = max(0.0, min(float(duration), float(fraction) * float(duration)))
+    low, high = float(start), float(end)
+    if high < low:
+        low, high = high, low
+    if high > low:
+        moment = min(max(moment, low), high)
+    else:
+        moment = low
+    return round(moment, 3)
+
+def _owned_frame_is_screen(source, at):
+    """True when the owned frame at this source time has a bezel and an inner picture."""
+    from pathlib import Path
+    path = Path(source) if source else None
+    if path is None or not path.is_file():
+        return False
+    try:
+        from . import media
+        from .style_vision import _screen
+        meta = media.probe(path)
+        return bool(_screen(path, float(at), int(meta['width']), int(meta['height'])))
+    except Exception:
+        return False
+
+def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look=None, ref_len=None, progress=0, progress_play=False, script=''):
     look = look or {}
     frame = _frame(shot or {})
     track = look.get('track') if _has(_blob([shot or {}]), ('tracking', 'track the', 'follow the subject')) else None
@@ -354,7 +638,8 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     blob = _blob([shot or {}])
     picture = shot.get('picture') or {}
     callout = bool(words) and (_wants_captions([shot or {}]) or _has(blob, ('title', 'overlay', 'callout', 'keyword', 'kinetic', 'icon')) or look.get('lower') or look.get('bar') or picture.get('lower'))
-    card = _card(facts, end - start) if (allow_card and _has(blob, ('chart', 'number', 'statistic', 'progress'))) or picture.get('graphic') else None
+    moment = _moment(picture)
+    card = _card(facts, end - start) if (allow_card and _has(blob, ('chart', 'number', 'statistic', 'progress'))) or picture.get('graphic') or moment else None
     fx = _effects(shot, end - start if ref_len is None else ref_len, look.get('flat'), chroma=bool(look.get('chroma')), look_split=bool(look.get('split')), look_shake=bool(look.get('shake')))
     slot = end - start if ref_len is None else ref_len
     opening, closing = picture.get('speed'), picture.get('speed_end')
@@ -363,16 +648,48 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     else:
         speed, speed_end = fx['speed'], None
     open_shot = not fx['split'] and not fx['cutout'] and not (picture.get('graphic') and facts)
-    screen = (_panel_start(start, end, duration) if _panel_start(start, end, duration) is not None else start) if open_shot and (picture.get('screen') or _has(blob, ('screenshot', 'screen recording', 'screen capture'))) else None
+    wants_screen = open_shot and (bool(picture.get('screen')) or _has(blob, ('screenshot', 'screen recording', 'screen capture')))
+    fraction = _screen_fraction(picture) if wants_screen else None
+    if wants_screen and fraction is None:
+        fraction = 0.5
+    screen = _owned_screen_time(fraction, start, end, duration) if fraction is not None else None
     tiles = int(picture.get('tiles') or 0)
     diagram = (tiles if 1 <= tiles <= 4 else max(1, min(4, len(words) or 3))) if open_shot and screen is None and _has(blob, ('illustration', 'diagram', 'infographic', 'drawing')) else 0
     text = (words[0][:40] if callout else '')
     if diagram and words and not text:
         text = words[0][:40]
-    if fx['kinetic'] and len(words) >= 2:
+    motion = picture.get('title') if isinstance(picture.get('title'), dict) else None
+    title_in = title_out = title_x = title_y = title_x_end = title_y_end = None
+    if motion and words:
+        lead = words[0][:40]
+        text = f'{lead} {words[1]}'[:80] if len(words) >= 2 and words[1] not in lead.split() else lead
+        title_in = max(0, min(1, float(motion.get('in') or 0)))
+        title_out = max(title_in, min(1, float(motion.get('out') or 1)))
+        title_x = max(0, min(1, float(motion.get('x0') or 0.2)))
+        title_y = max(0, min(1, float(motion.get('y0') or 0.2)))
+        title_x_end = max(0, min(1, float(motion.get('x1') if motion.get('x1') is not None else title_x)))
+        title_y_end = max(0, min(1, float(motion.get('y1') if motion.get('y1') is not None else title_y)))
+    elif fx['kinetic'] and len(words) >= 2:
         lead = text or words[0][:40]
         if words[1] not in lead.split():
             text = f'{lead} {words[1]}'[:80]
+    if title_in is not None and shot.get('text_at') is not None:
+        title_in = max(0.0, min(1.0, _clip_fraction(shot['text_at'], duration, start, end)))
+        if title_out is not None:
+            title_out = max(title_in, title_out)
+    owned = list(words)
+    for word in _keywords(script or ''):
+        if len(owned) >= 3:
+            break
+        if word not in owned:
+            owned.append(word)
+    hits = _kinetic_fractions(picture) if owned else []
+    if motion and len(hits) < 2:
+        hits = []
+    if hits and not motion:
+        text = ' '.join(word[:40] for word in owned)[:160]
+    elif hits and not text:
+        text = ' '.join(word[:40] for word in owned)[:160]
     if text and _has(blob, ('icon', 'chart', 'progress')):
         mark = '▮ ' if _has(blob, ('chart', 'progress')) else '● '
         text = (mark + text)[:160]
@@ -380,21 +697,84 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     if look.get('grade'):
         from .manual import Grade
         grade = Grade.model_validate(look['grade'])
+    raw_exposure = look.get('exposure')
+    # A missing measurement is not a light shift, and a measured 0 stays 0. Never invent 0.18.
+    exposure = 0.0 if raw_exposure is None else float(raw_exposure)
     icon = bool((look.get('lower') or picture.get('lower')) and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram)
+    try:
+        chip_at = float(picture.get('callout') or 0)
+    except (TypeError, ValueError):
+        chip_at = 0.0
+    chip_room = title_x is None and not picture.get('graphic') and not fx['split'] and not fx['cutout'] and not fx['mask'] and screen is None and not diagram
+    placed = 0.2 <= chip_at <= 0.85 and bool(owned) and chip_room
+    if placed:
+        icon = True
+        if not text:
+            text = owned[0][:40]
+        if not text.startswith(('● ', '▮ ')):
+            text = ('● ' + text)[:160]
+    elif chip_at >= 0.2 and not owned:
+        icon = False
+        text = ''
     radius = int(look.get('shake_rx') or 0)
     shake_rx = max(4, min(64, radius)) if fx['stabilize'] and radius else 16 if fx['stabilize'] else 0
     effect_at = float(picture.get('hold') or 0)
-    if effect_at < 0.2 or not (fx['blur'] or fx['glow'] or fx['shadow'] or icon):
+    if placed and effect_at < 0.2:
+        effect_at = min(0.85, chip_at)
+    mapped = _local_insert(shot.get('event_at'), start, end, duration) if shot.get('event_at') is not None and (fx['blur'] or fx['glow'] or fx['shadow']) else None
+    if mapped is not None and end > start:
+        effect_at = min(0.85, mapped / (end - start))
+    elif effect_at < 0.2 or not (fx['blur'] or fx['glow'] or fx['shadow'] or icon):
         effect_at = 0
-    if card is not None and effect_at >= 0.2:
+    effect_end = 1.0
+    exit_frac = picture.get('callout_out')
+    if exit_frac is None:
+        exit_frac = picture.get('release')
+    try:
+        exit_frac = 1.0 if exit_frac is None else float(exit_frac)
+    except (TypeError, ValueError):
+        exit_frac = 1.0
+    if (placed or icon) and effect_at < exit_frac < 0.999:
+        effect_end = round(min(1.0, exit_frac), 2)
+    if card is not None and shot.get('card_at') is not None:
+        local_in = _clip_fraction(shot['card_at'], duration, start, end)
+        if shot.get('card_to') is None:
+            local_out = min(1.0, local_in + 0.35)
+        else:
+            local_out = _clip_fraction(shot['card_to'], duration, start, end)
+        _time_card(card, end - start, {'in': local_in, 'out': max(local_in + 0.001, local_out)})
+    elif card is not None and moment:
+        _time_card(card, end - start, moment)
+    elif card is not None and shot.get('event_at') is not None:
+        offset = _local_insert(shot['event_at'], start, end, duration)
+        if offset is not None:
+            window = max(0.2, float(card.end) - float(card.start))
+            length = end - start
+            begin = min(max(0.0, offset), max(0.0, length - window))
+            card.start = round(begin, 3)
+            card.end = round(min(length, begin + window), 3)
+    elif card is not None and effect_at >= 0.2:
         slot = end - start
-        card.start = round(min(max(float(card.start), effect_at * slot), max(float(card.start), slot - 0.45)), 3)
+        if effect_end < 0.999:
+            _time_card(card, slot, {'in': effect_at, 'out': effect_end})
+        else:
+            card.start = round(min(max(float(card.start), effect_at * slot), max(float(card.start), slot - 0.45)), 3)
     cutaway = None if card or fx['cutout'] or fx['split'] else _cutaway(shot or {}, start, end, duration)
-    if cutaway is not None and effect_at >= 0.2:
+    # A measured insert already has its fraction. Do not slide it to the effect hold.
+    insert_at = _measured_insert(shot or {}, _ref_span([shot or {}]))
+    if cutaway is not None and insert_at is None and shot.get('event_at') is not None:
+        offset = _local_insert(shot['event_at'], start, end, duration)
+        if offset is not None:
+            window = cutaway.end - cutaway.start
+            begin = round(min(offset, max(0.12, (end - start) - window)), 3)
+            if begin >= 0.2 and begin + window <= (end - start) + 1e-6:
+                cutaway = cutaway.model_copy(update={'start': begin, 'end': round(begin + window, 3)})
+    elif cutaway is not None and effect_at >= 0.2 and insert_at is None:
         window = cutaway.end - cutaway.start
         begin = round(min(effect_at * (end - start), max(0.12, (end - start) - window)), 3)
         if begin >= 0.2 and begin + window <= (end - start) + 1e-6:
             cutaway = cutaway.model_copy(update={'start': begin, 'end': round(begin + window, 3)})
+    progress_at, progress_end = _bar_window(look)
     return Clip(
         id=ident,
         start=start,
@@ -412,8 +792,9 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         audio_fade_ms=16 if _transition(shot or {}) != 'cut' else 0,
         cutaway=cutaway,
         effect_at=round(effect_at, 2),
+        effect_end=round(effect_end, 2),
         card=card,
-        enhance=grade is None,
+        enhance=False,
         speed=speed,
         speed_end=speed_end,
         blur=fx['blur'],
@@ -425,11 +806,21 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         stabilize=fx['stabilize'],
         shake_rx=shake_rx,
         cutout=fx['cutout'],
-        kinetic=bool(fx['kinetic'] and text),
+        kinetic=bool(text) and (title_x is not None or fx['kinetic'] or bool(hits)),
+        title_in=0 if title_in is None else title_in,
+        title_out=1 if title_out is None else title_out,
+        title_x=title_x,
+        title_y=title_y,
+        title_x_end=title_x_end,
+        title_y_end=title_y_end,
+        kinetic_at=hits,
         mask=bool(fx['mask'] and not fx['cutout'] and not fx['split']),
         track=bool(track),
-        exposure=float(look.get('exposure') or 0),
+        exposure=exposure,
         progress=max(0, min(1, float(progress or 0))),
+        progress_at=progress_at,
+        progress_end=progress_end,
+        progress_play=bool(progress_play),
         plate='1A1F1C' if fx['cutout'] else '',
         graphic=bool(picture.get('graphic') and facts and not fx['split'] and not fx['cutout']),
         bars=_bars(facts) if picture.get('graphic') and facts and not fx['split'] and not fx['cutout'] else [],
@@ -446,7 +837,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         locked=False,
     )
 
-def _gaps(shots, edit):
+def _gaps(shots, edit, source=None):
     blob = _blob(shots)
     found = [{'id': ident, 'essential': essential} for ident, needles, essential in GAP_RULES if _has(blob, needles)]
     if _wants_captions(shots) and not edit['subtitles']:
@@ -455,6 +846,8 @@ def _gaps(shots, edit):
         found.append({'id': 'reference_music', 'essential': False})
     if any(c.get('card') for c in edit['clips']):
         found = [g for g in found if g['id'] != 'number_card']
+    elif any(_moment(shot.get('picture') or {}) for shot in shots) and not any(g['id'] == 'number_card' for g in found):
+        found.append({'id': 'number_card', 'essential': True})
     if any(c.get('cutaway') or c.get('external_broll') for c in edit['clips']):
         found = [g for g in found if g['id'] != 'broll']
     clips = edit['clips']
@@ -468,8 +861,21 @@ def _gaps(shots, edit):
     if any(c.get('grade') for c in clips): done.add('color_grade')
     if any(abs((c.get('speed') or 1) - 1) > 0.04 or (c.get('speed_end') is not None and abs(c['speed_end'] - (c.get('speed') or 1)) > 0.04) for c in clips): done.add('speed_ramp')
     if any(c.get('kinetic') for c in clips): done.add('kinetic_type')
+    if any(isinstance((shot.get('picture') or {}).get('title'), dict) for shot in shots) and not any(c.get('kinetic') and c.get('text') for c in clips):
+        found.append({'id': 'owned_title', 'essential': True})
     if any(c.get('track') for c in clips): done.add('motion_tracking')
     if any(c.get('mask') for c in clips): done.add('mask')
+    for index, shot in enumerate(shots or []):
+        picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
+        join = str(picture.get('join') or '')
+        applied = clips[index].get('transition') if index < len(clips) else 'cut'
+        if join == 'zoom' and applied != 'zoom':
+            found.append({'id': 'zoom_transition', 'essential': False})
+        if join in ('wipe-right', 'wiperight') and applied not in ('wipe', 'wipe-right'):
+            found.append({'id': 'wipe_right', 'essential': False})
+    screens = [c.get('screen') for c in clips if c.get('screen') is not None]
+    if screens and not all(_owned_frame_is_screen(source, stamp) for stamp in screens):
+        found.append({'id': 'owned_screen_frame', 'essential': False, 'note': 'owned frame, not a reference screenshot'})
     return [g for g in found if g['id'] not in done]
 
 def _scores(shots, edit, gaps, duration):
@@ -590,22 +996,107 @@ def _applied(edit, trimmed):
         rows.append('panel')
     return rows
 
-def _report(shots, edit, duration, trimmed):
-    gaps = _gaps(shots, edit)
+def _report(shots, edit, duration, trimmed, source=None):
+    gaps = _gaps(shots, edit, source)
+    scores = _scores(shots, edit, gaps, duration)
     return {
-        'scores': _scores(shots, edit, gaps, duration),
+        'scores': scores,
         'applied': _applied(edit, trimmed),
         'gaps': gaps,
         'sections': [{'index': i, 'start': c['start'], 'end': c['end'], 'transition': c['transition'], 'zoom': c['zoom']} for i, c in enumerate(edit['clips'])],
         'note': 'owned_only',
+        'compared': False,
+        'effect_similarity_rule': scores['effect_similarity'],
+        'comparison_note': FRAMES_NOT_COMPARED,
     }
+
+def _unit_fraction(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number:
+        return None
+    return max(0.0, min(1.0, number))
+
+def _shot_fraction(shot, inner):
+    """Where `inner` sits in the whole reference, using this shot's pre-scale window."""
+    shot_in = float(shot.get('shot_in') or 0)
+    shot_out = float(shot['shot_out']) if shot.get('shot_out') is not None else shot_in
+    return max(0.0, min(1.0, shot_in + float(inner) * (shot_out - shot_in)))
+
+def _event_fraction(shot):
+    picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
+    if isinstance(picture, dict) and picture.get('event') is not None:
+        parsed = _unit_fraction(picture.get('event'))
+        if parsed is not None:
+            return parsed
+    if shot.get('event') is not None:
+        parsed = _unit_fraction(shot.get('event'))
+        if parsed is not None:
+            return parsed
+    if not isinstance(picture, dict) or shot.get('shot_in') is None:
+        return None
+    hold = _unit_fraction(picture.get('hold') or 0)
+    if hold is None or hold < 0.2:
+        return None
+    return _shot_fraction(shot, hold)
+
+def _mark_reference_windows(shots, measured):
+    """Record each shot's share of the reference before lengths are scaled onto the owned video."""
+    ref = 0.0
+    try:
+        ref = float((measured or {}).get('duration') or 0)
+    except (TypeError, ValueError):
+        ref = 0.0
+    if ref <= 0:
+        ends = []
+        for shot in shots:
+            try:
+                ends.append(float(shot['end']))
+            except (KeyError, TypeError, ValueError):
+                continue
+        ref = max(ends) if ends else 1.0
+    ref = ref or 1.0
+    for shot in shots:
+        try:
+            start, end = float(shot['start']), float(shot['end'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        shot['shot_in'] = round(max(0.0, min(1.0, start / ref)), 4)
+        shot['shot_out'] = round(max(shot['shot_in'], min(1.0, end / ref)), 4)
+        event = _event_fraction(shot)
+        if event is not None:
+            shot['event_at'] = event
+        picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
+        motion = picture.get('title') if isinstance(picture, dict) and isinstance(picture.get('title'), dict) else None
+        if motion and motion.get('in') is not None:
+            inner = _unit_fraction(motion.get('in'))
+            if inner is not None:
+                shot['text_at'] = _shot_fraction(shot, inner)
+        moment = _moment(picture) if isinstance(picture, dict) else None
+        if moment:
+            shot['card_at'] = _shot_fraction(shot, moment['in'])
+            shot['card_to'] = _shot_fraction(shot, moment['out'])
+
+def _clip_fraction(fraction, duration, start, end):
+    """Same fraction of the owned duration, as a fraction of the clip that contains it."""
+    at = _owned_screen_time(fraction, start, end, duration)
+    span = float(end) - float(start)
+    if span <= 1e-9:
+        return 0.0
+    return max(0.0, min(1.0, (float(at) - float(start)) / span))
 
 def _scaled(shots, duration):
     merged = [dict(shot) for shot in shots]
     while len(merged) > 24:
         lengths = [max(0.28, float(shot['end']) - float(shot['start'])) for shot in merged]
         index = min(range(len(lengths) - 1), key=lambda n: lengths[n] + lengths[n + 1])
-        merged[index] = {**merged[index], 'end': merged[index + 1]['end']}
+        nxt = merged[index + 1]
+        kept = {**merged[index], 'end': nxt['end']}
+        if nxt.get('shot_out') is not None:
+            kept['shot_out'] = nxt['shot_out']
+        merged[index] = kept
         del merged[index + 1]
     lengths = [max(0.28, float(shot['end']) - float(shot['start'])) for shot in merged]
     total = sum(lengths) or 1
@@ -623,9 +1114,9 @@ def _scaled(shots, duration):
 def _look(measured):
     measured = measured or {}
     layout = measured.get('layout') or {}
-    return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'exposure': measured.get('exposure') or 0, 'split': layout.get('split'), 'bar': layout.get('bar'), 'lower': layout.get('lower'), 'shake': layout.get('shake'), 'shake_rx': int(layout.get('shake_rx') or 0)}
+    return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'exposure': measured.get('exposure') or 0, 'split': layout.get('split'), 'bar': layout.get('bar'), 'bar_in': layout.get('bar_in'), 'bar_out': layout.get('bar_out'), 'lower': layout.get('lower'), 'shake': layout.get('shake'), 'shake_rx': int(layout.get('shake_rx') or 0)}
 
-def build(shots, duration, transcript, has_audio, script='', recommendations=None, measured=None):
+def build(shots, duration, transcript, has_audio, script='', recommendations=None, measured=None, source=None):
     measured = measured or {}
     timed = list(shots)
     if measured.get('shots'):
@@ -640,6 +1131,7 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
         extra.append({'action': 'move_to_front', **measured['highlight']})
     removes = _safe_removes(extra, transcript, duration)
     if measured.get('shots'):
+        _mark_reference_windows(timed, measured)
         for span in timed:
             span['ref_len'] = max(0.28, float(span['end']) - float(span['start']))
         timed, cuts = _scaled(timed, duration)
@@ -651,16 +1143,18 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
     look = _look(measured)
     graphic = next((i for i, (start, end) in enumerate(cuts) if end - start >= 1.2 and _has(_blob([timed[i % len(timed)] if timed else {}]), ('chart', 'number', 'statistic', 'progress'))), None)
     owned_bar = _owned_fill(facts) if look.get('bar') else None
-    clips = [_clip(timed[i % len(timed)] if timed else {}, start, end, transcript, f'style_{i}', float(duration), facts, allow_card=(i == graphic), look=look, ref_len=(timed[i % len(timed)].get('ref_len') if timed else None), progress=(owned_bar if owned_bar is not None else ((i + 1) / len(cuts) if look.get('bar') else 0))) for i, (start, end) in enumerate(cuts)]
+    playhead = bool(look.get('bar')) and owned_bar is None
+    clips = [_clip(timed[i % len(timed)] if timed else {}, start, end, transcript, f'style_{i}', float(duration), facts, allow_card=(i == graphic), look=look, ref_len=(timed[i % len(timed)].get('ref_len') if timed else None), progress=(owned_bar if owned_bar is not None else ((i + 1) / len(cuts) if look.get('bar') else 0)), progress_play=playhead, script=script) for i, (start, end) in enumerate(cuts)]
     emphasize = _wants_captions(timed or shots)
     captions = _captions(transcript, emphasize)
-    subtitles = bool(captions) and emphasize
+    saw_highlight = _emphasize_owned_hits(captions, timed, cuts)
+    subtitles = bool(captions) and (emphasize or saw_highlight)
     emphasized = any(c.emphasis_en or c.emphasis_zh for c in captions) if subtitles else False
     edit = Edit(clips=clips, captions=captions if subtitles else [], subtitles=subtitles, normalize=bool(has_audio), font_size='large' if emphasized else 'medium', color='yellow' if emphasized else 'white')
     check(edit, float(duration))
     dumped = edit.model_dump()
     trimmed = abs(sum(c['end'] - c['start'] for c in dumped['clips']) - float(duration)) >= 0.5
-    return dumped, _report(timed or shots, dumped, duration, trimmed)
+    return dumped, _report(timed or shots, dumped, duration, trimmed, source)
 
 def _context(db, pid):
     from .studio import state
@@ -719,26 +1213,122 @@ def _store(db, pid, edit, report, status, render):
     enqueue(db, pid, 'studio_render', _style_render_payload(db, pid, current, edit))
     db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
 
+def _limit(value, low, high, digits=2):
+    return round(max(low, min(high, float(value))), digits)
+
+def apply_effect_board(edit, board):
+    """User look from the visual-effect plaque. Missing switches stay as the style match built them."""
+    if not isinstance(board, dict) or not isinstance(board.get('effects'), dict):
+        return edit
+    effects = board['effects']
+    try:
+        amount = max(0.4, min(1.6, float(board.get('amount') or 1)))
+    except (TypeError, ValueError):
+        amount = 1.0
+    shaped = copy.deepcopy(edit)
+    for clip in shaped.get('clips') or []:
+        if not isinstance(clip, dict):
+            continue
+        blur = effects.get('blur')
+        if blur is False:
+            clip['blur'] = 0
+        elif blur is True:
+            clip['blur'] = _limit((clip.get('blur') or 2) * amount, 0, 12)
+        glow = effects.get('glow')
+        if glow is False:
+            clip['glow'] = False
+            clip['glow_amount'] = 0
+        elif glow is True:
+            clip['glow'] = True
+            clip['glow_amount'] = _limit((clip.get('glow_amount') or 0.55) * amount, 0, 1.5)
+        shadow = effects.get('shadow')
+        if shadow is False:
+            clip['shadow'] = False
+            clip['shade'] = 0
+        elif shadow is True:
+            clip['shadow'] = True
+            clip['shade'] = _limit((clip.get('shade') or 0.55) * amount, 0, 1.35, 3)
+        color = effects.get('color')
+        if color is False:
+            clip['enhance'] = False
+            clip['exposure'] = 0
+            clip['grade'] = None
+        elif color is True:
+            clip['enhance'] = True
+            clip['exposure'] = _limit((clip.get('exposure') or 0.18) * amount, -1, 1)
+            grade = clip.get('grade')
+            if isinstance(grade, dict):
+                grade['brightness'] = _limit((grade.get('brightness') or 0) * amount, -0.2, 0.2)
+                grade['contrast'] = _limit((grade.get('contrast') or 1) * amount, 0.8, 1.4)
+                grade['saturation'] = _limit((grade.get('saturation') or 1) * amount, 0.5, 1.8)
+                grade['gamma'] = _limit((grade.get('gamma') or 1) * amount, 0.7, 1.4)
+                for key in ('rs', 'gs', 'bs'):
+                    grade[key] = _limit((grade.get(key) or 0) * amount, -0.3, 0.3)
+        speed = effects.get('speed')
+        if speed is False:
+            clip['speed'] = 1
+            clip['speed_end'] = None
+        elif speed is True:
+            base = clip.get('speed') if clip.get('speed') not in (None, 1) else 1.15
+            clip['speed'] = _limit(base * amount, 0.5, 2)
+            if clip.get('speed_end') not in (None, 1):
+                clip['speed_end'] = _limit(clip['speed_end'] * amount, 0.5, 2)
+        if effects.get('stabilize') is False:
+            clip['stabilize'] = False
+        elif effects.get('stabilize') is True:
+            clip['stabilize'] = True
+        kinetic = effects.get('kinetic')
+        if kinetic is False:
+            clip['kinetic'] = False
+        elif kinetic is True and str(clip.get('text') or '').strip():
+            clip['kinetic'] = True
+        if effects.get('progress') is False:
+            clip['progress'] = 0
+        elif effects.get('progress') is True and not clip.get('progress'):
+            clip['progress'] = 0.7
+        if effects.get('split') is False:
+            clip['split'] = False
+            clip['panel'] = None
+        elif effects.get('split') is True:
+            clip['split'] = True
+        if effects.get('screen') is False:
+            clip['screen'] = None
+        elif effects.get('screen') is True and clip.get('screen') is None:
+            clip['screen'] = _limit(clip.get('start') or 0, 0, 10_000)
+    return shaped
+
+def _with_board(edit, context):
+    board = (context or {}).get('effect_board')
+    if not isinstance(board, dict):
+        return edit
+    try:
+        return Edit.model_validate(apply_effect_board(edit, board)).model_dump()
+    except Exception:
+        return edit
+
 def match_project(pid):
     from .studio import state
     current = state(pid)
     if not current['context'].get('style_match'):
         return
     item = project(pid)
+    from .config import settings
+    owned_source = settings.data_dir / pid / 'source'
     shots = shots_of(current.get('dna'))
     transcript = (current.get('plan') or {}).get('transcript') or []
-    edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=(current.get('plan') or {}).get('recommendations') or [], measured=current['context'].get('measured') or {})
+    edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=(current.get('plan') or {}).get('recommendations') or [], measured=current['context'].get('measured') or {}, source=owned_source if owned_source.is_file() else None)
     try:
         from .style_stock import attach
         edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
     except Exception:
         pass
+    edit = _with_board(edit, current['context'])
     with connect() as db:
         db.lock()
         _store(db, pid, edit, report, 'pending', True)
 
 def record_failure(pid):
-    report = {'scores': {key: 0 for key in (*SCORE_KEYS, 'overall')}, 'applied': [], 'gaps': [{'id': 'style_match_failed', 'essential': True}], 'sections': [], 'note': 'owned_only'}
+    report = {'scores': {key: 0 for key in (*SCORE_KEYS, 'overall')}, 'applied': [], 'gaps': [{'id': 'style_match_failed', 'essential': True}], 'sections': [], 'note': 'owned_only', 'compared': False, 'effect_similarity_rule': 0, 'comparison_note': FRAMES_NOT_COMPARED}
     with connect() as db:
         db.lock()
         current, context = _context(db, pid)
@@ -768,9 +1358,31 @@ def _restyle(edit, shots, transcript, index, duration, facts, look=None):
         raise HTTPException(409, 'locked_decision')
     shot = shots[index % len(shots)] if shots else {}
     allow = _has(_blob([shot]), ('chart', 'number', 'statistic', 'progress'))
-    replacement = _clip(shot, clip['start'], clip['end'], transcript, clip['id'], duration, facts, allow, look=look, progress=clip.get('progress') or 0).model_dump()
+    playhead = bool((look or {}).get('bar')) and _owned_fill(facts) is None
+    replacement = _clip(shot, clip['start'], clip['end'], transcript, clip['id'], duration, facts, allow, look=look, progress=clip.get('progress') or 0, progress_play=playhead).model_dump()
     edit['clips'][index] = replacement
     return edit
+
+def reference_video(folder, context=None):
+    """Uploaded reference, otherwise the downloaded reference file. Never a render input."""
+    direct = folder / 'reference_source'
+    if direct.is_file():
+        return direct
+    root = folder / 'references'
+    if not root.is_dir():
+        return None
+    wanted = []
+    for item in (context or {}).get('references') or []:
+        if isinstance(item, str):
+            wanted.append(item)
+        elif isinstance(item, dict):
+            wanted.extend(str(item[key]) for key in ('id', 'aweme_id', 'reference_id') if item.get(key))
+    for ident in wanted:
+        path = root / ident / 'source'
+        if path.is_file():
+            return path
+    found = sorted(path for path in root.glob('*/source') if path.is_file())
+    return found[0] if found else None
 
 def attach_measurement(pid):
     from . import media
@@ -786,7 +1398,8 @@ def attach_measurement(pid):
             return fn()
         except Exception:
             return default
-    vision = quiet(lambda: measure(folder / 'reference_source'), None) if (folder / 'reference_source').exists() else None
+    reference = reference_video(folder, current.get('context'))
+    vision = quiet(lambda: measure(reference), None) if reference else None
     owned = quiet(lambda: color_sample(source), None)
     sampled = vision.get('color') if vision else None
     grade = grade_between(sampled, owned)
@@ -802,7 +1415,7 @@ def attach_measurement(pid):
         'unusable': quiet(lambda: unusable_spans(source), []),
         'track': quiet(lambda: visual_track(source), None),
         'highlight': quiet(lambda: highlight_window(source, item['metadata']['duration']), None),
-        'layout': quiet(lambda: reference_layout(folder / 'reference_source'), {}) if (folder / 'reference_source').exists() else {},
+        'layout': quiet(lambda: reference_layout(reference), {}) if reference else {},
     }
     dna = list(current.get('dna') or [])
     if vision and not any(row.get('reference_id') == 'upload' for row in dna):
@@ -813,15 +1426,37 @@ def attach_measurement(pid):
         context['measured'] = payload
         db.execute('UPDATE studio_projects SET dna=?,context=? WHERE project_id=?', (json.dumps(dna, ensure_ascii=False), json.dumps(context, ensure_ascii=False), pid))
 
+def blend_effect_similarity(report, frame_similarity):
+    """Average the rule with a measured frame. No measurement leaves the rule uncompared."""
+    scores = report.setdefault('scores', {})
+    rule = report.get('effect_similarity_rule')
+    if rule is None:
+        rule = scores.get('effect_similarity', 0)
+    rule = float(rule)
+    report['effect_similarity_rule'] = rule
+    if frame_similarity is None:
+        report['compared'] = False
+        report['comparison_note'] = FRAMES_NOT_COMPARED
+        scores['effect_similarity'] = rule
+        report.pop('measured_effect_similarity', None)
+        return report
+    scores['effect_similarity'] = round((rule + float(frame_similarity)) / 2, 1)
+    report['measured_effect_similarity'] = frame_similarity
+    report['compared'] = True
+    report['comparison_note'] = ''
+    return report
+
 def score_output(pid):
     from .config import settings
+    from .studio import state
     from .style_vision import color_sample, frame_similarity
     item = project(pid)
     render_id = (item.get('result') or {}).get('render_id')
     folder = settings.data_dir / pid
     output = folder / 'renders' / str(render_id or '') / 'result.mp4'
-    reference = folder / 'reference_source'
-    if not output.exists() or not reference.exists():
+    current = state(pid) or {}
+    reference = reference_video(folder, current.get('context'))
+    if not output.exists() or not reference:
         return
     left, right = color_sample(reference), color_sample(output)
     try:
@@ -840,10 +1475,7 @@ def score_output(pid):
             distance = abs(left['y'] - right['y']) + 0.5 * abs(left['u'] - right['u']) + 0.5 * abs(left['v'] - right['v'])
             report['scores']['color_treatment'] = round(max(0, min(100, 100 - distance)), 1)
             report['measured_color_distance'] = round(distance, 2)
-        if measured is not None:
-            rule = float(report['scores'].get('effect_similarity') or 0)
-            report['scores']['effect_similarity'] = round((rule + measured) / 2, 1)
-            report['measured_effect_similarity'] = measured
+        blend_effect_similarity(report, measured)
         report['scores']['overall'] = round(sum(report['scores'][key] for key in SCORE_KEYS) / len(SCORE_KEYS), 1)
         context['style_report'] = report
         db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
@@ -899,6 +1531,7 @@ def regenerate(pid: str, user=Depends(current_user)):
         edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
     except Exception:
         pass
+    edit = _with_board(edit, current['context'])
     with connect() as db:
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
@@ -917,7 +1550,7 @@ def regenerate_section(pid: str, index: int, user=Depends(current_user)):
     shots = shots_of(current.get('dna'))
     transcript = current['plan'].get('transcript') or []
     measured = current['context'].get('measured') or {}
-    edit = _restyle(saved, shots, transcript, index, item['metadata']['duration'], _facts(item.get('brief') or '', transcript), look=_look(measured))
+    edit = _with_board(_restyle(saved, shots, transcript, index, item['metadata']['duration'], _facts(item.get('brief') or '', transcript), look=_look(measured)), current['context'])
     checked = Edit.model_validate(edit)
     check(checked, item['metadata']['duration'])
     dumped = checked.model_dump()

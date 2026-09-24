@@ -172,7 +172,7 @@ def emphasize_caption(chunk,terms,language,base_color):
     accent='&H00FFFF00' if base_color=='&H0000FFFF' else '&H0000FFFF'
     return re.sub('|'.join(patterns),lambda m:r'{\c'+accent+'}'+m.group(0)+r'{\c'+base_color+'}',chunk,flags=re.IGNORECASE if language=='en' else 0)
 
-def write_kinetic(path, text, length, w, h, begin=0):
+def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest=None, at=None):
     tokens=[re.sub(r'[{}\\\r\n]',' ',piece).strip() for piece in str(text or '').split()]
     tokens=[piece for piece in tokens if piece][:3]
     if tokens and tokens[0] in {'●', '▮'} and len(tokens) > 1:
@@ -191,17 +191,56 @@ Style: Default,Noto Sans CJK SC,{size},&H00FFFFFF,&H00FFFFFF,&H00121212,&H800000
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
-    begin=max(0, min(float(begin or 0), max(0, length - 0.25)))
+    marks=[]
+    for item in list(at or [])[:8]:
+        try:
+            frac=float(item)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(frac) and 0<=frac<=1:
+            marks.append(frac)
+    if marks and tokens:
+        events=[]
+        span=float(length)
+        for index, frac in enumerate(marks):
+            word=tokens[index % len(tokens)][:40]
+            start=max(0.0, min(span, frac * span))
+            if index + 1 < len(marks):
+                finish=max(start, min(span, marks[index + 1] * span))
+            else:
+                finish=span
+            if finish <= start:
+                finish=min(span, start + 0.05)
+            move_from=int(start * 1000)
+            hop=min(900, int(max(0.2, max(0.05, finish - start)) * 450))
+            tags='{\\move('+f'{w*0.12:.0f},{h*0.2:.0f},{w*0.5:.0f},{h*0.2:.0f},{move_from},{move_from+hop}'+f')\\fscx40\\fscy40\\t({move_from},{move_from+min(700,hop)},\\fscx100\\fscy100)'+'}'
+            events.append(f'Dialogue: 0,{ass_time(start)},{ass_time(finish)},Default,,0,0,0,,{tags}{word}\n')
+        path.write_text(header+''.join(events),encoding='utf-8')
+        return
+    if origin is None:
+        finish=float(length) if end is None else max(0.2, min(float(length), float(end)))
+        begin=max(0, min(float(begin or 0), max(0, finish - 0.25)))
+        dialogue_end=finish
+        x_from,y_from,x_to,y_to=w*0.12,h*0.2,w*0.5,h*0.2
+    else:
+        finish=float(length) if end is None else max(0.2, min(float(length), float(end)))
+        begin=max(0, min(float(begin or 0), max(0, finish - 0.2)))
+        dialogue_end=max(begin + 0.2, finish)
+        travel=max(200, int((dialogue_end - begin) * 1000))
+        x0,y0=origin
+        x1,y1=dest if dest else origin
+        x_from,y_from,x_to,y_to=float(x0)*w,float(y0)*h,float(x1)*w,float(y1)*h
     move_from=int(begin * 1000)
-    tags='{\\move('+f'{w*0.12:.0f},{h*0.2:.0f},{w*0.5:.0f},{h*0.2:.0f},{move_from},{move_from+travel}'+f')\\fscx40\\fscy40\\t({move_from},{move_from+min(700,travel)},\\fscx100\\fscy100)'+'}'
-    events=[f'Dialogue: 0,{ass_time(begin)},{ass_time(length)},Default,,0,0,0,,{tags}{first}\n']
-    step=(begin + min(0.7, max(0.28, (length - begin) * 0.42))) if begin else min(0.7, max(0.28, length * 0.42))
-    if second and length > step + 0.2:
-        begin=int(step * 1000)
-        span=min(600, int((length - step) * 1000))
-        y=h * 0.34
-        follow='{\\move('+f'{w*0.5:.0f},{y+36:.0f},{w*0.5:.0f},{y:.0f},{begin},{begin+span}'+f')\\fscx40\\fscy40\\t({begin},{begin+span},\\fscx100\\fscy100)'+'}'
-        events.append(f'Dialogue: 0,{ass_time(step)},{ass_time(length)},Default,,0,0,0,,{follow}{second}\n')
+    tags='{\\move('+f'{x_from:.0f},{y_from:.0f},{x_to:.0f},{y_to:.0f},{move_from},{move_from+travel}'+f')\\fscx40\\fscy40\\t({move_from},{move_from+min(700,travel)},\\fscx100\\fscy100)'+'}'
+    events=[f'Dialogue: 0,{ass_time(begin)},{ass_time(dialogue_end)},Default,,0,0,0,,{tags}{first}\n']
+    step=(begin + min(0.7, max(0.28, (dialogue_end - begin) * 0.42))) if begin else min(0.7, max(0.28, dialogue_end * 0.42))
+    if second and dialogue_end > step + 0.2:
+        follow_from=int(step * 1000)
+        span=min(600, int((dialogue_end - step) * 1000))
+        y=y_to if origin is not None else h * 0.34
+        follow_x=x_to if origin is not None else w * 0.5
+        follow='{\\move('+f'{follow_x:.0f},{y+36:.0f},{follow_x:.0f},{y:.0f},{follow_from},{follow_from+span}'+f')\\fscx40\\fscy40\\t({follow_from},{follow_from+span},\\fscx100\\fscy100)'+'}'
+        events.append(f'Dialogue: 0,{ass_time(step)},{ass_time(dialogue_end)},Default,,0,0,0,,{follow}{second}\n')
     path.write_text(header+''.join(events),encoding='utf-8')
 
 def write_subtitles(path, captions, timeline, language, w,h,style=None):
@@ -235,6 +274,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             for a,b in remap_span(s,e,timeline):
                 rows.append((a,f'Dialogue: 0,{ass_time(a)},{ass_time(b)},Default,,0,0,0,,{chunk}\n'))
     path.write_text(header+''.join(row for _,row in sorted(rows)),encoding='utf-8')
+
+def callout_bounds(clip, span):
+    """Seconds the owned callout is on. An unset exit keeps the previous full-clip end."""
+    span=max(0.0, float(span or 0))
+    opened=max(0.0, min(0.85, float(clip.get('effect_at') or 0)))*span
+    raw=clip.get('effect_end')
+    try:
+        end_f=1.0 if raw is None else max(0.0, min(1.0, float(raw)))
+    except (TypeError, ValueError):
+        end_f=1.0
+    if end_f>=0.999 or end_f*span<=opened:
+        return opened, span
+    return opened, max(opened+0.05, min(span, end_f*span))
 
 def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None):
     if manual:
@@ -277,9 +329,17 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 vf+=f',fade=t=in:st=0:d={fade},fade=t=out:st={b-a-fade}:d={fade}'
             if clip['text'].strip():
                 title=folder/f'title-{i}.ass'
-                opened=max(0, min(float(clip.get('effect_at') or 0), 0.85))*(b-a)
-                if clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened)
-                else: write_subtitles(title,[Caption(start=opened,end=b-a,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
+                opened,closed=callout_bounds(clip,b-a)
+                marks=[item for item in (clip.get('kinetic_at') or []) if isinstance(item,(int,float))]
+                if clip.get('kinetic') and len(marks)>=2:
+                    write_kinetic(title,clip['text'],b-a,w,h,at=marks)
+                elif clip.get('kinetic') and clip.get('title_x') is not None:
+                    span=b-a
+                    write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=(clip['title_x'],clip.get('title_y') if clip.get('title_y') is not None else 0.2),dest=(clip.get('title_x_end') if clip.get('title_x_end') is not None else clip['title_x'],clip.get('title_y_end') if clip.get('title_y_end') is not None else (clip.get('title_y') if clip.get('title_y') is not None else 0.2)))
+                elif clip.get('kinetic') and marks:
+                    write_kinetic(title,clip['text'],b-a,w,h,at=marks)
+                elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed)
+                else: write_subtitles(title,[Caption(start=opened,end=closed,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
                 title_path=str(title.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{title_path}'"
             if clip.get('card'):
@@ -290,9 +350,25 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 vf+=f",ass='{escaped}'"
             if clip.get('progress'):
                 frac=max(0.04,min(1,float(clip.get('progress') or 0)))
-                opened=float(clip.get('effect_at') or 0)
-                gate=f":enable='gte(t\\,{opened:.3f})'" if opened>=0.2 else ''
-                base_vf+=f',drawbox=x=0:y=ih-12:w=iw*{frac:.3f}:h=10:color=0xF4F1EA@0.92:t=fill{gate}'
+                span=max(b-a,0.08)
+                start_frac=max(0.0,min(1.0,float(clip.get('progress_at') or 0)))
+                end_raw=clip.get('progress_end')
+                end_frac=1.0 if end_raw is None else max(start_frac,min(1.0,float(end_raw)))
+                opened=start_frac*span
+                closed=max(opened,end_frac*span)
+                windowed=start_frac>=0.02 or end_frac<=0.98
+                if clip.get('progress_play'):
+                    denom=max(0.04,(closed-opened) if windowed else span)
+                    origin=opened if windowed else 0.0
+                    width=f"'iw*max(0.04\\,min(1\\,(t-{origin:.3f})/{denom:.3f}))'"
+                else:
+                    width=f'iw*{frac:.3f}'
+                if windowed:
+                    gate=f":enable='between(t\\,{opened:.3f}\\,{max(opened+0.04,closed):.3f})'"
+                else:
+                    legacy=float(clip.get('effect_at') or 0)
+                    gate=f":enable='gte(t\\,{legacy:.3f})'" if legacy>=0.2 else ''
+                base_vf+=f',drawbox=x=0:y=ih-12:w={width}:h=10:color=0xF4F1EA@0.92:t=fill{gate}'
             post=vf;vf=base_vf+post
         if cutaway:
             footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
@@ -341,9 +417,13 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             span=max(b-a,0.2); fade_d=min(0.25,span/4); band=max(24,(h//6)//2*2); chip=max(12,(band//2)//2*2)
             mark=max(0,min(1,float(clip.get('mark') or 0)))
             plate=max(chip, int((w-24)*mark)) if mark>0.02 else chip
-            opened=max(0, min(float(clip.get('effect_at') or 0), 0.85))*span if float(clip.get('effect_at') or 0)>=0.2 else 0
-            show=f":enable='gte(t\\,{opened:.3f})'" if opened else ''
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={plate}:h={chip}:color=0xF4F1EA@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={max(opened,span-fade_d):.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}{show}:format=auto{post}[v]"
+            opened,closed=callout_bounds(clip,span)
+            if float(clip.get('effect_at') or 0)<0.2 and float(clip.get('effect_end') if clip.get('effect_end') is not None else 1)>=0.999:
+                opened=0
+            limited=closed<span-0.02
+            show=f":enable='gte(t\\,{opened:.3f})*lt(t\\,{closed:.3f})'" if limited or opened else ''
+            fade_out=max(opened, closed-fade_d) if limited else max(opened, span-fade_d)
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={plate}:h={chip}:color=0xF4F1EA@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={fade_out:.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}{show}:format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('split') and clip.get('panel') is not None:
             half=max(2,(w//2)//2*2)

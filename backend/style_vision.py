@@ -11,6 +11,7 @@ def _stats(path, vf, frames=8):
     if not ys:
         return None
     sats, highs, lows, difs = values('SATAVG'), values('YHIGH'), values('YLOW'), values('YDIF')
+    peaks, sat_peaks = values('YMAX'), values('SATMAX')
     spread = (sum(highs) / len(highs) - sum(lows) / len(lows)) if highs and lows else None
     return {
         'y': sum(ys) / len(ys),
@@ -19,6 +20,8 @@ def _stats(path, vf, frames=8):
         'sat': sum(sats) / len(sats) if sats else None,
         'spread': spread,
         'ydif': sum(difs) / len(difs) if difs else None,
+        'ymax': sum(peaks) / len(peaks) if peaks else None,
+        'satmax': sum(sat_peaks) / len(sat_peaks) if sat_peaks else None,
     }
 
 def color_sample(path):
@@ -283,10 +286,43 @@ def _column_at(path, at):
         return None
     return (0.22, 0.5, 0.78)[scores.index(max(scores))]
 
+def _lumas(path, start, end, crop, samples):
+    span = max(0.2, end - start)
+    samples = max(4, min(24, int(samples)))
+    rate = samples / span
+    vf = f'trim=start={max(0, start):.3f}:duration={span:.3f},setpts=PTS-STARTPTS,fps={rate:.4f},{crop},signalstats,metadata=print:file=-'
+    out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(samples), '-f', 'null', '-', timeout=180)
+    return [float(item) for item in re.findall(r'signalstats\.YAVG=([\d.]+)', out + '\n' + err)]
+
+def _bar_span(path, width, height, duration):
+    """In and out fractions of a thin bright full-width bottom strip."""
+    if width < 64 or height < 64 or duration < 0.4:
+        return False, 0.0, 1.0
+    band = max(12, height // 14)
+    samples = 16
+    half = max(16, width // 2)
+    bottom = _lumas(path, 0, duration, f'crop={width}:{band}:0:{height - band}', samples)
+    above = _lumas(path, 0, duration, f'crop={width}:{band}:0:{max(0, height - 2 * band)}', samples)
+    left = _lumas(path, 0, duration, f'crop={half}:{band}:0:{height - band}', samples)
+    right = _lumas(path, 0, duration, f'crop={half}:{band}:{width - half}:{height - band}', samples)
+    count = min(len(bottom), len(above), len(left), len(right))
+    if count < 4:
+        return False, 0.0, 1.0
+    flags = [abs(bottom[i] - above[i]) >= 28 and abs(left[i] - right[i]) <= 16 for i in range(count)]
+    if not any(flags):
+        return False, 0.0, 1.0
+    first = flags.index(True)
+    last = count - 1 - flags[::-1].index(True)
+    start = 0.0 if first == 0 else (first - 0.5) / count
+    end = 1.0 if last >= count - 1 else (last + 0.5) / count
+    if end - start < 0.08:
+        return False, 0.0, 1.0
+    return True, round(max(0.0, min(1.0, start)), 2), round(max(0.0, min(1.0, end)), 2)
+
 def reference_layout(path):
     meta = media.probe(path)
     width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
-    empty = {'split': False, 'bar': False, 'lower': False, 'shake': False, 'shake_rx': 0}
+    empty = {'split': False, 'bar': False, 'lower': False, 'shake': False, 'shake_rx': 0, 'bar_in': 0.0, 'bar_out': 1.0}
     if width < 64 or height < 64:
         return empty
     at = min(0.3, max(0, duration / 3))
@@ -294,12 +330,7 @@ def reference_layout(path):
     left = _level(path, f'crop={half}:{height}:0:0', at)
     right = _level(path, f'crop={half}:{height}:{width - half}:0', at)
     split = left is not None and right is not None and abs(left - right) >= 28
-    band = max(12, height // 14)
-    bottom = _level(path, f'crop={width}:{band}:0:{height - band}', at)
-    above = _level(path, f'crop={width}:{band}:0:{max(0, height - 2 * band)}', at)
-    bar_left = _level(path, f'crop={half}:{band}:0:{height - band}', at)
-    bar_right = _level(path, f'crop={half}:{band}:{width - half}:{height - band}', at)
-    bar = None not in (bottom, above, bar_left, bar_right) and abs(bottom - above) >= 28 and abs(bar_left - bar_right) <= 16
+    bar, bar_in, bar_out = _bar_span(path, width, height, duration)
     middle = _level(path, f'crop={width}:{max(16, height // 3)}:0:{height // 3}', at)
     lower_band = _level(path, f'crop={width}:{max(16, height // 5)}:0:{height - max(16, height // 5)}', at)
     lower = (not bar) and middle is not None and lower_band is not None and abs(middle - lower_band) >= 40
@@ -308,13 +339,21 @@ def reference_layout(path):
     moved = abs(first - second) if first is not None and second is not None else 0
     shake = moved >= 0.2
     radius = 32 if moved >= 0.4 else 8 if shake else 0
-    return {'split': split, 'bar': bar, 'lower': lower, 'shake': shake, 'shake_rx': radius}
+    return {'split': split, 'bar': bar, 'lower': lower, 'shake': shake, 'shake_rx': radius, 'bar_in': bar_in, 'bar_out': bar_out}
 
 def _arrived(old, now, new):
     return abs(now - new) + 12 < abs(now - old)
 
 def _stayed(old, now, new):
     return abs(now - old) + 12 < abs(now - new)
+
+def _bright_zoom(center, corner):
+    """A zoom-in grows a bright center across the cut, or flashes that center while the corner holds."""
+    if None in (*center, *corner):
+        return False
+    grew = center[0] >= corner[0] + 28 and center[1] >= corner[1] + 18 and corner[2] >= corner[0] + 22 and center[2] >= center[0] - 12
+    flashed = _arrived(*center) and _stayed(*corner) and center[1] >= corner[1] + 28 and center[1] >= center[0] + 18
+    return grew or flashed
 
 def _join(path, at):
     """Name a boundary only when an existing filter reproduces it."""
@@ -336,11 +375,16 @@ def _join(path, at):
     half = max(16, width // 2)
     left = [_level(path, f'crop={half}:{height}:0:0', stamp) for stamp in (before, at, after)]
     right = [_level(path, f'crop={half}:{height}:{width - half}:0', stamp) for stamp in (before, at, after)]
-    if None not in left + right and ((_arrived(*left) and _stayed(*right)) or (_arrived(*right) and _stayed(*left))):
-        return 'wipe' if _arrived(*left) and _stayed(*right) else 'cut'
+    if None not in left + right and _arrived(*left) and _stayed(*right):
+        return 'wipe'
+    # wipeleft is the installed xfade that shows the new picture on the right first.
+    if None not in left + right and _arrived(*right) and _stayed(*left):
+        return 'wipe-right'
     crop_w, crop_h = max(16, width // 3), max(16, height // 3)
     center = [_level(path, f'crop={crop_w}:{crop_h}:{(width - crop_w) // 2}:{(height - crop_h) // 2}', stamp) for stamp in (before, at, after)]
     corner = [_level(path, 'crop=24:24:0:0', stamp) for stamp in (before, at, after)]
+    if _bright_zoom(center, corner):
+        return 'zoom'
     if None not in center + corner and _arrived(*center) and _stayed(*corner):
         return 'circle'
     gap = abs(old - new)
@@ -376,18 +420,18 @@ def _subject(cells):
     xs, ys = (0.22, 0.5, 0.78), (0.22, 0.5, 0.78)
     return zoom, sum(xs[index % 3] for index in hot) / len(hot), sum(ys[index // 3] for index in hot) / len(hot)
 
-def _series(path, start, end, crop, fps=4):
+def _series(path, start, end, crop, fps=4, limit=6):
     span = max(0.2, end - start)
-    frames = max(3, min(6, int(span * fps)))
+    frames = max(3, min(int(limit), int(span * fps)))
     vf = f'trim=start={max(0, start):.3f}:duration={span:.3f},setpts=PTS-STARTPTS,fps={fps},{crop},signalstats,metadata=print:file=-'
     out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(frames), '-f', 'null', '-', timeout=180)
     return [float(item) for item in re.findall(r'signalstats\.YAVG=([\d.]+)', out + '\n' + err)]
 
-def _entered(path, start, end, width, height):
-    """Fraction where a lower plate appears after the opening, else 0."""
+def _plate_bounds(path, start, end, width, height):
+    """Entrance and exit fractions for a lower plate. The exit stays 1 when the plate never leaves."""
     span = end - start
     if span < 0.9 or width < 80 or height < 80:
-        return 0.0
+        return 0.0, 1.0
     fps = 4
     band = max(16, height // 5)
     mid_h = max(16, height // 3)
@@ -395,14 +439,24 @@ def _entered(path, start, end, width, height):
     middle = _series(path, start, end, f'crop={width}:{mid_h}:0:{height // 3}', fps)
     count = min(len(lower), len(middle))
     if count < 3:
-        return 0.0
-    for index in range(count):
-        if abs(lower[index] - middle[index]) < 40:
-            continue
-        if index == 0:
-            return 0.0
-        return round(min(0.7, (index / fps) / span), 2)
-    return 0.0
+        return 0.0, 1.0
+    flags = [abs(lower[index] - middle[index]) >= 40 for index in range(count)]
+    if not any(flags):
+        return 0.0, 1.0
+    first = flags.index(True)
+    entered = 0.0 if first == 0 else round(min(0.7, (first / fps) / span), 2)
+    last = count - 1 - flags[::-1].index(True)
+    if last >= count - 1:
+        left = 1.0
+    else:
+        left = round(min(1.0, ((last + 1) / fps) / span), 2)
+        if left <= entered:
+            left = 1.0
+    return entered, left
+
+def _entered(path, start, end, width, height):
+    """Fraction where a lower plate appears after the opening, else 0."""
+    return _plate_bounds(path, start, end, width, height)[0]
 
 def picture_of(path, start, end):
     meta = media.probe(path)
@@ -420,23 +474,39 @@ def picture_of(path, start, end):
     shade = _shade(path, stamp, width, height)
     softness = _softness(path, stamp, width, height)
     bloom = 0.0 if softness else _bloom(path, stamp, width, height)
-    screen = _screen(path, stamp, width, height)
-    bezel = _bezel(path, stamp, width, height) if screen else 0.0
+    screen_at = stamp if _screen(path, stamp, width, height) else None
+    if screen_at is None and end - start >= 2.5:
+        span = float(end) - float(start)
+        at = float(start) + span * 0.5
+        if _screen(path, at, width, height):
+            screen_at = at
+    screen = screen_at is not None
+    bezel = _bezel(path, screen_at, width, height) if screen else 0.0
+    length = float(meta.get('duration') or 0) or float(end - start) or 1.0
+    fraction = round(max(0.0, min(1.0, screen_at / length)), 3) if screen else None
     mask = _window(path, stamp, width, height)
     lower = False if mask else _lower_strip(path, stamp, width, height)
     hold = 0.0
-    if end - start >= 0.9 and not lower and softness <= 0 and bloom <= 0 and shade <= 0:
-        hold = _entered(path, start, end, width, height)
-        if hold >= 0.2:
-            late = min(end - 0.08, start + hold * (end - start) + 0.05)
-            lower = False if mask else _lower_strip(path, late, width, height)
-            softness = _softness(path, late, width, height) or softness
-            shade = _shade(path, late, width, height) or shade
-            bloom = 0.0 if softness else (_bloom(path, late, width, height) or bloom)
-            if not (lower or softness or shade or bloom):
+    release = 1.0
+    if end - start >= 0.9 and not mask and (lower or (softness <= 0 and bloom <= 0 and shade <= 0)):
+        entered, left = _plate_bounds(path, start, end, width, height)
+        if not lower and softness <= 0 and bloom <= 0 and shade <= 0:
+            hold = entered
+            if hold >= 0.2:
+                late = min(end - 0.08, start + hold * (end - start) + 0.05)
+                lower = False if mask else _lower_strip(path, late, width, height)
+                softness = _softness(path, late, width, height) or softness
+                shade = _shade(path, late, width, height) or shade
+                bloom = 0.0 if softness else (_bloom(path, late, width, height) or bloom)
+                if not (lower or softness or shade or bloom):
+                    hold = 0.0
+                    left = 1.0
+            else:
                 hold = 0.0
-        else:
-            hold = 0.0
+                left = 1.0
+            release = left
+        elif lower and left < 0.98:
+            release = left
     edge = _level(path, f'crop={width}:{height}:0:0', min(start + 0.02, max(start, end - 0.08)))
     middle = _level(path, f'crop={width}:{height}:0:0', (start + end) / 2)
     return {
@@ -456,8 +526,10 @@ def picture_of(path, start, end):
         'blur': softness,
         'glow': bloom,
         'hold': hold,
+        'release': release,
         'screen': screen,
         'bezel': bezel,
+        'fraction': fraction,
         'tiles': _tiles(path, stamp, width, height),
     }
 
@@ -617,12 +689,301 @@ def pace_of(path, start, end):
         return 1.45, 0.8
     return None
 
+def title_motion(path, start, end):
+    """When a bright upper-band mark appears, slides, and leaves. Positions are fractions, not pixels."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 80 or height < 80 or span < 0.6:
+        return None
+    cols = 4
+    col_w = max(16, width // cols)
+    band_h = max(16, height // 5)
+    band_y = min(height - band_h, max(0, int(height * 0.08)))
+    stamps = (0.12, 0.32, 0.52, 0.72, 0.9)
+    grid = []
+    for frac in stamps:
+        at = float(start) + span * frac
+        scores = []
+        for index in range(cols):
+            left = min(width - col_w, index * col_w)
+            level = _level(path, f'crop={col_w}:{band_h}:{left}:{band_y}', at)
+            scores.append(0 if level is None else level)
+        grid.append(scores)
+    present = [index for index, scores in enumerate(grid) if max(scores) - min(scores) >= 22 and max(scores) >= 36]
+    if not present:
+        return None
+    first, last = present[0], present[-1]
+
+    def center(scores):
+        peak = max(range(cols), key=lambda index: scores[index])
+        return round(min(0.92, max(0.08, (peak + 0.5) / cols)), 2)
+
+    x0, x1 = center(grid[first]), center(grid[last])
+    y = round(min(0.85, max(0.08, (band_y + band_h / 2) / height)), 2)
+    entered, left = first > 0, last < len(grid) - 1
+    if not (entered or left or abs(x1 - x0) >= 0.15):
+        return None
+    return {'in': round(stamps[first], 2), 'out': round(max(stamps[first] + 0.12, stamps[last]), 2), 'x0': x0, 'y0': y, 'x1': x1, 'y1': y}
+
+def highlight_moments(path, start, end):
+    """Fractions of a shot where a short local bright or saturated patch pops, then is gone in the neighbor sample."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 48 or height < 48 or span < 0.45:
+        return []
+    stamps = (0.2, 0.35, 0.5, 0.65, 0.8)
+
+    def frame_at(frac):
+        at = float(start) + span * frac
+        return _stats(path, f'trim=start={max(0, at):.3f}:duration=0.06,signalstats,metadata=print:file=-', frames=1)
+
+    frames = [frame_at(frac) for frac in stamps]
+    cols = rows = 3
+    cell_w, cell_h = max(12, width // cols), max(12, height // rows)
+    found = []
+
+    def cell(frac, col, row):
+        at = float(start) + span * frac
+        x = min(width - cell_w, col * (width // cols))
+        y = min(height - cell_h, row * (height // rows))
+        sample = _stats(path, f'trim=start={max(0, at):.3f}:duration=0.06,crop={cell_w}:{cell_h}:{x}:{y},signalstats,metadata=print:file=-', frames=1)
+        if not sample:
+            return 0.0, 0.0
+        return sample['y'], sample.get('sat') or 0.0
+
+    for index, frac in enumerate(stamps):
+        now = frames[index]
+        neighbors = [(i, frames[i]) for i in (index - 1, index + 1) if 0 <= i < len(frames) and frames[i]]
+        if not now or not neighbors:
+            continue
+        ceiling = now['y'] if now.get('ymax') is None else now['ymax']
+        sat_peak = now.get('satmax') or 0
+        # A small patch lifts the maximum without moving the percentile spread.
+        local_span = ceiling >= now['y'] + 36 or sat_peak >= (now.get('sat') or 0) + 24
+        popped = local_span and all(
+            ceiling >= (item['y'] if item.get('ymax') is None else item['ymax']) + 28
+            or sat_peak >= (item.get('satmax') or 0) + 18
+            or (now.get('spread') or 0) >= (item.get('spread') or 0) + 16
+            for _i, item in neighbors
+        )
+        if not popped:
+            continue
+        scores = [cell(frac, col, row) for row in range(rows) for col in range(cols)]
+        peak = max(range(len(scores)), key=lambda i: scores[i][0] + 0.5 * scores[i][1])
+        bright, chroma = scores[peak]
+        others = [scores[i] for i in range(len(scores)) if i != peak]
+        local = bright >= min(item[0] for item in others) + 22 or chroma >= min(item[1] for item in others) + 16
+        if not local:
+            continue
+        col, row = peak % cols, peak // cols
+        absent = all(
+            bright >= cell(stamps[i], col, row)[0] + 18 or chroma >= cell(stamps[i], col, row)[1] + 14
+            for i, _item in neighbors
+        )
+        if absent:
+            found.append(round(frac, 2))
+    return found
+
+def _layout_bar(path, at, width, height):
+    """A thin full-width bar, the same measurement as the reference layout bar."""
+    band = max(12, height // 14)
+    bottom = _level(path, f'crop={width}:{band}:0:{height - band}', at)
+    above = _level(path, f'crop={width}:{band}:0:{max(0, height - 2 * band)}', at)
+    half = max(16, width // 2)
+    bar_left = _level(path, f'crop={half}:{band}:0:{height - band}', at)
+    bar_right = _level(path, f'crop={half}:{band}:{width - half}:{height - band}', at)
+    if None in (bottom, above, bar_left, bar_right):
+        return False
+    return abs(bottom - above) >= 28 and abs(bar_left - bar_right) <= 16
+
+def card_moment(path, start, end):
+    """Fraction of the shot where a bright center card or layout bar is on screen. A flat frame is not a card."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 80 or height < 80 or span < 0.6:
+        return None
+    stamps = (0.12, 0.32, 0.50, 0.68, 0.88)
+    present = []
+    for frac in stamps:
+        at = float(start) + span * frac
+        left, mid, right = _bands(path, at, width, height)
+        center = mid >= left + 22 and mid >= right + 22
+        if center or _layout_bar(path, at, width, height):
+            present.append(frac)
+    if not present:
+        return None
+    opened = round(present[0], 2)
+    closed = round(min(1, max(present[0] + 0.12, present[-1])), 2)
+    if closed <= opened:
+        closed = min(1, round(opened + 0.12, 2))
+    if closed <= opened:
+        return None
+    return {'in': opened, 'out': closed}
+
+def _band_luma(path, start, end, crop, count):
+    span = max(0.2, float(end) - float(start))
+    count = max(4, min(40, int(count)))
+    fps = count / span
+    vf = f'trim=start={max(0, float(start)):.3f}:duration={span:.3f},setpts=PTS-STARTPTS,fps={fps:.4f},{crop},signalstats,metadata=print:file=-'
+    out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(count), '-f', 'null', '-', timeout=180)
+    return [float(item) for item in re.findall(r'signalstats\.YAVG=([\d.]+)', out + '\n' + err)]
+
+def kinetic_appearances(path, start, end):
+    """Fractions where a bright title hits the upper band. A hold is one onset, not every bright frame."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    span = float(end) - float(start)
+    if width < 80 or height < 80 or span < 0.45:
+        return []
+    band_h = max(16, height // 5)
+    band_y = min(height - band_h, max(0, int(height * 0.08)))
+    lower_y = min(height - band_h, max(band_y + band_h, int(height * 0.62)))
+    count = max(8, min(40, int(round(span * 10))))
+    upper = _band_luma(path, start, end, f'crop={width}:{band_h}:0:{band_y}', count)
+    lower = _band_luma(path, start, end, f'crop={width}:{band_h}:0:{lower_y}', count)
+    samples = min(len(upper), len(lower), count)
+    if samples < 4:
+        return []
+    hot = [upper[i] >= 72 and upper[i] >= lower[i] + 32 for i in range(samples)]
+    for index in range(1, samples - 1):
+        if not hot[index] and hot[index - 1] and hot[index + 1]:
+            hot[index] = True
+    runs = []
+    index = 0
+    while index < samples:
+        if not hot[index]:
+            index += 1
+            continue
+        runs.append(index)
+        while index < samples and hot[index]:
+            index += 1
+    if len(runs) == 1 and runs[0] == 0 and hot[-1]:
+        return []
+    return [round(min(0.98, item / count), 2) for item in runs[:8]]
+
+def callout_window(path, start, end):
+    """Entrance and exit fractions for a small side or lower chip. None when no chip appears after the open."""
+    span = float(end) - float(start)
+    if span < 0.8:
+        return 0.0
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    if width < 80 or height < 80:
+        return 0.0
+    fps, limit = 5, 10
+
+    def box(x, y, pw, ph):
+        left = min(width - 12, max(0, int(width * x)))
+        top = min(height - 12, max(0, int(height * y)))
+        cw = max(12, min(width - left, int(width * pw)))
+        ch = max(12, min(height - top, int(height * ph)))
+        return f'crop={cw}:{ch}:{left}:{top}', pw * ph
+
+    full = _series(path, start, end, f'crop={width}:{height}:0:0', fps, limit)
+    if len(full) < 4:
+        return 0.0
+    # Side and lower chips only. The upper band belongs to title motion.
+    patches = ((0.02, 0.36, 0.24, 0.26), (0.74, 0.36, 0.24, 0.26), (0.04, 0.68, 0.28, 0.22), (0.68, 0.68, 0.28, 0.22))
+    series, areas = [], []
+    for x, y, pw, ph in patches:
+        crop, area = box(x, y, pw, ph)
+        levels = _series(path, start, end, crop, fps, limit)
+        if len(levels) < 4:
+            return 0.0
+        series.append(levels)
+        areas.append(area)
+    count = min(len(full), *(len(row) for row in series))
+    if count < 4:
+        return None
+    first = last = None
+    for index in range(1, count):
+        if full[index] - full[0] >= 18:
+            if first is not None:
+                break
+            continue
+        hot = []
+        for region, levels in enumerate(series):
+            if levels[0] >= full[0] + 28:
+                continue
+            if levels[index] >= levels[0] + 36 and levels[index] >= full[index] + 22:
+                hot.append(region)
+        if not hot or len(hot) > 2 or sum(areas[region] for region in hot) > 0.22:
+            if first is not None:
+                break
+            continue
+        if first is None:
+            first = index
+        last = index
+    if first is None:
+        return None
+    opened = round(min(0.85, (first / fps) / span), 2)
+    if last >= count - 1:
+        closed = 1.0
+    else:
+        closed = round(min(1.0, ((last + 1) / fps) / span), 2)
+        if closed <= opened:
+            closed = min(1.0, round(opened + 0.08, 2))
+    return {'in': opened, 'out': closed}
+
+def callout_at(path, start, end):
+    """Fraction of the shot where a small side or lower chip appears. A flat frame, a full-frame card, or a chip already present at the open is 0."""
+    window = callout_window(path, start, end)
+    if not isinstance(window, dict):
+        return 0.0
+    return float(window['in'])
+
 def annotate_pictures(path, shots):
     for shot in list(shots or [])[:6]:
         try:
             shot['picture'] = picture_of(path, float(shot['start']), float(shot['end']))
         except Exception:
             shot['picture'] = None
+        picture = shot.get('picture')
+        if not isinstance(picture, dict):
+            continue
+        label = shot.get('transition')
+        if isinstance(label, dict):
+            word = str(label.get('en') or '')
+            if word in ('cut', 'fade', 'crossfade', 'zoom', 'wipe', 'circle', 'wipe-right'):
+                picture['join'] = word
+        try:
+            motion = title_motion(path, float(shot['start']), float(shot['end']))
+        except Exception:
+            motion = None
+        if motion:
+            picture['title'] = motion
+        try:
+            pops = highlight_moments(path, float(shot['start']), float(shot['end']))
+        except Exception:
+            pops = []
+        if pops:
+            picture['highlights'] = pops
+            picture['emphasis'] = {'in': pops[0], 'out': round(min(1.0, float(pops[-1]) + 0.15), 2)}
+        try:
+            moment = card_moment(path, float(shot['start']), float(shot['end']))
+        except Exception:
+            moment = None
+        if moment:
+            picture['card'] = moment
+        try:
+            appearances = kinetic_appearances(path, float(shot['start']), float(shot['end']))
+        except Exception:
+            appearances = []
+        if appearances:
+            picture['kinetic_at'] = appearances
+        try:
+            window = callout_window(path, float(shot['start']), float(shot['end']))
+        except Exception:
+            window = None
+        if isinstance(window, dict):
+            picture['callout'] = float(window['in'])
+            if float(window['out']) < 0.999:
+                picture['callout_out'] = float(window['out'])
+        else:
+            picture['callout'] = 0.0
     return shots
 
 def measure(path):

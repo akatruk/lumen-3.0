@@ -28,6 +28,23 @@ class Creator(Strict):
     tone: str=Field(min_length=1,max_length=1000)
     rules: str=Field(default='',max_length=2000)
 
+class EffectSwitches(Strict):
+    blur: bool=True
+    glow: bool=True
+    shadow: bool=True
+    color: bool=True
+    speed: bool=True
+    stabilize: bool=True
+    kinetic: bool=True
+    progress: bool=True
+    split: bool=True
+    screen: bool=True
+
+class EffectBoard(Strict):
+    name: Literal['clean','punch','soft','kinetic','split']='clean'
+    amount: float=Field(default=1,ge=0.4,le=1.6)
+    effects: EffectSwitches=Field(default_factory=EffectSwitches)
+
 class Create(Strict):
     request_id: str=Field(pattern=r'^[a-f0-9]{32}$')
     references: list[str]=Field(default_factory=list,max_length=5)
@@ -39,6 +56,7 @@ class Create(Strict):
     budget: float=Field(default=5,ge=1,le=10)
     concept_id: str=Field(default='',max_length=32)
     style_match: bool=False
+    effect_board: EffectBoard | None=None
     owned_rights_confirmed: Literal[True]
 
 class Shot(Span):
