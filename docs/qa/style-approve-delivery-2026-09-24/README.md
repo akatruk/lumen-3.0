@@ -15,3 +15,20 @@ Use an isolated project. Do not edit an existing customer project. Do not treat 
 | 6 | When that render finishes, play the finished video and download the main file. Reload, then play and download again. | The player and the download are the same selected delivery. The duration follows the saved edit. The file is not the original upload. |
 | 7 | Select a voice and a music track on that delivery, then render the picture again. | The new file is the selected delivery. The same voice and the same music are still in the player and in the download. |
 | 8 | Cause a later picture render to fail, or inspect a project whose latest render failed after a finished file existed. | The previous finished file is still the one played and downloaded. The source is not offered as that finished file. The page does not describe the failure as a successful new cut. |
+
+## Production result
+
+Passed on https://lumen-fix.universalgravity.org/ after deploying commit `92cedf5`. Health returned `{"status":"ok","version":"0.1.0"}`. Served assets were `index-CyUf6rQv.js` and `index-DnZ-Ynli.css`. Backend `style_match.py` on the host queues a render from Approve. `scripts/verify_release.py` was not run.
+
+An isolated project used a 4-second red picture with a 110 Hz tone, a previous green finished file, a selected Russian male voice at 440 Hz, and a synthetic music track at 220 Hz. No live speech or music provider was called.
+
+1. Health was HTTP 200.
+2. Studio left “Match the reference pacing…” unchecked, with one presenter file field and no reference file field.
+3. The manual editor stayed on the project: scene list, Approve, and the edit tools.
+4. Automatic style match showed Approve this cut, Regenerate video, and Regenerate selected section. The report said the cut uses your footage only, and that reference music and the reference grade were not copied.
+5. Approve queued the saved edit. The job payload kept zoom 1.05 and the 0–4 s range, with the selected music and voice. It did not rebuild a different cut first.
+6. The finished file was a red mix, about 4.0 s, with the 440 Hz voice and the 220 Hz track. The player and the main download were the same file. Reload kept that match. The file was not the original upload and not the previous green cut.
+7. Regenerate video built a second picture. The new selected delivery still played the Russian male voice and the same music track. The player and the main download matched again.
+8. A later render was made to fail by replacing that project's source with invalid bytes. The job failed with `media_processing_failed`. The player and the download stayed on the previous mix. The page said the attempt failed and that finished versions are safe.
+
+The temporary user, session, and project were removed. No customer project was edited.
