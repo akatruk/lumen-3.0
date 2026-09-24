@@ -1,6 +1,6 @@
 """Optional visual-style match. Builds a normal manual edit from reference DNA and renders it with the existing pipeline.
 
-Reference files, dialogue, music and packaging never become export inputs. Effects the renderer cannot reproduce are listed on the fidelity report.
+Reference dialogue and reference music never become export inputs. A measured non-presenter picture may be copied from the reference file. Effects the renderer cannot reproduce are listed on the fidelity report.
 """
 import copy
 import json
@@ -8,7 +8,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 from .auth import current_user
 from .db import connect, enqueue, project
-from .manual import Clip, Edit, check
+from .manual import Clip, Edit, PictureInsert, check
 from .schemas import Caption
 
 router = APIRouter(prefix='/api/studio')
@@ -569,11 +569,36 @@ def _cutaway(shot, start, end, duration):
         return None
     return Cutaway(start=round(local, 3), end=local_end, source_start=src)
 
-def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=False):
+def _presenter_box(raw):
+    """A measured head-and-shoulders box. A full frame, or a sentence with no box, is not one."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        x, y, width, height = (float(raw[key]) for key in ('x', 'y', 'w', 'h'))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if any(value != value for value in (x, y, width, height)):
+        return None
+    if not (0.18 <= width <= 0.7 and 0.22 <= height <= 0.8):
+        return None
+    if width * height > 0.42:
+        return None
+    if not (0.28 <= x <= 0.72 and 0.18 <= y <= 0.7):
+        return None
+    if x - width / 2 < 0.08 or x + width / 2 > 0.92:
+        return None
+    return {'x': round(x, 3), 'y': round(y, 3), 'w': round(width, 3), 'h': round(height, 3)}
+
+def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=False, room=None):
     """Blur, glow, shadow and pace come from the measured picture. Words do not turn them on."""
     blob = _blob([shot or {}])
     picture = shot.get('picture') or {}
     soft, bloom, shade = float(picture.get('blur') or 0), float(picture.get('glow') or 0), float(picture.get('shade') or 0)
+    wants_key = _has(blob, ('cutout', 'cut out', 'green screen'))
+    wants_room = _has(blob, ('background replace', 'replace the background', 'new background'))
+    keyed = bool(flat or chroma) and wants_key
+    box = None if chroma or keyed else _presenter_box(room)
+    room_cut = box is not None and wants_room
     return {
         'blur': soft if soft >= 1 else 0,
         'glow': bloom >= 0.4,
@@ -582,7 +607,8 @@ def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=Fal
         'shade': shade if shade >= 0.4 else 0,
         'split': bool(look_split) or bool((shot.get('picture') or {}).get('split')),
         'stabilize': bool(look_shake),
-        'cutout': bool(flat or chroma) and _has(blob, ('cutout', 'cut out', 'green screen')),
+        'cutout': keyed or room_cut,
+        'subject': box if room_cut else None,
         'mask': bool((shot.get('picture') or {}).get('mask')),
         'speed': 1.35 if ref_len < 0.55 else 1.0,
         'kinetic': isinstance(picture.get('title'), dict) or bool(_kinetic_fractions(picture)),
@@ -693,6 +719,100 @@ def _camera(picture, fx):
     split_at = num('split_at', 0.2, 0.8) if fx.get('split') else None
     return roll, roll_end, orbit_x, orbit_y, focus, mask_rx, mask_ry, split_at
 
+def _centered_subject(picture):
+    try:
+        x = 0.5 if picture.get('x') is None else float(picture.get('x'))
+        y = 0.5 if picture.get('y') is None else float(picture.get('y'))
+    except (TypeError, ValueError):
+        return True
+    return abs(x - 0.5) <= 0.16 and abs(y - 0.5) <= 0.18
+
+def _presenter_fill(picture):
+    """A presenter-sized subject sits in the middle. A small or shifted mass does not."""
+    if not isinstance(picture, dict) or not _centered_subject(picture):
+        return False
+    width, height = picture.get('mass_w'), picture.get('mass_h')
+    if width is not None and height is not None:
+        try:
+            area = float(width) * float(height)
+            tall = float(height) >= 0.5
+        except (TypeError, ValueError):
+            area, tall = None, False
+        if area is not None:
+            return tall or area >= 0.22
+    try:
+        zoom = float(picture.get('zoom') or 1)
+    except (TypeError, ValueError):
+        zoom = 1.0
+    return zoom < 1.4
+
+def _camera_move(picture):
+    return any(picture.get(key) is not None for key in ('zoom_end', 'x_end', 'y_end'))
+
+def _cover_fraction(picture, shot):
+    """Insert or cover already measured on the picture. Words are not a cover."""
+    ref = _ref_span([shot] if isinstance(shot, dict) else [])
+    sources = [picture]
+    if isinstance(shot, dict):
+        sources.append(shot)
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        for key in ('insert', 'cover'):
+            if key not in source:
+                continue
+            frac = _fraction_of(source.get(key), ref)
+            if frac is not None:
+                return frac
+    return None
+
+def _reference_at(shot, fraction=None):
+    try:
+        start = max(0.0, float(shot.get('start') or 0))
+        end = float(shot.get('end') if shot.get('end') is not None else start)
+    except (TypeError, ValueError):
+        return 0.0
+    if fraction is None:
+        return round(start, 3)
+    span = max(0.0, end - start)
+    return round(start + max(0.0, min(1.0, float(fraction))) * span, 3)
+
+def _picture_insert(shot, start, end, duration):
+    """Reference picture for a non-presenter span. A talking head and words alone copy nothing."""
+    if not isinstance(shot, dict):
+        return None
+    picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else None
+    if not picture:
+        return None
+    try:
+        length = float(end) - float(start)
+    except (TypeError, ValueError):
+        return None
+    if length < 0.2:
+        return None
+    presenter = _presenter_fill(picture)
+    moving = _camera_move(picture)
+    screen = bool(picture.get('screen'))
+    graphic = bool(picture.get('graphic'))
+    try:
+        zoom = float(picture.get('zoom') or 1)
+    except (TypeError, ValueError):
+        zoom = 1.0
+    full_bleed = graphic and zoom <= 1.05 and _centered_subject(picture)
+    cover = _cover_fraction(picture, shot)
+    copy_span = screen or (graphic and not presenter) or full_bleed or (not presenter and not moving)
+    if copy_span:
+        return PictureInsert(start=0, end=round(length, 3), at=_reference_at(shot))
+    if cover is None:
+        return None
+    local = _local_insert(cover, start, end, duration)
+    if local is None:
+        return None
+    window = min(1.2, length * 0.45, max(0.0, length - local))
+    if window < 0.2:
+        return None
+    return PictureInsert(start=round(local, 3), end=round(local + window, 3), at=_reference_at(shot, cover))
+
 def _tile_count(picture, open_shot, screen):
     """Illustration tiles from a counted frame or illustration measured on the picture. Words add none."""
     if not open_shot or screen is not None:
@@ -715,8 +835,12 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     frame = _frame(shot or {})
     picture_frame = shot.get('picture') if isinstance(shot.get('picture'), dict) else None
     column = look.get('track') if not picture_frame else None
+    face = isinstance(column, dict) and column.get('face') is True
     if isinstance(column, dict) and column.get('x0') is not None and column.get('x1') is not None:
         frame['x'], frame['x_end'] = float(column['x0']), float(column['x1'])
+        if face and column.get('y0') is not None and column.get('y1') is not None:
+            frame['y'] = max(0.0, min(1.0, float(column['y0'])))
+            frame['y_end'] = max(0.0, min(1.0, float(column['y1'])))
     moving = frame['zoom_end'] is not None or frame['x_end'] is not None or frame['y_end'] is not None
     spoken = _spoken(start, end, transcript)
     words = _keywords(spoken)
@@ -725,7 +849,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     callout = bool(words) and (_wants_captions([shot or {}]) or _has(blob, ('callout', 'icon')) or look.get('lower') or look.get('bar') or picture.get('lower'))
     moment = _moment(picture)
     card = _card(facts, end - start) if (allow_card and _has(blob, ('chart', 'number', 'statistic', 'progress'))) or picture.get('graphic') or moment else None
-    fx = _effects(shot, end - start if ref_len is None else ref_len, look.get('flat'), chroma=bool(look.get('chroma')), look_split=bool(look.get('split')), look_shake=bool(look.get('shake')))
+    fx = _effects(shot, end - start if ref_len is None else ref_len, look.get('flat'), chroma=bool(look.get('chroma')), look_split=bool(look.get('split')), look_shake=bool(look.get('shake')), room=look.get('room'))
     slot = end - start if ref_len is None else ref_len
     opening, closing = picture.get('speed'), picture.get('speed_end')
     try:
@@ -904,6 +1028,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
             chart_w, chart_h = _measured_size(picture.get('chart_place') if isinstance(picture, dict) else None)
     kind = _transition(shot or {})
     key_side, key_amount, fill_side, fill_amount, rim_amount = _clip_lights(look)
+    copied = None if chart_ready or fx['cutout'] or fx['split'] else _picture_insert(shot or {}, start, end, duration)
     return Clip(
         id=ident,
         start=start,
@@ -955,7 +1080,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         mask=bool(fx['mask'] and not fx['cutout'] and not fx['split']),
         mask_rx=mask_rx,
         mask_ry=mask_ry,
-        track=False,
+        track=bool(face),
         exposure=exposure,
         key_side=key_side,
         key_amount=key_amount,
@@ -967,6 +1092,10 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         progress_end=progress_end,
         progress_play=bool(progress_play),
         plate='1A1F1C' if fx['cutout'] else '',
+        subject_x=None if not fx.get('subject') else fx['subject']['x'],
+        subject_y=None if not fx.get('subject') else fx['subject']['y'],
+        subject_w=None if not fx.get('subject') else fx['subject']['w'],
+        subject_h=None if not fx.get('subject') else fx['subject']['h'],
         graphic=chart_ready,
         bars=_bars(facts) if chart_ready else [],
         chart_x=chart_x,
@@ -988,6 +1117,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         bezel=float(picture.get('bezel') or 0.1) if screen is not None and 0.06 <= float(picture.get('bezel') or 0) <= 0.28 else 0.1,
         diagram=diagram,
         grade=grade,
+        picture_insert=copied,
         approved=True,
         locked=False,
     )
@@ -1013,6 +1143,7 @@ def _gaps(shots, edit, source=None):
     if any(c.get('split') for c in clips): done.add('split_screen')
     if any(c.get('stabilize') for c in clips): done.add('stabilize')
     if any(c.get('cutout') for c in clips): done.add('presenter_cutout')
+    if any(c.get('cutout') and c.get('subject_w') for c in clips): done.add('background_replacement')
     if any(c.get('grade') for c in clips): done.add('color_grade')
     if any(abs((c.get('speed') or 1) - 1) > 0.04 or (c.get('speed_end') is not None and abs(c['speed_end'] - (c.get('speed') or 1)) > 0.04) for c in clips): done.add('speed_ramp')
     if any(c.get('kinetic') for c in clips): done.add('kinetic_type')
@@ -1272,7 +1403,7 @@ def _look(measured):
     measured = measured or {}
     layout = measured.get('layout') or {}
     lights = measured.get('lights') if isinstance(measured.get('lights'), dict) else None
-    return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'exposure': measured.get('exposure') or 0, 'lights': lights, 'split': layout.get('split'), 'bar': layout.get('bar'), 'bar_in': layout.get('bar_in'), 'bar_out': layout.get('bar_out'), 'lower': layout.get('lower'), 'shake': layout.get('shake'), 'shake_rx': int(layout.get('shake_rx') or 0)}
+    return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'room': measured.get('room') if isinstance(measured.get('room'), dict) else None, 'exposure': measured.get('exposure') or 0, 'lights': lights, 'split': layout.get('split'), 'bar': layout.get('bar'), 'bar_in': layout.get('bar_in'), 'bar_out': layout.get('bar_out'), 'lower': layout.get('lower'), 'shake': layout.get('shake'), 'shake_rx': int(layout.get('shake_rx') or 0)}
 
 def _clip_lights(look):
     """Copy a measured key, fill, and rim. A lighting sentence does not set one."""
@@ -1715,7 +1846,7 @@ def attach_measurement(pid):
     from . import media
     from .config import settings
     from .studio import state
-    from .style_vision import chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, lights_of, measure, reference_layout, unusable_spans, visual_track
+    from .style_vision import chroma_plate, color_sample, flat_background, grade_between, highlight_window, light_between, lights_of, measure, reference_layout, room_subject, unusable_spans, visual_track
     folder = settings.data_dir / pid
     item = project(pid)
     current = state(pid)
@@ -1736,6 +1867,7 @@ def attach_measurement(pid):
         'shots': vision['shots'] if vision else [],
         'flat': quiet(lambda: flat_background(source), False),
         'chroma': quiet(lambda: chroma_plate(source), None),
+        'room': quiet(lambda: room_subject(source), None),
         'grade': grade,
         'exposure': exposure,
         'lights': quiet(lambda: lights_of(reference), None) if reference else None,

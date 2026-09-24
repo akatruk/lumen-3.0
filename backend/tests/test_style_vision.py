@@ -4,7 +4,7 @@ from backend import media
 from backend.manual import Edit
 from backend.style_match import build
 from backend.style_pictures import measured_still
-from backend.style_vision import _join, annotate_pictures, black_spans, chroma_plate, color_sample, flat_background, focus_of, frame_similarity, freeze_spans, grade_between, graphic_places, highlight_window, join_span, kept_shots, light_between, lights_of, measure, orbit_of, pace_of, picture_of, reference_layout, roll_of, support_of, title_motion, visual_track
+from backend.style_vision import _join, annotate_pictures, black_spans, chroma_plate, color_sample, flat_background, focus_of, frame_similarity, freeze_spans, grade_between, graphic_places, highlight_window, join_span, kept_shots, light_between, lights_of, measure, orbit_of, pace_of, picture_of, reference_layout, roll_of, room_subject, support_of, title_motion, visual_track
 from backend.timeline import motion_filter
 from backend.media import write_kinetic
 
@@ -27,7 +27,7 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     moving = tmp_path / 'moving.mp4'
     _video(moving, '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=white:s=50x80:r=30:d=1', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=white:s=50x80:r=30:d=1', '-filter_complex', '[0:v][1:v]overlay=10:40[a];[2:v][3:v]overlay=120:40[b];[a][b]concat=n=2:v=1:a=0')
     track = visual_track(moving)
-    assert track and track['x0'] < track['x1']
+    assert track and track['x0'] < track['x1'] and track.get('face') is not True
     dark = tmp_path / 'dark.mp4'
     _video(dark, '-f', 'lavfi', '-i', 'color=black:s=160x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=0x335577:s=160x240:r=30:d=1', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
     spans = black_spans(dark)
@@ -907,3 +907,41 @@ def test_constant_slow_camera_mask_split_and_diagonal_come_from_frames(tmp_path)
     rendered = folder / 'result.mp4'
     assert luma(rendered, 86, 110, 0.2) > 120
     assert luma(rendered, 150, 110, 0.2) < 40
+
+
+def test_a_measured_room_keeps_the_presenter_and_plates_the_walls(tmp_path):
+    def luma(path, x, y):
+        proc = media.ffmpeg('-i', path, '-vf', f'crop=12:12:{x}:{y},signalstats,metadata=print', '-frames:v', '1', '-f', 'null', '-')
+        return float(re.search(r'YAVG=([\d.]+)', proc[0] + '\n' + proc[1]).group(1))
+
+    room = tmp_path / 'room.mp4'
+    _video(room, '-f', 'lavfi', '-i', 'color=0xC4A574:s=180x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=0x5C6B84:s=90x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=0xF6F1E8:s=70x130:r=30:d=1', '-filter_complex', '[0:v][1:v]overlay=90:0[wall];[wall][2:v]overlay=55:28')
+    assert flat_background(room) is False and chroma_plate(room) is None
+    box = room_subject(room)
+    assert box and box['w'] < 0.7 and box['h'] < 0.8 and 0.3 < box['x'] < 0.7
+    textured = tmp_path / 'textured.mp4'
+    _video(textured, '-f', 'lavfi', '-i', 'color=0x6E5A48:s=180x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=0xF4EFE6:s=64x120:r=30:d=1', '-filter_complex', '[0:v]noise=alls=28:allf=t[wall];[wall][1:v]overlay=58:36')
+    assert room_subject(textured)
+    walls = tmp_path / 'walls.mp4'
+    _video(walls, '-f', 'lavfi', '-i', 'color=0xC4A574:s=180x240:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=0x5C6B84:s=90x240:r=30:d=0.4', '-filter_complex', 'overlay=90:0')
+    assert room_subject(walls) is None
+    plain = tmp_path / 'plain.mp4'
+    _video(plain, '-f', 'lavfi', '-i', 'color=0x446688:s=180x240:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=white:s=70x130:r=30:d=0.4', '-filter_complex', 'overlay=55:28')
+    assert flat_background(plain) is True and room_subject(plain) is None
+    green = tmp_path / 'green.mp4'
+    _video(green, '-f', 'lavfi', '-i', 'color=0x00FF00:s=160x240:r=30:d=1', '-f', 'lavfi', '-i', 'color=white:s=40x80:r=30:d=1', '-filter_complex', 'overlay=60:80')
+    assert chroma_plate(green) == 'green' and room_subject(green) is None
+    keyed = tmp_path / 'keyed'
+    keyed.mkdir()
+    screened = media.render(green, keyed, media.probe(green), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 0.8, 'cutout': True, 'plate': '1A1F1C'}]).model_dump())
+    assert abs(screened['metadata']['duration'] - 0.8) < 0.4
+    assert luma(room, 4, 80) > 100
+    plated = tmp_path / 'plated'
+    plated.mkdir()
+    media.render(room, plated, media.probe(room), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 0.8, 'cutout': True, 'plate': '1A1F1C', 'subject_x': box['x'], 'subject_y': box['y'], 'subject_w': box['w'], 'subject_h': box['h']}]).model_dump())
+    result = plated / 'result.mp4'
+    meta = media.probe(result)
+    cx = max(0, min(int(meta['width']) - 16, int(meta['width'] * box['x']) - 6))
+    cy = max(0, min(int(meta['height']) - 16, int(meta['height'] * box['y']) - 6))
+    assert luma(result, 4, 4) < 45 and luma(result, 4, 200) < 45
+    assert luma(result, cx, cy) > 150

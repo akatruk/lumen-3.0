@@ -1,25 +1,177 @@
-"""Style match does not generate a picture for each element.
+"""One generated picture for each measured graphic, from that graphic's own words.
 
-Diagrams stay owned words and tiles. A screenshot is an owned frame.
-A measured photo, illustration, or extra cutaway may add a licensed Commons still.
+A card, chart, icon, or illustration tiles ask for the picture.
+A photo, an illustration still, or a second cover stays on Commons.
+Words with no measured graphic do not call the image API.
 """
+import base64
 import json
 import re
 import shutil
 import time
 import uuid
 
+import httpx
+
+from .config import settings
+from .db import connect, reserve, settle
+
 STILL_CAP = 2
 STILL_KINDS = {'photo', 'illustration', 'image', 'still', 'cutaway'}
+_ART_PROMPT = 'Abstract editorial illustration, flat shapes, no text, no letters, no logos, no watermark, no people. Subject: '
+
+def subject(text):
+    """Owned words only. Letters outside the owned title or keyword are dropped."""
+    cleaned = re.sub(r'[^0-9A-Za-z\u0400-\u04FF\u4e00-\u9fff ]+', ' ', text or '')
+    return ' '.join(cleaned.split())[:80]
+
+def graphic_words(clip):
+    """The card title, or the owned keyword. Reference dialogue is not read."""
+    card = clip.get('card') if isinstance(clip, dict) else None
+    if isinstance(card, dict):
+        title = card.get('title')
+        if isinstance(title, dict):
+            words = str(title.get('en') or title.get('zh') or '')
+        else:
+            words = str(title or '')
+        cleaned = subject(words)
+        if cleaned:
+            return cleaned
+    text = str((clip or {}).get('text') or '')
+    for mark in ('● ', '▮ '):
+        if text.startswith(mark):
+            text = text[len(mark):]
+    return subject(text)
+
+def measured_graphic(clip):
+    """A card, chart, icon, or illustration tiles. A Commons still is not one."""
+    if not isinstance(clip, dict):
+        return False
+    if str(clip.get('stock_still') or '').strip():
+        return False
+    if clip.get('screen') is not None:
+        return False
+    if isinstance(clip.get('card'), dict):
+        return True
+    if clip.get('graphic'):
+        return True
+    if clip.get('icon'):
+        return True
+    try:
+        tiles = int(clip.get('diagram') or 0)
+    except (TypeError, ValueError):
+        tiles = 0
+    return tiles > 0
+
+def image_bytes(payload):
+    message = ((payload.get('choices') or [{}])[0].get('message') or {})
+    found = []
+    for image in message.get('images') or []:
+        found.append((image.get('image_url') or {}).get('url') or '')
+    content = message.get('content')
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict):
+                found.append((part.get('image_url') or {}).get('url') or '')
+    for url in found:
+        if url.startswith('data:image') and ',' in url:
+            raw = base64.b64decode(url.split(',', 1)[1])
+            if raw.startswith(b'\x89PNG\r\n\x1a\n') or raw.startswith(b'\xff\xd8\xff'):
+                return raw
+    return None
+
+def fetch(prompt):
+    """Existing OpenRouter image call. One picture, no new client."""
+    body = {'model': settings.image_model, 'modalities': ['image', 'text'], 'messages': [{'role': 'user', 'content': prompt}]}
+    headers = {'Authorization': 'Bearer ' + settings.openrouter_api_key, 'Content-Type': 'application/json', 'X-Title': 'Lumen Studio'}
+    with httpx.Client(timeout=60) as client:
+        response = client.post('https://openrouter.ai/api/v1/chat/completions', headers=headers, json=body)
+    if response.status_code != 200:
+        raise ValueError('style_image_failed')
+    raw = image_bytes(response.json())
+    if not raw or len(raw) > 8 * 1024 * 1024:
+        raise ValueError('style_image_failed')
+    return raw
+
+def _reference_shots(pid):
+    try:
+        from .studio import state
+        from .style_match import shots_of
+        current = state(pid)
+        if not current:
+            return []
+        return shots_of(current.get('dna'))
+    except Exception:
+        return []
+
+def _remember(pid, manual):
+    """Keep the saved edit on the picture that was just written. A database miss leaves the render payload."""
+    try:
+        names = {clip.get('id'): clip.get('art') or '' for clip in manual.get('clips') or [] if isinstance(clip, dict) and clip.get('id')}
+        with connect() as db:
+            row = db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()
+            if row:
+                config = json.loads(row['config'])
+                for clip in config.get('clips') or []:
+                    if clip.get('id') in names:
+                        clip['art'] = names[clip['id']]
+                db.execute('UPDATE studio_manual SET config=? WHERE project_id=?', (json.dumps(config), pid))
+            if not any(names.values()):
+                return
+            project = db.execute('SELECT context FROM studio_projects WHERE project_id=?', (pid,)).fetchone()
+            if not project:
+                return
+            context = json.loads(project['context'] or '{}')
+            report = context.get('style_report') or {}
+            applied = list(report.get('applied') or [])
+            if 'art' not in applied:
+                applied.append('art')
+            report['applied'] = applied
+            context['style_report'] = report
+            db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
+    except Exception:
+        return
 
 def attach_art(pid, manual, enabled=False):
-    """Drop a generated picture so it cannot enter the automatic cut."""
-    del pid, enabled
+    """One generated picture on each measured graphic. A missing key or a failed call keeps the layout."""
+    del enabled
     if not manual:
         return manual
-    for clip in manual.get('clips') or []:
-        if isinstance(clip, dict):
+    clips = manual.get('clips') or []
+    if not settings.openrouter_api_key:
+        for clip in clips:
+            if isinstance(clip, dict):
+                clip['art'] = ''
+        return manual
+    shots = _reference_shots(pid)
+    for index, clip in enumerate(clips):
+        if not isinstance(clip, dict):
+            continue
+        still = bool(shots) and measured_still(shots[index % len(shots)])
+        words = graphic_words(clip)
+        if still or not measured_graphic(clip) or not words or index > 99:
             clip['art'] = ''
+            continue
+        name = f'style-art-{index}.png'
+        try:
+            token = reserve(pid, 0.08, 'style_illustration')
+        except Exception:
+            clip['art'] = ''
+            continue
+        try:
+            raw = fetch(_ART_PROMPT + words)
+            dest = settings.data_dir / pid / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(raw)
+            settle(token, 0.08)
+            clip['art'] = name
+        except Exception:
+            try:
+                settle(token, 0)
+            except Exception:
+                pass
+            clip['art'] = ''
+    _remember(pid, manual)
     return manual
 
 def measured_still(shot):

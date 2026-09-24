@@ -1,7 +1,10 @@
 """Measurements taken from an uploaded reference. Reference pixels are never copied into the export."""
 import math
+import os
 import re
 import subprocess
+import tempfile
+from pathlib import Path
 from . import media
 
 def _stats(path, vf, frames=8):
@@ -434,11 +437,49 @@ def unusable_spans(path):
             rows.append({'start': round(start, 3), 'end': round(end, 3)})
     return rows
 
+def _skin_cell(sample):
+    """A face-like patch: mid luma, Cr above Cb, and not a pure red."""
+    if not sample:
+        return False
+    y, u, v = sample['y'], sample['u'], sample['v']
+    return 60 <= y <= 220 and 85 <= u <= 125 and 136 <= v <= 180 and (v - u) >= 18
+
+def _face_at(path, at, width, height):
+    """Center of a compact skin patch in the upper frame. A bright column is not a face."""
+    cols, rows = 4, 3
+    cell_w, cell_h = max(12, width // cols), max(12, height // rows)
+    hot = []
+    for row in range(rows):
+        for col in range(cols):
+            left = min(width - cell_w, col * cell_w)
+            top = min(height - cell_h, row * cell_h)
+            sample = _stats(path, f'trim=start={at:.3f}:duration=0.08,crop={cell_w}:{cell_h}:{left}:{top},signalstats,metadata=print:file=-', frames=1)
+            if _skin_cell(sample):
+                hot.append((col, row))
+    if not hot or len(hot) > 3:
+        return None
+    xs = [col for col, _row in hot]
+    ys = [row for _col, row in hot]
+    if max(xs) - min(xs) > 1 or max(ys) - min(ys) > 1:
+        return None
+    x = round(min(0.92, max(0.08, (sum(xs) / len(hot) + 0.5) / cols)), 2)
+    y = round(min(0.85, max(0.08, (sum(ys) / len(hot) + 0.5) / rows)), 2)
+    return x, y
+
 def visual_track(path):
     meta = media.probe(path)
     width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
     if width < 90 or height < 90 or duration < 0.6:
         return None
+    early_at = min(0.12, duration / 3)
+    late_at = max(0.2, duration - 0.28)
+    early_face = _face_at(path, early_at, width, height)
+    late_face = _face_at(path, late_at, width, height)
+    if early_face and late_face:
+        x0, y0 = early_face
+        x1, y1 = late_face
+        if abs(x0 - x1) >= 0.12 or abs(y0 - y1) >= 0.12:
+            return {'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1, 'face': True}
     def column(at):
         scores = []
         crop_w = width // 3
@@ -448,8 +489,8 @@ def visual_track(path):
         if max(scores) - min(scores) < 12:
             return None
         return (0.22, 0.5, 0.78)[scores.index(max(scores))]
-    early = column(min(0.12, duration / 3))
-    late = column(max(0.2, duration - 0.28))
+    early = column(early_at)
+    late = column(late_at)
     if early is None or late is None or abs(early - late) < 0.2:
         return None
     return {'x0': early, 'x1': late}
@@ -476,6 +517,119 @@ def chroma_plate(path):
     if u > 150 and v < 150:
         return 'blue'
     return None
+
+def _down_grid(path, cols, rows, extra=''):
+    """One gray value per cell. An edge pass uses the same grid."""
+    meta = media.probe(path)
+    width, height = int(meta['width']), int(meta['height'])
+    duration = float(meta.get('duration') or 0)
+    if width < 48 or height < 48 or duration <= 0:
+        return None
+    at = 0.08 if duration > 0.2 else 0.0
+    handle, name = tempfile.mkstemp(suffix='.raw')
+    os.close(handle)
+    try:
+        prefix = f'{extra},' if extra else ''
+        vf = f'trim=start={at:.3f}:duration=0.08,setpts=PTS-STARTPTS,{prefix}scale={cols}:{rows}:flags=area,format=gray'
+        media.ffmpeg('-i', path, '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', name)
+        data = Path(name).read_bytes()
+    finally:
+        try:
+            os.remove(name)
+        except OSError:
+            pass
+    count = cols * rows
+    if len(data) < count:
+        return None
+    return [data[index] for index in range(count)]
+
+def room_subject(path):
+    """Head-and-shoulders box in a two-tone or textured room.
+
+    A chroma screen returns None so the flat key stays in charge. A frame with
+    no separable subject, or a subject that fills the picture, returns None.
+    The box is measured on the owned frame. It is not a copy of a reference room.
+    """
+    try:
+        meta = media.probe(path)
+    except Exception:
+        return None
+    width, height = int(meta['width']), int(meta['height'])
+    if width < 90 or height < 90:
+        return None
+    if chroma_plate(path):
+        return None
+    cols, rows = 6, 8
+    luma = _down_grid(path, cols, rows)
+    edge = _down_grid(path, cols, rows, 'convolution=0 -1 0 -1 4 -1 0 -1 0')
+    if not luma or not edge or len(luma) != cols * rows:
+        return None
+
+    def median(values):
+        ordered = sorted(values)
+        return ordered[len(ordered) // 2]
+
+    left = [luma[row * cols] for row in range(rows)]
+    right = [luma[row * cols + cols - 1] for row in range(rows)]
+    top = luma[:cols]
+    bottom = luma[(rows - 1) * cols:]
+    tones = []
+    for value in (median(left), median(right), median(top), median(bottom)):
+        if all(abs(value - have) >= 18 for have in tones):
+            tones.append(value)
+    border_edge = []
+    for row in range(rows):
+        for col in range(cols):
+            if row in (0, rows - 1) or col in (0, cols - 1):
+                border_edge.append(edge[row * cols + col])
+    two_tone = len(tones) >= 2 and max(tones) - min(tones) >= 28
+    textured = median(border_edge) >= 8
+    if not two_tone and not textured:
+        return None
+    hot = []
+    for row in range(1, rows - 1):
+        for col in range(1, cols - 1):
+            level = luma[row * cols + col]
+            if all(abs(level - tone) >= 22 for tone in tones):
+                hot.append((col, row))
+    remaining = set(hot)
+    best = []
+    while remaining:
+        start = remaining.pop()
+        stack = [start]
+        group = [start]
+        while stack:
+            col, row = stack.pop()
+            for nxt in ((col - 1, row), (col + 1, row), (col, row - 1), (col, row + 1)):
+                if nxt in remaining:
+                    remaining.remove(nxt)
+                    stack.append(nxt)
+                    group.append(nxt)
+        if len(group) > len(best):
+            best = group
+    if len(best) < 4:
+        return None
+    used_cols = [col for col, _row in best]
+    used_rows = [row for _col, row in best]
+    if max(used_cols) - min(used_cols) >= cols - 3 and max(used_rows) - min(used_rows) >= rows - 3:
+        return None
+    left_f = min(used_cols) / cols
+    right_f = (max(used_cols) + 1) / cols
+    top_f = min(used_rows) / rows
+    bottom_f = (max(used_rows) + 1) / rows
+    box_w = right_f - left_f
+    box_h = bottom_f - top_f
+    center_x = (left_f + right_f) / 2
+    center_y = (top_f + bottom_f) / 2
+    if not (0.18 <= box_w <= 0.7 and 0.22 <= box_h <= 0.8):
+        return None
+    if box_w * box_h > 0.42:
+        return None
+    if not (0.28 <= center_x <= 0.72 and 0.18 <= center_y <= 0.7):
+        return None
+    if left_f < 0.08 or right_f > 0.92:
+        return None
+    return {'x': round(center_x, 3), 'y': round(center_y, 3), 'w': round(box_w, 3), 'h': round(box_h, 3)}
 
 def _hex_from_samples(samples):
     if not samples:
@@ -831,7 +985,16 @@ def picture_of(path, start, end):
     middle = _level(path, f'crop={width}:{height}:0:0', (start + end) / 2)
     tiles = _tiles(path, stamp, width, height)
     graphic = (not mask) and mid >= left + 22 and mid >= right + 22
-    return {
+    mass_w = mass_h = None
+    try:
+        placed, _typed = _stamp_places(path, stamp)
+        mass = (placed or {}).get('subject') if isinstance(placed, dict) else None
+        if isinstance(mass, dict) and mass.get('w') is not None and mass.get('h') is not None:
+            mass_w = round(float(mass['w']), 2)
+            mass_h = round(float(mass['h']), 2)
+    except Exception:
+        mass_w = mass_h = None
+    found = {
         'zoom': zoom,
         'zoom_end': zoom_end if abs(zoom_end - zoom) >= 0.1 else None,
         'x': x,
@@ -859,6 +1022,10 @@ def picture_of(path, start, end):
         'tiles': tiles,
         'illustration': (not screen) and (not mask) and tiles >= 2 and not graphic,
     }
+    if mass_w is not None and mass_h is not None:
+        found['mass_w'] = mass_w
+        found['mass_h'] = mass_h
+    return found
 
 def _cover_fractions(path, start, end):
     """Fractions where a full-frame cover replaces the opening. At most two."""

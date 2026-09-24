@@ -409,6 +409,58 @@ def _split_widths(width, ratio):
         left = max(2, left - 1)
     return left, width - left
 
+def _reference_clip(source, insert):
+    """Reference picture for one measured insert. A missing file copies nothing and does not fail."""
+    if not isinstance(insert, dict):
+        return None
+    try:
+        at = float(insert.get('at'))
+        local_start = float(insert.get('start'))
+        local_end = float(insert.get('end'))
+    except (TypeError, ValueError):
+        return None
+    length = local_end - local_start
+    if not math.isfinite(at) or at < 0 or length < 0.08:
+        return None
+    try:
+        from .style_match import reference_video
+        path = reference_video(Path(source).resolve().parent)
+    except Exception:
+        return None
+    if path is None:
+        return None
+    path = Path(path)
+    try:
+        if not path.is_file() or path.resolve() == Path(source).resolve():
+            return None
+        duration = float(probe(path).get('duration') or 0)
+    except Exception:
+        return None
+    if at >= max(0.0, duration - 0.04):
+        return None
+    return path, at, local_start, local_end, max(0.08, min(length, duration - at))
+
+def _subject_box(clip):
+    """Presenter box for a measured room. A missing or full-frame box stays on the flat key."""
+    try:
+        x = float(clip.get('subject_x'))
+        y = float(clip.get('subject_y'))
+        width = float(clip.get('subject_w'))
+        height = float(clip.get('subject_h'))
+    except (TypeError, ValueError):
+        return None
+    if not all(math.isfinite(value) for value in (x, y, width, height)):
+        return None
+    if not (0.12 <= width <= 0.78 and 0.18 <= height <= 0.88):
+        return None
+    if width * height > 0.5:
+        return None
+    if x - width / 2 < 0.02 or x + width / 2 > 0.98:
+        return None
+    if y - height / 2 < 0 or y + height / 2 > 1.02:
+        return None
+    return x, y, width, height
+
 def _mask_axes(clip):
     """Ellipse semi-axes. An unmeasured mask keeps the original 0.38 by 0.42 window."""
     rx, ry = 0.38, 0.42
@@ -445,7 +497,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
     for i,(a,b) in enumerate(timeline):
         part=folder/f'part-{i:03}.mp4'; parts.append(part)
         vf=f'scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x101614,setsar=1,fps=30'
-        cutaway=None;post=''
+        cutaway=None;post='';reference=None
         rate=1
         if manual:
             clip=manual['clips'][i]
@@ -513,22 +565,55 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                     gate=f":enable='gte(t\\,{legacy:.3f})'" if legacy>=0.2 else ''
                 base_vf+=f',drawbox=x=0:y=ih-12:w={width}:h=10:color=0x{_paint(clip)}@0.92:t=fill{gate}'
             post=vf;vf=base_vf+post
-        if cutaway:
+            reference=_reference_clip(source, clip.get('picture_insert'))
+        if cutaway and not (reference and 'asset_id' not in cutaway):
             footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
             if footage is None:raise ValueError('asset_not_found')
             length=cutaway['end']-cutaway['start']
             graph=f"[0:v]{base_vf}[base];[1:v]trim=duration={length},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,setpts=PTS-STARTPTS+{cutaway['start']}/TB[br];[base][br]overlay=enable='gte(t,{cutaway['start']})*lt(t,{cutaway['end']})':eof_action=pass:repeatlast=0{post}[v]"
             inputs=['-ss',a,'-i',source,'-ss',cutaway['source_start'],'-i',footage]
             filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif reference:
+            path, at, local_start, local_end, available = reference
+            length = local_end - local_start
+            graph=f"[0:v]{base_vf}[base];[1:v]trim=duration={available:.3f},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,tpad=stop_mode=clone:stop_duration={length:.3f},trim=duration={length:.3f},setpts=PTS-STARTPTS+{local_start}/TB[br];[base][br]overlay=enable='gte(t,{local_start})*lt(t,{local_end})':eof_action=pass:repeatlast=0{post}[v]"
+            inputs=['-ss',a,'-i',source,'-ss',f'{at:.3f}','-i',path]
+            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('cutout'):
-            graph=f"[1:v]scale={w}:{h},setsar=1,fps=30[plate];[0:v]{base_vf.rstrip(',')},backgroundkey=threshold=0.18:similarity=0.22:blend=0.08[key];[plate][key]overlay=format=auto{post}[v]"
             plate=str(clip.get('plate') or '1A1F1C')
-            inputs=['-ss',a,'-i',source,'-f','lavfi','-i',f'color=c=0x{plate}:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}']
+            box=_subject_box(clip)
+            if box:
+                sx, sy, sw, sh = box
+                bw = max(8, int(round(w * sw)))
+                bh = max(8, int(round(h * sh)))
+                left = max(1, min(int(round(w * sx - bw / 2)), w - bw - 1))
+                top = max(1, min(int(round(h * sy - bh / 2)), h - bh - 1))
+                bw = min(bw, w - left - 1)
+                bh = min(bh, h - top - 1)
+                right, bottom = left + bw, top + bh
+                feather = max(4, int(min(bw, bh) * 0.08))
+                span = max(b - a, 0.2)
+                graph = (
+                    f"[0:v]{base_vf.rstrip(',')},format=rgba,"
+                    f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
+                    f"a='clip(255*(1-hypot(max(max({left}-X,0),max(X-{right},0)),max(max({top}-Y,0),max(Y-{bottom},0)))/{feather}),0,255)'[key];"
+                    f"color=c=0x{plate}:s={w}x{h}:r=30:d={span:.3f}[plate];"
+                    f"[plate][key]overlay=format=auto{post}[v]"
+                )
+                inputs=['-ss', a, '-i', source]
+            else:
+                graph=f"[1:v]scale={w}:{h},setsar=1,fps=30[plate];[0:v]{base_vf.rstrip(',')},backgroundkey=threshold=0.18:similarity=0.22:blend=0.08[key];[plate][key]overlay=format=auto{post}[v]"
+                inputs=['-ss',a,'-i',source,'-f','lavfi','-i',f'color=c=0x{plate}:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}']
             filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('mask'):
             rx, ry = _mask_axes(clip)
             graph=f"[0:v]{base_vf.rstrip(',')},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(pow((X-W/2)/(W*{rx:.3f}),2)+pow((Y-H/2)/(H*{ry:.3f}),2),1),255,0)'[key];color=c=0x101614:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}[plate];[plate][key]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif manual and _art_file(source, clip.get('art')) and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
+            inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_art_file(source, clip.get('art'))]
+            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('graphic') and clip.get('bars') and not clip.get('cutout') and not clip.get('split') and not clip.get('mask'):
             origin=_bar_origin(clip)
             if origin is None:
@@ -539,11 +624,6 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             span=max(b-a,0.2); fade_d=min(0.25,span/4)
             graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and _art_file(source, clip.get('art')) and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
-            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
-            inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_art_file(source, clip.get('art'))]
-            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('screen') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
             span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
             frac=max(0.06, min(0.28, float(clip.get('bezel') or 0.1)))

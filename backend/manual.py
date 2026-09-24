@@ -15,6 +15,10 @@ router=APIRouter(prefix='/api/studio')
 class Cutaway(Span):
     source_start: float=Field(ge=0)
 
+class PictureInsert(Span):
+    """Owned-clip window that shows a reference picture. `at` is the reference timestamp."""
+    at: float=Field(ge=0)
+
 class ExternalBroll(Cutaway):
     asset_id:str=Field(pattern=r'^[a-f0-9]{32}$')
 
@@ -31,6 +35,7 @@ class Clip(Span):
     sound_effects:list[SoundEffect]=Field(default_factory=list,max_length=4)
     external_broll: ExternalBroll | None=None
     cutaway: Cutaway | None=None
+    picture_insert: PictureInsert | None=None
     card: VisualCard | None=None
     id: str=Field(default_factory=lambda:uuid.uuid4().hex,pattern=r'^[a-zA-Z0-9_-]{1,64}$')
     approved: bool=True
@@ -65,6 +70,10 @@ class Clip(Span):
     stabilize: bool=False
     shake_rx: int=Field(default=16,ge=0,le=64)
     cutout: bool=False
+    subject_x: float | None=Field(default=None,ge=0,le=1)
+    subject_y: float | None=Field(default=None,ge=0,le=1)
+    subject_w: float | None=Field(default=None,ge=.12,le=.78)
+    subject_h: float | None=Field(default=None,ge=.18,le=.88)
     kinetic: bool=False
     title_in: float=Field(default=0,ge=0,le=1)
     title_out: float=Field(default=1,ge=0,le=1)
@@ -155,6 +164,7 @@ def check(edit,duration):
         if any(e.at+DURATIONS[e.kind]>c.end-c.start for e in c.sound_effects):raise HTTPException(422,'invalid_sound_range')
         if c.external_broll and (c.cutaway or c.external_broll.end>c.end-c.start or c.external_broll.end-c.external_broll.start<.08):raise HTTPException(422,'invalid_cutaway_range')
         if c.cutaway and (c.cutaway.end>c.end-c.start or c.cutaway.end-c.cutaway.start<.08 or c.cutaway.source_start+c.cutaway.end-c.cutaway.start>duration):raise HTTPException(422,'invalid_cutaway_range')
+        if c.picture_insert and (c.picture_insert.end>c.end-c.start+1e-3 or c.picture_insert.end-c.picture_insert.start<.08):raise HTTPException(422,'invalid_cutaway_range')
         if c.card and (c.card.end>c.end-c.start or c.card.end-c.card.start<.5):raise HTTPException(422,'invalid_card_range')
         if c.card and c.card.kind=='comparison' and not c.card.secondary:raise HTTPException(422,'comparison_requires_two_values')
     ids=[c.id for c in edit.clips]

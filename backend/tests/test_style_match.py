@@ -1267,6 +1267,28 @@ def test_column_shift_follows_without_a_picture_and_does_not_track_a_face():
     assert followed['clips'][0]['track'] is False
     assert followed['clips'][0]['x'] == 0.22 and followed['clips'][0]['x_end'] == 0.78
     assert 'motion_tracking' not in {gap['id'] for gap in report['gaps']}
+    words = shot(motion={'en': 'track the face', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    named, named_report = build([words], 40, [], False)
+    assert named['clips'][0]['track'] is False
+    assert named_report and any(gap['id'] == 'motion_tracking' for gap in named_report['gaps'])
+
+def test_a_measured_face_is_followed(tmp_path):
+    from backend.style_vision import visual_track
+    face = tmp_path / 'face.mp4'
+    media = __import__('backend.media', fromlist=['ffmpeg']).ffmpeg
+    media('-y', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.5', '-f', 'lavfi', '-i', 'color=0xE0B090:s=40x70:r=30:d=0.5', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.5', '-f', 'lavfi', '-i', 'color=0xE0B090:s=40x70:r=30:d=0.5', '-filter_complex', '[0:v][1:v]overlay=8:20[a];[2:v][3:v]overlay=120:20[b];[a][b]concat=n=2:v=1:a=0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', face)
+    found = visual_track(face)
+    assert found and found.get('face') is True and found['x0'] < found['x1']
+    quiet = dict(motion={'en': 'track the face', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    edit, report = build([shot(**quiet)], 40, [], False, measured={'track': found})
+    clip = edit['clips'][0]
+    assert clip['track'] is True
+    assert clip['x'] == found['x0'] and clip['x_end'] == found['x1']
+    assert clip['y'] == found['y0'] and clip['y_end'] == found['y1']
+    assert 'motion_tracking' not in {gap['id'] for gap in report['gaps']}
+    pictured = shot(**quiet, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False})
+    held, _held_report = build([pictured], 40, [], False, measured={'track': found})
+    assert held['clips'][0]['track'] is False and held['clips'][0]['x'] == 0.5
 
 def test_owned_color_and_short_name_stay_on_existing_graphics(monkeypatch):
     import re
@@ -1397,3 +1419,125 @@ def test_measured_graphic_position_moves_owned_ink(tmp_path, monkeypatch):
     assert 'y=ih*0.220' in fixed_graph and 'drawbox' in fixed_graph
     fixed_plate = rendered({**word_plate_edit['clips'][0], 'text': '', 'kinetic': False, 'card': None}, tmp_path / 'fixed-plate')
     assert 'overlay=x=0:y=200' in fixed_plate
+
+def test_a_measured_room_closes_background_replacement(tmp_path):
+    from backend import media
+    from backend.style_vision import room_subject
+    room = tmp_path / 'room.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0xC4A574:s=180x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=0x5C6B84:s=90x240:r=30:d=0.6', '-f', 'lavfi', '-i', 'color=0xF6F1E8:s=70x130:r=30:d=0.6', '-filter_complex', '[0:v][1:v]overlay=90:0[wall];[wall][2:v]overlay=55:28', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', room)
+    box = room_subject(room)
+    assert box
+    ask = dict(motion={'en': 'replace the background', 'zh': '换背景'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': '', 'zh': ''})
+    edit, report = build([shot(**ask)], 40, [], False, measured={'room': box})
+    clip = edit['clips'][0]
+    assert clip['cutout'] is True and clip['plate'] == '1A1F1C'
+    assert clip['subject_w'] == box['w'] and clip['subject_h'] == box['h']
+    assert 'background_replacement' not in {gap['id'] for gap in report['gaps']}
+    assert 'cutout' in report['applied']
+    words, words_report = build([shot(**ask)], 40, [], False)
+    assert words['clips'][0]['cutout'] is False and words['clips'][0]['plate'] == '' and words['clips'][0]['subject_w'] is None
+    assert any(gap['id'] == 'background_replacement' for gap in words_report['gaps'])
+    held = dict(ask, motion={'en': 'static hold', 'zh': '固定'})
+    quiet, _quiet_report = build([shot(**held)], 40, [], False, measured={'room': box})
+    assert quiet['clips'][0]['cutout'] is False and quiet['clips'][0]['subject_w'] is None
+    screened, _screened_report = build([shot(motion={'en': 'green screen cutout', 'zh': '绿幕'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'})], 40, [], False, measured={'chroma': 'green'})
+    assert screened['clips'][0]['cutout'] is True and screened['clips'][0]['plate'] == '1A1F1C' and screened['clips'][0]['subject_w'] is None
+
+def test_words_alone_do_not_copy_a_reference_frame():
+    named = shot(visual_type={'en': 'packaging product', 'zh': '包装'}, reusable_method={'en': 'show the package and the logo', 'zh': '包装'}, observation={'en': 'SECRET PACKAGE LINE', 'zh': '包装文案'})
+    edit, _report = build([named], 8, [], False)
+    assert edit['clips'][0]['picture_insert'] is None
+    assert 'SECRET' not in json.dumps(edit['clips'][0])
+    presenter = shot(picture={'zoom': 1.1, 'x': 0.5, 'y': 0.5, 'graphic': False, 'screen': False, 'mass_w': 0.5, 'mass_h': 0.67})
+    held, _held_report = build([presenter], 8, [], False)
+    assert held['clips'][0]['picture_insert'] is None
+    moving = shot(picture={'zoom': 1.4, 'x': 0.62, 'x_end': 0.38, 'y': 0.5, 'graphic': False, 'screen': False})
+    framed, _framed_report = build([moving], 8, [], False)
+    assert framed['clips'][0]['picture_insert'] is None
+    covered = shot(start=0, end=4, picture={'zoom': 1.1, 'x': 0.5, 'y': 0.5, 'graphic': False, 'screen': False, 'mass_w': 0.5, 'mass_h': 0.67, 'insert': 0.5})
+    window, _window_report = build([covered], 8, [], False)
+    insert = window['clips'][0]['picture_insert']
+    span = window['clips'][0]['end'] - window['clips'][0]['start']
+    assert insert and 0 < insert['start'] < insert['end'] < span
+    assert insert['at'] > 0
+
+def test_reference_packaging_frame_is_copied_without_its_audio(tmp_path):
+    import array
+    import subprocess
+    from types import SimpleNamespace
+    from backend import media
+    from backend.style_vision import measure
+    reference = tmp_path / 'reference_source'
+    owned = tmp_path / 'source.mp4'
+    media.ffmpeg(
+        '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2',
+        '-f', 'lavfi', '-i', 'color=0x0044FF:s=90x180:r=30:d=2',
+        '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2',
+        '-f', 'lavfi', '-i', 'sine=frequency=880:duration=4',
+        '-filter_complex', '[0:v][1:v]overlay=45:30[head];[2:v]drawbox=x=16:y=16:w=148:h=208:color=0xE7C27A:t=fill[pack];[head][pack]concat=n=2:v=1:a=0[v]',
+        '-map', '[v]', '-map', '3:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-f', 'mp4', reference,
+    )
+    media.ffmpeg(
+        '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=4',
+        '-f', 'lavfi', '-i', 'sine=frequency=440:duration=4',
+        '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', owned,
+    )
+    vision = measure(reference)
+    assert len(vision['shots']) >= 2
+    meta = media.probe(owned)
+    edit, _report = build(vision['shots'], meta['duration'], [], True, measured=vision)
+    assert edit['subtitles'] is False
+    assert all(not clip['text'].strip() for clip in edit['clips'])
+    copied = [clip for clip in edit['clips'] if clip.get('picture_insert')]
+    owned_only = [clip for clip in edit['clips'] if not clip.get('picture_insert')]
+    assert len(copied) == 1 and owned_only
+    assert 'reference_source' not in json.dumps(edit)
+    folder = tmp_path / 'out'
+    folder.mkdir()
+    media.render(owned, folder, meta, SimpleNamespace(transcript=[]), [], 'en', 'original', manual=edit)
+    result = folder / 'result.mp4'
+
+    def pixel(path, stamp):
+        return subprocess.check_output(['ffmpeg', '-v', 'error', '-ss', str(stamp), '-i', str(path), '-vf', 'crop=10:10:85:110,scale=1:1', '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
+
+    def band(path, freq, stamp):
+        raw = subprocess.check_output(['ffmpeg', '-v', 'error', '-ss', str(stamp), '-t', '0.8', '-i', str(path), '-af', f'bandpass=f={freq}:width_type=h:w=40', '-ac', '1', '-ar', '8000', '-f', 'f32le', '-'])
+        samples = array.array('f')
+        samples.frombytes(raw)
+        return sum(value * value for value in samples) / len(samples) if samples else 0.0
+
+    presenter = owned_only[0]
+    package = copied[0]
+    presenter_at = presenter['start'] + min(0.6, (presenter['end'] - presenter['start']) * 0.5)
+    package_at = package['start'] + (package['picture_insert']['start'] + package['picture_insert']['end']) / 2
+    owned_pixel = pixel(result, presenter_at)
+    package_pixel = pixel(result, package_at)
+    assert owned_pixel[0] > 160 and owned_pixel[1] < 90
+    assert package_pixel[0] > 160 and package_pixel[1] > 140 and package_pixel[1] > owned_pixel[1] + 60
+    assert band(result, 440, package_at) > band(result, 880, package_at) * 3
+    head = tmp_path / 'head-only.mp4'
+    media.ffmpeg(
+        '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=4',
+        '-f', 'lavfi', '-i', 'color=0x0044FF:s=70x160:r=30:d=4',
+        '-f', 'lavfi', '-i', 'sine=frequency=880:duration=4',
+        '-filter_complex', '[0:v][1:v]overlay=55:40[v]',
+        '-map', '[v]', '-map', '2:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', head,
+    )
+    head_vision = measure(head)
+    head_edit, _head_report = build(head_vision['shots'], meta['duration'], [], True, measured=head_vision)
+    assert all(clip.get('picture_insert') is None for clip in head_edit['clips'])
+    (tmp_path / 'reference_source').write_bytes(head.read_bytes())
+    head_folder = tmp_path / 'head-out'
+    head_folder.mkdir()
+    media.render(owned, head_folder, meta, SimpleNamespace(transcript=[]), [], 'en', 'original', manual=head_edit)
+    stayed = pixel(head_folder / 'result.mp4', 0.4)
+    assert stayed[0] > 160 and stayed[1] < 90
+    lonely = tmp_path / 'lonely'
+    lonely.mkdir()
+    lonely_source = lonely / 'source.mp4'
+    lonely_source.write_bytes(owned.read_bytes())
+    lonely_out = lonely / 'out'
+    lonely_out.mkdir()
+    media.render(lonely_source, lonely_out, meta, SimpleNamespace(transcript=[]), [], 'en', 'original', manual=edit)
+    missing = pixel(lonely_out / 'result.mp4', package_at)
+    assert missing[0] > 160 and missing[1] < 90
