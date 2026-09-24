@@ -53,14 +53,6 @@ def _blob(shots):
 def _has(blob, needles):
     return any(re.search(r'(^|[^a-z])' + re.escape(needle) + r'([^a-z]|$)', blob) for needle in needles)
 
-def _motion(shot):
-    blob = (plain(shot.get('motion')) + ' ' + plain(shot.get('reusable_method'))).lower()
-    if _has(blob, ('close-up', 'close up', 'tight', 'punch')):
-        return 1.2, 1.45
-    if _has(blob, ('zoom', 'push-in', 'push in', 'push')):
-        return 1.05, 1.22
-    return 1.0, None
-
 def _transition(shot):
     from .transitions import KINDS
     blob = plain(shot.get('transition')).lower()
@@ -94,29 +86,19 @@ def _wants_captions(shots):
     return any(plain(shot.get('subtitle_emphasis')).strip().lower() not in ignore for shot in shots)
 
 def _frame(shot):
+    """Camera position comes from a measured picture. Motion words do not reframe."""
     picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else None
-    if picture:
-        zoom = float(picture.get('zoom') or 1)
-        zoom_end = picture.get('zoom_end')
-        x = float(picture.get('x') if picture.get('x') is not None else 0.5)
-        x_end = picture.get('x_end')
-        y = float(picture['y']) if picture.get('y') is not None else (0.45 if zoom > 1.05 else 0.5)
-        y_end = picture.get('y_end')
-        return {'zoom': zoom, 'zoom_end': zoom_end, 'x': x, 'y': y, 'x_end': x_end, 'y_end': y_end}
-    blob = (plain(shot.get('motion')) + ' ' + plain(shot.get('reusable_method')) + ' ' + plain(shot.get('visual_type'))).lower()
-    zoom, zoom_end = _motion(shot)
-    x, y, x_end, y_end = 0.5, 0.5, None, None
-    if _has(blob, ('pan left', 'move left')):
-        x, x_end = 0.62, 0.38
-    elif _has(blob, ('pan right', 'move right')):
-        x, x_end = 0.38, 0.62
-    if _has(blob, ('tilt up',)):
-        y, y_end = 0.62, 0.38
-    elif _has(blob, ('tilt down',)):
-        y, y_end = 0.38, 0.62
-    elif _has(blob, ('close-up', 'close up', 'tight', 'punch')):
-        y = 0.4
-    return {'zoom': zoom, 'zoom_end': zoom_end, 'x': x, 'y': y, 'x_end': x_end, 'y_end': y_end}
+    if not picture:
+        return {'zoom': 1.0, 'zoom_end': None, 'x': 0.5, 'y': 0.5, 'x_end': None, 'y_end': None}
+    zoom = float(picture.get('zoom') or 1)
+    return {
+        'zoom': zoom,
+        'zoom_end': picture.get('zoom_end'),
+        'x': float(picture.get('x') if picture.get('x') is not None else 0.5),
+        'y': float(picture['y']) if picture.get('y') is not None else 0.5,
+        'x_end': picture.get('x_end'),
+        'y_end': picture.get('y_end'),
+    }
 
 def _keywords(text):
     if not text:
@@ -593,8 +575,8 @@ def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=Fal
         'shadow': shade >= 0.4 or bool(picture.get('vignette')) or _has(blob, ('drop shadow', 'shadows', 'shadow')),
         'shade': shade if shade >= 0.4 else 0,
         'split': bool(look_split) or bool((shot.get('picture') or {}).get('split')),
-        'stabilize': _has(blob, ('stabilize', 'stabilisation', 'shaky')) or bool(look_shake),
-        'cutout': bool(flat or chroma) and _has(blob, ('cutout', 'cut out', 'green screen', 'background replace', 'replace the background')),
+        'stabilize': bool(look_shake),
+        'cutout': bool(flat or chroma) and _has(blob, ('cutout', 'cut out', 'green screen')),
         'mask': bool((shot.get('picture') or {}).get('mask')),
         'speed': 1.35 if ref_len < 0.55 else 0.75 if _has(blob, ('slow motion', 'slow-mo')) else 1.0,
         'kinetic': _has(blob, ('kinetic', 'animated title', 'title card')),
@@ -641,9 +623,10 @@ def _owned_frame_is_screen(source, at):
 def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look=None, ref_len=None, progress=0, progress_play=False, script=''):
     look = look or {}
     frame = _frame(shot or {})
-    track = look.get('track') if _has(_blob([shot or {}]), ('tracking', 'track the', 'follow the subject')) else None
-    if track:
-        frame['x'], frame['x_end'] = track['x0'], track['x1']
+    picture_frame = shot.get('picture') if isinstance(shot.get('picture'), dict) else None
+    column = look.get('track') if not picture_frame else None
+    if isinstance(column, dict) and column.get('x0') is not None and column.get('x1') is not None:
+        frame['x'], frame['x_end'] = float(column['x0']), float(column['x1'])
     moving = frame['zoom_end'] is not None or frame['x_end'] is not None or frame['y_end'] is not None
     spoken = _spoken(start, end, transcript)
     words = _keywords(spoken)
@@ -827,7 +810,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         title_y_end=title_y_end,
         kinetic_at=hits,
         mask=bool(fx['mask'] and not fx['cutout'] and not fx['split']),
-        track=bool(track),
+        track=False,
         exposure=exposure,
         progress=max(0, min(1, float(progress or 0))),
         progress_at=progress_at,
@@ -869,7 +852,7 @@ def _gaps(shots, edit, source=None):
     if any(c.get('shadow') for c in clips): done.add('shadow')
     if any(c.get('split') for c in clips): done.add('split_screen')
     if any(c.get('stabilize') for c in clips): done.add('stabilize')
-    if any(c.get('cutout') for c in clips): done.update(('presenter_cutout', 'background_replacement'))
+    if any(c.get('cutout') for c in clips): done.add('presenter_cutout')
     if any(c.get('grade') for c in clips): done.add('color_grade')
     if any(abs((c.get('speed') or 1) - 1) > 0.04 or (c.get('speed_end') is not None and abs(c['speed_end'] - (c.get('speed') or 1)) > 0.04) for c in clips): done.add('speed_ramp')
     if any(c.get('kinetic') for c in clips): done.add('kinetic_type')
@@ -1008,8 +991,11 @@ def _applied(edit, trimmed):
         rows.append('panel')
     return rows
 
-def _report(shots, edit, duration, trimmed, source=None):
+def _report(shots, edit, duration, trimmed, source=None, brand=None):
     gaps = _gaps(shots, edit, source)
+    painted = any(c.get('text') or c.get('bars') or c.get('graphic') or c.get('lower') or c.get('progress') for c in edit['clips'])
+    if brand == '' and painted and not any(g['id'] == 'owned_brand' for g in gaps):
+        gaps.append({'id': 'owned_brand', 'essential': False})
     scores = _scores(shots, edit, gaps, duration)
     return {
         'scores': scores,
@@ -1128,7 +1114,102 @@ def _look(measured):
     layout = measured.get('layout') or {}
     return {'flat': measured.get('flat') or measured.get('chroma'), 'grade': measured.get('grade'), 'track': measured.get('track'), 'chroma': measured.get('chroma'), 'exposure': measured.get('exposure') or 0, 'split': layout.get('split'), 'bar': layout.get('bar'), 'bar_in': layout.get('bar_in'), 'bar_out': layout.get('bar_out'), 'lower': layout.get('lower'), 'shake': layout.get('shake'), 'shake_rx': int(layout.get('shake_rx') or 0)}
 
-def build(shots, duration, transcript, has_audio, script='', recommendations=None, measured=None, source=None):
+def _speech_hit(start, end, transcript):
+    return any(max(0, min(end, float(row.get('end', 0))) - max(start, float(row.get('start', 0)))) > 0.2 for row in transcript or [])
+
+def _punch(cuts, spans, transcript):
+    """Drop black or frozen holes of at least 0.4s. A hole that covers speech stays."""
+    holes = []
+    for span in spans or []:
+        try:
+            start, end = float(span['start']), float(span['end'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end - start < 0.4 or _speech_hit(start, end, transcript):
+            continue
+        holes.append((start, end))
+    if not holes:
+        return list(cuts)
+    punched = []
+    for start, end in cuts:
+        cursor = start
+        for hole_start, hole_end in holes:
+            if hole_end <= cursor or hole_start >= end:
+                continue
+            left = min(hole_start, end)
+            if left - cursor >= 0.28:
+                punched.append((round(cursor, 3), round(left, 3)))
+            cursor = max(cursor, min(hole_end, end))
+        if end - cursor >= 0.28:
+            punched.append((round(cursor, 3), round(end, 3)))
+    if not punched or len(punched) > 40:
+        return list(cuts)
+    return punched
+
+def _line_key(text):
+    words = re.findall(r'[A-Za-z\u0400-\u04FF]{3,}', (text or '').lower())
+    return ' '.join(words[:6])
+
+def _best_takes(cuts, transcript, unusable):
+    """Keep one overlapping take only when speech and a usable frame were both measured."""
+    if not transcript or not unusable:
+        return list(cuts)
+    holes = []
+    for span in unusable:
+        try:
+            holes.append((float(span['start']), float(span['end'])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not holes:
+        return list(cuts)
+    groups = {}
+    for row in transcript:
+        key = _line_key(row.get('original') or row.get('en') or '')
+        if len(key) < 3:
+            continue
+        try:
+            start, end = float(row['start']), float(row['end'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end - start < 0.4:
+            continue
+        groups.setdefault(key, []).append((start, end))
+    drop = []
+    for spans in groups.values():
+        if len(spans) < 2:
+            continue
+        ranked = []
+        for start, end in spans:
+            bad = _overlap(start, end, holes)
+            ranked.append((bad <= 0.2 * (end - start), end - start - bad, start, end))
+        winners = [row for row in ranked if row[0]]
+        if len(winners) != 1:
+            continue
+        keep_start, keep_end = winners[0][2], winners[0][3]
+        for usable, _score, start, end in ranked:
+            if (start, end) == (keep_start, keep_end):
+                continue
+            if max(0, min(end, keep_end) - max(start, keep_start)) > 0.2:
+                continue
+            drop.append({'start': start, 'end': end})
+    if not drop:
+        return list(cuts)
+    return _punch(cuts, drop, [])
+
+def _title_word(title):
+    for word in re.findall(r'[A-Za-z\u0400-\u04FF]{3,}', title or ''):
+        if word.lower() not in STOP:
+            return word[:24]
+    return ''
+
+def _prefix_title(text, word):
+    if not word or not str(text or '').strip():
+        return text or ''
+    if str(text).split()[0].lower() == word.lower():
+        return text
+    return f'{word} {text}'[:160]
+
+def build(shots, duration, transcript, has_audio, script='', recommendations=None, measured=None, source=None, title=''):
     measured = measured or {}
     timed = list(shots)
     if measured.get('shots'):
@@ -1137,8 +1218,6 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
     for span in measured.get('silences') or []:
         if float(span['end']) - float(span['start']) >= 1:
             extra.append({'action': 'remove', 'start': span['start'], 'end': span['end']})
-    for span in _merged_spans(measured.get('unusable')):
-        extra.append({'action': 'remove', 'start': span['start'], 'end': span['end']})
     if measured.get('highlight') and not any(item.get('action') == 'move_to_front' for item in extra):
         extra.append({'action': 'move_to_front', **measured['highlight']})
     removes = _safe_removes(extra, transcript, duration)
@@ -1151,12 +1230,27 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
     else:
         count = beat_count(timed, duration)
         cuts = _structure(ranges(duration, count, transcript), removes, extra, float(duration))
+    cuts = _punch(cuts, measured.get('unusable'), transcript)
+    cuts = _best_takes(cuts, transcript, measured.get('unusable'))
     facts = _facts(script, transcript)
     look = _look(measured)
     graphic = next((i for i, (start, end) in enumerate(cuts) if end - start >= 1.2 and _has(_blob([timed[i % len(timed)] if timed else {}]), ('chart', 'number', 'statistic', 'progress'))), None)
     owned_bar = _owned_fill(facts) if look.get('bar') else None
     playhead = bool(look.get('bar')) and owned_bar is None
     clips = [_clip(timed[i % len(timed)] if timed else {}, start, end, transcript, f'style_{i}', float(duration), facts, allow_card=(i == graphic), look=look, ref_len=(timed[i % len(timed)].get('ref_len') if timed else None), progress=(owned_bar if owned_bar is not None else ((i + 1) / len(cuts) if look.get('bar') else 0)), progress_play=playhead, script=script) for i, (start, end) in enumerate(cuts)]
+    word = _title_word(title)
+    brand = None
+    if source:
+        try:
+            from .style_vision import owned_ink
+            brand = owned_ink(source)
+        except Exception:
+            brand = None
+    for clip in clips:
+        if word:
+            clip.text = _prefix_title(clip.text, word)
+        if brand and (clip.text or clip.bars or clip.graphic or clip.lower or clip.progress):
+            clip.ink = brand
     emphasize = _wants_captions(timed or shots)
     captions = _captions(transcript, emphasize)
     saw_highlight = _emphasize_owned_hits(captions, timed, cuts)
@@ -1166,7 +1260,7 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
     check(edit, float(duration))
     dumped = edit.model_dump()
     trimmed = abs(sum(c['end'] - c['start'] for c in dumped['clips']) - float(duration)) >= 0.5
-    return dumped, _report(timed or shots, dumped, duration, trimmed, source)
+    return dumped, _report(timed or shots, dumped, duration, trimmed, source, brand)
 
 def _context(db, pid):
     from .studio import state
@@ -1328,7 +1422,7 @@ def match_project(pid):
     owned_source = settings.data_dir / pid / 'source'
     shots = shots_of(current.get('dna'))
     transcript = (current.get('plan') or {}).get('transcript') or []
-    edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=(current.get('plan') or {}).get('recommendations') or [], measured=current['context'].get('measured') or {}, source=owned_source if owned_source.is_file() else None)
+    edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=(current.get('plan') or {}).get('recommendations') or [], measured=current['context'].get('measured') or {}, source=owned_source if owned_source.is_file() else None, title=item.get('title') or '')
     try:
         from .style_stock import attach
         edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
@@ -1543,7 +1637,14 @@ def regenerate(pid: str, user=Depends(current_user)):
         raise HTTPException(409, 'locked_decision')
     shots = shots_of(current.get('dna'))
     transcript = current['plan'].get('transcript') or []
-    edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=current['plan'].get('recommendations') or [], measured=current['context'].get('measured') or {})
+    owned_source = None
+    try:
+        from .config import settings
+        candidate = settings.data_dir / pid / 'source'
+        owned_source = candidate if candidate.is_file() else None
+    except Exception:
+        owned_source = None
+    edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=current['plan'].get('recommendations') or [], measured=current['context'].get('measured') or {}, source=owned_source, title=item.get('title') or '')
     try:
         from .style_stock import attach
         edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])

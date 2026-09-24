@@ -87,6 +87,7 @@ class Clip(Span):
     effect_at: float=Field(default=0,ge=0,le=0.98)
     effect_end: float=Field(default=1,ge=0,le=1)
     plate: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
+    ink: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
     grade: Grade | None=None
     text: str=Field(default='',max_length=160)
 class Edit(Strict):

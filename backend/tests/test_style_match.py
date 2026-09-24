@@ -48,7 +48,7 @@ def test_build_uses_supported_effects_and_skips_the_rest():
     assert 'SECRET REFERENCE LINE' not in blob
     assert 'Highlight the price' not in blob
     assert 'trending audio' not in blob
-    assert edit['clips'][0]['zoom'] == 1.2 and edit['clips'][0]['transition'] == 'fade'
+    assert edit['clips'][0]['zoom'] == 1 and edit['clips'][0]['zoom_end'] is None and edit['clips'][0]['transition'] == 'fade'
     assert edit['clips'][1]['zoom'] == 1 and edit['clips'][1]['transition'] == 'cut'
     assert abs(sum(c['end'] - c['start'] for c in edit['clips']) - 40) < 0.05
     gaps = {g['id']: g['essential'] for g in report['gaps']}
@@ -59,7 +59,7 @@ def test_build_uses_supported_effects_and_skips_the_rest():
     assert gaps['captions_need_speech'] is True
     assert report['scores']['color_treatment'] == 0
     assert report['scores']['effect_similarity'] == 100
-    assert edit['clips'][0]['enhance'] is False and edit['clips'][0]['grade'] is None and edit['clips'][0]['y'] == 0.4
+    assert edit['clips'][0]['enhance'] is False and edit['clips'][0]['grade'] is None and edit['clips'][0]['y'] == 0.5 and edit['clips'][0]['x'] == 0.5
     assert report['note'] == 'owned_only'
 
 def test_owned_facts_become_cards_and_reference_words_stay_out():
@@ -91,9 +91,14 @@ def test_safe_removes_shorten_the_cut_without_slicing_speech():
 def test_pan_and_owned_cutaway_follow_the_reference_instruction():
     moving = shot(motion={'en': 'pan left', 'zh': '左移'}, transition={'en': 'cut', 'zh': '切'}, visual_type={'en': 'b-roll cutaway', 'zh': '空镜'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     edit, report = build([moving], 40, [], False)
-    assert edit['clips'][0]['x'] == 0.62 and edit['clips'][0]['x_end'] == 0.38
+    assert edit['clips'][0]['zoom'] == 1 and edit['clips'][0]['x'] == 0.5 and edit['clips'][0]['x_end'] is None and edit['clips'][0]['y'] == 0.5
+    assert 'framing' not in report['applied']
+    pictured = shot(motion={'en': 'pan left and punch in', 'zh': '左移'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'zoom on the speaker', 'zh': '推近'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1.4, 'x': 0.62, 'x_end': 0.38, 'y': 0.5})
+    framed, framed_report = build([pictured], 40, [], False)
+    assert framed['clips'][0]['zoom'] == 1.4 and framed['clips'][0]['x'] == 0.62 and framed['clips'][0]['x_end'] == 0.38
+    assert 'framing' in framed_report['applied']
     assert edit['clips'][0]['cutaway']['source_start'] >= edit['clips'][0]['end'] - 0.01 or edit['clips'][0]['cutaway']['source_start'] == 0
-    assert 'cutaway' in report['applied'] and 'framing' in report['applied']
+    assert 'cutaway' in report['applied']
     from backend.timeline import motion_filter
     bare = motion_filter(edit['clips'][0], 1080, 1920, 3)
     assert 'eq=' not in bare and 'exposure=' not in bare
@@ -118,7 +123,7 @@ def test_style_match_renders_the_owned_timeline_and_keeps_the_plan(client, monke
         payload = json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render'", (pid,)).fetchone()[0])
         assert db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='creative_plan'", (pid,)).fetchone()[0] == 1
     assert payload['decisions'] == [] and payload['quality_review'] is False
-    assert payload['manual']['clips'][0]['zoom'] == 1.2
+    assert payload['manual']['clips'][0]['zoom'] == 1
     assert 'SECRET REFERENCE LINE' not in json.dumps(payload['manual'])
     assert project(pid)['status'] == 'queued'
 
@@ -137,7 +142,7 @@ def test_section_regenerate_changes_one_clip(client, monkeypatch):
     assert response.status_code == 200
     with connect() as db:
         config = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
-    assert config['clips'][0]['zoom'] == 1.2
+    assert config['clips'][0]['zoom'] == 1
     assert [(c['start'], c['end']) for c in config['clips']] == before
 
 def test_approve_renders_the_saved_edit_and_keeps_the_selected_delivery(client, monkeypatch):
@@ -294,13 +299,14 @@ def test_color_moves_only_when_the_reference_was_measured():
 def test_detail_track_mask_and_unusable_spans_change_the_cut():
     row = shot(motion={'en': 'follow the subject with a mask and slow motion', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     edit, report = build([row], 40, [], False, measured={'track': {'x0': 0.22, 'x1': 0.78}, 'unusable': [{'start': 8, 'end': 14}], 'chroma': 'green'})
-    assert edit['clips'][0]['track'] is True and edit['clips'][0]['x'] == 0.22 and edit['clips'][0]['x_end'] == 0.78
+    assert edit['clips'][0]['track'] is False and edit['clips'][0]['x'] == 0.22 and edit['clips'][0]['x_end'] == 0.78
     assert edit['clips'][0]['mask'] is False and edit['clips'][0]['speed'] == 0.75
-    gaps = {gap['id'] for gap in report['gaps']}
-    assert 'motion_tracking' not in gaps and 'mask' in gaps
+    gaps = {gap['id']: gap['essential'] for gap in report['gaps']}
+    assert gaps['motion_tracking'] is False and 'mask' in gaps
     window = shot(motion={'en': 'follow the subject with a mask and slow motion', 'zh': '跟踪'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'mask': True, 'lower': False})
-    masked, masked_report = build([window], 40, [], False)
+    masked, masked_report = build([window], 40, [], False, measured={'track': {'x0': 0.22, 'x1': 0.78}})
     assert masked['clips'][0]['mask'] is True and masked['clips'][0]['split'] is False
+    assert masked['clips'][0]['track'] is False and masked['clips'][0]['x'] == 0.5 and masked['clips'][0]['x_end'] is None
     assert 'mask' not in {gap['id'] for gap in masked_report['gaps']}
     assert sum(c['end'] - c['start'] for c in edit['clips']) < 39
     spoken = [{'start': 0, 'end': 4, 'original': 'Visa days stay', 'en': 'Visa days stay', 'zh': '签证'}]
@@ -309,8 +315,13 @@ def test_detail_track_mask_and_unusable_spans_change_the_cut():
     opened, _report = build([row], 40, [], False, measured={'highlight': {'start': 30, 'end': 34}})
     assert opened['clips'][0]['start'] >= 28
     keyed, keyed_report = build([shot(motion={'en': 'replace the background', 'zh': '换背景'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'})], 40, [], False, measured={'chroma': 'green'})
-    assert keyed['clips'][0]['cutout'] is True and keyed['clips'][0]['plate'] == '1A1F1C'
-    assert 'background_replacement' not in {gap['id'] for gap in keyed_report['gaps']}
+    assert keyed['clips'][0]['cutout'] is False and keyed['clips'][0]['plate'] == ''
+    room = {gap['id']: gap['essential'] for gap in keyed_report['gaps']}
+    assert room['background_replacement'] is False
+    screened, screened_report = build([shot(motion={'en': 'green screen cutout', 'zh': '绿幕'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'})], 40, [], False, measured={'chroma': 'green'})
+    assert screened['clips'][0]['cutout'] is True and screened['clips'][0]['plate'] == '1A1F1C'
+    assert 'presenter_cutout' not in {gap['id'] for gap in screened_report['gaps']}
+    assert 'background_replacement' not in {gap['id'] for gap in screened_report['gaps']}
 
 def test_named_wipe_uses_the_existing_wipe_filter():
     row = shot(transition={'en': 'wipe', 'zh': '划'})
@@ -504,8 +515,9 @@ def test_owned_percent_sets_the_progress_and_the_icon_plate():
 
 def test_measured_shake_sets_the_deshake_window_and_words_use_the_default():
     words = shot(motion={'en': 'shaky camera', 'zh': '晃动'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
-    spoken, _report = build([words], 40, [], False)
-    assert spoken['clips'][0]['stabilize'] is True and spoken['clips'][0]['shake_rx'] == 16
+    spoken, spoken_report = build([words], 40, [], False)
+    assert spoken['clips'][0]['stabilize'] is False and spoken['clips'][0]['shake_rx'] == 0
+    assert any(gap['id'] == 'stabilize' and gap['essential'] is False for gap in spoken_report['gaps'])
     row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
     strong, _report = build([row], 40, [], False, measured={'layout': {'split': False, 'bar': False, 'lower': False, 'shake': True, 'shake_rx': 32}})
     assert strong['clips'][0]['stabilize'] is True and strong['clips'][0]['shake_rx'] == 32
@@ -1089,3 +1101,62 @@ def test_overlay_window_is_absent_outside_the_measured_span(tmp_path, monkeypatc
     write_card(spare_file, spare.model_dump(), 'en', 180, 240)
     spare_text = spare_file.read_text()
     assert spare_text.count('0:00:00.50') >= 1 and spare_text.count('0:00:01.50') >= 1
+
+def test_black_and_frozen_holes_keep_speech_and_stay_under_forty_clips():
+    from backend.style_match import _punch
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.5}], []) == [(0, 4), (4.5, 10)]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.3}], []) == [(0, 10)]
+    spoken = [{'start': 3.8, 'end': 4.6, 'original': 'Visa days', 'en': 'Visa days'}]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.5}], spoken) == [(0, 10)]
+    crowded = [{'start': index + 0.4, 'end': index + 0.9} for index in range(50)]
+    assert _punch([(0, 80)], crowded, []) == [(0, 80)]
+
+def test_best_take_needs_speech_and_a_usable_frame():
+    from backend.style_match import _best_takes
+    cuts = [(0, 6), (6, 12), (12, 18)]
+    line = 'Deposit forms today'
+    transcript = [
+        {'start': 1, 'end': 3, 'original': line, 'en': line},
+        {'start': 13, 'end': 15, 'original': line, 'en': line},
+    ]
+    chosen = _best_takes(cuts, transcript, [{'start': 12, 'end': 16}])
+    assert (0, 6) in chosen
+    assert not any(start < 15 and end > 13 for start, end in chosen)
+    assert _best_takes(cuts, transcript, None) == cuts
+    assert _best_takes(cuts, transcript, []) == cuts
+    assert _best_takes(cuts, [], [{'start': 12, 'end': 16}]) == cuts
+    assert _best_takes(cuts, transcript, [{'start': 30, 'end': 32}]) == cuts
+    assert _best_takes(cuts, transcript, [{'start': 1, 'end': 3}, {'start': 13, 'end': 15}]) == cuts
+
+def test_column_shift_follows_without_a_picture_and_does_not_track_a_face():
+    quiet = dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    followed, report = build([shot(**quiet)], 40, [], False, measured={'track': {'x0': 0.22, 'x1': 0.78}})
+    assert followed['clips'][0]['track'] is False
+    assert followed['clips'][0]['x'] == 0.22 and followed['clips'][0]['x_end'] == 0.78
+    assert 'motion_tracking' not in {gap['id'] for gap in report['gaps']}
+
+def test_owned_color_and_short_name_stay_on_existing_graphics(monkeypatch):
+    import re
+    from backend.media import _paint
+    from backend.style_vision import _hex_from_samples
+    assert _hex_from_samples([{'y': 128, 'u': 128, 'v': 128, 'sat': 2}]) == ''
+    assert re.fullmatch(r'[0-9A-F]{6}', _hex_from_samples([{'y': 80, 'u': 160, 'v': 90, 'sat': 40}]))
+    assert _paint({}) == 'F4F1EA' and _paint({'ink': '224466'}) == '224466' and _paint({'ink': 'logo'}) == 'F4F1EA'
+    quiet = dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    spoken = [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证'}]
+    layout = {'split': False, 'bar': False, 'lower': True, 'shake': False}
+    named, named_report = build([shot(**quiet)], 40, spoken, False, title='Harbor guide', measured={'layout': layout})
+    assert named['clips'][0]['text'].startswith('Harbor ')
+    assert named['clips'][0]['ink'] == ''
+    assert 'owned_brand' not in {gap['id'] for gap in named_report['gaps']}
+    bare, _bare_report = build([shot(**quiet)], 40, [], False, title='Harbor guide')
+    assert all(not clip['text'] for clip in bare['clips'])
+    monkeypatch.setattr('backend.style_vision.owned_ink', lambda path: '')
+    gray, gray_report = build([shot(**quiet)], 40, spoken, False, title='Harbor guide', source='owned.mp4', measured={'layout': layout})
+    assert gray['clips'][0]['ink'] == ''
+    assert gray['clips'][0]['text'].startswith('Harbor ')
+    assert any(gap['id'] == 'owned_brand' and gap['essential'] is False for gap in gray_report['gaps'])
+    monkeypatch.setattr('backend.style_vision.owned_ink', lambda path: '224466')
+    painted, painted_report = build([shot(**quiet)], 40, spoken, False, title='Harbor guide', source='owned.mp4', measured={'layout': layout})
+    assert painted['clips'][0]['ink'] == '224466'
+    assert 'owned_brand' not in {gap['id'] for gap in painted_report['gaps']}

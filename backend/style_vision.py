@@ -255,6 +255,42 @@ def chroma_plate(path):
         return 'blue'
     return None
 
+def _hex_from_samples(samples):
+    if not samples:
+        return ''
+    sat = sum(item.get('sat') or 0 for item in samples) / len(samples)
+    y = sum(item['y'] for item in samples) / len(samples)
+    u = sum(item['u'] for item in samples) / len(samples)
+    v = sum(item['v'] for item in samples) / len(samples)
+    if sat < 16 or (abs(u - 128) < 8 and abs(v - 128) < 8):
+        return ''
+    chroma_y = 1.164 * (y - 16)
+    red = chroma_y + 1.596 * (v - 128)
+    green = chroma_y - 0.391 * (u - 128) - 0.813 * (v - 128)
+    blue = chroma_y + 2.018 * (u - 128)
+
+    def channel(value):
+        return max(0, min(255, int(round(value))))
+
+    return f'{channel(red):02X}{channel(green):02X}{channel(blue):02X}'
+
+def owned_ink(path):
+    """Saturated corner color of the owned file. Gray returns an empty string."""
+    try:
+        meta = media.probe(path)
+        width, height = int(meta['width']), int(meta['height'])
+    except Exception:
+        return None
+    if width < 48 or height < 48:
+        return None
+    samples = []
+    for x, y in ((0, 0), (width - 24, 0), (0, height - 24), (width - 24, height - 24)):
+        sample = _stats(path, f'crop=24:24:{x}:{y},signalstats,metadata=print:file=-', frames=1)
+        if not sample:
+            return None
+        samples.append(sample)
+    return _hex_from_samples(samples)
+
 def highlight_window(path, duration):
     rows = [row for row in _timed_levels(path) if row[1] >= 30]
     if not rows:

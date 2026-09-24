@@ -288,6 +288,10 @@ def callout_bounds(clip, span):
         return opened, span
     return opened, max(opened+0.05, min(span, end_f*span))
 
+def _paint(clip, fallback='F4F1EA'):
+    ink = str((clip or {}).get('ink') or '')
+    return ink.upper() if re.fullmatch(r'[0-9A-Fa-f]{6}', ink) else fallback
+
 def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None):
     if manual:
         from .manual import Edit,check
@@ -368,7 +372,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 else:
                     legacy=float(clip.get('effect_at') or 0)
                     gate=f":enable='gte(t\\,{legacy:.3f})'" if legacy>=0.2 else ''
-                base_vf+=f',drawbox=x=0:y=ih-12:w={width}:h=10:color=0xF4F1EA@0.92:t=fill{gate}'
+                base_vf+=f',drawbox=x=0:y=ih-12:w={width}:h=10:color=0x{_paint(clip)}@0.92:t=fill{gate}'
             post=vf;vf=base_vf+post
         if cutaway:
             footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
@@ -386,7 +390,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             graph=f"[0:v]{base_vf.rstrip(',')},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(pow((X-W/2)/(W*0.38),2)+pow((Y-H/2)/(H*0.42),2),1),255,0)'[key];color=c=0x101614:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}[plate];[plate][key]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('graphic') and clip.get('bars') and not clip.get('cutout') and not clip.get('split') and not clip.get('mask'):
-            boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0xF4F1EA@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
+            boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
             span=max(b-a,0.2); fade_d=min(0.25,span/4)
             graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
@@ -423,7 +427,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             limited=closed<span-0.02
             show=f":enable='gte(t\\,{opened:.3f})*lt(t\\,{closed:.3f})'" if limited or opened else ''
             fade_out=max(opened, closed-fade_d) if limited else max(opened, span-fade_d)
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={plate}:h={chip}:color=0xF4F1EA@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={fade_out:.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}{show}:format=auto{post}[v]"
+            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x=12:y={(band-chip)//2}:w={plate}:h={chip}:color=0x{_paint(clip)}@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={fade_out:.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={h-band}{show}:format=auto{post}[v]"
             inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
         elif manual and clip.get('split') and clip.get('panel') is not None:
             half=max(2,(w//2)//2*2)
