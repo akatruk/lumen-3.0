@@ -16,6 +16,7 @@ import {
   History,
   Download,
   ArrowLeft,
+  Trash2,
   X,
   Play,
   Layers,
@@ -23,7 +24,7 @@ import {
 } from "lucide-react";
 import { MenuSlide } from "./MenuSlide";
 import type { Project, Lang } from "./types";
-import { contentLanguage } from "./locale";
+import { contentLanguage, translate } from "./locale";
 import { StatusBadge, TaskProgress } from "./TaskStatus";
 export type WorkspaceTask =
   "edit" | "subtitles" | "audio" | "effects" | "materials" | "review";
@@ -33,6 +34,42 @@ export const workspaceText = (
   en: string,
   zh: string,
 ) => (lang === "ru" ? ru : lang === "zh" ? zh : en);
+const jobErrors: Record<string, [string, string]> = {
+  provider_credits_required: [
+    "The AI provider needs credits. Add credits to the connected OpenRouter account, then retry.",
+    "AI 服务余额不足。请为已连接的 OpenRouter 账户充值后重试。",
+  ],
+  provider_auth_failed: [
+    "The AI provider rejected its configured key.",
+    "AI 服务拒绝了配置的密钥。",
+  ],
+  provider_request_failed: [
+    "The AI provider could not process this request. Retry when it is available.",
+    "AI 服务暂时无法处理此请求。请稍后重试。",
+  ],
+  provider_invalid_analysis: [
+    "The model returned an incomplete analysis. Your original is safe; you can retry.",
+    "模型返回了不完整的分析。原始视频已保留，可以重试。",
+  ],
+  processing_failed: [
+    "Processing could not finish. Your original is safe.",
+    "处理未能完成，原视频已保留。",
+  ],
+  media_processing_failed: [
+    "This media could not be processed.",
+    "无法处理此媒体文件。",
+  ],
+  worker_interrupted: [
+    "Processing was interrupted. Retry analysis or create the cut again.",
+    "处理意外中断，请重新分析或制作新版本。",
+  ],
+};
+function jobError(lang: Lang, code: string) {
+  return translate(
+    lang,
+    ...(jobErrors[code] || jobErrors.processing_failed),
+  );
+}
 type WorkspaceContextValue = {
   task: WorkspaceTask;
   setTask: (t: WorkspaceTask) => void;
@@ -66,11 +103,13 @@ export function ProjectWorkspace({
   p,
   lang,
   onBack,
+  onDelete,
   children,
 }: {
   p: Project;
   lang: Lang;
   onBack: () => void;
+  onDelete?: () => void;
   children: ReactNode;
 }) {
   const w = (r: string, e: string, z: string) => workspaceText(lang, r, e, z);
@@ -94,6 +133,8 @@ export function ProjectWorkspace({
   const comparison = useRef<Version | null>(null);
   const [mediaError, setMediaError] = useState(false);
   const [playNotice, setPlayNotice] = useState("");
+  const [retrying, setRetrying] = useState(false);
+  const [retryNote, setRetryNote] = useState("");
   const player = useRef<HTMLVideoElement>(null),
     dialog = useRef<HTMLDialogElement>(null),
     returnFocus = useRef<HTMLElement | null>(null),
@@ -103,6 +144,19 @@ export function ProjectWorkspace({
   const working = ["queued", "importing", "analyzing", "rendering"].includes(
     p.status,
   );
+  async function retryAnalysis() {
+    if (working || retrying || p.analysis) return;
+    setRetrying(true);
+    setRetryNote("");
+    try {
+      const r = await fetch(`/api/projects/${p.id}/retry`, { method: "POST" });
+      if (!r.ok) setRetryNote("failed");
+    } catch {
+      setRetryNote("failed");
+    } finally {
+      setRetrying(false);
+    }
+  }
   const versions: Version[] = [
     ...(p.result
       ? [
@@ -312,6 +366,18 @@ export function ProjectWorkspace({
             <h1>{p.title}</h1>
           </div>
           <div className="ws-heading-actions">
+            {onDelete && (
+              <button
+                type="button"
+                className="ws-delete"
+                disabled={working}
+                title={working ? w("Дождитесь окончания текущей задачи.", "Wait for the current task to finish.", "请等待当前任务完成。") : undefined}
+                onClick={onDelete}
+              >
+                <Trash2 size={16} />
+                {w("Удалить проект", "Delete project", "删除项目")}
+              </button>
+            )}
             <button className="secondary" onClick={openVersions}>
               <History size={16} />
               {w("Версии", "Versions", "版本")} <span>{versions.length}</span>
@@ -473,13 +539,30 @@ export function ProjectWorkspace({
               />
             )}
             {p.error && (
-              <p role="alert" className="error-box">
-                {w(
-                  "Задача завершилась с ошибкой. Готовые версии сохранены; подробности в разделе проверки.",
-                  "Task failed. Finished versions are safe; see Review for details.",
-                  "任务失败，已完成版本仍保留，请查看审核详情。",
+              <div className="ws-analysis-alert">
+                <p role="alert" className="error-box">
+                  {jobError(lang, p.error)}
+                </p>
+                {!p.analysis && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={working || retrying}
+                    onClick={() => void retryAnalysis()}
+                  >
+                    {translate(lang, "Retry analysis", "重新分析")}
+                  </button>
                 )}
-              </p>
+                {retryNote && (
+                  <p role="alert">
+                    {w(
+                      "Не удалось запустить анализ снова. Дождитесь текущей задачи или обновите страницу.",
+                      "Could not start analysis again. Wait for the current task or reload.",
+                      "无法重新开始分析。请等待当前任务或刷新页面。",
+                    )}
+                  </p>
+                )}
+              </div>
             )}
             <div className="ws-budget">
               ${p.cost.toFixed(3)} / ${p.budget.toFixed(2)} ·{" "}
@@ -518,11 +601,17 @@ export function ProjectWorkspace({
                       "Finished version saved",
                       "已完成版本已保存",
                     )
-                  : w(
-                      "Проверьте план монтажа",
-                      "Review your edit plan",
-                      "请审核剪辑计划",
-                    )}
+                  : p.error
+                    ? w(
+                        "Анализ не завершён",
+                        "Analysis did not finish",
+                        "分析未完成",
+                      )
+                    : w(
+                        "Проверьте план монтажа",
+                        "Review your edit plan",
+                        "请审核剪辑计划",
+                      )}
             </StatusBadge>
             {p.result && (
               <a

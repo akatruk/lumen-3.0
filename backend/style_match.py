@@ -1961,11 +1961,17 @@ def _style_render_payload(db, pid, current, edit):
         payload['voice_id'] = voice_id
     return payload
 
-def _store(db, pid, edit, report, status, render):
+def _store(db, pid, edit, report, status, render, *, baked=False):
     current, context = _context(db, pid)
     context['style_match'] = True
     context['style_report'] = report
     context['style_match_status'] = status
+    if baked:
+        previous = context.get('effect_board')
+        context['effect_board_in_edit'] = copy.deepcopy(previous) if isinstance(previous, dict) else previous
+    else:
+        # The stored cut stays the style-match base. Picture render applies the saved board.
+        context['effect_board_in_edit'] = None
     db.execute('INSERT INTO studio_manual(project_id,config) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET config=excluded.config', (pid, json.dumps(edit)))
     db.execute('UPDATE studio_projects SET context=?,revision=revision+1 WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
     if not render:
@@ -2058,6 +2064,21 @@ def apply_effect_board(edit, board):
             clip['screen'] = _limit(clip.get('start') or 0, 0, 10_000)
     return shaped
 
+def board_for_render(edit, context):
+    """Apply the project's saved effect recipe when the picture is rendered."""
+    if not isinstance(edit, dict):
+        return edit
+    context = context or {}
+    board = context.get('effect_board')
+    if not isinstance(board, dict):
+        return edit
+    # Missing means an older cut already includes the board it was built with.
+    if 'effect_board_in_edit' not in context:
+        return edit
+    if context.get('effect_board_in_edit') == board:
+        return edit
+    return _with_board(edit, context)
+
 def _with_board(edit, context):
     board = (context or {}).get('effect_board')
     if not isinstance(board, dict):
@@ -2099,7 +2120,6 @@ def match_project(pid):
         edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
     except Exception:
         pass
-    edit = _with_board(edit, current['context'])
     with connect() as db:
         db.lock()
         _store(db, pid, edit, report, 'pending', True)
@@ -2475,7 +2495,6 @@ def regenerate(pid: str, user=Depends(current_user)):
         edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
     except Exception:
         pass
-    edit = _with_board(edit, current['context'])
     with connect() as db:
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
@@ -2509,5 +2528,5 @@ def regenerate_section(pid: str, index: int, user=Depends(current_user)):
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
-        _store(db, pid, dumped, report, 'pending', True)
+        _store(db, pid, dumped, report, 'pending', True, baked=True)
     return {'ok': True}

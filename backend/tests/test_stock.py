@@ -11,6 +11,17 @@ def page():
 def test_metadata_filters_and_download_host_guard():
     p=page();c=stock.candidate(p)
     assert c['artist']=='Author' and c['source_url']=='https://commons.wikimedia.org/?curid=12'
+    http_public=page();meta=http_public['videoinfo'][0]['extmetadata']
+    meta['LicenseShortName']['value']='CC0'
+    meta['LicenseUrl']['value']='http://creativecommons.org/publicdomain/zero/1.0/deed.en'
+    assert stock.candidate(http_public)['license']=='CC0'
+    meta['LicenseUrl']['value']='http://evil.example/publicdomain/zero/1.0/'
+    assert stock.candidate(http_public) is None
+    missing=page();missing['videoinfo'][0]['duration']=None
+    assert stock.candidate(missing) is None
+    missing['videoinfo'][0]['duration']=2
+    missing['videoinfo'][0]['derivatives']=[{'src':'https://upload.wikimedia.org/wikipedia/commons/test.webm','height':None,'type':'video/webm'}]
+    assert stock.candidate(missing) is None
     for url in ['http://upload.wikimedia.org/wikipedia/commons/x','https://127.0.0.1/x','https://upload.wikimedia.org.evil.test/wikipedia/commons/x','https://user@upload.wikimedia.org/wikipedia/commons/x','https://upload.wikimedia.org:bad/wikipedia/commons/x']:
         assert not stock.safe_media(url)
     p['videoinfo'][0]['extmetadata']['LicenseShortName']['value']='All rights reserved'
@@ -47,6 +58,13 @@ def test_search_import_and_preview_preserve_saved_edit(client,monkeypatch,tmp_pa
     app.dependency_overrides[current_user]=lambda:{'id':'v','email':'other@example.com'}
     assert client.get(base+'/stock/imports').status_code==404
     assert client.post(base+'/stock/imports',json=body).status_code==404
+
+def test_null_commons_query_is_empty_not_an_exception(monkeypatch):
+    class Response:
+        def raise_for_status(self):return None
+        def json(self):return {'batchcomplete':'','query':None}
+    monkeypatch.setattr(stock.httpx,'get',lambda *args,**kwargs:Response())
+    assert stock.query(generator='search',gsrsearch='Bangkok skyline filetype:video')==[]
 
 def test_changed_license_rejected_without_failing_project(client,monkeypatch):
     pid=create(client).json()['id'];seed_plan(pid);base=f'/api/studio/projects/{pid}/stock'

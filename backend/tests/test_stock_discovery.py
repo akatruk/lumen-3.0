@@ -44,9 +44,79 @@ def test_discovery_failure_does_not_fail_project(client,monkeypatch):
     monkeypatch.setattr(ai,'json_call',fail)
     assert client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']}).status_code==202
     assert worker.run_once()
-    assert client.get(base+'/discoveries').json()[0]['status']=='failed'
+    item=client.get(base+'/discoveries').json()[0]
+    assert item['status']=='failed' and item['error']=='provider_request_failed'
     assert project(pid)['status']=='ready'
     assert client.get(url).json()['edit']==edit
+
+def test_malformed_commons_page_does_not_fail_scene_search(client,monkeypatch):
+    pid,url,edit,revision=setup(client);base=f'/api/studio/projects/{pid}/stock'
+    bad=page();bad['pageid']=13;bad['videoinfo'][0]['duration']=None
+    def model(*args,**kwargs):
+        if args[4]=='stock_ranking':
+            from backend.stock_ranking import Ranking,CandidateReview
+            return Ranking(reviews=[CandidateReview(page_id=page()['pageid'],score=80,suitability='illustration',reason=T)])
+        return stock_discovery.SearchPlan(rationale=T,queries=[{'query':'ocean','purpose':T}],cautions=[])
+    monkeypatch.setattr(ai,'json_call',model)
+    monkeypatch.setattr(stock,'query',lambda **kw:[bad,page()])
+    assert client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']}).status_code==202
+    assert worker.run_once()
+    item=client.get(base+'/discoveries').json()[0]
+    assert item['status']=='ready',item
+    assert [hit['page_id'] for hit in item['result']['hits']]==[page()['pageid']]
+    assert client.get(url).json()['edit']==edit
+
+def test_scene_search_keeps_twenty_four_candidates_and_writes_nothing_for_an_empty_plan(client,monkeypatch):
+    pid,url,edit,revision=setup(client);base=f'/api/studio/projects/{pid}/stock'
+    pages=[]
+    for n in range(25):
+        item=page();item['pageid']=100+n;item['title']=f'File:Clip{n}.webm';pages.append(item)
+    seen=[]
+    def fake_rank(pid,snapshot,items):
+        seen.append(len(items));return items[:1]
+    monkeypatch.setattr(ai,'json_call',lambda *a,**k:stock_discovery.SearchPlan(rationale=T,queries=[{'query':'ocean','purpose':T}],cautions=[]))
+    monkeypatch.setattr(stock,'query',lambda **kw:pages)
+    monkeypatch.setattr('backend.stock_ranking.rank',fake_rank)
+    assert client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']}).status_code==202
+    assert worker.run_once()
+    item=client.get(base+'/discoveries').json()[0]
+    assert item['status']=='ready' and seen==[24],item
+    assert client.get(url).json()['edit']==edit
+    with connect() as db:before=db.execute('SELECT COUNT(*) FROM stock_results WHERE project_id=?',(pid,)).fetchone()[0]
+    assert before==1
+    monkeypatch.setattr(ai,'json_call',lambda *a,**k:stock_discovery.SearchPlan(rationale=T,queries=[],cautions=[T]))
+    revision=client.get(url).json()['revision']
+    assert client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']}).status_code==202
+    assert worker.run_once()
+    second=client.get(base+'/discoveries').json()[0]
+    assert second['status']=='ready' and second['result']['hits']==[] and second['result']['queries']==[]
+    with connect() as db:assert db.execute('SELECT COUNT(*) FROM stock_results WHERE project_id=?',(pid,)).fetchone()[0]==before
+
+def test_missing_scene_proxy_plans_without_failing(client,monkeypatch):
+    pid,url,edit,revision=setup(client);base=f'/api/studio/projects/{pid}/stock'
+    calls=[]
+    def model(*args,**kwargs):
+        calls.append(kwargs)
+        return stock_discovery.SearchPlan(rationale=T,queries=[],cautions=[])
+    monkeypatch.setattr(ai,'json_call',model)
+    assert client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']}).status_code==202
+    assert worker.run_once()
+    item=client.get(base+'/discoveries').json()[0]
+    assert item['status']=='ready' and calls[0]['attach_video'] is False and item['result']['hits']==[]
+    with connect() as db:assert db.execute('SELECT COUNT(*) FROM stock_results WHERE project_id=?',(pid,)).fetchone()[0]==0
+    assert client.get(url).json()['edit']==edit
+
+def test_commons_outage_names_the_failure_and_writes_nothing(client,monkeypatch):
+    pid,url,edit,revision=setup(client);base=f'/api/studio/projects/{pid}/stock'
+    monkeypatch.setattr(ai,'json_call',lambda *a,**k:stock_discovery.SearchPlan(rationale=T,queries=[{'query':'ocean','purpose':T}],cautions=[]))
+    monkeypatch.setattr(stock,'query',lambda **kw:(_ for _ in ()).throw(ValueError('stock_unavailable')))
+    assert client.post(base+'/discover',json={'revision':revision,'clip_id':edit['clips'][0]['id']}).status_code==202
+    assert worker.run_once()
+    item=client.get(base+'/discoveries').json()[0]
+    assert item['status']=='failed' and item['error']=='stock_unavailable' and item['result'] is None
+    with connect() as db:assert db.execute('SELECT COUNT(*) FROM stock_results WHERE project_id=?',(pid,)).fetchone()[0]==0
+    assert client.get(url).json()['edit']==edit
+    assert project(pid)['status']=='ready'
 
 def test_discovery_rejects_stale_locked_and_foreign_scene(client):
     pid,url,edit,revision=setup(client);base=f'/api/studio/projects/{pid}/stock'

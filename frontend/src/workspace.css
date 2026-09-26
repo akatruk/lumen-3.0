@@ -41,6 +41,20 @@
   display: flex;
   gap: 10px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.project-workspace .ws-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 8px;
+  min-height: 38px;
+  padding: 9px 13px;
+  font-size: 12px;
+  background: #fff;
+  color: #a33c32;
+  border: 1px solid #e7c8c4;
 }
 .project-workspace a.primary,
 .project-workspace a.secondary,
@@ -237,6 +251,15 @@
 .style-match-body { max-height: 240px; overflow: auto; padding: 0 14px 14px; font-size: 13px; color: #3c4a62; }
 .style-match-body ul { margin: 8px 0; padding-left: 18px; }
 .style-match-body .trend-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.ws-analysis-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.ws-analysis-alert .error-box { flex: 1 1 16rem; margin: 0; }
+.ws-analysis-alert .secondary { flex: 0 0 auto; }
 .ws-budget {
   font-size: 11px;
   color: #8792a4;

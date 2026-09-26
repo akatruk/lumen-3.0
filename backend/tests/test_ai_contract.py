@@ -32,6 +32,13 @@ def test_402_does_not_charge_or_fabricate_results(context,monkeypatch):
     assert len(requests)==1
     with connect() as db: assert db.execute('SELECT actual FROM spend').fetchone()[0]==0
 
+def test_missing_scene_video_does_not_reserve_or_call_provider(context,monkeypatch):
+    requests=mock_response(monkeypatch,200,{'choices':[{'message':{'content':'{"passed":true,"observations":[],"issues":[]}'}}]})
+    with pytest.raises(ValueError,match='analysis_proxy_missing'):
+        ai.json_call('p',context.parent/'missing.mp4','Plan',QA,'stock_discovery')
+    assert requests==[]
+    with connect() as db:assert db.execute('SELECT COUNT(*) FROM spend').fetchone()[0]==0
+
 def test_missing_key_does_not_reserve(context,monkeypatch):
     monkeypatch.setattr(settings,'openrouter_api_key','')
     with pytest.raises(ValueError,match='provider_not_configured'):

@@ -35,13 +35,25 @@ export const LOOKS: Record<LookName, EffectBoard> = {
   split: { name: "split", amount: 1, effects: effects(["split", "screen", "color", "progress"]) },
 };
 
+export function parseBoard(saved: EffectBoard | null): EffectBoard | null {
+  if (!saved || !LOOKS[saved.name] || typeof saved.amount !== "number" || !saved.effects) return null;
+  const amount = Math.min(1.6, Math.max(0.4, saved.amount));
+  const next = effects(EFFECT_KEYS.filter((key) => saved.effects[key] === true));
+  return { name: saved.name, amount, effects: next };
+}
+
+export function lookProjectId(): string | null {
+  try {
+    const back = sessionStorage.getItem("lumen-look-return") || "";
+    return /^project\/[a-f0-9]{32}$/.test(back) ? back.slice(8) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function readBoard(): EffectBoard | null {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE) || "null") as EffectBoard | null;
-    if (!saved || !LOOKS[saved.name] || typeof saved.amount !== "number" || !saved.effects) return null;
-    const amount = Math.min(1.6, Math.max(0.4, saved.amount));
-    const next = effects(EFFECT_KEYS.filter((key) => saved.effects[key] === true));
-    return { name: saved.name, amount, effects: next };
+    return parseBoard(JSON.parse(localStorage.getItem(STORAGE) || "null") as EffectBoard | null);
   } catch {
     return null;
   }

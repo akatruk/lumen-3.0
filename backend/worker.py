@@ -82,6 +82,11 @@ def render_job(p,payload):
         from .manual import Edit
         with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
     voice_audio=render_audio.prepare(pid,delivery['voice'],render_folder,timeline) if delivery and delivery['voice'] else None
+    if manual:
+        from .studio import state as studio_state
+        from .style_match import board_for_render
+        current=studio_state(pid)
+        manual=board_for_render(manual,(current or {}).get('context') if current else None)
     result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id
     if delivery and delivery['voice']:result['voiceover']={k:delivery['voice'][k] for k in ('language','voice')}
@@ -118,7 +123,7 @@ def render_job(p,payload):
 
 def safe_error(exc):
     allowed={'selected_audio_unavailable','voiceover_timeline_unavailable','voiceover_range_unavailable','douyin_not_configured','douyin_daily_limit','douyin_auth_failed','douyin_credits_required','douyin_rate_limited','douyin_search_failed','douyin_media_unavailable','upload_too_large','budget_limit','not_a_video','invalid_duration','resolution_too_large','video_too_long','provider_not_configured',
-    'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid',
+    'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
     'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips'}

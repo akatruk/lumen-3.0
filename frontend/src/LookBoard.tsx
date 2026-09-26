@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Lang } from "./types";
 import { translate } from "./locale";
 import {
   EFFECT_GROUPS,
   LOOKS,
+  lookProjectId,
+  parseBoard,
   readBoard,
   strengthAmount,
   strengthPercent,
@@ -24,14 +26,39 @@ function sameBoard(a: EffectBoard, b: EffectBoard) {
 }
 
 export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) {
+  const projectId = lookProjectId();
   const t = (en: string, zh: string) => translate(lang, en, zh);
   const [board, setBoard] = useState<EffectBoard>(() => cloneBoard(readBoard() || LOOKS.punch));
   const [savedBoard, setSavedBoard] = useState<EffectBoard>(() => cloneBoard(readBoard() || LOOKS.punch));
-  const [persisted, setPersisted] = useState(() => readBoard() !== null);
+  const [persisted, setPersisted] = useState(() => (projectId ? false : readBoard() !== null));
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const touched = useRef(false);
   const dirty = !sameBoard(board, savedBoard);
   const percent = strengthPercent(board.amount);
 
+  useEffect(() => {
+    if (!projectId) return;
+    let live = true;
+    fetch("/api/studio/projects/" + projectId, { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!live || !data) return;
+        const saved = parseBoard(data.context?.effect_board ?? null);
+        if (!saved) return;
+        const next = cloneBoard(saved);
+        setSavedBoard(next);
+        setPersisted(true);
+        if (!touched.current) setBoard(cloneBoard(saved));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [projectId]);
+
   function toggle(key: EffectKey) {
+    touched.current = true;
     setBoard({ ...board, effects: { ...board.effects, [key]: !board.effects[key] } });
   }
   function label(key: EffectKey) {
@@ -78,12 +105,34 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
     if (id === "motion") return t("Motion", "运动");
     return t("Graphics", "图形");
   }
-  function save() {
+  async function save() {
     const next = cloneBoard(board);
-    writeBoard(next);
-    setBoard(next);
-    setSavedBoard(next);
-    setPersisted(true);
+    setSaveError("");
+    if (!projectId) {
+      writeBoard(next);
+      setBoard(next);
+      setSavedBoard(next);
+      setPersisted(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch("/api/studio/projects/" + projectId + "/effect-board", {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      if (!response.ok) throw new Error("save_failed");
+      writeBoard(next);
+      setBoard(next);
+      setSavedBoard(cloneBoard(next));
+      setPersisted(true);
+    } catch {
+      setSaveError(t("Could not save this recipe on the project. Try again.", "未能把这个配方保存到项目。请再试一次。"));
+    } finally {
+      setBusy(false);
+    }
   }
   function cancel() {
     setBoard(cloneBoard(savedBoard));
@@ -99,17 +148,22 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
           <button type="button" className="secondary" disabled={!dirty} onClick={cancel}>
             {t("Undo", "撤销")}
           </button>
-          <button type="button" className="primary" disabled={!dirty && persisted} onClick={save}>
+          <button type="button" className="primary" disabled={busy || (!dirty && persisted)} onClick={() => void save()}>
             {t("Save", "保存")}
           </button>
         </div>
       </div>
       <h1>{t("Effect recipe", "效果配方")}</h1>
       <p className="look-lead">
-        {t(
-          "This board is the effect recipe for the next style match. The finished film still uses only your footage.",
-          "这个面板是下一次风格匹配的效果配方。成片仍然只用你的素材。",
-        )}
+        {projectId
+          ? t(
+              "This board is the effect recipe for the next picture render. The finished film still uses only your footage.",
+              "这个面板是下一次画面渲染的效果配方。成片仍然只用你的素材。",
+            )
+          : t(
+              "This board is the effect recipe for the next style match. The finished film still uses only your footage.",
+              "这个面板是下一次风格匹配的效果配方。成片仍然只用你的素材。",
+            )}
       </p>
       <div className="look-pro">
         <section className="look-panel" aria-label={t("Effect recipe", "效果配方")}>
@@ -125,7 +179,10 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
               step={1}
               value={percent}
               aria-valuetext={String(percent)}
-              onChange={(e) => setBoard({ ...board, amount: strengthAmount(Number(e.target.value)) })}
+              onChange={(e) => {
+                touched.current = true;
+                setBoard({ ...board, amount: strengthAmount(Number(e.target.value)) });
+              }}
             />
           </label>
           {EFFECT_GROUPS.map((group) => (
@@ -136,7 +193,10 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
                   <span>{t("Starting look", "起始效果")}</span>
                   <select
                     value={board.name}
-                    onChange={(e) => setBoard(cloneBoard(LOOKS[e.target.value as LookName]))}
+                    onChange={(e) => {
+                      touched.current = true;
+                      setBoard(cloneBoard(LOOKS[e.target.value as LookName]));
+                    }}
                   >
                     {NAMES.map((name) => (
                       <option key={name} value={name}>
@@ -165,12 +225,18 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
               ))}
             </section>
           ))}
-          <p role="status" className="look-status">
-            {dirty
-              ? t("Unsaved changes", "尚未保存")
-              : persisted
-                ? t("Saved on this device. Style match on the next project uses this plaque.", "已保存在此设备。下一个项目的风格匹配会使用这个面板。")
-                : t("Not saved yet. Save stores this recipe on this device.", "尚未保存。保存后，这个配方会留在此设备上。")}
+          <p role={saveError ? "alert" : "status"} className="look-status">
+            {saveError
+              ? saveError
+              : dirty
+                ? t("Unsaved changes", "尚未保存")
+                : persisted
+                  ? projectId
+                    ? t("Saved on this project. The next picture render uses this recipe.", "已保存在此项目。下一次画面渲染会使用这个配方。")
+                    : t("Saved on this device. Style match on the next project uses this plaque.", "已保存在此设备。下一个项目的风格匹配会使用这个面板。")
+                  : projectId
+                    ? t("Not saved yet. Save stores this recipe on the project.", "尚未保存。保存后，这个配方会写入项目。")
+                    : t("Not saved yet. Save stores this recipe on this device.", "尚未保存。保存后，这个配方会留在此设备上。")}
           </p>
         </section>
         <section className="look-stage" aria-label={t("Before and after", "前后对比")}>

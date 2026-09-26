@@ -141,7 +141,8 @@ function App() {
     [initialFile, setInitialFile] = useState<File | null>(null),
     [nav, setNav] = useState(false),
     [error, setError] = useState(""),
-    [missingProject, setMissingProject] = useState(false);
+    [missingProject, setMissingProject] = useState(false),
+    [deleteId, setDeleteId] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const menuWasOpen = useRef(false);
@@ -362,7 +363,13 @@ function App() {
                   <button
                     key={String(key)}
                     className={!pid && page === key ? "active" : ""}
-                    onClick={() => navigate(String(key))}
+                    onClick={() => {
+                      if (String(key) === "look") {
+                        const from = pid ? "project/" + pid : trend ? "trend/" + trend : page;
+                        if (from && from !== "look") sessionStorage.setItem("lumen-look-return", from);
+                      }
+                      navigate(String(key));
+                    }}
                   >
                     <K size={19} />
                     {t(String(key))}
@@ -435,7 +442,7 @@ function App() {
             )}
             {pid ? (
               project ? (
-                <ProjectWorkspace key={project.id} p={project} lang={lang} onBack={() => navigate("library")}>{project.studio ? (
+                <ProjectWorkspace key={project.id} p={project} lang={lang} onBack={() => navigate("library")} onDelete={() => setDeleteId(project.id)}>{project.studio ? (
                   <DirectorProject
                     key={project.id}
                     p={project}
@@ -503,6 +510,7 @@ function App() {
                 items={items}
                 open={open}
                 newProject={() => newProject()}
+                onDelete={setDeleteId}
               />
             ) : page === "guide" ? (
               <div className="page tutorial-page"><TutorialVideos lang={lang}/></div>
@@ -519,6 +527,23 @@ function App() {
                 setPid(p.id);
                 setProject(p);
                 void refresh();
+              }}
+            />
+          )}
+          {deleteId && (
+            <Confirm
+              onClose={() => setDeleteId(null)}
+              onConfirm={async () => {
+                const id = deleteId;
+                try {
+                  await api(`/projects/${id}`, { method: "DELETE" });
+                  if (pid === id) navigate("library");
+                  await refresh();
+                  setDeleteId(null);
+                } catch (e) {
+                  setError((e as Error).message);
+                  setDeleteId(null);
+                }
               }}
             />
           )}
@@ -626,11 +651,13 @@ function Home({
   open,
   newProject,
   all,
+  onDelete,
 }: {
   items: Summary[];
   open: (id: string) => void;
   newProject: (f?: File) => void;
   all: () => void;
+  onDelete: (id: string) => void;
 }) {
   const { t, lang } = useL();
   const [drag, setDrag] = useState(false);
@@ -743,7 +770,7 @@ function Home({
         {items.length ? (
           <div className="project-grid">
             {items.slice(0, 3).map((p) => (
-              <ProjectCard key={p.id} p={p} onClick={() => open(p.id)} />
+              <ProjectCard key={p.id} p={p} onClick={() => open(p.id)} onDelete={() => onDelete(p.id)} />
             ))}
           </div>
         ) : (
@@ -770,11 +797,13 @@ function Home({
     </div>
   );
 }
-function ProjectCard({ p, onClick }: { p: Summary; onClick: () => void }) {
+function ProjectCard({ p, onClick, onDelete }: { p: Summary; onClick: () => void; onDelete: () => void }) {
   const { lang, t } = useL();
   const meta = p.metadata ? JSON.parse(p.metadata) : null;
+  const running = active(p);
   return (
-    <button className="project-card" onClick={onClick}>
+    <article className="project-card">
+      <button type="button" className="project-card-open" onClick={onClick}>
       <div className="project-cover">
         {!["queued"].includes(p.status) && (
           <img
@@ -810,17 +839,30 @@ function ProjectCard({ p, onClick }: { p: Summary; onClick: () => void }) {
           </div>
         )}
       </div>
-    </button>
+      </button>
+      <button
+        type="button"
+        className="project-delete"
+        disabled={running}
+        title={running ? t("job_already_running") : t("deleteProject")}
+        onClick={onDelete}
+      >
+        <Trash2 size={14} />
+        {t("deleteProject")}
+      </button>
+    </article>
   );
 }
 function Library({
   items,
   open,
   newProject,
+  onDelete,
 }: {
   items: Summary[];
   open: (id: string) => void;
   newProject: () => void;
+  onDelete: (id: string) => void;
 }) {
   const { t, lang } = useL();
   const [q, setQ] = useState("");
@@ -863,7 +905,7 @@ function Library({
       {filtered.length ? (
         <div className="project-grid">
           {filtered.map((p) => (
-            <ProjectCard key={p.id} p={p} onClick={() => open(p.id)} />
+            <ProjectCard key={p.id} p={p} onClick={() => open(p.id)} onDelete={() => onDelete(p.id)} />
           ))}
         </div>
       ) : (

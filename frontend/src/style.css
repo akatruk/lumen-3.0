@@ -762,6 +762,26 @@ input[type="file"] {
   background: white;
   min-width: 0;
 }
+.project-card-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+}
+.project-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 17px 15px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #e7c8c4;
+  background: #fff;
+  color: #a33c32;
+  font-size: 12px;
+}
 .project-card:hover {
   box-shadow: 0 8px 20px #18382b0d;
   transform: translateY(-2px);

@@ -27,34 +27,64 @@ def safe_media(url):
         return p.scheme=='https' and p.hostname=='upload.wikimedia.org' and p.port in (None,443) and not p.username and not p.password and p.path.startswith('/wikipedia/commons/')
     except ValueError:return False
 
+def creative_commons(url,prefix):
+    try:p=urlsplit(str(url).strip())
+    except ValueError:return False
+    return p.scheme in ('http','https') and (p.hostname or '').lower()=='creativecommons.org' and p.port in (None,80,443) and not p.username and not p.password and (p.path or '').startswith(prefix)
+
 def query(**params):
     try:
         r=httpx.get(API,params={'action':'query','format':'json','prop':'videoinfo','viprop':'url|size|mime|extmetadata|derivatives',**params},headers=HEADERS,timeout=25)
         r.raise_for_status();data=r.json()
-        if 'error' in data:raise ValueError('stock_unavailable')
-        return list(data.get('query',{}).get('pages',{}).values())
+        if not isinstance(data,dict) or 'error' in data:raise ValueError('stock_unavailable')
+        body=data.get('query') or {}
+        if not isinstance(body,dict):return []
+        pages=body.get('pages') or {}
+        if isinstance(pages,dict):return list(pages.values())
+        return list(pages) if isinstance(pages,list) else []
     except (httpx.HTTPError,ValueError):raise ValueError('stock_unavailable') from None
 
+def _number(value):
+    if isinstance(value,bool) or not isinstance(value,(int,float)):return None
+    return float(value)
+
 def candidate(page):
-    info=(page.get('videoinfo') or [{}])[0];meta=info.get('extmetadata',{})
-    get=lambda key:plain(meta.get(key,{}).get('value',''))
-    license=get('LicenseShortName');license_url=get('LicenseUrl')
-    # Keep the first integration to attribution-only / public-domain licenses.
-    by=bool(re.fullmatch(r'CC BY (?:1\.0|2\.0|2\.5|3\.0|4\.0)',license))
-    public=license in ('Public domain','CC0','CC0 1.0')
-    if not (by or public):return None
-    if by and (not license_url.startswith('https://creativecommons.org/licenses/by/') or not get('Artist')):return None
-    if public and license_url and not license_url.startswith('https://creativecommons.org/publicdomain/'):return None
-    if get('Restrictions') or 'license review needed' in get('Categories').lower():return None
-    duration=float(info.get('duration',0))
-    if not .1<=duration<=420:return None
-    versions=[d for d in info.get('derivatives',[]) if d.get('type','').startswith('video/webm') and safe_media(d.get('src','')) and 240<=d.get('height',0)<=1080]
-    if not versions:return None
-    chosen=min(versions,key=lambda d:abs(d['height']-720))
-    return {'page_id':page['pageid'],'title':plain(page['title'].removeprefix('File:'),120),'description':get('ImageDescription'),
-            'artist':get('Artist'),'license':license,'license_url':license_url,
-            'source_url':f'https://commons.wikimedia.org/?curid={page["pageid"]}',
-            'media_url':chosen['src'],'duration':duration,'width':chosen.get('width'),'height':chosen['height']}
+    # One malformed Commons record must not abort the whole scene search.
+    try:
+        if not isinstance(page,dict):return None
+        info=(page.get('videoinfo') or [{}])[0]
+        if not isinstance(info,dict):return None
+        meta=info.get('extmetadata') or {}
+        if not isinstance(meta,dict):meta={}
+        def get(key):
+            raw=meta.get(key) or {}
+            return plain(raw.get('value','') if isinstance(raw,dict) else '')
+        license=get('LicenseShortName');license_url=get('LicenseUrl')
+        # Keep the first integration to attribution-only / public-domain licenses.
+        by=bool(re.fullmatch(r'CC BY (?:1\.0|2\.0|2\.5|3\.0|4\.0)',license))
+        public=license in ('Public domain','CC0','CC0 1.0')
+        if not (by or public):return None
+        if by and (not creative_commons(license_url,'/licenses/by/') or not get('Artist')):return None
+        if public and license_url and not creative_commons(license_url,'/publicdomain/'):return None
+        if get('Restrictions') or 'license review needed' in get('Categories').lower():return None
+        duration=_number(info.get('duration',0))
+        if duration is None or not .1<=duration<=420:return None
+        versions=[]
+        for derivative in info.get('derivatives') or []:
+            if not isinstance(derivative,dict):continue
+            height=_number(derivative.get('height'))
+            if height is None or not derivative.get('type','').startswith('video/webm') or not safe_media(derivative.get('src','')) or not 240<=height<=1080:continue
+            versions.append(derivative)
+        if not versions:return None
+        chosen=min(versions,key=lambda d:abs(d['height']-720))
+        title,page_id=page.get('title'),page.get('pageid')
+        if not isinstance(title,str) or isinstance(page_id,bool) or not isinstance(page_id,int):return None
+        return {'page_id':page_id,'title':plain(title.removeprefix('File:'),120),'description':get('ImageDescription'),
+                'artist':get('Artist'),'license':license,'license_url':license_url,
+                'source_url':f'https://commons.wikimedia.org/?curid={page_id}',
+                'media_url':chosen['src'],'duration':duration,'width':chosen.get('width'),'height':chosen['height']}
+    except (TypeError,ValueError,KeyError,AttributeError):
+        return None
 
 def init(db):
     from .stock_discovery import init as init_discovery

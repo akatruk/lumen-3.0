@@ -207,6 +207,20 @@ async def create(request:Request,config:str=Form(...),file:UploadFile=File(...),
 def detail(pid:str,user=Depends(current_user)):
     owned(pid,user);return state(pid)
 
+@router.put('/projects/{pid}/effect-board')
+def save_effect_board(pid:str,body:EffectBoard,user=Depends(current_user)):
+    """Store the visual-effect recipe on the project. A finished file does not lock it."""
+    owned(pid,user)
+    with connect() as db:
+        db.lock()
+        current=state(pid,db)
+        context=current['context']
+        if 'effect_board_in_edit' not in context:
+            context['effect_board_in_edit']=json.loads(json.dumps(context.get('effect_board')))
+        context['effect_board']=body.model_dump()
+        db.execute('UPDATE studio_projects SET context=? WHERE project_id=?',(json.dumps(context,ensure_ascii=False),pid))
+    return {'effect_board':context['effect_board']}
+
 @router.get('/projects/{pid}/references/{reference_id}')
 def reference_media(pid:str,reference_id:str,user=Depends(current_user)):
     owned(pid,user);s=state(pid)

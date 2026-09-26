@@ -1898,3 +1898,99 @@ def test_a_measured_serif_is_stored_and_used_when_only_noto_is_installed(monkeyp
     write_kinetic(script, 'Visa', 1.2, 180, 240, face=clip['face'], heavy=False)
     body = script.read_text()
     assert 'Noto Sans CJK SC' in body and ',0,0,0,0,' in body
+
+
+def _finished_picture(client):
+    """A completed picture with selected voice and music. The effect recipe is not on the project yet."""
+    import uuid
+    from backend.manual import Clip, Edit
+    from backend.music import Music
+    from backend.tests.test_studio import seed_plan
+    pid = create(client).json()['id']
+    seed_plan(pid)
+    aid, voice, render_id = 'e' * 32, 'd' * 32, 'c' * 32
+    edit = Edit(clips=[Clip(start=0, end=40, blur=4, approved=True)], music=Music(asset_id=aid)).model_dump()
+    master = {'render_id': render_id, 'timeline': [[0, 40]], 'metadata': {'duration': 40, 'width': 320, 'height': 568, 'has_audio': True}}
+    with connect() as db:
+        db.execute('INSERT INTO studio_manual(project_id,config) VALUES(?,?)', (pid, json.dumps(edit)))
+        db.execute('INSERT INTO studio_assets VALUES(?,?,?,?,?,?,?)', (aid, pid, uuid.uuid4().hex, 'Test track', 'Synthetic', json.dumps({'kind': 'music', 'duration': 60}), 0))
+        db.execute('UPDATE projects SET result=?,status=? WHERE id=?', (json.dumps(master), 'needs_review', pid))
+        db.execute('INSERT INTO dubbing_versions(id,project_id,request_id,master_id,language,voice,kind,status,snapshot,created) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                   (voice, pid, uuid.uuid4().hex, render_id, 'ru', 'ru-male', 'video', 'ready', json.dumps({'master': master}), time.time()))
+        db.execute('INSERT INTO project_final_outputs(project_id,master_id,version_id,updated) VALUES(?,?,?,?)', (pid, render_id, voice, time.time()))
+    folder = settings.data_dir / pid
+    (folder / 'renders' / render_id).mkdir(parents=True)
+    (folder / 'renders' / render_id / 'result.mp4').write_bytes(b'finished-cut')
+    (folder / 'dubbing' / voice).mkdir(parents=True)
+    (folder / 'dubbing' / voice / 'video.mp4').write_bytes(b'chosen-voice')
+    (folder / 'reference_source').write_bytes(b'REFERENCE-PIXELS-NOT-A-SOURCE')
+    return pid, aid, voice, render_id
+
+
+def _recipe():
+    effects = {key: False for key in ('blur', 'glow', 'shadow', 'color', 'speed', 'stabilize', 'kinetic', 'progress', 'split', 'screen')}
+    effects['glow'] = True
+    return {'name': 'soft', 'amount': 1, 'effects': effects}
+
+
+def _failing_render(monkeypatch):
+    from backend import media, render_audio
+    seen = {}
+    def prepare(_pid, _voice, render_folder, _timeline):
+        (render_folder / 'voice-clean.wav').write_bytes(b'voice')
+        (render_folder / 'voice-subtitles.vtt').write_text('WEBVTT\n')
+        return render_folder / 'voice-clean.wav'
+    def render_picture(source, _folder, *_args, **kwargs):
+        seen['source'] = source.read_bytes()
+        seen['manual'] = kwargs['manual']
+        seen['voice_audio'] = kwargs.get('voice_audio')
+        raise ValueError('media_processing_failed')
+    monkeypatch.setattr(render_audio, 'prepare', prepare)
+    monkeypatch.setattr(media, 'render', render_picture)
+    return seen
+
+
+def test_saved_effect_board_survives_reload_and_the_next_render_reads_it(client, monkeypatch):
+    from backend.worker import run_once
+    pid, aid, _voice, _render_id = _finished_picture(client)
+    board = _recipe()
+    before = studio.state(pid)['revision']
+    saved = client.put(f'/api/studio/projects/{pid}/effect-board', json=board)
+    assert saved.status_code == 200
+    assert saved.json()['effect_board']['name'] == 'soft'
+    assert saved.json()['effect_board']['effects']['blur'] is False
+    assert saved.json()['effect_board']['effects']['glow'] is True
+    assert studio.state(pid)['revision'] == before
+    reloaded = client.get(f'/api/studio/projects/{pid}').json()['context']['effect_board']
+    assert reloaded['name'] == 'soft' and reloaded['amount'] == 1
+    assert reloaded['effects']['blur'] is False and reloaded['effects']['glow'] is True
+    with connect() as db:
+        stored = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
+    assert stored['clips'][0]['blur'] == 4 and stored['music']['asset_id'] == aid
+    assert client.post(f'/api/studio/projects/{pid}/manual/render', json={'revision': before}).status_code == 200
+    seen = _failing_render(monkeypatch)
+    assert run_once()
+    clip = seen['manual']['clips'][0]
+    assert clip['blur'] == 0 and clip['glow'] is True and clip['glow_amount'] == 0.55
+    assert seen['manual']['music']['asset_id'] == aid
+    assert seen['voice_audio']
+    assert seen['source'] == b'owned-source-only'
+    assert b'REFERENCE-PIXELS' not in seen['source']
+
+
+def test_failed_picture_render_keeps_the_previous_file(client, monkeypatch):
+    from backend.worker import run_once
+    pid, _aid, voice, render_id = _finished_picture(client)
+    before = project(pid)['result']
+    folder = settings.data_dir / pid
+    assert client.put(f'/api/studio/projects/{pid}/effect-board', json=_recipe()).status_code == 200
+    revision = studio.state(pid)['revision']
+    assert client.post(f'/api/studio/projects/{pid}/manual/render', json={'revision': revision}).status_code == 200
+    _failing_render(monkeypatch)
+    assert run_once()
+    assert project(pid)['result'] == before
+    assert (folder / 'renders' / render_id / 'result.mp4').read_bytes() == b'finished-cut'
+    assert (folder / 'dubbing' / voice / 'video.mp4').read_bytes() == b'chosen-voice'
+    with connect() as db:
+        assert db.execute('SELECT version_id FROM project_final_outputs WHERE project_id=?', (pid,)).fetchone()['version_id'] == voice
+    assert client.get(f'/api/projects/{pid}/media/result').content == b'chosen-voice'
