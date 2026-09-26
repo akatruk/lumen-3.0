@@ -185,7 +185,29 @@ def emphasize_caption(chunk,terms,language,base_color):
     accent='&H00FFFF00' if base_color=='&H0000FFFF' else '&H0000FFFF'
     return re.sub('|'.join(patterns),lambda m:r'{\c'+accent+'}'+m.group(0)+r'{\c'+base_color+'}',chunk,flags=re.IGNORECASE if language=='en' else 0)
 
-def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest=None, at=None, mark=None):
+def ass_face(face, heavy):
+    """Installed family, or the face the ASS writer already names. A light reading clears bold."""
+    name='Noto Sans CJK SC'
+    if isinstance(face, str):
+        cleaned=' '.join(face.split())
+        if cleaned and len(cleaned)<=80 and not any(ch in cleaned for ch in ',{}\\'):
+            name=cleaned
+    return name, (0 if heavy is False else -1)
+
+def clip_letter(clip):
+    style=str((clip or {}).get('type_style') or '')
+    if style.endswith('-light'):
+        heavy=False
+    elif style.endswith('-heavy'):
+        heavy=True
+    else:
+        heavy=None
+    face=(clip or {}).get('face') or None
+    if heavy is None and not face:
+        return None, None
+    return face, heavy
+
+def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest=None, at=None, mark=None, face=None, heavy=None):
     tokens=[re.sub(r'[{}\\\r\n]',' ',piece).strip() for piece in str(text or '').split()]
     tokens=[piece for piece in tokens if piece][:3]
     if tokens and tokens[0] in {'●', '▮'} and len(tokens) > 1:
@@ -209,8 +231,10 @@ def write_kinetic(path, text, length, w, h, begin=0, end=None, origin=None, dest
             end_x=max(40,min(160,int(round(100*wide/frac))))
     travel=min(900,int(max(0.2,length)*450))
 
+    font_name, bold = ass_face(face, heavy)
+
     def move_tag(x0,y0,x1,y1,start_ms,travel_ms):
-        # Noto Sans CJK SC is the face the renderer has. The path is the measured one.
+        # The path is the measured one. The face is an installed match for the title's shape.
         return '{\\move('+f'{x0:.0f},{y0:.0f},{x1:.0f},{y1:.0f},{start_ms},{start_ms+travel_ms}'+f')\\fscx40\\fscy40\\t({start_ms},{start_ms+min(700,travel_ms)},\\fscx{end_x}\\fscy{end_y})'+'}'
 
     def measured_ends():
@@ -231,7 +255,7 @@ PlayResX: {w}
 PlayResY: {h}
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Noto Sans CJK SC,{size},&H00FFFFFF,&H00FFFFFF,&H00121212,&H80000000,-1,0,0,0,100,100,0,0,1,3,2,5,0,0,0,1
+Style: Default,{font_name},{size},&H00FFFFFF,&H00FFFFFF,&H00121212,&H80000000,{bold},0,0,0,100,100,0,0,1,3,2,5,0,0,0,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
@@ -304,11 +328,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         events.append(f'Dialogue: 0,{ass_time(step)},{ass_time(dialogue_end)},Default,,0,0,0,,{follow}{second}\n')
     path.write_text(header+''.join(events),encoding='utf-8')
 
-def write_subtitles(path, captions, timeline, language, w,h,style=None):
+def write_subtitles(path, captions, timeline, language, w,h,style=None, face=None, heavy=None):
     style=style or {}
     font=max(22,round(h*{'small':.026,'medium':.035,'large':.045}.get(style.get('font_size'),.035)))
     color='&H0000FFFF' if style.get('color')=='yellow' else '&H00FFFFFF'
     alignment=8 if style.get('position')=='top' else 2
+    font_name, bold = ass_face(face, heavy)
     header=f'''[Script Info]
 ScriptType: v4.00+
 PlayResX: {w}
@@ -316,7 +341,7 @@ PlayResY: {h}
 WrapStyle: 0
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Noto Sans CJK SC,{font},{color},&H00FFFFFF,&H00121212,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,{alignment},{int(w*.08)},{int(w*.08)},{int(h*.15)},1
+Style: Default,{font_name},{font},{color},&H00FFFFFF,&H00121212,&H80000000,{bold},0,0,0,100,100,0,0,1,2,1,{alignment},{int(w*.08)},{int(w*.08)},{int(h*.15)},1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
@@ -440,6 +465,26 @@ def _reference_clip(source, insert):
         return None
     return path, at, local_start, local_end, max(0.08, min(length, duration - at))
 
+def _neutral_scene(folder, width, height, name):
+    """A soft neutral still next to the render. Not the flat key and not the reference room."""
+    path = Path(folder) / name
+    top = max(2, int(height) // 2)
+    ffmpeg(
+        '-f', 'lavfi', '-i', f'color=c=0xD7DADF:s={int(width)}x{int(height)}:d=0.08',
+        '-f', 'lavfi', '-i', f'color=c=0xF3F4F6:s={int(width)}x{top}:d=0.08',
+        '-filter_complex', '[0:v][1:v]overlay=0:0',
+        '-frames:v', '1',
+        path,
+    )
+    return path
+
+def _room_plate(folder, clip, asset_paths, width, height, index):
+    """Licensed still when one is already fetched. Otherwise a generated neutral scene."""
+    licensed = _licensed_still(clip, asset_paths)
+    if licensed is not None:
+        return licensed
+    return _neutral_scene(folder, width, height, f'room-{index}.png')
+
 def _subject_box(clip):
     """Presenter box for a measured room. A missing or full-frame box stays on the flat key."""
     try:
@@ -501,6 +546,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         rate=1
         if manual:
             clip=manual['clips'][i]
+            letter_face, letter_heavy = clip_letter(clip)
             cutaway=clip.get('external_broll') or clip.get('cutaway')
             from .timeline import motion_filter, playback
             speed,end_speed,rate=playback(clip,b-a,(metadata['duration']-a)/max(0.08,b-a))
@@ -524,14 +570,14 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                     origin=(clip['title_x'], title_y)
                     dest=(clip.get('title_x_end') if clip.get('title_x_end') is not None else clip['title_x'], clip.get('title_y_end') if clip.get('title_y_end') is not None else title_y)
                 if clip.get('kinetic') and len(marks)>=2:
-                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest)
+                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
                 elif clip.get('kinetic') and clip.get('title_x') is not None:
                     span=b-a
-                    write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=origin,dest=dest,mark=title_mark)
+                    write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=origin,dest=dest,mark=title_mark,face=letter_face,heavy=letter_heavy)
                 elif clip.get('kinetic') and marks:
-                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest)
-                elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed,mark=title_mark,origin=origin,dest=dest)
-                else: write_subtitles(title,[Caption(start=opened,end=closed,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'})
+                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
+                elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
+                else: write_subtitles(title,[Caption(start=opened,end=closed,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'},face=letter_face,heavy=letter_heavy)
                 title_path=str(title.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{title_path}'"
             if clip.get('card'):
@@ -540,7 +586,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 placed=(clip.get('card_x'), clip.get('card_y')) if clip.get('card_x') is not None and clip.get('card_y') is not None else None
                 cw, ch = _frame_frac(clip.get('card_w')), _frame_frac(clip.get('card_h'))
                 card_size=(cw, ch) if clip.get('card_w') is not None and clip.get('card_h') is not None and cw and ch else None
-                write_card(card_path,clip['card'],language,w,h,placed,card_size)
+                write_card(card_path,clip['card'],language,w,h,placed,card_size,face=letter_face,heavy=letter_heavy)
                 escaped=str(card_path.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
                 vf+=f",ass='{escaped}'"
             if clip.get('progress'):
@@ -551,7 +597,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 end_frac=1.0 if end_raw is None else max(start_frac,min(1.0,float(end_raw)))
                 opened=start_frac*span
                 closed=max(opened,end_frac*span)
-                windowed=start_frac>=0.02 or end_frac<=0.98
+                windowed=start_frac>=0.02 or end_frac<0.999
                 if clip.get('progress_play'):
                     denom=max(0.04,(closed-opened) if windowed else span)
                     origin=opened if windowed else 0.0
@@ -593,14 +639,15 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 right, bottom = left + bw, top + bh
                 feather = max(4, int(min(bw, bh) * 0.08))
                 span = max(b - a, 0.2)
+                scene = _room_plate(folder, clip, asset_paths, w, h, i)
                 graph = (
+                    f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,trim=duration={span:.3f},setpts=PTS-STARTPTS[plate];"
                     f"[0:v]{base_vf.rstrip(',')},format=rgba,"
                     f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
                     f"a='clip(255*(1-hypot(max(max({left}-X,0),max(X-{right},0)),max(max({top}-Y,0),max(Y-{bottom},0)))/{feather}),0,255)'[key];"
-                    f"color=c=0x{plate}:s={w}x{h}:r=30:d={span:.3f}[plate];"
                     f"[plate][key]overlay=format=auto{post}[v]"
                 )
-                inputs=['-ss', a, '-i', source]
+                inputs=['-ss', a, '-i', source, '-loop', '1', '-i', scene]
             else:
                 graph=f"[1:v]scale={w}:{h},setsar=1,fps=30[plate];[0:v]{base_vf.rstrip(',')},backgroundkey=threshold=0.18:similarity=0.22:blend=0.08[key];[plate][key]overlay=format=auto{post}[v]"
                 inputs=['-ss',a,'-i',source,'-f','lavfi','-i',f'color=c=0x{plate}:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}']
@@ -730,7 +777,14 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         input_path=mix_music(input_path,track,folder,manual['music'],sum(b-a for a,b in timeline),probe(input_path)['has_audio'])
     filters=[]
     if captions:
-        subs=folder/'captions.ass'; write_subtitles(subs,[Caption.model_validate(c) for c in manual['captions']] if manual else analysis.transcript,timeline,language,w,h,manual)
+        caption_face, caption_heavy = None, None
+        if manual:
+            for item in manual['clips']:
+                found_face, found_heavy = clip_letter(item)
+                if found_face or found_heavy is not None:
+                    caption_face, caption_heavy = found_face, found_heavy
+                    break
+        subs=folder/'captions.ass'; write_subtitles(subs,[Caption.model_validate(c) for c in manual['captions']] if manual else analysis.transcript,timeline,language,w,h,manual,face=caption_face,heavy=caption_heavy)
         # All paths generated internally; quote for libavfilter independently of shell.
         escaped=str(subs.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
         filters.append(f"ass='{escaped}'")

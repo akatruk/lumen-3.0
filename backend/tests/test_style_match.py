@@ -343,7 +343,7 @@ def test_detail_track_mask_and_unusable_spans_change_the_cut():
     assert sum(c['end'] - c['start'] for c in edit['clips']) < 39
     spoken = [{'start': 0, 'end': 4, 'original': 'Visa days stay', 'en': 'Visa days stay', 'zh': '签证'}]
     kept, _report = build([row], 40, spoken, False, measured={'unusable': [{'start': 1, 'end': 3}]})
-    assert abs(sum(c['end'] - c['start'] for c in kept['clips']) - 40) < 1
+    assert abs(sum(c['end'] - c['start'] for c in kept['clips']) - 38) < 1
     opened, _report = build([row], 40, [], False, measured={'highlight': {'start': 30, 'end': 34}})
     assert opened['clips'][0]['start'] >= 28
     keyed, keyed_report = build([shot(motion={'en': 'replace the background', 'zh': '换背景'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'})], 40, [], False, measured={'chroma': 'green'})
@@ -690,13 +690,71 @@ def test_downloaded_reference_is_measured_when_no_file_was_uploaded(tmp_path):
     still = motion_filter({'zoom': 1.2, 'x': 0.5, 'y': 0.5}, 480, 848, 3)
     assert 'scale=iw*2' not in still
 
+def _write_context(pid, context):
+    with connect() as db:
+        db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context), pid))
+
 def test_style_match_stays_off_until_requested(client):
+    empty = client.post('/api/studio/projects', data={'config': json.dumps(dict(request_id='1' * 32, references=[], title='Owned project', script='My original script', creator=dict(topic='travel', audience='Families', tone='Calm', rules='No invented claims'), owned_rights_confirmed=True, language='zh', budget=5, style_match=False))}, files={'file': ('owned.mp4', b'owned-source-only', 'video/mp4')})
+    assert empty.status_code == 422
     pid = create(client).json()['id']
     with connect() as db:
         db.execute("UPDATE jobs SET status='complete' WHERE project_id=?", (pid,))
+    from backend.style_match import match_project
+    match_project(pid)
+    assert studio.state(pid)['context']['style_match'] is False
+    assert not studio.state(pid)['context'].get('style_report')
     assert client.post(f'/api/studio/projects/{pid}/style-match/regenerate').status_code == 422
     refused = client.post(f'/api/studio/projects/{pid}/style-match/approve')
     assert refused.status_code == 422 and refused.json()['detail'] == 'style_match_off'
+
+def test_stored_reference_runs_match_without_the_checkbox(client, monkeypatch):
+    response = client.post('/api/studio/projects', data={'config': json.dumps(dict(request_id='f' * 32, references=[], title='Owned project', script='My original script', creator=dict(topic='travel', audience='Families', tone='Calm', rules='No invented claims'), owned_rights_confirmed=True, language='zh', budget=5, style_match=False))}, files={'file': ('owned.mp4', b'owned-source-only', 'video/mp4'), 'reference': ('ref.mp4', b'reference-pixels', 'video/mp4')})
+    assert response.status_code == 201
+    pid = response.json()['id']
+    created = studio.state(pid)['context']
+    assert created['reference_file'] is True and created['style_match'] is True
+    assert (settings.data_dir / pid / 'reference_source').read_bytes() == b'reference-pixels'
+    analyze(pid, monkeypatch)
+    assert studio.state(pid)['context']['style_report']['note'] == 'owned_only'
+    context = studio.state(pid)['context']
+    context['style_match'] = False
+    context.pop('style_report', None)
+    context.pop('style_match_status', None)
+    _write_context(pid, context)
+    from backend.style_match import match_project
+    match_project(pid)
+    matched = studio.state(pid)['context']
+    assert matched['style_match'] is True and matched['style_report']['note'] == 'owned_only'
+    with connect() as db:
+        db.execute("UPDATE jobs SET status='complete' WHERE project_id=?", (pid,))
+    context = studio.state(pid)['context']
+    context['style_match'] = False
+    _write_context(pid, context)
+    regenerated = client.post(f'/api/studio/projects/{pid}/style-match/regenerate')
+    assert regenerated.status_code == 200 and regenerated.json().get('detail') != 'style_match_off'
+    with connect() as db:
+        db.execute("UPDATE jobs SET status='complete' WHERE project_id=?", (pid,))
+    context = studio.state(pid)['context']
+    context['style_match'] = False
+    context.pop('reference_file', None)
+    context['reference_upload_id'] = 'a' * 32
+    _write_context(pid, context)
+    (settings.data_dir / pid / 'reference_source').unlink()
+    approved = client.post(f'/api/studio/projects/{pid}/style-match/approve')
+    assert approved.status_code == 200 and approved.json().get('detail') != 'style_match_off'
+    assert studio.state(pid)['context']['style_match'] is True
+    assert studio.state(pid)['context']['style_match_status'] == 'approved'
+    held = create(client).json()['id']
+    with connect() as db:
+        db.execute("UPDATE jobs SET status='complete' WHERE project_id=?", (held,))
+    held_context = studio.state(held)['context']
+    assert held_context.get('style_match') is False and not held_context.get('reference_file')
+    held_context['reference_upload_id'] = 'b' * 32
+    _write_context(held, held_context)
+    match_project(held)
+    assert studio.state(held)['context']['style_match'] is True
+    assert studio.state(held)['context']['style_report']['note'] == 'owned_only'
 
 def test_owned_keyword_is_emphasized_at_the_reference_flash(tmp_path):
     from backend import media
@@ -773,6 +831,9 @@ def test_effect_similarity_waits_until_frames_are_compared():
     assert report['comparison_note'] == 'Frames have not been compared yet.'
     assert report.get('measured_effect_similarity') is None
     assert report['scores']['effect_similarity'] == report['effect_similarity_rule']
+    for key in ('shot_structure', 'visual_pacing', 'motion_graphic_style', 'color_treatment', 'production_quality'):
+        assert report['scores'][key] == report[key + '_rule']
+        assert report.get('measured_' + key) is None
     if report['scores']['effect_similarity'] == 100:
         assert report['compared'] is False
     from backend.style_match import blend_effect_similarity
@@ -838,10 +899,72 @@ def test_score_output_blends_the_rule_with_measured_frames(client, monkeypatch):
     assert stored['measured_effect_similarity'] == 40
     assert stored['effect_similarity_rule'] == 100
     assert stored['scores']['overall'] == 95.0
-    assert stored['comparison_note'] == ''
+    assert stored['comparison_note'] == 'Left on the rule: shot structure, pacing, graphic style, production quality.'
+    assert stored['scores']['shot_structure'] == 100
+    assert stored['scores']['visual_pacing'] == 100
+    assert stored['scores']['motion_graphic_style'] == 100
+    assert stored['scores']['production_quality'] == 100
+    assert 'measured_shot_structure' not in stored
     untouched = (folder / 'reference_source').read_bytes()
     assert untouched == b'reference-pixels'
     assert (folder / 'renders' / render_id / 'result.mp4').read_bytes() == b'finished'
+
+def test_pre_frame_rules_cover_structure_pacing_graphics_and_a_missing_effect():
+    from backend.style_match import _scores, blend_effect_similarity, color_after_render, structure_and_pacing
+    even = structure_and_pacing([2, 2], [20, 20])
+    uneven = structure_and_pacing([1, 3], [20, 20])
+    fewer = structure_and_pacing([2, 2], [40])
+    assert even['shot_structure'] == 100 and even['visual_pacing'] == 100
+    assert uneven['shot_structure'] < even['shot_structure']
+    assert uneven['visual_pacing'] < even['visual_pacing']
+    assert fewer['shot_structure'] < even['shot_structure']
+    assert fewer['visual_pacing'] < even['visual_pacing']
+    quiet = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'blur': 4, 'graphic': False})
+    made, made_report = build([quiet], 4, [], False)
+    assert made_report['compared'] is False
+    assert made_report['comparison_note'] == 'Frames have not been compared yet.'
+    assert made_report['scores']['production_quality'] == made_report['production_quality_rule']
+    assert made['clips'][0]['blur'] >= 1
+    assert made_report['scores']['production_quality'] == 100
+    bare = json.loads(json.dumps(made))
+    bare['clips'][0]['blur'] = 0
+    lowered = _scores([quiet], bare, made_report['gaps'], 4)
+    assert lowered['production_quality'] < 100
+    assert lowered['production_quality'] < made_report['scores']['production_quality']
+    card_row = shot(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'graphic': False, 'card': {'in': 0.2, 'out': 0.6}})
+    card_edit, card_report = build([card_row], 4, [], False, script='')
+    assert card_edit['clips'][0]['card'] is None
+    assert card_report['compared'] is False
+    assert card_report['scores']['motion_graphic_style'] == card_report['motion_graphic_style_rule']
+    assert card_report['scores']['motion_graphic_style'] < 100
+    wanted = {'gamma': 1.3, 'gs': 0.12}
+    lights = {'key_amount': 0.2, 'fill_amount': 0.0, 'rim_amount': 0.1}
+    missing = color_after_render(0, wanted, lights, [{'grade': None, 'key_amount': 0, 'fill_amount': 0, 'rim_amount': 0}])
+    applied = color_after_render(0, wanted, lights, [{'grade': {'gamma': 1.3, 'gs': 0.12}, 'key_amount': 0.2, 'fill_amount': 0, 'rim_amount': 0.1}])
+    assert missing < 100 and applied > missing
+    assert color_after_render(40, wanted, lights, [{'grade': {'gamma': 1.3, 'gs': 0.12}, 'key_amount': 0.2, 'fill_amount': 0, 'rim_amount': 0.1}]) < applied
+    assert color_after_render(10, None, None, [{}]) == 90
+    partial = blend_effect_similarity({
+        'scores': {'shot_structure': 40, 'visual_pacing': 40, 'effect_similarity': 80, 'motion_graphic_style': 55, 'color_treatment': 100, 'production_quality': 70, 'overall': 0},
+        'shot_structure_rule': 40,
+        'visual_pacing_rule': 40,
+        'effect_similarity_rule': 80,
+        'motion_graphic_style_rule': 55,
+        'production_quality_rule': 70,
+        'compared': False,
+        'comparison_note': 'Frames have not been compared yet.',
+    }, 60, {'shot_structure': 20, 'visual_pacing': None, 'motion_graphic_style': None, 'production_quality': 50})
+    assert partial['compared'] is True
+    assert partial['scores']['shot_structure'] == 30
+    assert partial['scores']['visual_pacing'] == 40
+    assert partial['scores']['motion_graphic_style'] == 55
+    assert partial['scores']['production_quality'] == 60
+    assert partial['scores']['visual_pacing'] != 100
+    assert 'pacing' in partial['comparison_note'] and 'graphic style' in partial['comparison_note']
+    assert 'shot structure' not in partial['comparison_note']
+    untouched = blend_effect_similarity({'scores': {'effect_similarity': 40}, 'effect_similarity_rule': 40, 'compared': False}, None)
+    assert untouched['compared'] is False
+    assert untouched['comparison_note'] == 'Frames have not been compared yet.'
 
 def test_owned_number_lands_on_the_reference_card_moment(tmp_path):
     from types import SimpleNamespace
@@ -1020,6 +1143,27 @@ def test_owned_screen_uses_the_reference_fraction(tmp_path, monkeypatch):
     assert owned_stamp in [part for args in calls for part in args]
     assert reference.name not in {path.name for path in folder.rglob('*')}
 
+def test_owned_screen_seeks_a_later_frame_with_a_bezel(tmp_path):
+    from backend import media
+    owned = tmp_path / 'owned-later-bezel.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x224466:s=180x240:r=30:d=6', '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=4', '-filter_complex', "[1:v]drawbox=x=16:y=16:w=148:h=208:color=0xD8D2C4:t=fill[mid];[0:v][mid]concat=n=2:v=1:a=0", '-c:v', 'libx264', '-pix_fmt', 'yuv420p', owned)
+    meta = media.probe(owned)
+    quiet = dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'})
+    picture = {'zoom': 1, 'screen': True, 'fraction': 0.4, 'bezel': 0.18, 'graphic': False, 'split': False}
+    edit, report = build([shot(start=0, end=meta['duration'], picture=picture, **quiet)], meta['duration'], [], False, source=owned)
+    stamp = edit['clips'][0]['screen']
+    assert isinstance(stamp, float) and stamp > 0.4 * meta['duration'] + 1
+    assert edit['clips'][0]['bezel'] == 0.18
+    assert all(item['id'] != 'owned_screen_frame' for item in report['gaps'])
+    assert 'SECRET REFERENCE LINE' not in json.dumps(edit)
+    flat = tmp_path / 'owned-no-bezel.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x224466:s=180x240:r=30:d=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', flat)
+    flat_meta = media.probe(flat)
+    missed, missed_report = build([shot(start=0, end=flat_meta['duration'], picture=picture, **quiet)], flat_meta['duration'], [], False, source=flat)
+    assert abs(missed['clips'][0]['screen'] - 0.4 * flat_meta['duration']) < 0.05
+    assert missed['clips'][0]['bezel'] == 0.18
+    assert any(item['id'] == 'owned_screen_frame' and item['essential'] is False for item in missed_report['gaps'])
+
 def test_timed_owned_callout_uses_the_reference_fraction(tmp_path, monkeypatch):
     import subprocess
     from types import SimpleNamespace
@@ -1115,6 +1259,32 @@ def test_reference_fraction_lands_on_the_owned_timeline():
     many, _report = build([shot(**quiet)], 40, [], False, measured={'duration': 12, 'shots': rows})
     assert len(many['clips']) == 30
     assert 'SECRET REFERENCE LINE' not in json.dumps(many)
+    pictured = [{**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4, 'picture': {'zoom': 1 if index % 2 == 0 else 2, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False}} for index in range(45)]
+    full, _report = build([shot(**quiet)], 40, [], False, measured={'duration': 18, 'shots': pictured})
+    assert len(full['clips']) == 45
+    assert [clip['zoom'] for clip in full['clips']] == [1 if index % 2 == 0 else 2 for index in range(45)]
+    frame = {'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False}
+    owned_rows = []
+    for index in range(45):
+        picture = {**frame, 'blur': 0, 'hold': 0}
+        if index == 44:
+            picture = {**frame, 'blur': 4, 'glow': 0.8, 'hold': 0.25, 'release': 0.5, 'join': 'wipe-down', 'join_seconds': 1.2}
+        owned_rows.append({**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4, 'picture': picture})
+    placed, _report = build([shot(**quiet)], 18, [], False, measured={'duration': 18, 'shots': owned_rows})
+    assert len(placed['clips']) == 45
+    late = placed['clips'][44]
+    assert late['start'] > 9
+    landed = late['start'] + late['effect_at'] * (late['end'] - late['start'])
+    assert late['start'] < landed < late['end']
+    assert abs(late['effect_at'] - 0.25) < 0.06
+    assert abs(late['effect_end'] - 0.5) < 0.06
+    assert late['transition'] == 'wipe-down'
+    assert late['transition_seconds'] == 1.2
+    assert placed['clips'][0]['transition'] == 'cut'
+    assert placed['clips'][0]['effect_at'] == 0
+    from backend.timeline import motion_filter
+    chain = motion_filter(late, 160, 240, late['end'] - late['start'])
+    assert "between(t\\" in chain
 
 def test_overlay_window_is_absent_outside_the_measured_span(tmp_path, monkeypatch):
     import subprocess
@@ -1217,11 +1387,24 @@ def test_overlay_window_is_absent_outside_the_measured_span(tmp_path, monkeypatc
 def test_black_and_frozen_holes_keep_speech_and_stay_under_forty_clips():
     from backend.style_match import _punch
     assert _punch([(0, 10)], [{'start': 4, 'end': 4.5}], []) == [(0, 4), (4.5, 10)]
-    assert _punch([(0, 10)], [{'start': 4, 'end': 4.3}], []) == [(0, 10)]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.15}], []) == [(0, 10)]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.3}], []) == [(0, 4), (4.3, 10)]
     spoken = [{'start': 3.8, 'end': 4.6, 'original': 'Visa days', 'en': 'Visa days'}]
-    assert _punch([(0, 10)], [{'start': 4, 'end': 4.5}], spoken) == [(0, 10)]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.5}], spoken) == [(0, 4), (4.5, 10)]
+    edge = [{'start': 4.3, 'end': 4.5, 'original': 'Visa', 'en': 'Visa'}]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.5}], edge) == [(0, 4), (4.5, 10)]
+    assert _punch([(0, 1)], [{'start': 0, 'end': 1}], []) == [(0, 1)]
     crowded = [{'start': index + 0.4, 'end': index + 0.9} for index in range(50)]
-    assert _punch([(0, 80)], crowded, []) == [(0, 80)]
+    split = _punch([(0, 80)], crowded, [])
+    assert len(split) > 40
+    assert split[0] == (0.0, 0.4)
+    assert split[-1] == (49.9, 80.0)
+    rhythm = [(index * 0.5, (index + 1) * 0.5) for index in range(45)]
+    assert _punch(rhythm, [], []) == rhythm
+    opened = _punch(rhythm, [{'start': 1.0, 'end': 1.5}], [])
+    assert opened[0] == (0.0, 0.5)
+    assert (1.0, 1.5) not in opened
+    assert len(opened) == 44
 
 def test_best_take_needs_speech_and_a_usable_frame():
     from backend.style_match import _best_takes
@@ -1232,8 +1415,7 @@ def test_best_take_needs_speech_and_a_usable_frame():
         {'start': 13, 'end': 15, 'original': line, 'en': line},
     ]
     chosen = _best_takes(cuts, transcript, [{'start': 12, 'end': 16}])
-    assert (0, 6) in chosen
-    assert not any(start < 15 and end > 13 for start, end in chosen)
+    assert chosen == cuts
     assert _best_takes(cuts, transcript, None) == cuts
     assert _best_takes(cuts, transcript, []) == cuts
     assert _best_takes(cuts, [], [{'start': 12, 'end': 16}]) == cuts
@@ -1254,12 +1436,39 @@ def test_overlapping_takes_keep_one_speaking_usable_cut():
     assert _best_takes(cuts, transcript, None) == cuts
     assert _best_takes(cuts, transcript, []) == cuts
     assert _best_takes(cuts, transcript, [{'start': 30, 'end': 32}]) == cuts
-    assert _best_takes(cuts, transcript, [{'start': 0, 'end': 8}]) == cuts
+    assert _best_takes(cuts, transcript, [{'start': 0, 'end': 8}]) == [good]
     longer = [(0, 4), (3.5, 12)]
     spoken = [{'start': 0.4, 'end': 2.2, 'original': 'Harbor opens Monday', 'en': 'Harbor opens Monday'}]
     assert _best_takes(longer, spoken, [{'start': 30, 'end': 32}]) == [(0, 4)]
     silent = [{'start': 4.4, 'end': 6.2, 'original': 'Weather stays clear', 'en': 'Weather stays clear'}]
-    assert _best_takes(cuts, silent, [{'start': 4, 'end': 8}]) == cuts
+    assert _best_takes(cuts, silent, [{'start': 4, 'end': 8}]) == [good]
+
+def test_overlapping_speech_keeps_the_cleaner_frame_and_short_holes_drop():
+    from backend.style_match import _best_takes, _punch
+    line = 'Harbor opens Monday'
+    clean, dirty = (0, 5), (4, 9)
+    transcript = [
+        {'start': 0.4, 'end': 2.2, 'original': line, 'en': line},
+        {'start': 5.5, 'end': 7.4, 'original': line, 'en': line},
+    ]
+    assert _best_takes([clean, dirty], transcript, [{'start': 4.6, 'end': 5.5}]) == [clean]
+    solo = (20, 26)
+    aside = {'start': 21, 'end': 23, 'original': 'Deposit forms today', 'en': 'Deposit forms today'}
+    kept = _best_takes([clean, dirty, solo], [*transcript, aside], [{'start': 4.6, 'end': 5.5}])
+    assert clean in kept and solo in kept and dirty not in kept
+    longer = [(0, 4), (3.5, 12)]
+    spoken = [{'start': 0.4, 'end': 2.2, 'original': line, 'en': line}]
+    assert _best_takes(longer, spoken, None) == [(0, 4)]
+    assert _best_takes(longer, spoken, []) == [(0, 4)]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.25}], []) == [(0, 4), (4.25, 10)]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.4}], []) == [(0, 4), (4.4, 10)]
+    speech = [{'start': 4.1, 'end': 4.4, 'original': 'Visa days', 'en': 'Visa days'}]
+    assert _punch([(0, 10)], [{'start': 4, 'end': 4.5}], speech) == [(0, 4), (4.5, 10)]
+    usable = [{'start': 0.4, 'end': 1.6, 'original': line, 'en': line}]
+    stayed = _punch([(0, 10)], [{'start': 4, 'end': 4.5}], usable)
+    assert any(start <= 0.4 and end >= 1.6 for start, end in stayed)
+    assert dirty not in _best_takes([clean, dirty], transcript, [{'start': 4.6, 'end': 5.5}])
+    assert _punch([(4, 4.5)], [{'start': 0, 'end': 10}], []) == [(4, 4.5)]
 
 def test_column_shift_follows_without_a_picture_and_does_not_track_a_face():
     quiet = dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
@@ -1286,15 +1495,19 @@ def test_a_measured_face_is_followed(tmp_path):
     assert clip['x'] == found['x0'] and clip['x_end'] == found['x1']
     assert clip['y'] == found['y0'] and clip['y_end'] == found['y1']
     assert 'motion_tracking' not in {gap['id'] for gap in report['gaps']}
-    pictured = shot(**quiet, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False})
+    pictured = shot(**quiet, picture={'zoom': 1.2, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False})
     held, _held_report = build([pictured], 40, [], False, measured={'track': found})
-    assert held['clips'][0]['track'] is False and held['clips'][0]['x'] == 0.5
+    assert held['clips'][0]['track'] is True and held['clips'][0]['zoom'] == 1.2
+    assert held['clips'][0]['x'] == found['x0'] and held['clips'][0]['x_end'] == found['x1']
+    assert held['clips'][0]['y'] == found['y0'] and held['clips'][0]['y_end'] == found['y1']
 
 def test_owned_color_and_short_name_stay_on_existing_graphics(monkeypatch):
     import re
     from backend.media import _paint
     from backend.style_vision import _hex_from_samples
-    assert _hex_from_samples([{'y': 128, 'u': 128, 'v': 128, 'sat': 2}]) == ''
+    gray_sample = _hex_from_samples([{'y': 128, 'u': 128, 'v': 128, 'sat': 2}])
+    assert re.fullmatch(r'[0-9A-F]{6}', gray_sample) and gray_sample[0:2] == gray_sample[2:4] == gray_sample[4:6]
+    assert int(gray_sample[:2], 16) >= 176
     assert re.fullmatch(r'[0-9A-F]{6}', _hex_from_samples([{'y': 80, 'u': 160, 'v': 90, 'sat': 40}]))
     assert _paint({}) == 'F4F1EA' and _paint({'ink': '224466'}) == '224466' and _paint({'ink': 'logo'}) == 'F4F1EA'
     quiet = dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
@@ -1439,7 +1652,8 @@ def test_a_measured_room_closes_background_replacement(tmp_path):
     assert any(gap['id'] == 'background_replacement' for gap in words_report['gaps'])
     held = dict(ask, motion={'en': 'static hold', 'zh': '固定'})
     quiet, _quiet_report = build([shot(**held)], 40, [], False, measured={'room': box})
-    assert quiet['clips'][0]['cutout'] is False and quiet['clips'][0]['subject_w'] is None
+    assert quiet['clips'][0]['cutout'] is True and quiet['clips'][0]['subject_w'] == box['w']
+    assert quiet['clips'][0]['plate'] == '1A1F1C'
     screened, _screened_report = build([shot(motion={'en': 'green screen cutout', 'zh': '绿幕'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'})], 40, [], False, measured={'chroma': 'green'})
     assert screened['clips'][0]['cutout'] is True and screened['clips'][0]['plate'] == '1A1F1C' and screened['clips'][0]['subject_w'] is None
 
@@ -1541,3 +1755,146 @@ def test_reference_packaging_frame_is_copied_without_its_audio(tmp_path):
     media.render(lonely_source, lonely_out, meta, SimpleNamespace(transcript=[]), [], 'en', 'original', manual=edit)
     missing = pixel(lonely_out / 'result.mp4', package_at)
     assert missing[0] > 160 and missing[1] < 90
+
+
+def _quiet_shot():
+    return dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': '', 'zh': ''})
+
+
+def test_a_gray_owned_frame_paints_neutral_ink_and_closes_the_gap(tmp_path):
+    import re
+    from types import SimpleNamespace
+    from backend import media
+    from backend.manual import Edit
+    from backend.style_vision import owned_ink
+    gray = tmp_path / 'gray.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x9A9A9A:s=96x96:r=10:d=1.4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', gray)
+    ink = owned_ink(gray)
+    assert re.fullmatch(r'[0-9A-F]{6}', ink)
+    assert ink[0:2] == ink[2:4] == ink[4:6] and int(ink[:2], 16) >= 176
+    blue = tmp_path / 'blue.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x224466:s=96x96:r=10:d=1.4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', blue)
+    chroma = owned_ink(blue)
+    assert re.fullmatch(r'[0-9A-F]{6}', chroma) and chroma[0:2] != chroma[2:4]
+    spoken = [{'start': 0, 'end': 1, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证'}]
+    layout = {'split': False, 'bar': False, 'lower': True, 'shake': False}
+    edit, report = build([shot(start=0, end=1, **_quiet_shot())], 1, spoken, False, title='Harbor', source=gray, measured={'layout': layout})
+    clip = edit['clips'][0]
+    assert clip['ink'] == ink
+    assert 'owned_brand' not in {gap['id'] for gap in report['gaps']}
+    drawn = dict(clip)
+    drawn.update(text='', kinetic=False, kinetic_at=[], card=None)
+    calls = []
+    real = media.ffmpeg
+    def spy(*args, **kwargs):
+        calls.append(tuple(str(part) for part in args))
+        return real(*args, **kwargs)
+    folder = tmp_path / 'ink'
+    folder.mkdir()
+    media.ffmpeg = spy
+    try:
+        media.render(gray, folder, media.probe(gray), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[drawn], subtitles=False, captions=[]).model_dump())
+    finally:
+        media.ffmpeg = real
+    joined = '\n'.join(' '.join(call) for call in calls)
+    assert f'0x{ink}' in joined and 'drawbox' in joined
+
+
+def test_three_or_more_groups_each_keep_a_center(tmp_path):
+    from backend import media
+    from backend.style_vision import graphic_places
+    boxes = ','.join((
+        'drawbox=x=2:y=2:w=40:h=34:color=white:t=fill',
+        'drawbox=x=92:y=42:w=40:h=34:color=white:t=fill',
+        'drawbox=x=47:y=122:w=40:h=34:color=white:t=fill',
+        'drawbox=x=137:y=202:w=40:h=34:color=white:t=fill',
+    ))
+    video = tmp_path / 'groups.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.2', '-vf', boxes, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', video)
+    groups = graphic_places(video, 0, 1.2)['groups']
+    assert len(groups) >= 3
+    centers = [(item['x'], item['y']) for item in groups]
+    assert len(set(centers)) == len(centers)
+    picture = {'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': True, 'groups': groups}
+    edit, _report = build([shot(start=0, end=4, picture=picture, **_quiet_shot())], 4, [], False, script='Price 80 and deposit 20')
+    clip = edit['clips'][0]
+    stored = [(item['x'], item['y']) for item in clip['spots']]
+    assert stored == centers
+    assert all(item['x'] is not None and item['y'] is not None for item in clip['spots'])
+    if len(stored) >= 4:
+        fourth = stored[3]
+        assert fourth not in stored[:3]
+        named = [(clip.get('card_x'), clip.get('card_y')), (clip.get('chart_x'), clip.get('chart_y')), (clip.get('title_x'), clip.get('title_y'))]
+        assert fourth not in named
+
+
+def test_a_graphic_that_leaves_mid_shot_ends_before_one(tmp_path):
+    from types import SimpleNamespace
+    from backend import media
+    from backend.manual import Edit
+    from backend.media import callout_bounds
+    from backend.style_vision import card_moment, reference_layout
+    from backend.visuals import write_card
+    flash = tmp_path / 'flash.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2.4', '-f', 'lavfi', '-i', 'color=white:s=60x200:r=30:d=2.4', '-filter_complex', "[0:v][1:v]overlay=60:20:enable='between(t,1.05,1.25)'", '-c:v', 'libx264', '-pix_fmt', 'yuv420p', flash)
+    moment = card_moment(flash, 0, 2.4)
+    assert moment and moment['out'] < 1 and moment['out'] > moment['in']
+    held = tmp_path / 'held-card.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2.4', '-f', 'lavfi', '-i', 'color=white:s=60x200:r=30:d=2.4', '-filter_complex', "[0:v][1:v]overlay=60:20:enable='gte(t,0.2)'", '-c:v', 'libx264', '-pix_fmt', 'yuv420p', held)
+    staying = card_moment(held, 0, 2.4)
+    assert staying and staying['out'] == 1
+    quiet = _quiet_shot()
+    row = shot(start=0, end=2.4, picture={'zoom': 1, 'graphic': False, 'split': False, 'card': moment}, **quiet)
+    edit, _report = build([row], 2.4, [], False, script='Price 40')
+    clip = edit['clips'][0]
+    length = clip['end'] - clip['start']
+    assert clip['card']['end'] < length - 0.15
+    card_file = tmp_path / 'left.ass'
+    write_card(card_file, clip['card'], 'en', 180, 240)
+    assert '0:00:02.40' not in card_file.read_text()
+    bar = tmp_path / 'leaving-bar.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=2.4', '-vf', "drawbox=x=0:y=ih-8:w=iw:h=8:color=white:t=fill:enable='between(t\\,0.4\\,1.2)'", '-c:v', 'libx264', '-pix_fmt', 'yuv420p', bar)
+    layout = reference_layout(bar)
+    assert layout['bar'] is True and layout['bar_out'] < 1
+    percent, _report = build([shot(start=0, end=2.4, **quiet)], 2.4, [], False, script='Visa 40%', measured={'layout': layout})
+    assert percent['clips'][0]['progress_end'] < 1
+    chip = shot(start=0, end=2, picture={'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'lower': True, 'callout': 0.3, 'callout_out': 0.55, 'blur': 0}, **quiet)
+    called, _report = build([chip], 2, [{'start': 0, 'end': 2, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
+    assert called['clips'][0]['effect_end'] < 1
+    opened, closed = callout_bounds(called['clips'][0], called['clips'][0]['end'] - called['clips'][0]['start'])
+    assert closed < (called['clips'][0]['end'] - called['clips'][0]['start']) - 0.05
+    whole = shot(start=0, end=2, picture={'zoom': 1, 'lower': True, 'hold': 0.2, 'blur': 0, 'graphic': False, 'split': False}, **quiet)
+    stays, _report = build([whole], 2, [{'start': 0, 'end': 2, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False)
+    assert stays['clips'][0]['effect_end'] == 1
+    owned = tmp_path / 'owned-bar.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=0x224466:s=180x240:r=30:d=2.6', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', owned)
+    drawn = dict(percent['clips'][0])
+    drawn.update(text='', kinetic=False, kinetic_at=[], card=None, lower=False, icon=False, graphic=False, bars=[])
+    calls = []
+    real = media.ffmpeg
+    def spy(*args, **kwargs):
+        calls.append(tuple(str(part) for part in args))
+        return real(*args, **kwargs)
+    folder = tmp_path / 'bar-end'
+    folder.mkdir()
+    media.ffmpeg = spy
+    try:
+        media.render(owned, folder, media.probe(owned), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[drawn], subtitles=False, captions=[]).model_dump())
+    finally:
+        media.ffmpeg = real
+    joined = '\n'.join(' '.join(call) for call in calls)
+    assert 'between' in joined and 'drawbox' in joined
+
+
+def test_a_measured_serif_is_stored_and_used_when_only_noto_is_installed(monkeypatch, tmp_path):
+    from backend.media import write_kinetic
+    monkeypatch.setattr('backend.style_vision.installed_faces', lambda: [{'family': 'Noto Sans CJK SC', 'style': 'Regular'}])
+    picture = {'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False, 'letter': {'kind': 'serif', 'weight': 'light'}}
+    edit, _report = build([shot(start=0, end=2, picture=picture, **_quiet_shot())], 2, [], False)
+    clip = edit['clips'][0]
+    assert clip['type_style'] == 'serif-light'
+    assert clip['face'] == 'Noto Sans CJK SC'
+    script = tmp_path / 'noto.ass'
+    write_kinetic(script, 'Visa', 1.2, 180, 240, face=clip['face'], heavy=False)
+    body = script.read_text()
+    assert 'Noto Sans CJK SC' in body and ',0,0,0,0,' in body

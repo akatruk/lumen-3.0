@@ -145,26 +145,93 @@ def _layout_term(left, right):
         found.extend(source.get('graphics') or [])
     return _marks_score(boxes, other)
 
-def _blend_measured(contrast, layout, typed):
-    """Contrast and edge stay in the blend. Layout and type join only when both frames have them."""
+def _edge_in_box(path, at, box, width, height):
+    """Edge energy inside a title box. The crop is discarded. Glyphs are not read."""
+    try:
+        x, y = float(box['x']), float(box['y'])
+        w, h = float(box['w']), float(box['h'])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if w <= 0 or h <= 0 or width < 16 or height < 16:
+        return None
+    left = int(max(0, min(width - 8, (x - w / 2) * width)))
+    top = int(max(0, min(height - 8, (y - h / 2) * height)))
+    crop_w = int(max(8, min(width - left, round(w * width))))
+    crop_h = int(max(8, min(height - top, round(h * height))))
+    vf = f'trim=start={max(0, at):.3f}:duration=0.04,crop={crop_w}:{crop_h}:{left}:{top},scale=8:4:flags=area,format=gray'
+    try:
+        completed = subprocess.run(
+            ['ffmpeg', '-hide_banner', '-nostdin', '-v', 'error', '-threads', '2', '-i', str(path), '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
+            capture_output=True, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    raw = completed.stdout
+    if completed.returncode or len(raw) < 32:
+        return None
+    cells = list(raw[:32])
+    edges = []
+    for row in range(4):
+        for col in range(7):
+            edges.append(abs(int(cells[row * 8 + col]) - int(cells[row * 8 + col + 1])))
+    for row in range(3):
+        for col in range(8):
+            edges.append(abs(int(cells[row * 8 + col]) - int(cells[(row + 1) * 8 + col])))
+    return edges
+
+def _shape_score(left, right):
+    """How close two title-box edge maps are. A missing map adds nothing."""
+    if not left or not right or len(left) != len(right):
+        return None
+
+    def norm(values):
+        peak = max(values)
+        if peak <= 0:
+            return [0.0] * len(values)
+        return [value / peak for value in values]
+
+    a, b = norm(left), norm(right)
+    gap = sum(abs(i - j) for i, j in zip(a, b)) / len(a)
+    return max(0.0, min(100.0, 100 - gap * 100))
+
+def _shape_term(reference, ref_at, ref_type, ref_w, ref_h, output, out_at, out_type, out_w, out_h):
+    """Edge structure inside the title boxes both frames actually have. No type skips the term."""
+    if not ref_type or not out_type:
+        return None
+    left = sorted(ref_type, key=lambda box: (box.get('x', 0), box.get('y', 0)))
+    right = sorted(out_type, key=lambda box: (box.get('x', 0), box.get('y', 0)))
+    scores = []
+    for index in range(min(len(left), len(right))):
+        score = _shape_score(
+            _edge_in_box(reference, ref_at, left[index], ref_w, ref_h),
+            _edge_in_box(output, out_at, right[index], out_w, out_h),
+        )
+        if score is not None:
+            scores.append(score)
+    if not scores:
+        return None
+    return sum(scores) / len(scores)
+
+def _blend_measured(contrast, layout, typed, shaped):
+    """Contrast and edge stay in the blend. Layout, the title box, and its edge shape join only when both frames have them."""
     parts = [sum(contrast) / len(contrast)]
     if layout:
         parts.append(sum(layout) / len(layout))
     if typed:
         parts.append(sum(typed) / len(typed))
+    if shaped:
+        parts.append(sum(shaped) / len(shaped))
     return round(sum(parts) / len(parts), 1)
 
-def frame_similarity(reference, output):
-    """Contrast, edge, layout, and type at 20%, 45%, 70%, and 90% of the picture.
+def _collect_frame_terms(reference, output):
+    """Contrast/edge, layout, title box, and title-box edge shape at the four stamps.
 
-    Layout is where the subject, graphics, and lower plate sit. Type is the title
-    box or the kinetic line, as placement and size, not glyphs. A missing layout
-    or a frame with no type is left out. None when no frame can be read.
+    A frame with no type leaves the shape term out. None when no frame can be read.
     """
     ref_meta, out_meta = media.probe(reference), media.probe(output)
     ref_w, ref_h = int(ref_meta['width']), int(ref_meta['height'])
     out_w, out_h = int(out_meta['width']), int(out_meta['height'])
-    contrast, layout, typed = [], [], []
+    contrast, layout, typed, shaped = [], [], [], []
     for ref_at, out_at in zip(_picture_stamps(ref_meta['duration']), _picture_stamps(out_meta['duration'])):
         ref = _spread_edge(reference, ref_at, ref_w, ref_h)
         out = _spread_edge(output, out_at, out_w, out_h)
@@ -182,9 +249,36 @@ def frame_similarity(reference, output):
         letters = _marks_score(ref_type, out_type)
         if letters is not None:
             typed.append(letters)
+        form = _shape_term(reference, ref_at, ref_type, ref_w, ref_h, output, out_at, out_type, out_w, out_h)
+        if form is not None:
+            shaped.append(form)
     if not contrast:
         return None
-    return _blend_measured(contrast, layout, typed)
+    return contrast, layout, typed, shaped
+
+def frame_similarity(reference, output):
+    """Contrast, edge, layout, title box, and title-box edge shape at 20%, 45%, 70%, and 90%.
+
+    Layout is where the subject, graphics, and lower plate sit. The title term is
+    placement and size. The shape term is the edge structure inside that box.
+    Glyphs are not compared and are not copied. A missing layout or a frame with
+    no type is left out. None when no frame can be read.
+    """
+    terms = _collect_frame_terms(reference, output)
+    if not terms:
+        return None
+    return _blend_measured(*terms)
+
+def contrast_similarity(reference, output):
+    """Four-stamp contrast and edge only. None when no frame can be read."""
+    try:
+        terms = _collect_frame_terms(reference, output)
+    except Exception:
+        return None
+    if not terms or not terms[0]:
+        return None
+    contrast = terms[0]
+    return round(sum(contrast) / len(contrast), 1)
 
 def flat_background(path):
     meta = media.probe(path)
@@ -251,6 +345,26 @@ def scene_shots(path, duration):
         'information_density': {'en': 'spoken', 'zh': '口述'},
         'reusable_method': {'en': 'hold the frame', 'zh': '固定机位'},
     }]
+
+def shot_lengths(path):
+    """Durations of the rendered shots. None when the picture cannot be read."""
+    try:
+        meta = media.probe(path)
+        duration = float(meta.get('duration') or 0)
+        if duration <= 0:
+            return None
+        shots = scene_shots(path, duration)
+    except Exception:
+        return None
+    lengths = []
+    for shot in shots or []:
+        try:
+            span = float(shot['end']) - float(shot['start'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if span > 0:
+            lengths.append(span)
+    return lengths or None
 
 def _clamp(value, low, high):
     return max(low, min(high, value))
@@ -407,7 +521,7 @@ def black_spans(path):
     start = prev = times[0]
     for stamp in times[1:] + [times[-1] + 1]:
         if stamp - prev > 0.08:
-            if prev - start >= 0.4:
+            if prev - start >= 0.2:
                 spans.append({'start': round(start, 3), 'end': round(prev + 0.05, 3)})
             start = stamp
         prev = stamp
@@ -416,19 +530,19 @@ def black_spans(path):
 def freeze_spans(path):
     """Near-identical holds. A shot that never moves is left alone."""
     duration = float(media.probe(path)['duration'])
-    _, err = media.ffmpeg('-i', path, '-vf', 'freezedetect=n=-70dB:d=0.5', '-an', '-f', 'null', '-', timeout=240)
+    _, err = media.ffmpeg('-i', path, '-vf', 'freezedetect=n=-70dB:d=0.2', '-an', '-f', 'null', '-', timeout=240)
     starts = [float(item) for item in re.findall(r'freeze_start: ([\d.]+)', err)]
     ends = [float(item) for item in re.findall(r'freeze_end: ([\d.]+)', err)]
     spans = []
     for index, start in enumerate(starts):
         end = ends[index] if index < len(ends) else duration
-        if end - start < 0.5 or end - start > duration * 0.85:
+        if end - start < 0.2 or end - start > duration * 0.85:
             continue
         spans.append({'start': round(start, 3), 'end': round(min(duration, end), 3)})
     return spans
 
 def unusable_spans(path):
-    pending = sorted((float(span['start']), float(span['end'])) for span in [*black_spans(path), *freeze_spans(path)] if float(span['end']) - float(span['start']) >= 0.4)
+    pending = sorted((float(span['start']), float(span['end'])) for span in [*black_spans(path), *freeze_spans(path)] if float(span['end']) - float(span['start']) >= 0.2)
     rows = []
     for start, end in pending:
         if rows and start <= rows[-1]['end'] + 0.05:
@@ -466,20 +580,39 @@ def _face_at(path, at, width, height):
     y = round(min(0.85, max(0.08, (sum(ys) / len(hot) + 0.5) / rows)), 2)
     return x, y
 
+def _skin_follow(path, width, height, duration):
+    """Skin centers at more than two times. Two endpoints alone are a jump, not a follow."""
+    count = 4
+    first = min(0.12, duration / 3)
+    last = max(first + 0.05, duration - 0.2)
+    if last > duration - 0.08:
+        last = max(first, duration - 0.12)
+    if last <= first:
+        return None
+    times = [first + (last - first) * index / (count - 1) for index in range(count)]
+    found = []
+    for at in times:
+        face = _face_at(path, min(at, max(0.0, duration - 0.1)), width, height)
+        if face:
+            found.append(face)
+    if len(found) < 3:
+        return None
+    x0, y0 = found[0]
+    x1, y1 = found[-1]
+    if abs(x0 - x1) < 0.12 and abs(y0 - y1) < 0.12:
+        return None
+    return {'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1, 'face': True}
+
 def visual_track(path):
     meta = media.probe(path)
     width, height, duration = int(meta['width']), int(meta['height']), float(meta['duration'])
     if width < 90 or height < 90 or duration < 0.6:
         return None
+    followed = _skin_follow(path, width, height, duration)
+    if followed:
+        return followed
     early_at = min(0.12, duration / 3)
     late_at = max(0.2, duration - 0.28)
-    early_face = _face_at(path, early_at, width, height)
-    late_face = _face_at(path, late_at, width, height)
-    if early_face and late_face:
-        x0, y0 = early_face
-        x1, y1 = late_face
-        if abs(x0 - x1) >= 0.12 or abs(y0 - y1) >= 0.12:
-            return {'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1, 'face': True}
     def column(at):
         scores = []
         crop_w = width // 3
@@ -639,7 +772,7 @@ def _hex_from_samples(samples):
     u = sum(item['u'] for item in samples) / len(samples)
     v = sum(item['v'] for item in samples) / len(samples)
     if sat < 16 or (abs(u - 128) < 8 and abs(v - 128) < 8):
-        return ''
+        return _neutral_ink(y)
     chroma_y = 1.164 * (y - 16)
     red = chroma_y + 1.596 * (v - 128)
     green = chroma_y - 0.391 * (u - 128) - 0.813 * (v - 128)
@@ -650,8 +783,14 @@ def _hex_from_samples(samples):
 
     return f'{channel(red):02X}{channel(green):02X}{channel(blue):02X}'
 
+def _neutral_ink(y):
+    """Light neutral hex from luma. The three channels stay equal, and the value still follows the frame."""
+    span = max(0.0, min(1.0, (float(y) - 16.0) / 219.0))
+    level = max(176, min(240, int(round(176 + span * 64))))
+    return f'{level:02X}{level:02X}{level:02X}'
+
 def owned_ink(path):
-    """Saturated corner color of the owned file. Gray returns an empty string."""
+    """Corner ink of the owned file. A gray frame still returns a light neutral hex from its luma."""
     try:
         meta = media.probe(path)
         width, height = int(meta['width']), int(meta['height'])
@@ -666,6 +805,141 @@ def owned_ink(path):
             return None
         samples.append(sample)
     return _hex_from_samples(samples)
+
+_SERIF_FAMILIES = (
+    'Songti SC', 'Songti TC', 'STSong', 'SimSong',
+    'Hiragino Mincho ProN', 'Hiragino Mincho Pro',
+    'Noto Serif CJK SC', 'Noto Serif CJK', 'Source Han Serif SC', 'Source Han Serif',
+    'Times New Roman', 'Georgia', 'PT Serif', 'Liberation Serif',
+)
+_HEAVY_SANS = (
+    ('Hiragino Sans GB', 'W6'),
+    ('Hiragino Sans', 'W6'),
+    ('Heiti SC', 'Medium'),
+    ('Arial Black', 'Regular'),
+    ('Avenir Next', 'Heavy'),
+    ('Noto Sans CJK SC', 'Black'),
+    ('Noto Sans CJK SC', 'Bold'),
+)
+
+
+def installed_faces():
+    """Families fontconfig already has. Nothing is downloaded and no font file is added."""
+    try:
+        completed = subprocess.run(
+            ['fc-list', '-f', '%{family[0]}\t%{style[0]}\n'],
+            capture_output=True, text=True, timeout=8,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    found, seen = [], set()
+    for line in (completed.stdout or '').splitlines():
+        family, _, style = line.partition('\t')
+        family, style = family.strip(), (style.strip() or 'Regular')
+        if not family or family.startswith('.') or (family, style) in seen:
+            continue
+        seen.add((family, style))
+        found.append({'family': family, 'style': style})
+    return found
+
+def _face_named(rows, family, style=None):
+    for row in rows:
+        if row['family'].lower() != family.lower():
+            continue
+        if style is None or row['style'].lower() == style.lower():
+            return row['family']
+    return None
+
+def has_serif(faces=None):
+    rows = installed_faces() if faces is None else faces
+    return any(_face_named(rows, family) for family in _SERIF_FAMILIES)
+
+def choose_face(kind, weight, faces=None):
+    """An installed family for the measured title. Noto Sans stays only when nothing else fits."""
+    rows = [row for row in (installed_faces() if faces is None else faces) if row.get('family') and not str(row['family']).startswith('.')]
+    if kind == 'serif':
+        for family in _SERIF_FAMILIES:
+            found = _face_named(rows, family)
+            if found:
+                return found
+    if weight == 'heavy':
+        for family, style in _HEAVY_SANS:
+            found = _face_named(rows, family, style)
+            if found and 'serif' not in found.lower():
+                return found
+    if weight == 'light':
+        for family, style in (('Heiti SC', 'Light'), ('Hiragino Sans GB', 'W3'), ('Hiragino Sans', 'W0')):
+            found = _face_named(rows, family, style)
+            if found:
+                return found
+    noto = _face_named(rows, 'Noto Sans CJK SC') or _face_named(rows, 'Noto Sans')
+    if kind == 'serif' or weight == 'light':
+        for row in rows:
+            name = row['family']
+            if noto and name == noto:
+                continue
+            if 'sans' in name.lower():
+                continue
+            return name
+    return noto or 'Noto Sans CJK SC'
+
+def _classify_mark(grid):
+    """Serif versus sans, light versus heavy. The grid is not returned."""
+    if not grid or not grid[0]:
+        return None
+    rows, cols = len(grid), len(grid[0])
+    if rows < 12 or cols < 12:
+        return None
+    flat = [cell for line in grid for cell in line]
+    median = sorted(flat)[len(flat) // 2]
+    if median < 120:
+        cut = max(median + 40, 90)
+        hot = [[cell >= cut for cell in line] for line in grid]
+    else:
+        cut = min(median - 40, 150)
+        hot = [[cell <= cut for cell in line] for line in grid]
+    cells = [(r, c) for r in range(rows) for c in range(cols) if hot[r][c]]
+    if len(cells) < 16 or len(cells) / (rows * cols) > 0.55:
+        return None
+    used_rows = [r for r, _c in cells]
+    used_cols = [c for _r, c in cells]
+    top, bot = min(used_rows), max(used_rows)
+    left, right = min(used_cols), max(used_cols)
+    height, width = bot - top + 1, right - left + 1
+    if height < 8 or width < 4 or width > cols * 0.9:
+        return None
+    widths = [sum(1 for c in range(left, right + 1) if hot[r][c]) for r in range(top, bot + 1)]
+    edge_n = max(1, min(3, height // 8))
+    if height - 2 * edge_n < 3:
+        return None
+    top_w = sum(widths[:edge_n]) / edge_n
+    bot_w = sum(widths[-edge_n:]) / edge_n
+    middle = widths[edge_n:-edge_n]
+    mid_w = sum(middle) / len(middle)
+    serif = mid_w >= 1 and top_w >= mid_w * 1.45 and bot_w >= mid_w * 1.45
+    fill = len(cells) / (width * height)
+    if not serif and (fill >= 0.72 or len(cells) / (rows * cols) >= 0.22):
+        return None
+    weight = 'heavy' if fill >= 0.45 or (not serif and mid_w >= height * 0.45) else 'light'
+    return {'kind': 'serif' if serif else 'sans', 'weight': weight}
+
+def title_letter(path, start, end):
+    """Read serif or sans, and light or heavy, from the title mark.
+
+    The sample grid is discarded. Words are not read and glyph pixels are not kept.
+    """
+    span = float(end) - float(start)
+    if span < 0.3:
+        return None
+    found = None
+    for frac in (0.38, 0.62):
+        grid = _stamp_grid(path, float(start) + span * frac, 48, 64)
+        letter = _classify_mark(grid) if grid else None
+        if letter and letter['kind'] == 'serif':
+            return letter
+        if letter and found is None:
+            found = letter
+    return found
 
 def highlight_window(path, duration):
     rows = [row for row in _timed_levels(path) if row[1] >= 30]
@@ -913,7 +1187,7 @@ def _plate_bounds(path, start, end, width, height):
     else:
         left = round(min(1.0, ((last + 1) / fps) / span), 2)
         if left <= entered:
-            left = 1.0
+            left = round(min(0.98, entered + 0.08), 2)
     return entered, left
 
 def _entered(path, start, end, width, height):
@@ -1554,10 +1828,14 @@ def card_moment(path, start, end):
     if not present:
         return None
     opened = round(present[0], 2)
-    # The last sample is still a card, so the exit was not measured.
-    closed = 1.0 if present[-1] == stamps[-1] else round(present[-1], 2)
-    if closed <= opened:
+    if present[-1] == stamps[-1]:
+        # Still on screen at the last sample, so the exit was not measured.
         closed = 1.0
+    else:
+        closed = round(present[-1], 2)
+        if closed <= opened:
+            later = stamps[stamps.index(present[-1]) + 1]
+            closed = round(min(0.98, later), 2)
     if closed <= opened:
         return None
     return {'in': opened, 'out': closed}
@@ -1664,7 +1942,7 @@ def callout_window(path, start, end):
     else:
         closed = round(min(1.0, ((last + 1) / fps) / span), 2)
         if closed <= opened:
-            closed = min(1.0, round(opened + 0.08, 2))
+            closed = round(min(0.98, opened + 0.08), 2)
     return {'in': opened, 'out': closed}
 
 def _place_point(cells, cols, rows):
@@ -1822,6 +2100,63 @@ def graphic_places(path, start, end):
         return None
     return _classify_places(_luma_hot(path, at, width, height), 4, 6)
 
+def _graphic_marks(path):
+    """Card, title, and chart boxes as placement and size. {} when the frames have none. None when unreadable."""
+    try:
+        meta = media.probe(path)
+        duration = float(meta.get('duration') or 0)
+        width, height = int(meta['width']), int(meta['height'])
+    except Exception:
+        return None
+    if duration <= 0 or width < 80 or height < 80:
+        return None
+    marks = {}
+    try:
+        places = graphic_places(path, 0, duration)
+    except Exception:
+        places = None
+    if isinstance(places, dict):
+        if isinstance(places.get('card_place'), dict):
+            marks['card'] = places['card_place']
+        if isinstance(places.get('chart_place'), dict):
+            marks['chart'] = places['chart_place']
+    try:
+        for at in _picture_stamps(duration):
+            _layout, typed = _stamp_places(path, at)
+            if typed:
+                marks['title'] = typed[0]
+                break
+    except Exception:
+        pass
+    return marks
+
+def graphic_similarity(reference, output):
+    """Whether a card, title, or chart sits where the reference had one. Placement and size, not pixels.
+
+    None when the frames cannot be read, or when the reference had none of those kinds.
+    A missing kind on the output scores 0. It does not become a match.
+    """
+    try:
+        left = _graphic_marks(reference)
+        right = _graphic_marks(output)
+    except Exception:
+        return None
+    if left is None or right is None or not left:
+        return None
+    scores = []
+    for kind, box in left.items():
+        other = right.get(kind)
+        if not isinstance(other, dict):
+            scores.append(0.0)
+            continue
+        try:
+            scores.append(_box_score(box, other))
+        except (KeyError, TypeError, ValueError):
+            return None
+    if not scores:
+        return None
+    return round(sum(scores) / len(scores), 1)
+
 def callout_at(path, start, end):
     """Fraction of the shot where a small side or lower chip appears. A flat frame, a full-frame card, or a chip already present at the open is 0."""
     window = callout_window(path, start, end)
@@ -1829,10 +2164,8 @@ def callout_at(path, start, end):
         return 0.0
     return float(window['in'])
 
-SHOT_CAP = 40
-
 def _later_window(shot):
-    """The later shot's own range after a join. The joined clip still ends at that shot."""
+    """A stored later range, when a caller still has one. Measurement does not use it."""
     window = shot.get('picture_at') if isinstance(shot, dict) else None
     if isinstance(window, (list, tuple)) and len(window) >= 2:
         try:
@@ -1845,34 +2178,14 @@ def _later_window(shot):
     return float(shot['start']), float(shot['end'])
 
 def kept_shots(shots):
-    """Shots the edit keeps. Past 40, the shortest pair joins and the later picture stays."""
-    merged = [dict(shot) for shot in shots or []]
-    while len(merged) > SHOT_CAP:
-        lengths = [max(0.28, float(shot['end']) - float(shot['start'])) for shot in merged]
-        index = min(range(len(lengths) - 1), key=lambda n: lengths[n] + lengths[n + 1])
-        nxt = merged[index + 1]
-        kept = {**merged[index], 'end': nxt['end']}
-        if nxt.get('shot_out') is not None:
-            kept['shot_out'] = nxt['shot_out']
-        if isinstance(nxt.get('picture'), dict):
-            kept['picture'] = nxt['picture']
-        window = nxt.get('picture_at')
-        if not (isinstance(window, (list, tuple)) and len(window) >= 2):
-            window = (float(nxt['start']), float(nxt['end']))
-        kept['picture_at'] = (float(window[0]), float(window[1]))
-        merged[index] = kept
-        del merged[index + 1]
-    return merged
+    """Every reference shot the edit keeps. Boundaries are not joined, and each picture stays on its own shot."""
+    return [dict(shot) for shot in shots or []]
 
 def annotate_pictures(path, shots):
-    """Measure every shot the edit keeps. A longer scene list joins down to 40 first."""
+    """Measure each original shot window. A longer scene list is not joined first."""
     rows = list(shots or [])
-    if len(rows) > SHOT_CAP:
-        rows = kept_shots(rows)
-        if isinstance(shots, list):
-            shots[:] = rows
     for shot in rows:
-        start, end = _later_window(shot)
+        start, end = float(shot['start']), float(shot['end'])
         try:
             shot['picture'] = picture_of(path, start, end)
         except Exception:
@@ -1924,6 +2237,12 @@ def annotate_pictures(path, shots):
             motion = None
         if motion:
             picture['title'] = motion
+        try:
+            letter = title_letter(path, start, end)
+        except Exception:
+            letter = None
+        if isinstance(letter, dict) and letter.get('kind') in ('serif', 'sans') and letter.get('weight') in ('light', 'heavy'):
+            picture['letter'] = {'kind': letter['kind'], 'weight': letter['weight']}
         try:
             pops = highlight_moments(path, start, end)
         except Exception:

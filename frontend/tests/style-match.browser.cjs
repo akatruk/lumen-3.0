@@ -17,13 +17,13 @@ const report={
   await x.page.getByRole('heading',{name:'Learn the technique. Tell your story.'}).waitFor();
   const box=x.page.locator('input[name=style_match]');
   assert.equal(await box.isChecked(),false);
-  assert.equal(await x.page.locator('input.director-file-input').count(),1);
-  await box.check();
   await x.page.getByText('Reference video').waitFor();
   await x.page.getByText('Upload the reference video. The finished film still uses only your footage.').waitFor();
   assert.equal(await x.page.locator('input.director-file-input').count(),2);
+  await box.check();
+  assert.equal(await x.page.locator('input.director-file-input').count(),2);
   await box.uncheck();
-  assert.equal(await x.page.locator('input.director-file-input').count(),1);
+  assert.equal(await x.page.locator('input.director-file-input').count(),2);
   x.data.studio.context.style_match=true;
   x.data.studio.context.style_report=report;
   x.data.studio.context.style_match_status='pending';

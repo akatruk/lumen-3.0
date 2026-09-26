@@ -77,6 +77,7 @@ type Clip = {
   bezel?: number;
   diagram?: number;
   art?: string;
+  picture_insert?: {start:number;end:number;at?:number}|null;
   panel?: number | null;
   plate?: string;
   grade?: {brightness:number;contrast:number;saturation:number;gamma:number;rs:number;gs:number;bs:number}|null;

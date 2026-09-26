@@ -31,6 +31,13 @@ class Grade(Strict):
     gs: float=Field(default=0,ge=-.3,le=.3)
     bs: float=Field(default=0,ge=-.3,le=.3)
 
+class Spot(Strict):
+    """One measured bright group. Its center is not averaged with the others."""
+    x: float=Field(ge=0,le=1)
+    y: float=Field(ge=0,le=1)
+    w: float | None=Field(default=None,ge=0,le=1)
+    h: float | None=Field(default=None,ge=0,le=1)
+
 class Clip(Span):
     sound_effects:list[SoundEffect]=Field(default_factory=list,max_length=4)
     external_broll: ExternalBroll | None=None
@@ -124,11 +131,14 @@ class Clip(Span):
     effect_end: float=Field(default=1,ge=0,le=1)
     plate: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
     ink: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
+    face: str=Field(default='',max_length=80)
+    type_style: str=Field(default='',pattern=r'^$|^(serif|sans)-(light|heavy)$')
+    spots: list[Spot]=Field(default_factory=list,max_length=16)
     grade: Grade | None=None
     text: str=Field(default='',max_length=160)
 class Edit(Strict):
     music: Music | None=None
-    clips: list[Clip]=Field(min_length=1,max_length=40)
+    clips: list[Clip]=Field(min_length=1)
     captions: list[Caption]=Field(default_factory=list,max_length=160)
     subtitles: bool=False
     normalize: bool=False

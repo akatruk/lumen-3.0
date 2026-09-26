@@ -36,7 +36,8 @@ def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     held = tmp_path / 'held-plate.mp4'
     _video(held, '-f', 'lavfi', '-i', 'color=0x202020:s=160x160:r=30:d=0.4', '-f', 'lavfi', '-i', 'color=white:s=160x160:r=30:d=1.2', '-f', 'lavfi', '-i', 'color=0x224466:s=160x160:r=30:d=0.4', '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0')
     frozen = freeze_spans(held)
-    assert frozen and frozen[0]['start'] < 0.6 and frozen[0]['end'] > 1.4
+    hold = max(frozen, key=lambda span: float(span['end']) - float(span['start']))
+    assert hold['start'] < 0.6 and hold['end'] > 1.4
     moving_plate = tmp_path / 'moving-plate.mp4'
     _video(moving_plate, '-f', 'lavfi', '-i', 'testsrc=s=160x160:r=30:d=1.6')
     assert freeze_spans(moving_plate) == []
@@ -464,6 +465,14 @@ def test_blur_glow_and_shadow_strength_follow_the_frame(tmp_path):
     assert f"vignette=angle={deep['shade']:.3f}" in chain
     assert 'enable=' not in chain
 
+def test_blur_stops_at_effect_end_instead_of_a_gte_only_gate():
+    chain = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'blur': 2, 'glow': True, 'glow_amount': 0.8, 'shadow': True, 'shade': 0.8, 'effect_at': 0.25, 'effect_end': 0.6}, 160, 240, 2)
+    assert 'gblur=' in chain and 'unsharp=' in chain and 'vignette=' in chain
+    assert "enable='gte(t\\" not in chain
+    assert chain.count("between(t\\") == 3
+    held = motion_filter({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1, 'blur': 2, 'effect_at': 0.25}, 160, 240, 2)
+    assert "enable='gte(t\\" in held and 'between(t\\' not in held
+
 def test_similarity_compares_the_rendered_frame(tmp_path):
     sharp = tmp_path / 'sharp.mp4'
     soft = tmp_path / 'soft.mp4'
@@ -516,6 +525,46 @@ def test_similarity_scores_layout_and_type_on_the_same_stamps(tmp_path):
     moved_line = frame_similarity(titled, moved)
     assert same_line is not None and same_line >= 85
     assert moved_line is not None and moved_line < same_line - 12
+
+def test_title_box_edge_shape_lowers_the_score_and_a_frame_without_type_is_not_punished(tmp_path):
+    from backend.style_vision import _stamp_places, contrast_similarity
+    dark = 'color=0x111111:s=180x240:r=30:d=1.6'
+    block = 'drawbox=x=20:y=70:w=50:h=80:color=white:t=fill'
+    solid = 'drawbox=x=24:y=24:w=80:h=16:color=white:t=fill'
+    gap = solid + ',drawbox=x=58:y=24:w=12:h=16:color=0x111111:t=fill'
+    matched, shaped, plain = tmp_path / 'solid-title.mp4', tmp_path / 'split-title.mp4', tmp_path / 'no-title.mp4'
+    _video(matched, '-f', 'lavfi', '-i', dark, '-vf', block + ',' + solid)
+    _video(shaped, '-f', 'lavfi', '-i', dark, '-vf', block + ',' + gap)
+    _video(plain, '-f', 'lavfi', '-i', dark, '-vf', block)
+    _layout, solid_type = _stamp_places(matched, 0.4)
+    _gap_layout, gap_type = _stamp_places(shaped, 0.4)
+    _plain_layout, plain_type = _stamp_places(plain, 0.4)
+    assert solid_type and gap_type and plain_type is None
+    match = frame_similarity(matched, matched)
+    differ = frame_similarity(matched, shaped)
+    assert match is not None and differ is not None and differ < match
+    match_contrast = contrast_similarity(matched, matched)
+    differ_contrast = contrast_similarity(matched, shaped)
+    assert match_contrast is not None and differ_contrast is not None
+    assert abs(match_contrast - differ_contrast) < abs(match - differ)
+    skipped = frame_similarity(matched, plain)
+    skipped_contrast = contrast_similarity(matched, plain)
+    assert skipped is not None and skipped_contrast is not None
+    assert skipped >= skipped_contrast - 12
+    assert frame_similarity(plain, plain) >= 85
+
+def test_rendered_cut_count_moves_structure_and_pacing(tmp_path):
+    from backend.style_match import structure_and_pacing
+    from backend.style_vision import shot_lengths
+    cuts, flat = tmp_path / 'two-cuts.mp4', tmp_path / 'one-shot.mp4'
+    _video(cuts, '-f', 'lavfi', '-i', 'color=red:s=160x160:r=30:d=1.2', '-f', 'lavfi', '-i', 'color=blue:s=160x160:r=30:d=1.2', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
+    _video(flat, '-f', 'lavfi', '-i', 'color=red:s=160x160:r=30:d=2.4')
+    reference, same, other = shot_lengths(cuts), shot_lengths(cuts), shot_lengths(flat)
+    assert reference and same and other and len(reference) > len(other)
+    matched = structure_and_pacing(reference, same)
+    moved = structure_and_pacing(reference, other)
+    assert moved['shot_structure'] < matched['shot_structure']
+    assert moved['visual_pacing'] < matched['visual_pacing']
 
 def test_illustration_tiles_follow_the_bright_blocks(tmp_path):
     one = tmp_path / 'one-tile.mp4'
@@ -708,8 +757,8 @@ def test_measurement_follows_the_shots_the_edit_keeps(tmp_path, monkeypatch):
     monkeypatch.setattr('backend.style_vision.scene_shots', lambda *_args: [dict(shot) for shot in raw])
     seen = []
 
-    def fake(_path, start, _end):
-        seen.append(start)
+    def fake(_path, start, end):
+        seen.append((float(start), float(end)))
         return None
 
     monkeypatch.setattr('backend.style_vision.picture_of', fake)
@@ -717,21 +766,32 @@ def test_measurement_follows_the_shots_the_edit_keeps(tmp_path, monkeypatch):
     vision = measure(path)
     assert len(kept) == 30
     assert len(vision['shots']) == 30
-    assert seen == [shot['start'] for shot in kept]
-    assert any(start >= 9.6 for start in seen)
+    assert seen == [(shot['start'], shot['end']) for shot in kept]
+    assert seen[0] == (0.0, 0.4)
+    assert any(start >= 9.6 for start, _end in seen)
+    longer = [{'start': index * 0.4, 'end': (index + 1) * 0.4} for index in range(45)]
+    monkeypatch.setattr('backend.style_vision.scene_shots', lambda *_args: [dict(shot) for shot in longer])
+    seen.clear()
+    wide = measure(path)
+    assert len(wide['shots']) == 45
+    assert seen == [(shot['start'], shot['end']) for shot in longer]
+    assert seen[0] == (0.0, 0.4)
+    marked = [{'start': 0.0, 'end': 0.4, 'picture_at': (0.4, 0.8)}, {'start': 0.4, 'end': 0.8, 'picture_at': (0.8, 1.2)}]
+    seen.clear()
+    annotate_pictures(path, marked)
+    assert seen == [(0.0, 0.4), (0.4, 0.8)]
 
 
-def test_a_joined_shot_keeps_the_later_picture():
+def test_every_shot_keeps_its_own_picture():
     raw = [{'start': index * 0.4, 'end': (index + 1) * 0.4, 'picture': {'zoom': index + 1}} for index in range(45)]
-    merged = kept_shots(raw)
-    assert len(merged) == 40
-    joined = [shot for shot in merged if shot['end'] - shot['start'] > 0.5]
-    assert joined
-    for shot in joined:
-        start, end = shot['picture_at']
-        assert abs(end - shot['end']) < 1e-6
-        assert end - start <= 0.41
-        assert shot['picture']['zoom'] == round(end / 0.4)
+    kept = kept_shots(raw)
+    assert len(kept) == 45
+    assert kept[0]['start'] == 0 and abs(kept[0]['end'] - 0.4) < 1e-6
+    assert kept[0]['picture']['zoom'] == 1
+    for index, shot in enumerate(kept):
+        assert abs((shot['end'] - shot['start']) - 0.4) < 1e-6
+        assert shot['picture']['zoom'] == index + 1
+        assert shot['picture'] is raw[index]['picture']
 
 
 def test_later_shots_keep_the_measured_join_and_frame(tmp_path, monkeypatch):
@@ -940,8 +1000,51 @@ def test_a_measured_room_keeps_the_presenter_and_plates_the_walls(tmp_path):
     plated.mkdir()
     media.render(room, plated, media.probe(room), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[{'start': 0, 'end': 0.8, 'cutout': True, 'plate': '1A1F1C', 'subject_x': box['x'], 'subject_y': box['y'], 'subject_w': box['w'], 'subject_h': box['h']}]).model_dump())
     result = plated / 'result.mp4'
+    scene = plated / 'room-0.png'
     meta = media.probe(result)
     cx = max(0, min(int(meta['width']) - 16, int(meta['width'] * box['x']) - 6))
     cy = max(0, min(int(meta['height']) - 16, int(meta['height'] * box['y']) - 6))
-    assert luma(result, 4, 4) < 45 and luma(result, 4, 200) < 45
+    assert scene.is_file()
+    corner = luma(result, 4, 4)
+    assert abs(corner - luma(scene, 4, 4)) < 20
+    assert abs(corner - luma(room, 4, 4)) > 15
+    assert corner > 80
     assert luma(result, cx, cy) > 150
+
+
+def test_a_serif_mark_picks_a_non_sans_face_when_one_is_installed(tmp_path):
+    from backend.media import ass_face, write_kinetic, write_subtitles
+    from backend.schemas import Caption
+    from backend.style_vision import choose_face, has_serif, title_letter
+    from backend.visuals import CardText, VisualCard, write_card
+    mark = tmp_path / 'serif.mp4'
+    _video(
+        mark,
+        '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=1.2',
+        '-vf', 'drawbox=x=78:y=36:w=18:h=150:color=white:t=fill,drawbox=x=30:y=36:w=114:h=14:color=white:t=fill,drawbox=x=30:y=172:w=114:h=14:color=white:t=fill',
+    )
+    letter = title_letter(mark, 0, 1.2)
+    assert letter and letter['kind'] == 'serif' and letter['weight'] in ('light', 'heavy')
+    face = choose_face(letter['kind'], letter['weight'])
+    if has_serif():
+        assert face and 'sans' not in face.lower()
+    else:
+        assert letter['kind'] == 'serif'
+    only = [{'family': 'Noto Sans CJK SC', 'style': 'Regular'}]
+    assert choose_face('serif', 'light', faces=only) == 'Noto Sans CJK SC'
+    assert choose_face('serif', 'light', faces=only + [{'family': 'Songti SC', 'style': 'Regular'}]) == 'Songti SC'
+    heavy = letter['weight'] == 'heavy'
+    name, bold = ass_face(face, heavy)
+    assert name == face and bold == (-1 if heavy else 0)
+    script = tmp_path / 'title.ass'
+    write_kinetic(script, 'Visa days', 1.2, 180, 240, face=face, heavy=heavy)
+    subs = tmp_path / 'subs.ass'
+    write_subtitles(subs, [Caption(start=0, end=1, original='Visa', en='Visa', zh='签证')], [(0, 1)], 'en', 180, 240, face=face, heavy=heavy)
+    card = VisualCard(start=0, end=1, title=CardText(en='Note', zh='注'), primary=CardText(en='1', zh='1'), source=CardText(en='Owned', zh='自有'))
+    card_file = tmp_path / 'card.ass'
+    write_card(card_file, card.model_dump(), 'en', 180, 240, face=face, heavy=heavy)
+    for path in (script, subs, card_file):
+        body = path.read_text()
+        assert face in body and 'SECRET' not in body
+        if not heavy:
+            assert ',0,0,0,0,' in body

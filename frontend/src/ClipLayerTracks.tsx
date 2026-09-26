@@ -39,6 +39,11 @@ export function ClipLayerTracks({
     glow: t("Glow", "发光"),
     shadow: t("Shadow", "阴影"),
     speed: t("Speed", "速度"),
+    cutout: t("Cutout", "抠像"),
+    mask: t("Mask", "蒙版"),
+    split: t("Split", "分屏"),
+    reference: t("Reference copy", "参考画面"),
+    art: t("Generated picture", "生成图片"),
     broll: t("B-roll", "补充画面"),
     join:
       {

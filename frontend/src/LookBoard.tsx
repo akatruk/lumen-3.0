@@ -1,21 +1,38 @@
 import { useState } from "react";
 import type { Lang } from "./types";
 import { translate } from "./locale";
-import { EFFECT_KEYS, LOOKS, readBoard, writeBoard, type EffectBoard, type EffectKey, type LookName } from "./look";
+import {
+  EFFECT_GROUPS,
+  LOOKS,
+  readBoard,
+  strengthAmount,
+  strengthPercent,
+  writeBoard,
+  type EffectBoard,
+  type EffectKey,
+  type LookName,
+} from "./look";
 
 const NAMES: LookName[] = ["clean", "punch", "soft", "kinetic", "split"];
 
-export function LookBoard({ lang }: { lang: Lang }) {
+function cloneBoard(board: EffectBoard): EffectBoard {
+  return { name: board.name, amount: board.amount, effects: { ...board.effects } };
+}
+
+function sameBoard(a: EffectBoard, b: EffectBoard) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) {
   const t = (en: string, zh: string) => translate(lang, en, zh);
-  const [board, setBoard] = useState<EffectBoard>(() => readBoard() || LOOKS.punch);
-  const [saved, setSaved] = useState(() => readBoard() !== null);
-  function commit(next: EffectBoard) {
-    setBoard(next);
-    writeBoard(next);
-    setSaved(true);
-  }
+  const [board, setBoard] = useState<EffectBoard>(() => cloneBoard(readBoard() || LOOKS.punch));
+  const [savedBoard, setSavedBoard] = useState<EffectBoard>(() => cloneBoard(readBoard() || LOOKS.punch));
+  const [persisted, setPersisted] = useState(() => readBoard() !== null);
+  const dirty = !sameBoard(board, savedBoard);
+  const percent = strengthPercent(board.amount);
+
   function toggle(key: EffectKey) {
-    commit({ ...board, effects: { ...board.effects, [key]: !board.effects[key] } });
+    setBoard({ ...board, effects: { ...board.effects, [key]: !board.effects[key] } });
   }
   function label(key: EffectKey) {
     if (key === "blur") return t("Blur", "模糊");
@@ -29,6 +46,18 @@ export function LookBoard({ lang }: { lang: Lang }) {
     if (key === "split") return t("Split", "分屏");
     return t("Screen frame", "屏幕边框");
   }
+  function hint(key: EffectKey) {
+    if (key === "color") return t("Applies color, contrast, and exposure from the style match.", "使用风格匹配里的色彩、对比度和曝光。");
+    if (key === "blur") return t("Softens the picture. Turn it off to keep the frame sharp.", "让画面变柔。关闭后画面保持清晰。");
+    if (key === "glow") return t("Adds a soft bright halo.", "加上一层柔和的亮边。");
+    if (key === "shadow") return t("Darkens the edges of the frame.", "压暗画面边缘。");
+    if (key === "speed") return t("Speeds the clip up or slows it down.", "加快或放慢这段画面。");
+    if (key === "stabilize") return t("Steadies a shaky shot.", "稳住抖动的镜头。");
+    if (key === "kinetic") return t("Animates words when the clip already has text.", "片段已有文字时，让文字动起来。");
+    if (key === "progress") return t("Draws a progress bar on the clip.", "在片段上画出进度条。");
+    if (key === "split") return t("Shows two moments of your footage in one frame.", "在一个画面里放上你素材中的两个瞬间。");
+    return t("Places the frame inside a screen border.", "把画面放进屏幕边框里。");
+  }
   function preset(name: LookName) {
     if (name === "clean") return t("Clean", "干净");
     if (name === "punch") return t("Punch", "冲击");
@@ -36,59 +65,117 @@ export function LookBoard({ lang }: { lang: Lang }) {
     if (name === "kinetic") return t("Kinetic", "动态");
     return t("Split story", "分屏故事");
   }
-  const on = EFFECT_KEYS.filter((key) => board.effects[key]);
-  const amount = board.amount;
+  function presetHint(name: LookName) {
+    if (name === "clean") return t("No added effects. The frame stays close to your footage.", "不添加效果，画面接近你的素材。");
+    if (name === "punch") return t("Stronger color, speed, a steady frame, moving type, and a progress bar.", "更强的色彩和速度、稳定画面、动态文字和进度条。");
+    if (name === "soft") return t("Soft blur, glow, shadow, and color.", "柔和的模糊、发光、阴影和色彩。");
+    if (name === "kinetic") return t("Color, moving type, a progress bar, and speed.", "色彩、动态文字、进度条和速度。");
+    return t("A split frame, a screen border, color, and a progress bar.", "分屏、屏幕边框、色彩和进度条。");
+  }
+  function groupTitle(id: (typeof EFFECT_GROUPS)[number]["id"]) {
+    if (id === "look") return t("Look", "效果");
+    if (id === "light") return t("Light", "光线");
+    if (id === "motion") return t("Motion", "运动");
+    return t("Graphics", "图形");
+  }
+  function save() {
+    const next = cloneBoard(board);
+    writeBoard(next);
+    setBoard(next);
+    setSavedBoard(next);
+    setPersisted(true);
+  }
+  function cancel() {
+    setBoard(cloneBoard(savedBoard));
+  }
+
   return (
     <div className="page look-page">
-      <p className="page-kicker">
-        <span className="live-dot" />
-        {t("Visual effects", "视觉效果")}
-      </p>
-      <h1>{t("Visual effect plaque", "视觉效果面板")}</h1>
+      <div className="look-toolbar">
+        <button type="button" className="text-button" onClick={onBack}>
+          {t("Back", "返回")}
+        </button>
+        <div className="look-toolbar-actions">
+          <button type="button" className="secondary" disabled={!dirty} onClick={cancel}>
+            {t("Undo", "撤销")}
+          </button>
+          <button type="button" className="primary" disabled={!dirty && persisted} onClick={save}>
+            {t("Save", "保存")}
+          </button>
+        </div>
+      </div>
+      <h1>{t("Effect recipe", "效果配方")}</h1>
       <p className="look-lead">
         {t(
-          "Turn an effect on or off and set its strength. The next style match follows this plaque. The finished film still uses only your footage.",
-          "打开或关闭效果并设置强度。下一次风格匹配会遵循这个面板。成片仍然只用你的素材。",
+          "This board is the effect recipe for the next style match. The finished film still uses only your footage.",
+          "这个面板是下一次风格匹配的效果配方。成片仍然只用你的素材。",
         )}
       </p>
-      <div className="look-layout">
-        <section className="look-plaque" aria-label={t("Visual effect plaque", "视觉效果面板")}>
-          <div className="look-plaque-band">
-            <span>{preset(board.name)}</span>
-            <strong>{Math.round(amount * 100)}%</strong>
-          </div>
-          <div className="look-presets" role="group" aria-label={t("Look presets", "效果预设")}>
-            {NAMES.map((name) => (
-              <button key={name} type="button" aria-pressed={board.name === name} onClick={() => commit(LOOKS[name])}>
-                {preset(name)}
-              </button>
-            ))}
-          </div>
+      <div className="look-pro">
+        <section className="look-panel" aria-label={t("Effect recipe", "效果配方")}>
           <label className="look-strength">
-            {t("Strength", "强度")}
+            <span>
+              {t("Strength", "强度")}
+              <strong>{percent}</strong>
+            </span>
             <input
               type="range"
-              min={0.4}
-              max={1.6}
-              step={0.1}
-              value={amount}
-              aria-valuetext={`${Math.round(amount * 100)}%`}
-              onChange={(e) => commit({ ...board, amount: Number(e.target.value) })}
+              min={0}
+              max={100}
+              step={1}
+              value={percent}
+              aria-valuetext={String(percent)}
+              onChange={(e) => setBoard({ ...board, amount: strengthAmount(Number(e.target.value)) })}
             />
           </label>
-          <div className="look-switches" role="group" aria-label={t("Visual effects", "视觉效果")}>
-            {EFFECT_KEYS.map((key) => (
-              <button key={key} type="button" aria-pressed={board.effects[key]} onClick={() => toggle(key)}>
-                {label(key)}
-              </button>
-            ))}
-          </div>
-          <p className="look-recipe">{on.length ? on.map(label).join(" · ") : t("Clean", "干净")}</p>
-          {saved && <p role="status">{t("Saved on this device. Style match on the next project uses this plaque.", "已保存在此设备。下一个项目的风格匹配会使用这个面板。")}</p>}
+          {EFFECT_GROUPS.map((group) => (
+            <section key={group.id} className="look-group" aria-labelledby={"look-group-" + group.id}>
+              <h2 id={"look-group-" + group.id}>{groupTitle(group.id)}</h2>
+              {group.id === "look" && (
+                <label className="look-start">
+                  <span>{t("Starting look", "起始效果")}</span>
+                  <select
+                    value={board.name}
+                    onChange={(e) => setBoard(cloneBoard(LOOKS[e.target.value as LookName]))}
+                  >
+                    {NAMES.map((name) => (
+                      <option key={name} value={name}>
+                        {preset(name)}
+                      </option>
+                    ))}
+                  </select>
+                  <small>{presetHint(board.name)}</small>
+                </label>
+              )}
+              {group.keys.map((key) => (
+                <div key={key} className="look-row">
+                  <button
+                    type="button"
+                    role="switch"
+                    className="look-switch"
+                    aria-checked={board.effects[key]}
+                    aria-label={label(key)}
+                    onClick={() => toggle(key)}
+                  >
+                    <span aria-hidden="true" />
+                  </button>
+                  <strong>{label(key)}</strong>
+                  <p>{hint(key)}</p>
+                </div>
+              ))}
+            </section>
+          ))}
+          <p role="status" className="look-status">
+            {dirty
+              ? t("Unsaved changes", "尚未保存")
+              : persisted
+                ? t("Saved on this device. Style match on the next project uses this plaque.", "已保存在此设备。下一个项目的风格匹配会使用这个面板。")
+                : t("Not saved yet. Save stores this recipe on this device.", "尚未保存。保存后，这个配方会留在此设备上。")}
+          </p>
         </section>
-        <section className="look-stage" aria-label={t("Look stage", "效果预览")}>
-          <h2>{t("Look stage", "效果预览")}</h2>
-          <p>{t("Drag to compare the frame before and after this look.", "拖动滑块，比较应用这个效果前后的画面。")}</p>
+        <section className="look-stage" aria-label={t("Before and after", "前后对比")}>
+          <h2>{t("Before and after", "前后对比")}</h2>
+          <p>{t("A still frame of your footage, before and after this look.", "你的素材的静止画面：这个效果之前和之后。")}</p>
           <Stage board={board} lang={lang} />
         </section>
       </div>
@@ -107,23 +194,32 @@ function Stage({ board, lang }: { board: EffectBoard; lang: Lang }) {
   ]
     .filter(Boolean)
     .join(" ");
+  const off = { blur: false, glow: false, shadow: false, color: false, speed: false, stabilize: false, kinetic: false, progress: false, split: false, screen: false };
   return (
     <div className="look-stage-wrap">
-      <div className="look-phone">
-        <div className="look-frame look-before">
-          <Frame fx={{ blur: false, glow: false, shadow: false, color: false, speed: false, stabilize: false, kinetic: false, progress: false, split: false, screen: false }} amount={1} filter="" />
-        </div>
-        <div className="look-frame look-after" style={{ clipPath: `inset(0 ${100 - compare}% 0 0)` }}>
+      <div className="look-pair">
+        <figure>
+          <figcaption>{t("Before", "之前")}</figcaption>
+          <Frame fx={off} amount={1} filter="" plain />
+        </figure>
+        <figure>
+          <figcaption>{t("After", "之后")}</figcaption>
           <Frame fx={fx} amount={amount} filter={filter || "none"} />
-        </div>
+        </figure>
       </div>
       <label className="look-compare">
         {t("Compare", "对比")}
-        <input type="range" min={0} max={100} value={compare} aria-label={t("Compare", "对比")} aria-valuetext={`${compare}%`} onChange={(e) => setCompare(Number(e.target.value))} />
+        <input type="range" min={0} max={100} step={1} value={compare} aria-label={t("Compare", "对比")} aria-valuetext={`${compare}%`} onChange={(e) => setCompare(Number(e.target.value))} />
         <span>
           {t("Before", "之前")} · {t("After", "之后")}
         </span>
       </label>
+      <div className="look-wipe">
+        <Frame fx={off} amount={1} filter="" plain />
+        <div className="look-wipe-after" style={{ width: compare + "%" }}>
+          <Frame fx={fx} amount={amount} filter={filter || "none"} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -132,27 +228,35 @@ function Frame({
   fx,
   amount,
   filter,
+  plain,
 }: {
   fx: EffectBoard["effects"];
   amount: number;
   filter: string;
+  plain?: boolean;
 }) {
   return (
     <div
-      className={"look-picture" + (fx.screen ? " is-screen" : "") + (fx.split ? " is-split" : "")}
+      className={"look-still" + (fx.screen ? " is-screen" : "") + (fx.split ? " is-split" : "")}
       style={{
         filter,
         boxShadow: fx.shadow ? `inset 0 0 ${Math.round(28 * amount)}px rgba(12,16,14,${Math.min(0.72, 0.28 * amount)})` : undefined,
       }}
     >
-      <i className={"look-subject" + (fx.stabilize ? " is-steady" : " is-shaky")} style={fx.speed ? { transform: `scale(${(1 + 0.06 * amount).toFixed(2)})` } : undefined} />
-      {fx.stabilize && <i className="look-steady" aria-hidden="true" />}
+      <i
+        className="look-horizon"
+        style={
+          plain
+            ? undefined
+            : fx.speed
+              ? { transform: `scale(${(1 + 0.06 * amount).toFixed(2)})` }
+              : fx.stabilize
+                ? undefined
+                : { transform: "translate(8px, 0)" }
+        }
+      />
       {fx.glow && <i className="look-glow" style={{ opacity: Math.min(1, 0.45 * amount) }} />}
-      {fx.kinetic && (
-        <b className="look-kinetic" key={amount}>
-          Aa
-        </b>
-      )}
+      {fx.kinetic && <b className="look-type">Aa</b>}
       {fx.progress && <i className="look-progress" style={{ width: `${Math.round(46 * amount)}%` }} />}
     </div>
   );

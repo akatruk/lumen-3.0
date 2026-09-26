@@ -9,6 +9,24 @@ function effects(on: EffectKey[]): Record<EffectKey, boolean> {
   return Object.fromEntries(EFFECT_KEYS.map((key) => [key, on.includes(key)])) as Record<EffectKey, boolean>;
 }
 
+export const EFFECT_GROUPS: { id: "look" | "light" | "motion" | "graphics"; keys: EffectKey[] }[] = [
+  { id: "look", keys: ["color"] },
+  { id: "light", keys: ["blur", "glow", "shadow"] },
+  { id: "motion", keys: ["speed", "stabilize"] },
+  { id: "graphics", keys: ["kinetic", "progress", "split", "screen"] },
+];
+
+/** Slider 0–100 mapped onto the 0.4–1.6 strength the style match already applies. */
+export function strengthPercent(amount: number): number {
+  const clamped = Math.min(1.6, Math.max(0.4, amount));
+  return Math.round(((clamped - 0.4) / 1.2) * 100);
+}
+
+export function strengthAmount(percent: number): number {
+  const p = Math.min(100, Math.max(0, Math.round(percent)));
+  return Math.round((0.4 + (p / 100) * 1.2) * 1000) / 1000;
+}
+
 export const LOOKS: Record<LookName, EffectBoard> = {
   clean: { name: "clean", amount: 1, effects: effects([]) },
   punch: { name: "punch", amount: 1.1, effects: effects(["color", "speed", "stabilize", "kinetic", "progress"]) },

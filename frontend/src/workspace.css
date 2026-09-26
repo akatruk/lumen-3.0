@@ -1005,5 +1005,10 @@
 .layer-row-shadow .layer-lane > span { background: #d7dfd3; }
 .layer-row-speed .layer-lane > span { background: #c9d7f2; }
 .layer-row-join .layer-lane > span { background: #f3e3a8; }
+.layer-row-cutout .layer-lane > span { background: #f3d5d0; }
+.layer-row-mask .layer-lane > span { background: #d4e2f5; }
+.layer-row-split .layer-lane > span { background: #eadcf3; }
+.layer-row-reference .layer-lane > span { background: #f8e3c4; }
+.layer-row-art .layer-lane > span { background: #d2ebe3; }
 .layer-row-broll .layer-lane > span { background: #d8eeb8; }
 .layer-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: #163e32; pointer-events: none; }

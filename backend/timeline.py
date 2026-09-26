@@ -95,7 +95,7 @@ def motion_filter(clip,width,height,length):
         base+='eq=contrast=1.04:brightness=0.02:saturation=1.06:gamma=1.02,'
     at=float(clip.get('effect_at') or 0)
     opened=max(0.0, min(at, 0.98)) * float(length) if at >= 0.2 else 0.0
-    gate=f":enable='gte(t\\,{opened:.3f})'" if opened >= 0.2 else ''
+    gate=_effect_gate(clip, length, opened)
     if _num(clip,'blur',0)>=0.4: base+=f"gblur=sigma={min(12,_num(clip,'blur',0)):.2f}{gate},"
     if clip.get('glow'):
         amount=_num(clip,'glow_amount',0)
@@ -108,6 +108,23 @@ def motion_filter(clip,width,height,length):
     if abs(_num(clip,'exposure',0))>0.02: base+=f"exposure={_num(clip,'exposure',0):.3f},"
     base+=_directional_light(clip)
     return pre+base
+
+def _effect_gate(clip, length, opened):
+    """Blur, glow, and vignette. A measured exit below the clip uses between. Otherwise gte, or the whole clip."""
+    raw=clip.get('effect_end')
+    try:
+        end_frac=1.0 if raw is None else float(raw)
+    except (TypeError, ValueError):
+        end_frac=1.0
+    if end_frac!=end_frac:
+        end_frac=1.0
+    end_frac=max(0.0, min(1.0, end_frac))
+    closed=end_frac*float(length)
+    if end_frac<0.999 and closed>opened:
+        return f":enable='between(t\\,{opened:.3f}\\,{min(float(length), closed):.3f})'"
+    if opened>=0.2:
+        return f":enable='gte(t\\,{opened:.3f})'"
+    return ''
 
 def _directional_light(clip):
     """A measured key, fill, or rim. Amounts are fractions, not a copied frame."""

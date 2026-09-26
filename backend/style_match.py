@@ -14,6 +14,12 @@ from .schemas import Caption
 router = APIRouter(prefix='/api/studio')
 SCORE_KEYS = ('shot_structure', 'visual_pacing', 'effect_similarity', 'motion_graphic_style', 'color_treatment', 'production_quality')
 FRAMES_NOT_COMPARED = 'Frames have not been compared yet.'
+FRAME_RULES = (
+    ('shot_structure', 'shot_structure_rule', 'measured_shot_structure', 'shot structure'),
+    ('visual_pacing', 'visual_pacing_rule', 'measured_visual_pacing', 'pacing'),
+    ('motion_graphic_style', 'motion_graphic_style_rule', 'measured_motion_graphic_style', 'graphic style'),
+    ('production_quality', 'production_quality_rule', 'measured_production_quality', 'production quality'),
+)
 GAP_RULES = (
     ('motion_tracking', ('tracking', 'track the', 'follow the subject'), False),
     ('presenter_cutout', ('cutout', 'cut out', 'green screen'), False),
@@ -595,10 +601,9 @@ def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=Fal
     picture = shot.get('picture') or {}
     soft, bloom, shade = float(picture.get('blur') or 0), float(picture.get('glow') or 0), float(picture.get('shade') or 0)
     wants_key = _has(blob, ('cutout', 'cut out', 'green screen'))
-    wants_room = _has(blob, ('background replace', 'replace the background', 'new background'))
     keyed = bool(flat or chroma) and wants_key
     box = None if chroma or keyed else _presenter_box(room)
-    room_cut = box is not None and wants_room
+    room_cut = box is not None
     return {
         'blur': soft if soft >= 1 else 0,
         'glow': bloom >= 0.4,
@@ -651,6 +656,113 @@ def _owned_frame_is_screen(source, at):
         return bool(_screen(path, float(at), int(meta['width']), int(meta['height'])))
     except Exception:
         return False
+
+def _owned_screen_candidates(path, duration, width, height):
+    """Owned timestamps whose border and inner picture look like a screen. Each one is checked again."""
+    from .style_vision import _series
+    bw, bh = max(8, width // 12), max(8, height // 12)
+    inner_w, inner_h = width - 4 * bw, height - 4 * bh
+    if inner_w < 16 or inner_h < 16:
+        return []
+    quarter = max(8, inner_w // 4)
+    right_x = min(width - quarter, 2 * bw + inner_w - quarter)
+    crops = (
+        f'crop={width}:{bh}:0:0',
+        f'crop={width}:{bh}:0:{height - bh}',
+        f'crop={bw}:{height}:0:0',
+        f'crop={bw}:{height}:{width - bw}:0',
+        f'crop={quarter}:{inner_h}:{2 * bw}:{2 * bh}',
+        f'crop={quarter}:{inner_h}:{right_x}:{2 * bh}',
+    )
+    try:
+        rows = [_series(path, 0, float(duration), crop, fps=2, limit=48) for crop in crops]
+    except Exception:
+        return []
+    count = min((len(row) for row in rows), default=0)
+    found = []
+    for index in range(count):
+        borders = [rows[i][index] for i in range(4)]
+        if max(borders) - min(borders) > 40:
+            continue
+        border = sum(borders) / 4
+        left, right = rows[4][index], rows[5][index]
+        if left - border < 22 or right - border < 22:
+            continue
+        found.append(min(float(duration), index / 2))
+    return found
+
+def _confirmed_screen(path, at, width, height, duration):
+    """A timestamp that _screen accepts. A miss does not invent a bezel."""
+    from .style_vision import _screen
+    try:
+        duration = float(duration)
+    except (TypeError, ValueError):
+        return None
+    for nudge in (0.0, 0.2):
+        stamp = float(at) + nudge
+        if stamp < 0 or stamp > duration - 0.04:
+            continue
+        try:
+            if _screen(path, stamp, int(width), int(height)):
+                return round(stamp, 3)
+        except Exception:
+            return None
+    return None
+
+def _seek_owned_screen(source, preferred, duration, cache):
+    """Keep the measured time when that owned frame is a screen. Otherwise a later owned screen, then an earlier one.
+    None means no owned frame is a screen, so the measured time and its bezel stay."""
+    from pathlib import Path
+    path = Path(source) if source else None
+    if path is None or not path.is_file():
+        return None
+    try:
+        duration = float(duration)
+        preferred = max(0.0, min(duration, float(preferred)))
+    except (TypeError, ValueError):
+        return None
+    if 'size' not in cache:
+        try:
+            from . import media
+            meta = media.probe(path)
+            cache['size'] = (int(meta['width']), int(meta['height']))
+        except Exception:
+            cache['size'] = None
+    size = cache.get('size')
+    if not size or size[0] < 120 or size[1] < 120:
+        return None
+    width, height = size
+    from .style_vision import _screen
+    try:
+        held = bool(_screen(path, preferred, width, height))
+    except Exception:
+        held = False
+    if held:
+        return round(preferred, 3)
+    if 'candidates' not in cache:
+        cache['candidates'] = _owned_screen_candidates(path, duration, width, height)
+    later = [at for at in cache['candidates'] if at > preferred + 0.05]
+    earlier = [at for at in cache['candidates'] if at < preferred - 0.05]
+    for at in later:
+        found = _confirmed_screen(path, at, width, height, duration)
+        if found is not None:
+            return found
+    for at in reversed(earlier):
+        found = _confirmed_screen(path, at, width, height, duration)
+        if found is not None:
+            return found
+    return None
+
+def _retarget_owned_screens(clips, source, duration):
+    """Measured fraction when that owned frame has a bezel. Otherwise search the owned video.
+    No owned screen leaves the measured time. The bezel is not invented, and reference pixels are not copied."""
+    cache = {}
+    for clip in clips or []:
+        if clip.screen is None:
+            continue
+        found = _seek_owned_screen(source, clip.screen, duration, cache)
+        if found is not None:
+            clip.screen = found
 
 def _measured_point(picture, key):
     """A measured frame center. Words and a missing axis do not invent the other coordinate."""
@@ -834,13 +946,21 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     look = look or {}
     frame = _frame(shot or {})
     picture_frame = shot.get('picture') if isinstance(shot.get('picture'), dict) else None
-    column = look.get('track') if not picture_frame else None
-    face = isinstance(column, dict) and column.get('face') is True
-    if isinstance(column, dict) and column.get('x0') is not None and column.get('x1') is not None:
+    column = look.get('track') if isinstance(look.get('track'), dict) else None
+    tracked = (
+        isinstance(column, dict)
+        and column.get('face') is True
+        and column.get('x0') is not None and column.get('x1') is not None
+        and column.get('y0') is not None and column.get('y1') is not None
+    )
+    if tracked:
+        # Reference zoom stays. The skin path is the owned camera even when picture exists.
+        frame['x'] = max(0.0, min(1.0, float(column['x0'])))
+        frame['x_end'] = max(0.0, min(1.0, float(column['x1'])))
+        frame['y'] = max(0.0, min(1.0, float(column['y0'])))
+        frame['y_end'] = max(0.0, min(1.0, float(column['y1'])))
+    elif not picture_frame and isinstance(column, dict) and column.get('x0') is not None and column.get('x1') is not None:
         frame['x'], frame['x_end'] = float(column['x0']), float(column['x1'])
-        if face and column.get('y0') is not None and column.get('y1') is not None:
-            frame['y'] = max(0.0, min(1.0, float(column['y0'])))
-            frame['y_end'] = max(0.0, min(1.0, float(column['y1'])))
     moving = frame['zoom_end'] is not None or frame['x_end'] is not None or frame['y_end'] is not None
     spoken = _spoken(start, end, transcript)
     words = _keywords(spoken)
@@ -953,7 +1073,10 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         exit_frac = 1.0 if exit_frac is None else float(exit_frac)
     except (TypeError, ValueError):
         exit_frac = 1.0
-    if (placed or icon) and effect_at < exit_frac < 0.999:
+    # Hold and release are fractions of this shot. Blur, glow, and vignette stop there.
+    # An unmeasured exit stays at 1 and the filter runs to the clip end.
+    timed = bool(fx['blur'] or fx['glow'] or fx['shadow'])
+    if (placed or icon or lower_on or timed or picture.get('callout_out') is not None) and effect_at < exit_frac < 0.999:
         effect_end = round(min(1.0, exit_frac), 2)
     if card is not None and shot.get('card_at') is not None:
         local_in = _clip_fraction(shot['card_at'], duration, start, end)
@@ -997,28 +1120,29 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
     lower_x, lower_y = _measured_point(picture, 'lower_place') if icon else (None, None)
     chart_ready = bool(picture.get('graphic') and facts and not fx['split'] and not fx['cutout'])
     groups = _measured_groups(picture)
+    spots = [{'x': item['x'], 'y': item['y'], 'w': item['w'], 'h': item['h']} for item in groups]
     card_x = card_y = card_w = card_h = None
     chart_x = chart_y = chart_w = chart_h = None
     if len(groups) >= 2:
-        # Stable order: card, then bars, then the kinetic title. An extra group stays empty.
-        slots = []
-        if card is not None:
-            slots.append('card')
-        if chart_ready:
-            slots.append('bars')
-        if text and (motion is not None or fx['kinetic'] or bool(hits) or title_x is not None):
-            slots.append('title')
-        for slot, group in zip(slots, groups):
-            if slot == 'card':
-                card_x, card_y, card_w, card_h = group['x'], group['y'], group['w'], group['h']
-            elif slot == 'bars':
-                chart_x, chart_y, chart_w, chart_h = group['x'], group['y'], group['w'], group['h']
-            elif slot == 'title':
-                if title_x is None:
-                    title_x = title_x_end = group['x']
-                    title_y = title_y_end = group['y']
-                if title_w is None:
-                    title_w, title_h = group['w'], group['h']
+        # Fixed order: card, bars, title, then the next group on its own center.
+        def group_at(index):
+            return groups[index] if index < len(groups) else None
+        first = group_at(0)
+        if card is not None and first:
+            card_x, card_y, card_w, card_h = first['x'], first['y'], first['w'], first['h']
+        second = group_at(1)
+        if chart_ready and second:
+            chart_x, chart_y, chart_w, chart_h = second['x'], second['y'], second['w'], second['h']
+        third = group_at(2)
+        if third and text and (motion is not None or fx['kinetic'] or bool(hits) or title_x is not None):
+            if title_x is None:
+                title_x = title_x_end = third['x']
+                title_y = title_y_end = third['y']
+            if title_w is None:
+                title_w, title_h = third['w'], third['h']
+        fourth = group_at(3)
+        if fourth and lower_x is None:
+            lower_x, lower_y = fourth['x'], fourth['y']
     else:
         if card is not None:
             card_x, card_y = _measured_point(picture, 'card_place')
@@ -1026,6 +1150,14 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         if chart_ready:
             chart_x, chart_y = _measured_point(picture, 'chart_place')
             chart_w, chart_h = _measured_size(picture.get('chart_place') if isinstance(picture, dict) else None)
+    letter = picture.get('letter') if isinstance(picture.get('letter'), dict) else {}
+    kind_name = letter.get('kind') if letter.get('kind') in ('serif', 'sans') else ''
+    weight_name = letter.get('weight') if letter.get('weight') in ('light', 'heavy') else ''
+    type_style = f'{kind_name}-{weight_name}' if kind_name and weight_name else ''
+    letter_face = ''
+    if type_style:
+        from .style_vision import choose_face
+        letter_face = choose_face(kind_name, weight_name) or ''
     kind = _transition(shot or {})
     key_side, key_amount, fill_side, fill_amount, rim_amount = _clip_lights(look)
     copied = None if chart_ready or fx['cutout'] or fx['split'] else _picture_insert(shot or {}, start, end, duration)
@@ -1080,7 +1212,7 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         mask=bool(fx['mask'] and not fx['cutout'] and not fx['split']),
         mask_rx=mask_rx,
         mask_ry=mask_ry,
-        track=bool(face),
+        track=tracked,
         exposure=exposure,
         key_side=key_side,
         key_amount=key_amount,
@@ -1118,6 +1250,9 @@ def _clip(shot, start, end, transcript, ident, duration, facts, allow_card, look
         diagram=diagram,
         grade=grade,
         picture_insert=copied,
+        face=letter_face,
+        type_style=type_style,
+        spots=spots,
         approved=True,
         locked=False,
     )
@@ -1171,16 +1306,182 @@ def _gaps(shots, edit, source=None):
         found.append({'id': 'owned_screen_frame', 'essential': False, 'note': 'owned frame, not a reference screenshot'})
     return [g for g in found if g['id'] not in done]
 
+def _lengths_of(rows):
+    found = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            span = float(row.get('end', 0)) - float(row.get('start', 0))
+        except (TypeError, ValueError):
+            continue
+        if span > 0:
+            found.append(span)
+    return found
+
+def _shares(lengths):
+    total = sum(lengths)
+    if total <= 0:
+        return []
+    return [item / total for item in lengths]
+
+def _series_score(left, right):
+    """0-100 from normalized cut spacing. An extra cut counts as a miss, not as 100."""
+    if not left or not right:
+        return None
+    width = max(len(left), len(right))
+    gap = 0.0
+    for index in range(width):
+        a = left[index] if index < len(left) else 0.0
+        b = right[index] if index < len(right) else 0.0
+        gap += abs(a - b)
+    return max(0.0, min(100.0, 100 - (gap / width) * 100))
+
+def structure_and_pacing(reference_lengths, own_lengths):
+    """Shot count and durations, and the spacing of the cuts. None when a side has no shots."""
+    try:
+        ref = [float(item) for item in reference_lengths or [] if float(item) > 0]
+        own = [float(item) for item in own_lengths or [] if float(item) > 0]
+    except (TypeError, ValueError):
+        return {'shot_structure': None, 'visual_pacing': None}
+    if not ref or not own:
+        return {'shot_structure': None, 'visual_pacing': None}
+    count = 100.0 * min(len(ref), len(own)) / max(len(ref), len(own))
+    spacing = _series_score(_shares(ref), _shares(own))
+    if spacing is None:
+        return {'shot_structure': None, 'visual_pacing': None}
+    return {
+        'shot_structure': round((count + spacing) / 2, 1),
+        'visual_pacing': round(spacing, 1),
+    }
+
+def _graphic_kinds(picture):
+    """Measured card, title, chart, and lower plate. Words do not add a kind."""
+    if not isinstance(picture, dict):
+        return set()
+    kinds = set()
+    if picture.get('card') or isinstance(picture.get('card_place'), dict):
+        kinds.add('card')
+    if isinstance(picture.get('title'), dict):
+        kinds.add('title')
+    if picture.get('graphic') or picture.get('illustration') or isinstance(picture.get('chart_place'), dict):
+        kinds.add('chart')
+    if picture.get('lower') or isinstance(picture.get('lower_place'), dict):
+        kinds.add('lower')
+    return kinds
+
+def _clip_graphic_kinds(clip):
+    if not isinstance(clip, dict):
+        return set()
+    kinds = set()
+    if clip.get('card'):
+        kinds.add('card')
+    if clip.get('kinetic') or clip.get('title_x') is not None:
+        kinds.add('title')
+    if clip.get('graphic') or clip.get('bars') or clip.get('diagram') or clip.get('chart_x') is not None:
+        kinds.add('chart')
+    if clip.get('lower'):
+        kinds.add('lower')
+    return kinds
+
+def _graphic_rule(shots, clips):
+    """Share of measured graphic kinds the paired clip actually has. No measured kind stays 100."""
+    parts = []
+    for index, shot in enumerate(shots or []):
+        ref_kinds = _graphic_kinds(shot.get('picture') if isinstance(shot, dict) else None)
+        if not ref_kinds:
+            continue
+        clip = clips[index] if index < len(clips) else {}
+        parts.append(100 * len(ref_kinds & _clip_graphic_kinds(clip)) / len(ref_kinds))
+    if not parts:
+        return 100.0
+    return round(sum(parts) / len(parts), 1)
+
+def _as_float(value):
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+def _measured_effect_names(picture):
+    """Effects the reference picture measured, aside from zoom, position, and the join."""
+    if not isinstance(picture, dict):
+        return []
+    found = []
+    if _as_float(picture.get('blur')) > 0:
+        found.append('blur')
+    if _as_float(picture.get('glow')) > 0:
+        found.append('glow')
+    if picture.get('vignette') or _as_float(picture.get('shade')) > 0:
+        found.append('shadow')
+    if picture.get('mask'):
+        found.append('mask')
+    if picture.get('split'):
+        found.append('split')
+    if picture.get('screen'):
+        found.append('screen')
+    try:
+        speed = picture.get('speed')
+        if speed is not None and abs(float(speed) - 1) > 0.04:
+            found.append('speed')
+    except (TypeError, ValueError):
+        pass
+    if picture.get('lower'):
+        found.append('lower')
+    return found
+
+def _clip_has_effect(clip, name):
+    if not isinstance(clip, dict):
+        return False
+    if name == 'blur':
+        return float(clip.get('blur') or 0) > 0
+    if name == 'glow':
+        return bool(clip.get('glow'))
+    if name == 'shadow':
+        return bool(clip.get('shadow'))
+    if name == 'mask':
+        return bool(clip.get('mask'))
+    if name == 'split':
+        return bool(clip.get('split'))
+    if name == 'screen':
+        return clip.get('screen') is not None
+    if name == 'speed':
+        try:
+            speed = float(clip.get('speed') or 1)
+            end = clip.get('speed_end')
+            moved = end is not None and abs(float(end) - 1) > 0.04
+        except (TypeError, ValueError):
+            return False
+        return abs(speed - 1) > 0.04 or moved
+    if name == 'lower':
+        return bool(clip.get('lower'))
+    return False
+
+def _production_rule(shots, clips, duration):
+    """A measured effect the clip does not carry lowers the rule. Nothing measured keeps coverage."""
+    requested = applied = 0
+    for index, shot in enumerate(shots or []):
+        picture = shot.get('picture') if isinstance(shot, dict) else None
+        clip = clips[index] if index < len(clips) else {}
+        for name in _measured_effect_names(picture):
+            requested += 1
+            if _clip_has_effect(clip, name):
+                applied += 1
+    if requested:
+        return round(100 * applied / requested, 1)
+    covered = abs(sum(float(c.get('end', 0)) - float(c.get('start', 0)) for c in clips) - float(duration)) < 0.05
+    return 80.0 if covered else 70.0 if clips else 40.0
+
 def _scores(shots, edit, gaps, duration):
     clips = edit['clips']
-    reference_count = max(1, len(shots))
-    structure = round(100 * min(reference_count, len(clips)) / max(reference_count, len(clips)), 1)
-    if shots:
-        ref_avg = sum(max(0.2, float(s.get('end', 0)) - float(s.get('start', 0))) for s in shots) / len(shots)
-        own_avg = sum(c['end'] - c['start'] for c in clips) / len(clips)
-        pacing = round(100 * min(ref_avg, own_avg) / max(ref_avg, own_avg), 1)
-    else:
+    paced = structure_and_pacing(_lengths_of(shots), _lengths_of(clips))
+    if paced['shot_structure'] is None:
+        reference_count = max(1, len(shots))
+        structure = round(100 * min(reference_count, len(clips)) / max(reference_count, len(clips)), 1)
         pacing = 50.0
+    else:
+        structure = paced['shot_structure']
+        pacing = paced['visual_pacing']
     requested = applied = 0
     for index, clip in enumerate(clips):
         shot = shots[index % len(shots)] if shots else None
@@ -1198,19 +1499,11 @@ def _scores(shots, edit, gaps, duration):
                 applied += 1
     effects = 100.0 if requested == 0 else round(100 * applied / requested, 1)
     gap_ids = {gap['id'] for gap in gaps}
-    has_card = any(c.get('card') for c in clips)
-    has_emphasis = any(c.get('emphasis_en') or c.get('emphasis_zh') for c in edit['captions'])
-    if ('kinetic_type' in gap_ids or 'number_card' in gap_ids) and not has_card:
-        graphics = 55.0 if has_emphasis or any(c.get('text') for c in clips) else 40.0 if edit['subtitles'] else 15.0
-    elif has_card or has_emphasis:
-        graphics = 80.0
-    else:
-        graphics = 100.0
+    graphics = _graphic_rule(shots, clips)
     graded = any(c.get('grade') for c in clips)
     enhanced = any(c.get('enhance') for c in clips)
     color = 72.0 if graded else 35.0 if 'color_grade' in gap_ids and enhanced else 0.0 if 'color_grade' in gap_ids else 75.0 if enhanced else 100.0
-    covered = abs(sum(c['end'] - c['start'] for c in clips) - float(duration)) < 0.05
-    production = 80.0 if covered else 70.0 if clips else 40.0
+    production = _production_rule(shots, clips, duration)
     scores = {
         'shot_structure': structure,
         'visual_pacing': pacing,
@@ -1302,7 +1595,12 @@ def _report(shots, edit, duration, trimmed, source=None, brand=None):
         'sections': [{'index': i, 'start': c['start'], 'end': c['end'], 'transition': c['transition'], 'zoom': c['zoom']} for i, c in enumerate(edit['clips'])],
         'note': 'owned_only',
         'compared': False,
+        'shot_structure_rule': scores['shot_structure'],
+        'visual_pacing_rule': scores['visual_pacing'],
         'effect_similarity_rule': scores['effect_similarity'],
+        'motion_graphic_style_rule': scores['motion_graphic_style'],
+        'color_treatment_rule': scores['color_treatment'],
+        'production_quality_rule': scores['production_quality'],
         'comparison_note': FRAMES_NOT_COMPARED,
     }
 
@@ -1424,18 +1722,16 @@ def _clip_lights(look):
     fill = lights.get('fill') if lights.get('fill') in ('left', 'right', 'bottom') else None
     return key, amount('key_amount', 0.35, bool(key)), fill, amount('fill_amount', 0.2, bool(fill)), amount('rim_amount', 0.35, True)
 
-def _speech_hit(start, end, transcript):
-    return any(max(0, min(end, float(row.get('end', 0))) - max(start, float(row.get('start', 0)))) > 0.2 for row in transcript or [])
-
 def _punch(cuts, spans, transcript):
-    """Drop black or frozen holes of at least 0.4s. A hole that covers speech stays."""
+    """Drop black or frozen holes of at least 0.2s. Speech on the hole does not keep it."""
+    del transcript
     holes = []
     for span in spans or []:
         try:
             start, end = float(span['start']), float(span['end'])
         except (KeyError, TypeError, ValueError):
             continue
-        if end - start < 0.4 or _speech_hit(start, end, transcript):
+        if end - start < 0.2:
             continue
         holes.append((start, end))
     if not holes:
@@ -1452,7 +1748,7 @@ def _punch(cuts, spans, transcript):
             cursor = max(cursor, min(hole_end, end))
         if end - cursor >= 0.28:
             punched.append((round(cursor, 3), round(end, 3)))
-    if not punched or len(punched) > 40:
+    if not punched:
         return list(cuts)
     return punched
 
@@ -1460,20 +1756,19 @@ def _line_key(text):
     words = re.findall(r'[A-Za-z\u0400-\u04FF]{3,}', (text or '').lower())
     return ' '.join(words[:6])
 
-def _best_takes(cuts, transcript, unusable):
-    """Keep one overlapping take only when speech and a usable frame were both measured."""
-    if not transcript or not unusable:
-        return list(cuts)
-    holes = []
-    for span in unusable:
+def _has_speech(start, end, transcript):
+    for row in transcript or []:
         try:
-            holes.append((float(span['start']), float(span['end'])))
+            row_start, row_end = float(row['start']), float(row['end'])
         except (KeyError, TypeError, ValueError):
             continue
-    if not holes:
-        return list(cuts)
+        if min(end, row_end) - max(start, row_start) > 0:
+            return True
+    return False
+
+def _repeated_lines(transcript):
     groups = {}
-    for row in transcript:
+    for row in transcript or []:
         key = _line_key(row.get('original') or row.get('en') or '')
         if len(key) < 3:
             continue
@@ -1484,25 +1779,20 @@ def _best_takes(cuts, transcript, unusable):
         if end - start < 0.4:
             continue
         groups.setdefault(key, []).append((start, end))
-    drop = []
-    for spans in groups.values():
-        if len(spans) < 2:
+    return [spans for spans in groups.values() if len(spans) >= 2]
+
+def _best_takes(cuts, transcript, unusable):
+    """Overlapping copies keep the smaller unusable overlap. Speech breaks a tie."""
+    if not cuts or not transcript:
+        return list(cuts)
+    holes = []
+    for span in unusable or []:
+        try:
+            holes.append((float(span['start']), float(span['end'])))
+        except (KeyError, TypeError, ValueError):
             continue
-        ranked = []
-        for start, end in spans:
-            bad = _overlap(start, end, holes)
-            ranked.append((bad <= 0.2 * (end - start), end - start - bad, start, end))
-        winners = [row for row in ranked if row[0]]
-        if len(winners) != 1:
-            continue
-        keep_start, keep_end = winners[0][2], winners[0][3]
-        for usable, _score, start, end in ranked:
-            if (start, end) == (keep_start, keep_end):
-                continue
-            if max(0, min(end, keep_end) - max(start, keep_start)) > 0.2:
-                continue
-            drop.append({'start': start, 'end': end})
-    chosen = _punch(cuts, drop, []) if drop else list(cuts)
+    repeated = _repeated_lines(transcript)
+    chosen = list(cuts)
     parent = list(range(len(chosen)))
 
     def find(index):
@@ -1523,26 +1813,38 @@ def _best_takes(cuts, transcript, unusable):
     for members in clusters.values():
         if len(members) < 2:
             continue
-        winners = []
+        scored = []
         for index in members:
             start, end = chosen[index]
-            length = end - start
-            if length <= 0:
+            if end <= start:
                 continue
-            spoken = False
-            for row in transcript:
-                try:
-                    row_start, row_end = float(row['start']), float(row['end'])
-                except (KeyError, TypeError, ValueError):
-                    continue
-                if min(end, row_end) - max(start, row_start) > 0:
-                    spoken = True
-                    break
-            if spoken and _overlap(start, end, holes) <= 0.2 * length:
-                winners.append(index)
-        if len(winners) != 1:
+            scored.append((_overlap(start, end, holes), 0 if _has_speech(start, end, transcript) else 1, index))
+        if not scored:
             continue
-        drop_at.update(index for index in members if index != winners[0])
+        scored.sort()
+        best_bad = scored[0][0]
+        cleanest = [index for bad, _speech, index in scored if bad == best_bad]
+        speakers = [index for index in cleanest if _has_speech(*chosen[index], transcript)]
+        if speakers:
+            same_line = False
+            if len(speakers) > 1:
+                for spans in repeated:
+                    covered = [index for index in speakers if _overlap(*chosen[index], spans) > 0]
+                    if len(covered) > 1:
+                        speakers = covered
+                        same_line = True
+                        break
+            winners = speakers if len(speakers) > 1 and not same_line else speakers[:1]
+        elif len(cleanest) == 1:
+            winners = cleanest
+        else:
+            continue
+        for index in members:
+            if index in winners:
+                continue
+            start, end = chosen[index]
+            if any(min(end, chosen[win][1]) - max(start, chosen[win][0]) > 0.2 for win in winners):
+                drop_at.add(index)
     kept = [cut for index, cut in enumerate(chosen) if index not in drop_at]
     if not kept:
         return list(cuts)
@@ -1603,6 +1905,7 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
             clip.text = _prefix_title(clip.text, word)
         if brand and (clip.text or clip.bars or clip.graphic or clip.lower or clip.progress):
             clip.ink = brand
+    _retarget_owned_screens(clips, source, float(duration))
     emphasize = _wants_captions(timed or shots)
     captions = _captions(transcript, emphasize)
     saw_highlight = _emphasize_owned_hits(captions, timed, cuts)
@@ -1764,10 +2067,26 @@ def _with_board(edit, context):
     except Exception:
         return edit
 
+def _stored_reference(context, pid):
+    """Uploaded reference file or a held upload id. A Douyin id alone does not count."""
+    context = context or {}
+    if context.get('reference_file'):
+        return True
+    if str(context.get('reference_upload_id') or '').strip():
+        return True
+    if not pid:
+        return False
+    from .config import settings
+    return (settings.data_dir / pid / 'reference_source').is_file()
+
+def _style_on(current, pid):
+    context = (current or {}).get('context') or {}
+    return bool(context.get('style_match')) or _stored_reference(context, pid)
+
 def match_project(pid):
     from .studio import state
     current = state(pid)
-    if not current['context'].get('style_match'):
+    if not _style_on(current, pid):
         return
     item = project(pid)
     from .config import settings
@@ -1786,12 +2105,13 @@ def match_project(pid):
         _store(db, pid, edit, report, 'pending', True)
 
 def record_failure(pid):
-    report = {'scores': {key: 0 for key in (*SCORE_KEYS, 'overall')}, 'applied': [], 'gaps': [{'id': 'style_match_failed', 'essential': True}], 'sections': [], 'note': 'owned_only', 'compared': False, 'effect_similarity_rule': 0, 'comparison_note': FRAMES_NOT_COMPARED}
+    report = {'scores': {key: 0 for key in (*SCORE_KEYS, 'overall')}, 'applied': [], 'gaps': [{'id': 'style_match_failed', 'essential': True}], 'sections': [], 'note': 'owned_only', 'compared': False, 'shot_structure_rule': 0, 'visual_pacing_rule': 0, 'effect_similarity_rule': 0, 'motion_graphic_style_rule': 0, 'color_treatment_rule': 0, 'production_quality_rule': 0, 'comparison_note': FRAMES_NOT_COMPARED}
     with connect() as db:
         db.lock()
         current, context = _context(db, pid)
-        if not current['context'].get('style_match'):
+        if not _style_on(current, pid):
             return
+        context['style_match'] = True
         context['style_report'] = report
         context['style_match_status'] = 'failed'
         db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
@@ -1804,7 +2124,10 @@ def _owned_state(pid, user):
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
         current = state(pid, db)
-        if not current['context'].get('style_match') or not current.get('plan'):
+        stored = _stored_reference(current.get('context'), pid)
+        if not current['context'].get('style_match') and not stored:
+            raise HTTPException(422, 'style_match_off')
+        if not current.get('plan') and not stored:
             raise HTTPException(422, 'style_match_off')
         return item, current
 
@@ -1890,12 +2213,114 @@ def _refresh_overall(scores):
     if all(key in scores for key in SCORE_KEYS):
         scores['overall'] = round(sum(float(scores[key]) for key in SCORE_KEYS) / len(SCORE_KEYS), 1)
 
-def blend_effect_similarity(report, frame_similarity):
-    """Average the rule with the measured frames. No measurement leaves the rule uncompared.
+def _neutral_grade(grade):
+    if not isinstance(grade, dict):
+        return True
+    try:
+        gamma = float(grade.get('gamma') if grade.get('gamma') is not None else 1)
+        gs = float(grade.get('gs') or 0)
+    except (TypeError, ValueError):
+        return True
+    return abs(gamma - 1) < 0.02 and abs(gs) < 0.02
 
-    The measured number already blends contrast and edge with layout and type when
-    the frames show those parts. A missing part is not in that number, and words
-    never supply it.
+def _light_amounts(source):
+    found = {}
+    for key in ('key_amount', 'fill_amount', 'rim_amount'):
+        try:
+            found[key] = float((source or {}).get(key) or 0) if isinstance(source, dict) else 0.0
+        except (TypeError, ValueError):
+            found[key] = 0.0
+    return found
+
+def _clip_grade(clips):
+    grade = None
+    lights = {'key_amount': 0.0, 'fill_amount': 0.0, 'rim_amount': 0.0}
+    for clip in clips or []:
+        if not isinstance(clip, dict):
+            continue
+        if grade is None and isinstance(clip.get('grade'), dict):
+            grade = clip['grade']
+        for key in lights:
+            try:
+                lights[key] = max(lights[key], float(clip.get(key) or 0))
+            except (TypeError, ValueError):
+                pass
+    return grade, lights
+
+def grade_alignment(reference_grade, reference_lights, clips):
+    """Closeness of applied gamma, green shift, and key/fill/rim.
+
+    None when neither side has a grade, so a missing grade is not scored as a match.
+    0 when the reference measured a grade and the clip applied none.
+    """
+    applied_grade, applied_lights = _clip_grade(clips)
+    ref_lights = _light_amounts(reference_lights)
+    wanted = not _neutral_grade(reference_grade) or any(value >= 0.04 for value in ref_lights.values())
+    applied = isinstance(applied_grade, dict) or any(value >= 0.04 for value in applied_lights.values())
+    if not wanted and not applied:
+        return None
+    if wanted and not applied:
+        return 0.0
+    target_gamma, target_gs = 1.0, 0.0
+    if isinstance(reference_grade, dict):
+        try:
+            target_gamma = float(reference_grade.get('gamma') if reference_grade.get('gamma') is not None else 1)
+            target_gs = float(reference_grade.get('gs') or 0)
+        except (TypeError, ValueError):
+            target_gamma, target_gs = 1.0, 0.0
+    have_gamma, have_gs = 1.0, 0.0
+    if isinstance(applied_grade, dict):
+        try:
+            have_gamma = float(applied_grade.get('gamma') if applied_grade.get('gamma') is not None else 1)
+            have_gs = float(applied_grade.get('gs') or 0)
+        except (TypeError, ValueError):
+            have_gamma, have_gs = 1.0, 0.0
+    parts = [
+        max(0.0, 100 - abs(have_gamma - target_gamma) / 0.6 * 100),
+        max(0.0, 100 - abs(have_gs - target_gs) / 0.4 * 100),
+    ]
+    for key, span in (('key_amount', 0.35), ('fill_amount', 0.2), ('rim_amount', 0.35)):
+        parts.append(max(0.0, 100 - abs(applied_lights[key] - ref_lights[key]) / span * 100))
+    return round(sum(parts) / len(parts), 1)
+
+def color_after_render(distance, reference_grade, reference_lights, clips):
+    """Luma/chroma distance, folded with the grade the clip actually applied."""
+    distance_score = max(0.0, min(100.0, 100 - float(distance)))
+    aligned = grade_alignment(reference_grade, reference_lights, clips)
+    if aligned is None:
+        return round(distance_score, 1)
+    return round((distance_score + aligned) / 2, 1)
+
+def _rendered_terms(reference, output):
+    """Frame measurements for structure, pacing, graphic style, and production. Unreadable terms stay None."""
+    from .style_vision import contrast_similarity, graphic_similarity, shot_lengths
+    terms = {key: None for key, _rule, _measured, _label in FRAME_RULES}
+    try:
+        ref_lengths = shot_lengths(reference)
+        out_lengths = shot_lengths(output)
+    except Exception:
+        ref_lengths = out_lengths = None
+    if ref_lengths and out_lengths:
+        paced = structure_and_pacing(ref_lengths, out_lengths)
+        terms['shot_structure'] = paced.get('shot_structure')
+        terms['visual_pacing'] = paced.get('visual_pacing')
+    try:
+        terms['motion_graphic_style'] = graphic_similarity(reference, output)
+    except Exception:
+        terms['motion_graphic_style'] = None
+    try:
+        terms['production_quality'] = contrast_similarity(reference, output)
+    except Exception:
+        terms['production_quality'] = None
+    return terms
+
+def blend_effect_similarity(report, frame_similarity, measured=None):
+    """Average each rule with its frame measurement. No frames leaves every score on the rule.
+
+    Effect similarity already blends contrast, edge, layout, the title box, and the
+    title-box edge shape. Shot structure, pacing, graphic style, and production
+    quality blend the same way when those terms can be read. A term that cannot
+    be measured stays the rule, and the note says so. It is not rewritten to 100.
     """
     scores = report.setdefault('scores', {})
     rule = report.get('effect_similarity_rule')
@@ -1913,7 +2338,26 @@ def blend_effect_similarity(report, frame_similarity):
     scores['effect_similarity'] = round((rule + float(frame_similarity)) / 2, 1)
     report['measured_effect_similarity'] = frame_similarity
     report['compared'] = True
-    report['comparison_note'] = ''
+    if measured is None:
+        report['comparison_note'] = ''
+        _refresh_overall(scores)
+        return report
+    pending = []
+    for score_key, rule_key, measured_key, label in FRAME_RULES:
+        value = measured.get(score_key) if isinstance(measured, dict) else None
+        term_rule = report.get(rule_key)
+        if term_rule is None:
+            term_rule = scores.get(score_key, 0)
+        term_rule = float(term_rule)
+        report[rule_key] = term_rule
+        if value is None:
+            scores[score_key] = term_rule
+            report.pop(measured_key, None)
+            pending.append(label)
+        else:
+            scores[score_key] = round((term_rule + float(value)) / 2, 1)
+            report[measured_key] = value
+    report['comparison_note'] = '' if not pending else 'Left on the rule: ' + ', '.join(pending) + '.'
     _refresh_overall(scores)
     return report
 
@@ -1944,9 +2388,26 @@ def score_output(pid):
             return
         if left and right:
             distance = abs(left['y'] - right['y']) + 0.5 * abs(left['u'] - right['u']) + 0.5 * abs(left['v'] - right['v'])
-            report['scores']['color_treatment'] = round(max(0, min(100, 100 - distance)), 1)
+            if report.get('color_treatment_rule') is None:
+                report['color_treatment_rule'] = report.get('scores', {}).get('color_treatment', 0)
             report['measured_color_distance'] = round(distance, 2)
-        blend_effect_similarity(report, measured)
+            edit = None
+            try:
+                from .manual import read
+                edit = read(pid, db)
+            except Exception:
+                edit = None
+            measured_ctx = context.get('measured') if isinstance(context.get('measured'), dict) else {}
+            clips = (edit or {}).get('clips') if isinstance(edit, dict) else []
+            report['scores']['color_treatment'] = color_after_render(distance, measured_ctx.get('grade'), measured_ctx.get('lights'), clips)
+        if measured is None:
+            blend_effect_similarity(report, None)
+        else:
+            try:
+                terms = _rendered_terms(reference, output)
+            except Exception:
+                terms = {key: None for key, _rule, _measured_key, _label in FRAME_RULES}
+            blend_effect_similarity(report, measured, terms)
         report['scores']['overall'] = round(sum(report['scores'][key] for key in SCORE_KEYS) / len(SCORE_KEYS), 1)
         context['style_report'] = report
         db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
@@ -1961,7 +2422,10 @@ def approve(pid: str, user=Depends(current_user)):
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
         current = state(pid, db)
-        if not current['context'].get('style_match') or not current['context'].get('style_report'):
+        stored = _stored_reference(current.get('context'), pid)
+        if not current['context'].get('style_match') and not stored:
+            raise HTTPException(422, 'style_match_off')
+        if not current['context'].get('style_report') and not stored:
             raise HTTPException(422, 'style_match_off')
         edit = read(pid, db)
         if not edit:
@@ -1980,6 +2444,7 @@ def approve(pid: str, user=Depends(current_user)):
         if audio and audio.get('error'):
             raise HTTPException(422, audio['error'])
         context = json.loads(json.dumps(current['context']))
+        context['style_match'] = True
         context['style_match_status'] = 'approved'
         db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
         enqueue(db, pid, 'studio_render', payload)
@@ -1995,7 +2460,8 @@ def regenerate(pid: str, user=Depends(current_user)):
     if saved and any(c.get('locked') for c in saved['clips']):
         raise HTTPException(409, 'locked_decision')
     shots = shots_of(current.get('dna'))
-    transcript = current['plan'].get('transcript') or []
+    plan = current.get('plan') or {}
+    transcript = plan.get('transcript') or []
     owned_source = None
     try:
         from .config import settings
@@ -2003,7 +2469,7 @@ def regenerate(pid: str, user=Depends(current_user)):
         owned_source = candidate if candidate.is_file() else None
     except Exception:
         owned_source = None
-    edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=current['plan'].get('recommendations') or [], measured=current['context'].get('measured') or {}, source=owned_source, title=item.get('title') or '')
+    edit, report = build(shots, item['metadata']['duration'], transcript, item['metadata'].get('has_audio'), script=item.get('brief') or '', recommendations=plan.get('recommendations') or [], measured=current['context'].get('measured') or {}, source=owned_source, title=item.get('title') or '')
     try:
         from .style_stock import attach
         edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
@@ -2024,9 +2490,9 @@ def regenerate_section(pid: str, index: int, user=Depends(current_user)):
     with connect() as db:
         saved = read(pid, db)
     if not saved:
-        raise HTTPException(422, 'style_match_off')
+        raise HTTPException(422, 'save_manual_first' if _stored_reference(current.get('context'), pid) else 'style_match_off')
     shots = shots_of(current.get('dna'))
-    transcript = current['plan'].get('transcript') or []
+    transcript = (current.get('plan') or {}).get('transcript') or []
     measured = current['context'].get('measured') or {}
     edit = _with_board(_restyle(saved, shots, transcript, index, item['metadata']['duration'], _facts(item.get('brief') or '', transcript), look=_look(measured)), current['context'])
     checked = Edit.model_validate(edit)

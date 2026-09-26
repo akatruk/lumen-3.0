@@ -1,0 +1,920 @@
+{
+  "en": {
+    "frames": 9296,
+    "scenes": [
+      {
+        "id": "signin",
+        "fromFrame": 0,
+        "frames": 712,
+        "audio": "voice-walkthrough/en-signin.wav",
+        "title": "Sign in",
+        "lines": [
+          "Sign in",
+          "Email address",
+          "Continue"
+        ]
+      },
+      {
+        "id": "create",
+        "fromFrame": 712,
+        "frames": 1106,
+        "audio": "voice-walkthrough/en-create.wav",
+        "title": "New project",
+        "lines": [
+          "New project",
+          "Reference video",
+          "Analyze & build my plan"
+        ]
+      },
+      {
+        "id": "upload",
+        "fromFrame": 1818,
+        "frames": 1407,
+        "audio": "voice-walkthrough/en-upload.wav",
+        "title": "Your own video",
+        "lines": [
+          "Choose your video to upload",
+          "Caption language",
+          "Voice & style"
+        ]
+      },
+      {
+        "id": "picture",
+        "fromFrame": 3225,
+        "frames": 1129,
+        "audio": "voice-walkthrough/en-picture.wav",
+        "title": "First picture, your sound",
+        "lines": [
+          "Approve this cut",
+          "Create video with these changes",
+          "Save and refresh summary"
+        ]
+      },
+      {
+        "id": "voice",
+        "fromFrame": 4354,
+        "frames": 1434,
+        "audio": "voice-walkthrough/en-voice.wav",
+        "title": "English voice",
+        "lines": [
+          "Voiceover language · English",
+          "AI voice · Female — warm",
+          "Create dubbed version"
+        ]
+      },
+      {
+        "id": "music",
+        "fromFrame": 5788,
+        "frames": 1100,
+        "audio": "voice-walkthrough/en-music.wav",
+        "title": "Music under the voice",
+        "lines": [
+          "Background music",
+          "No added music",
+          "Add music to final video"
+        ]
+      },
+      {
+        "id": "edit",
+        "fromFrame": 6888,
+        "frames": 1293,
+        "audio": "voice-walkthrough/en-edit.wav",
+        "title": "Edit, then approve again",
+        "lines": [
+          "Edit",
+          "Subtitles · Audio · Effects",
+          "Materials · Review"
+        ]
+      },
+      {
+        "id": "download",
+        "fromFrame": 8181,
+        "frames": 1115,
+        "audio": "voice-walkthrough/en-download.wav",
+        "title": "Download the finished video",
+        "lines": [
+          "Finished video",
+          "Download video",
+          "Voice en-female"
+        ]
+      }
+    ],
+    "captions": [
+      {
+        "text": "Open Lumen.",
+        "startMs": 200,
+        "endMs": 1185
+      },
+      {
+        "text": "The screen says Sign in.",
+        "startMs": 1185,
+        "endMs": 3333
+      },
+      {
+        "text": "Enter your email address and password, then choose Continue.",
+        "startMs": 3333,
+        "endMs": 8704
+      },
+      {
+        "text": "Interface language only changes these buttons.",
+        "startMs": 8704,
+        "endMs": 12821
+      },
+      {
+        "text": "It does not choose the voice in the finished video.",
+        "startMs": 12821,
+        "endMs": 17387
+      },
+      {
+        "text": "Download video on this screen is the tutorial, not your project.",
+        "startMs": 17387,
+        "endMs": 23115
+      },
+      {
+        "text": "After you sign in, open Video studio.",
+        "startMs": 23933,
+        "endMs": 27398
+      },
+      {
+        "text": "New project shows the form.",
+        "startMs": 27398,
+        "endMs": 29927
+      },
+      {
+        "text": "The heading is Learn the technique.",
+        "startMs": 29927,
+        "endMs": 33205
+      },
+      {
+        "text": "Tell your story.",
+        "startMs": 33205,
+        "endMs": 34703
+      },
+      {
+        "text": "A reference is required: one to five",
+        "startMs": 34703,
+        "endMs": 38075
+      },
+      {
+        "text": "Douyin results, or a Reference video file.",
+        "startMs": 38075,
+        "endMs": 42008
+      },
+      {
+        "text": "Analyze and build my plan stays off until your own",
+        "startMs": 42008,
+        "endMs": 46690
+      },
+      {
+        "text": "video and at least one reference are both there.",
+        "startMs": 46690,
+        "endMs": 51186
+      },
+      {
+        "text": "The reference is measured only.",
+        "startMs": 51186,
+        "endMs": 54089
+      },
+      {
+        "text": "Its pictures, speech, and music do not enter the finished file.",
+        "startMs": 54089,
+        "endMs": 59989
+      },
+      {
+        "text": "Choose your video to upload.",
+        "startMs": 60800,
+        "endMs": 63747
+      },
+      {
+        "text": "Use one vertical file you own, from 30",
+        "startMs": 63747,
+        "endMs": 67746
+      },
+      {
+        "text": "seconds to 7 minutes, up to 250 megabytes.",
+        "startMs": 67746,
+        "endMs": 72167
+      },
+      {
+        "text": "Fill in Project name, Script and intended message, Topic, and Audience.",
+        "startMs": 72167,
+        "endMs": 79640
+      },
+      {
+        "text": "Tick I own or have permission to edit this footage.",
+        "startMs": 79640,
+        "endMs": 85007
+      },
+      {
+        "text": "Caption language is English or Simplified Chinese.",
+        "startMs": 85007,
+        "endMs": 90270
+      },
+      {
+        "text": "That field is for subtitles, not the voice.",
+        "startMs": 90270,
+        "endMs": 94796
+      },
+      {
+        "text": "Voice and style is a tone, such as calm and factual.",
+        "startMs": 94796,
+        "endMs": 100269
+      },
+      {
+        "text": "It is not a voice id.",
+        "startMs": 100269,
+        "endMs": 102479
+      },
+      {
+        "text": "Only your file becomes the project source.",
+        "startMs": 102479,
+        "endMs": 106899
+      },
+      {
+        "text": "Wait until analysis finishes.",
+        "startMs": 107700,
+        "endMs": 110132
+      },
+      {
+        "text": "A voiceover cannot be created until the first picture has a render.",
+        "startMs": 110132,
+        "endMs": 115750
+      },
+      {
+        "text": "If style match is on, Approve this cut renders the saved edit.",
+        "startMs": 115750,
+        "endMs": 120949
+      },
+      {
+        "text": "If it is off, save the plan,",
+        "startMs": 120949,
+        "endMs": 123297
+      },
+      {
+        "text": "then choose Create video with these changes.",
+        "startMs": 123297,
+        "endMs": 126986
+      },
+      {
+        "text": "This first file still uses the sound of your own footage.",
+        "startMs": 126986,
+        "endMs": 131766
+      },
+      {
+        "text": "Save and refresh summary does not create a video.",
+        "startMs": 131766,
+        "endMs": 135875
+      },
+      {
+        "text": "Review edits and create a version only opens the summary.",
+        "startMs": 135875,
+        "endMs": 140654
+      },
+      {
+        "text": "An unsaved draft does not change the download.",
+        "startMs": 140654,
+        "endMs": 144511
+      },
+      {
+        "text": "Open Edit, then Voiceover and language.",
+        "startMs": 145333,
+        "endMs": 149152
+      },
+      {
+        "text": "The panel says Create a translated voiceover.",
+        "startMs": 149152,
+        "endMs": 153558
+      },
+      {
+        "text": "It opens on Russian and ru-male.",
+        "startMs": 153558,
+        "endMs": 156692
+      },
+      {
+        "text": "For this English film, set Voiceover language to",
+        "startMs": 156692,
+        "endMs": 161391
+      },
+      {
+        "text": "English, and AI voice to Female — warm.",
+        "startMs": 161391,
+        "endMs": 165210
+      },
+      {
+        "text": "That id is en-female.",
+        "startMs": 165210,
+        "endMs": 167266
+      },
+      {
+        "text": "Preview voice makes a sample only.",
+        "startMs": 167266,
+        "endMs": 170596
+      },
+      {
+        "text": "It is not the finished video.",
+        "startMs": 170596,
+        "endMs": 173435
+      },
+      {
+        "text": "Choose Create dubbed version.",
+        "startMs": 173435,
+        "endMs": 176275
+      },
+      {
+        "text": "The language and the voice must be this English pair.",
+        "startMs": 176275,
+        "endMs": 181464
+      },
+      {
+        "text": "When the version is ready, Used in final video names en-female.",
+        "startMs": 181464,
+        "endMs": 187633
+      },
+      {
+        "text": "Use original edit audio would remove that voice.",
+        "startMs": 187633,
+        "endMs": 192333
+      },
+      {
+        "text": "Open the Audio tab.",
+        "startMs": 193133,
+        "endMs": 194857
+      },
+      {
+        "text": "Under Background music, Track lists music you uploaded yourself.",
+        "startMs": 194857,
+        "endMs": 200664
+      },
+      {
+        "text": "The empty choice is No added music.",
+        "startMs": 200664,
+        "endMs": 203840
+      },
+      {
+        "text": "Choosing a track writes it into the edit draft.",
+        "startMs": 203840,
+        "endMs": 208104
+      },
+      {
+        "text": "It is not the download yet.",
+        "startMs": 208104,
+        "endMs": 210554
+      },
+      {
+        "text": "Add music to final video saves the edit,",
+        "startMs": 210554,
+        "endMs": 214183
+      },
+      {
+        "text": "then mixes that track under the selected voice.",
+        "startMs": 214183,
+        "endMs": 218448
+      },
+      {
+        "text": "The voice stays en-female.",
+        "startMs": 218448,
+        "endMs": 220807
+      },
+      {
+        "text": "If you add no track, the finished file has no added music.",
+        "startMs": 220807,
+        "endMs": 226069
+      },
+      {
+        "text": "Reference music is never copied.",
+        "startMs": 226069,
+        "endMs": 228973
+      },
+      {
+        "text": "The tabs are Edit, Subtitles, Audio, Effects, Materials, and Review.",
+        "startMs": 229800,
+        "endMs": 235840
+      },
+      {
+        "text": "Approve each scene.",
+        "startMs": 235840,
+        "endMs": 237528
+      },
+      {
+        "text": "Saving the edit does not start a render, and an",
+        "startMs": 237528,
+        "endMs": 241703
+      },
+      {
+        "text": "unsaved draft does not change the file you can download.",
+        "startMs": 241703,
+        "endMs": 246678
+      },
+      {
+        "text": "If the picture should change, choose Approve this",
+        "startMs": 246678,
+        "endMs": 251031
+      },
+      {
+        "text": "cut or Create video with these changes again.",
+        "startMs": 251031,
+        "endMs": 255028
+      },
+      {
+        "text": "The same voice, en-female, is carried into the new picture.",
+        "startMs": 255028,
+        "endMs": 260269
+      },
+      {
+        "text": "Lumen does not generate a new voice for that render.",
+        "startMs": 260269,
+        "endMs": 264888
+      },
+      {
+        "text": "If the new edit does not cover the",
+        "startMs": 264888,
+        "endMs": 267908
+      },
+      {
+        "text": "voice ranges, the current finished video stays.",
+        "startMs": 267908,
+        "endMs": 272083
+      },
+      {
+        "text": "Wait until the project leaves rendering.",
+        "startMs": 272900,
+        "endMs": 276543
+      },
+      {
+        "text": "In the header, choose Download video while the player shows Finished video.",
+        "startMs": 276543,
+        "endMs": 283375
+      },
+      {
+        "text": "That file is the selected delivery: the new picture, the",
+        "startMs": 283375,
+        "endMs": 288476
+      },
+      {
+        "text": "voice en-female, and your music track if you added one.",
+        "startMs": 288476,
+        "endMs": 293486
+      },
+      {
+        "text": "The player and the download are the same file.",
+        "startMs": 293486,
+        "endMs": 297676
+      },
+      {
+        "text": "A completed task is not proof by itself.",
+        "startMs": 297676,
+        "endMs": 301319
+      },
+      {
+        "text": "If the render, the voice, or the music",
+        "startMs": 301319,
+        "endMs": 304780
+      },
+      {
+        "text": "fails, the previous finished file stays in place.",
+        "startMs": 304780,
+        "endMs": 309243
+      }
+    ],
+    "voice_id": "en-female"
+  },
+  "zh": {
+    "frames": 6547,
+    "scenes": [
+      {
+        "id": "signin",
+        "fromFrame": 0,
+        "frames": 475,
+        "audio": "voice-walkthrough/zh-signin.wav",
+        "title": "登录",
+        "lines": [
+          "登录",
+          "电子邮箱",
+          "继续"
+        ]
+      },
+      {
+        "id": "create",
+        "fromFrame": 475,
+        "frames": 844,
+        "audio": "voice-walkthrough/zh-create.wav",
+        "title": "新建项目",
+        "lines": [
+          "新建项目",
+          "参考视频",
+          "分析并创建剪辑计划"
+        ]
+      },
+      {
+        "id": "upload",
+        "fromFrame": 1319,
+        "frames": 1034,
+        "audio": "voice-walkthrough/zh-upload.wav",
+        "title": "自有视频",
+        "lines": [
+          "选择要上传的自有视频",
+          "字幕语言",
+          "语气与风格"
+        ]
+      },
+      {
+        "id": "picture",
+        "fromFrame": 2353,
+        "frames": 878,
+        "audio": "voice-walkthrough/zh-picture.wav",
+        "title": "第一版画面，你的声音",
+        "lines": [
+          "批准这个成片",
+          "按这些更改创建视频",
+          "保存并更新摘要"
+        ]
+      },
+      {
+        "id": "voice",
+        "fromFrame": 3231,
+        "frames": 968,
+        "audio": "voice-walkthrough/zh-voice.wav",
+        "title": "中文声音",
+        "lines": [
+          "配音语言 · 中文",
+          "AI 声音 · 女声 — 亲切",
+          "创建配音版本"
+        ]
+      },
+      {
+        "id": "music",
+        "fromFrame": 4199,
+        "frames": 732,
+        "audio": "voice-walkthrough/zh-music.wav",
+        "title": "音乐在声音下面",
+        "lines": [
+          "背景音乐",
+          "不添加音乐",
+          "将音乐加入成片"
+        ]
+      },
+      {
+        "id": "edit",
+        "fromFrame": 4931,
+        "frames": 906,
+        "audio": "voice-walkthrough/zh-edit.wav",
+        "title": "先剪辑，再批准",
+        "lines": [
+          "剪辑",
+          "字幕 · 声音 · 效果",
+          "素材 · 审核"
+        ]
+      },
+      {
+        "id": "download",
+        "fromFrame": 5837,
+        "frames": 710,
+        "audio": "voice-walkthrough/zh-download.wav",
+        "title": "下载成片",
+        "lines": [
+          "已完成视频",
+          "下载视频",
+          "声音 zh-female"
+        ]
+      }
+    ],
+    "captions": [
+      {
+        "text": "打开 Lumen。",
+        "startMs": 200,
+        "endMs": 1830
+      },
+      {
+        "text": "屏幕写着“登录”。",
+        "startMs": 1830,
+        "endMs": 3460
+      },
+      {
+        "text": "填写电子邮箱和密码，然后选择“继续”。",
+        "startMs": 3460,
+        "endMs": 6901
+      },
+      {
+        "text": "界面语言只改变这些按钮，不会选择成片里的声音。",
+        "startMs": 6901,
+        "endMs": 11066
+      },
+      {
+        "text": "这个屏幕上的“下载视频”是教程，不是你的项目。",
+        "startMs": 11066,
+        "endMs": 15231
+      },
+      {
+        "text": "登录之后打开视频工作室。",
+        "startMs": 16033,
+        "endMs": 18614
+      },
+      {
+        "text": "新建项目打开这张表单。",
+        "startMs": 18614,
+        "endMs": 20979
+      },
+      {
+        "text": "标题是“借鉴创作方法，讲好自己的故事。",
+        "startMs": 20979,
+        "endMs": 25064
+      },
+      {
+        "text": "”必须有参考：一到五条抖音结果，或一个参考视频文件。",
+        "startMs": 25064,
+        "endMs": 30655
+      },
+      {
+        "text": "在同时有自有视频和至少一个参考之前",
+        "startMs": 30655,
+        "endMs": 34310
+      },
+      {
+        "text": "，“分析并创建剪辑计划”保持关闭。",
+        "startMs": 34310,
+        "endMs": 37965
+      },
+      {
+        "text": "参考只用于测量。",
+        "startMs": 37965,
+        "endMs": 39685
+      },
+      {
+        "text": "它的画面、语音和音乐不会进入成片。",
+        "startMs": 39685,
+        "endMs": 43341
+      },
+      {
+        "text": "选择要上传的自有视频。",
+        "startMs": 44167,
+        "endMs": 46410
+      },
+      {
+        "text": "使用一支你拥有的竖屏文件，30 秒到",
+        "startMs": 46410,
+        "endMs": 50080
+      },
+      {
+        "text": " 7 分钟，不超过 250 兆字节。",
+        "startMs": 50080,
+        "endMs": 53750
+      },
+      {
+        "text": "填写项目名称、脚本与核心信息、主题和目标受众。",
+        "startMs": 53750,
+        "endMs": 58440
+      },
+      {
+        "text": "勾选“我拥有或已获得此素材的编辑使用权”。",
+        "startMs": 58440,
+        "endMs": 62722
+      },
+      {
+        "text": "字幕语言是 English 或简体中文。",
+        "startMs": 62722,
+        "endMs": 66800
+      },
+      {
+        "text": "这个字段是字幕，不是配音。",
+        "startMs": 66800,
+        "endMs": 69450
+      },
+      {
+        "text": "语气与风格只是语气说明，例如平静、客观，不是声音编号。",
+        "startMs": 69450,
+        "endMs": 74956
+      },
+      {
+        "text": "只有你的文件会成为项目原片。",
+        "startMs": 74956,
+        "endMs": 77810
+      },
+      {
+        "text": "等待分析完成。",
+        "startMs": 78633,
+        "endMs": 79979
+      },
+      {
+        "text": "在第一版画面有渲染结果之前，不能创建配音。",
+        "startMs": 79979,
+        "endMs": 84018
+      },
+      {
+        "text": "如果打开了风格匹配，选择“批准",
+        "startMs": 84018,
+        "endMs": 86902
+      },
+      {
+        "text": "这个成片”会渲染已保存的剪辑。",
+        "startMs": 86902,
+        "endMs": 89786
+      },
+      {
+        "text": "如果没有，先保存计划，再选择“按这些更改创建视频”。",
+        "startMs": 89786,
+        "endMs": 94786
+      },
+      {
+        "text": "这一版仍然使用你自己素材的声音。",
+        "startMs": 94786,
+        "endMs": 97863
+      },
+      {
+        "text": "“保存并更新摘要”不会创建视频。",
+        "startMs": 97863,
+        "endMs": 100939
+      },
+      {
+        "text": "“审核更改并创建版本”只打开摘要。",
+        "startMs": 100939,
+        "endMs": 104208
+      },
+      {
+        "text": "未保存的草稿不会改变下载文件。",
+        "startMs": 104208,
+        "endMs": 107093
+      },
+      {
+        "text": "打开剪辑，再打开配音与语言。",
+        "startMs": 107900,
+        "endMs": 110360
+      },
+      {
+        "text": "标题是“创建翻译配音”。",
+        "startMs": 110360,
+        "endMs": 112468
+      },
+      {
+        "text": "面板最初是俄语和 ru-male。",
+        "startMs": 112468,
+        "endMs": 115454
+      },
+      {
+        "text": "这条中文成片要把配音语言设为中文，",
+        "startMs": 115454,
+        "endMs": 118441
+      },
+      {
+        "text": "AI 声音设为“女声 — 亲切”。",
+        "startMs": 118441,
+        "endMs": 121428
+      },
+      {
+        "text": "这个编号是 zh-female。",
+        "startMs": 121428,
+        "endMs": 124239
+      },
+      {
+        "text": "试听声音只生成示例，不是成片。",
+        "startMs": 124239,
+        "endMs": 126874
+      },
+      {
+        "text": "选择“创建配音版本”。",
+        "startMs": 126874,
+        "endMs": 128806
+      },
+      {
+        "text": "语言和声音必须是这一对中文。",
+        "startMs": 128806,
+        "endMs": 131266
+      },
+      {
+        "text": "版本就绪后，“已用于最终视频",
+        "startMs": 131266,
+        "endMs": 133726
+      },
+      {
+        "text": "”指向 zh-female。",
+        "startMs": 133726,
+        "endMs": 136185
+      },
+      {
+        "text": "使用配音前剪辑的声音会去掉这个配音。",
+        "startMs": 136185,
+        "endMs": 139347
+      },
+      {
+        "text": "打开声音。",
+        "startMs": 140167,
+        "endMs": 141089
+      },
+      {
+        "text": "在背景音乐里，曲目列出你自己上传的音乐。",
+        "startMs": 141089,
+        "endMs": 144776
+      },
+      {
+        "text": "空项是“不添加音乐”。",
+        "startMs": 144776,
+        "endMs": 146804
+      },
+      {
+        "text": "选择曲目只写入剪辑草稿，还不是下载文件。",
+        "startMs": 146804,
+        "endMs": 150491
+      },
+      {
+        "text": "将音乐加入成片会先保存剪辑，再把曲目混在所选声音下面。",
+        "startMs": 150491,
+        "endMs": 155469
+      },
+      {
+        "text": "声音仍是 zh-female。",
+        "startMs": 155469,
+        "endMs": 158235
+      },
+      {
+        "text": "如果不选曲目，成片里没有新增音乐。",
+        "startMs": 158235,
+        "endMs": 161369
+      },
+      {
+        "text": "参考视频的音乐不会被复制。",
+        "startMs": 161369,
+        "endMs": 163766
+      },
+      {
+        "text": "分页是剪辑、字幕、声音、效果、素材和审核。",
+        "startMs": 164567,
+        "endMs": 168601
+      },
+      {
+        "text": "逐条批准场景。",
+        "startMs": 168601,
+        "endMs": 169946
+      },
+      {
+        "text": "保存剪辑不会开始渲染，未保存",
+        "startMs": 169946,
+        "endMs": 172636
+      },
+      {
+        "text": "的草稿也不会改变可下载的文件。",
+        "startMs": 172636,
+        "endMs": 175518
+      },
+      {
+        "text": "如果画面需要更新，再次选择“批准这",
+        "startMs": 175518,
+        "endMs": 178784
+      },
+      {
+        "text": "个成片”或“按这些更改创建视频”。",
+        "startMs": 178784,
+        "endMs": 182050
+      },
+      {
+        "text": "同一个声音 zh-female 会带到新画面里。",
+        "startMs": 182050,
+        "endMs": 186661
+      },
+      {
+        "text": "这次渲染不会重新生成配音。",
+        "startMs": 186661,
+        "endMs": 189159
+      },
+      {
+        "text": "如果新剪辑盖不住配音的时间范围，当前成片保持不变。",
+        "startMs": 189159,
+        "endMs": 193962
+      },
+      {
+        "text": "等到项目离开制作。",
+        "startMs": 194767,
+        "endMs": 196452
+      },
+      {
+        "text": "播放器显示“已完成视频”时，在页眉选择“下载视频”。",
+        "startMs": 196452,
+        "endMs": 201320
+      },
+      {
+        "text": "这个文件就是所选成片：新的画面、声音 z",
+        "startMs": 201320,
+        "endMs": 205065
+      },
+      {
+        "text": "h-female，以及你添加的音乐曲目。",
+        "startMs": 205065,
+        "endMs": 208810
+      },
+      {
+        "text": "播放和下载是同一个文件。",
+        "startMs": 208810,
+        "endMs": 211057
+      },
+      {
+        "text": "任务完成本身不是证明。",
+        "startMs": 211057,
+        "endMs": 213116
+      },
+      {
+        "text": "如果渲染、配音或音乐失败，上一份成片会留在原处。",
+        "startMs": 213116,
+        "endMs": 217610
+      }
+    ],
+    "voice_id": "zh-female"
+  }
+}

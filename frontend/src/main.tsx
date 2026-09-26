@@ -155,6 +155,14 @@ function App() {
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
   }, []);
+  const lookFrom = useRef<string | null>(null);
+  useEffect(() => {
+    const here = pid ? "project/" + pid : trend ? "trend/" + trend : page;
+    if (page === "look" && lookFrom.current && lookFrom.current !== "look") {
+      sessionStorage.setItem("lumen-look-return", lookFrom.current);
+    }
+    lookFrom.current = here;
+  }, [page, pid, trend]);
   useEffect(() => {
     const next = pid ? "project/" + pid : trend ? "trend/" + trend : page;
     if (window.location.hash.slice(1) !== next) window.location.hash = next;
@@ -256,6 +264,24 @@ function App() {
     setPid(null);
     setTrend(null);
     setNav(false);
+  };
+  const leaveLook = () => {
+    const back = sessionStorage.getItem("lumen-look-return");
+    if (back && /^project\/[a-f0-9]{32}$/.test(back)) {
+      setTrend(null);
+      setPage("studio");
+      setPid(back.slice(8));
+      setNav(false);
+      return;
+    }
+    if (back && /^trend\/[a-f0-9]{32}$/.test(back)) {
+      setPid(null);
+      setTrend(back.slice(6));
+      setPage("trends");
+      setNav(false);
+      return;
+    }
+    navigate(back && ["studio", "library", "settings", "guide", "trends"].includes(back) ? back : "studio");
   };
   const useTrend = (handoff: { concept_id: string; title: string; script: string; trend: string }) => {
     sessionStorage.setItem("lumen-trend-handoff", JSON.stringify(handoff));
@@ -459,7 +485,7 @@ function App() {
                 }}
               />
             ) : page === "look" ? (
-              <LookBoard lang={lang} />
+              <LookBoard lang={lang} onBack={leaveLook} />
             ) : page === "trends" ? (
               <Trends
                 lang={lang}

@@ -1,0 +1,98 @@
+[
+  {
+    "id": "signin",
+    "title": {"en": "Sign in", "zh": "登录"},
+    "text": {
+      "en": "Open Lumen. The screen says Sign in. Enter your email address and password, then choose Continue. Interface language only changes these buttons. It does not choose the voice in the finished video. Download video on this screen is the tutorial, not your project.",
+      "zh": "打开 Lumen。屏幕写着“登录”。填写电子邮箱和密码，然后选择“继续”。界面语言只改变这些按钮，不会选择成片里的声音。这个屏幕上的“下载视频”是教程，不是你的项目。"
+    },
+    "lines": {
+      "en": ["Sign in", "Email address", "Continue"],
+      "zh": ["登录", "电子邮箱", "继续"]
+    }
+  },
+  {
+    "id": "create",
+    "title": {"en": "New project", "zh": "新建项目"},
+    "text": {
+      "en": "After you sign in, open Video studio. New project shows the form. The heading is Learn the technique. Tell your story. A reference is required: one to five Douyin results, or a Reference video file. Analyze and build my plan stays off until your own video and at least one reference are both there. The reference is measured only. Its pictures, speech, and music do not enter the finished file.",
+      "zh": "登录之后打开视频工作室。新建项目打开这张表单。标题是“借鉴创作方法，讲好自己的故事。”必须有参考：一到五条抖音结果，或一个参考视频文件。在同时有自有视频和至少一个参考之前，“分析并创建剪辑计划”保持关闭。参考只用于测量。它的画面、语音和音乐不会进入成片。"
+    },
+    "lines": {
+      "en": ["New project", "Reference video", "Analyze & build my plan"],
+      "zh": ["新建项目", "参考视频", "分析并创建剪辑计划"]
+    }
+  },
+  {
+    "id": "upload",
+    "title": {"en": "Your own video", "zh": "自有视频"},
+    "text": {
+      "en": "Choose your video to upload. Use one vertical file you own, from 30 seconds to 7 minutes, up to 250 megabytes. Fill in Project name, Script and intended message, Topic, and Audience. Tick I own or have permission to edit this footage. Caption language is English or Simplified Chinese. That field is for subtitles, not the voice. Voice and style is a tone, such as calm and factual. It is not a voice id. Only your file becomes the project source.",
+      "zh": "选择要上传的自有视频。使用一支你拥有的竖屏文件，30 秒到 7 分钟，不超过 250 兆字节。填写项目名称、脚本与核心信息、主题和目标受众。勾选“我拥有或已获得此素材的编辑使用权”。字幕语言是 English 或简体中文。这个字段是字幕，不是配音。语气与风格只是语气说明，例如平静、客观，不是声音编号。只有你的文件会成为项目原片。"
+    },
+    "lines": {
+      "en": ["Choose your video to upload", "Caption language", "Voice & style"],
+      "zh": ["选择要上传的自有视频", "字幕语言", "语气与风格"]
+    }
+  },
+  {
+    "id": "picture",
+    "title": {"en": "First picture, your sound", "zh": "第一版画面，你的声音"},
+    "text": {
+      "en": "Wait until analysis finishes. A voiceover cannot be created until the first picture has a render. If style match is on, Approve this cut renders the saved edit. If it is off, save the plan, then choose Create video with these changes. This first file still uses the sound of your own footage. Save and refresh summary does not create a video. Review edits and create a version only opens the summary. An unsaved draft does not change the download.",
+      "zh": "等待分析完成。在第一版画面有渲染结果之前，不能创建配音。如果打开了风格匹配，选择“批准这个成片”会渲染已保存的剪辑。如果没有，先保存计划，再选择“按这些更改创建视频”。这一版仍然使用你自己素材的声音。“保存并更新摘要”不会创建视频。“审核更改并创建版本”只打开摘要。未保存的草稿不会改变下载文件。"
+    },
+    "lines": {
+      "en": ["Approve this cut", "Create video with these changes", "Save and refresh summary"],
+      "zh": ["批准这个成片", "按这些更改创建视频", "保存并更新摘要"]
+    }
+  },
+  {
+    "id": "voice",
+    "title": {"en": "English voice", "zh": "中文声音"},
+    "text": {
+      "en": "Open Edit, then Voiceover and language. The panel says Create a translated voiceover. It opens on Russian and ru-male. For this English film, set Voiceover language to English, and AI voice to Female — warm. That id is en-female. Preview voice makes a sample only. It is not the finished video. Choose Create dubbed version. The language and the voice must be this English pair. When the version is ready, Used in final video names en-female. Use original edit audio would remove that voice.",
+      "zh": "打开剪辑，再打开配音与语言。标题是“创建翻译配音”。面板最初是俄语和 ru-male。这条中文成片要把配音语言设为中文，AI 声音设为“女声 — 亲切”。这个编号是 zh-female。试听声音只生成示例，不是成片。选择“创建配音版本”。语言和声音必须是这一对中文。版本就绪后，“已用于最终视频”指向 zh-female。使用配音前剪辑的声音会去掉这个配音。"
+    },
+    "lines": {
+      "en": ["Voiceover language · English", "AI voice · Female — warm", "Create dubbed version"],
+      "zh": ["配音语言 · 中文", "AI 声音 · 女声 — 亲切", "创建配音版本"]
+    }
+  },
+  {
+    "id": "music",
+    "title": {"en": "Music under the voice", "zh": "音乐在声音下面"},
+    "text": {
+      "en": "Open the Audio tab. Under Background music, Track lists music you uploaded yourself. The empty choice is No added music. Choosing a track writes it into the edit draft. It is not the download yet. Add music to final video saves the edit, then mixes that track under the selected voice. The voice stays en-female. If you add no track, the finished file has no added music. Reference music is never copied.",
+      "zh": "打开声音。在背景音乐里，曲目列出你自己上传的音乐。空项是“不添加音乐”。选择曲目只写入剪辑草稿，还不是下载文件。将音乐加入成片会先保存剪辑，再把曲目混在所选声音下面。声音仍是 zh-female。如果不选曲目，成片里没有新增音乐。参考视频的音乐不会被复制。"
+    },
+    "lines": {
+      "en": ["Background music", "No added music", "Add music to final video"],
+      "zh": ["背景音乐", "不添加音乐", "将音乐加入成片"]
+    }
+  },
+  {
+    "id": "edit",
+    "title": {"en": "Edit, then approve again", "zh": "先剪辑，再批准"},
+    "text": {
+      "en": "The tabs are Edit, Subtitles, Audio, Effects, Materials, and Review. Approve each scene. Saving the edit does not start a render, and an unsaved draft does not change the file you can download. If the picture should change, choose Approve this cut or Create video with these changes again. The same voice, en-female, is carried into the new picture. Lumen does not generate a new voice for that render. If the new edit does not cover the voice ranges, the current finished video stays.",
+      "zh": "分页是剪辑、字幕、声音、效果、素材和审核。逐条批准场景。保存剪辑不会开始渲染，未保存的草稿也不会改变可下载的文件。如果画面需要更新，再次选择“批准这个成片”或“按这些更改创建视频”。同一个声音 zh-female 会带到新画面里。这次渲染不会重新生成配音。如果新剪辑盖不住配音的时间范围，当前成片保持不变。"
+    },
+    "lines": {
+      "en": ["Edit", "Subtitles · Audio · Effects", "Materials · Review"],
+      "zh": ["剪辑", "字幕 · 声音 · 效果", "素材 · 审核"]
+    }
+  },
+  {
+    "id": "download",
+    "title": {"en": "Download the finished video", "zh": "下载成片"},
+    "text": {
+      "en": "Wait until the project leaves rendering. In the header, choose Download video while the player shows Finished video. That file is the selected delivery: the new picture, the voice en-female, and your music track if you added one. The player and the download are the same file. A completed task is not proof by itself. If the render, the voice, or the music fails, the previous finished file stays in place.",
+      "zh": "等到项目离开制作。播放器显示“已完成视频”时，在页眉选择“下载视频”。这个文件就是所选成片：新的画面、声音 zh-female，以及你添加的音乐曲目。播放和下载是同一个文件。任务完成本身不是证明。如果渲染、配音或音乐失败，上一份成片会留在原处。"
+    },
+    "lines": {
+      "en": ["Finished video", "Download video", "Voice en-female"],
+      "zh": ["已完成视频", "下载视频", "声音 zh-female"]
+    }
+  }
+]

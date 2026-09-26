@@ -39,7 +39,9 @@ test('card and progress read stored windows and omit an absent layer',()=>{
 });
 
 test('blur and the join get their own rows from the stored clip',()=>{
-  assert.deepEqual(plain(blurBar({start:0,end:2,blur:2,effect_at:0.25,effect_end:0.5})),{start:0.5,end:2});
+  assert.deepEqual(plain(blurBar({start:0,end:2,blur:2,effect_at:0.25,effect_end:0.5})),{start:0.5,end:1});
+  assert.deepEqual(plain(blurBar({start:0,end:2,blur:2,effect_at:0.25,effect_end:0.6})),{start:0.5,end:1.2});
+  assert.deepEqual(plain(blurBar({start:0,end:2,blur:2,effect_at:0.25,effect_end:1})),{start:0.5,end:2});
   assert.deepEqual(plain(blurBar({start:0,end:2,blur:2,effect_at:0})),{start:0,end:2});
   assert.equal(blurBar({start:0,end:2,blur:0.2,effect_at:0.5}),null);
   assert.equal(blurBar({start:0,end:2,blur:0}),null);
@@ -54,12 +56,12 @@ test('blur and the join get their own rows from the stored clip',()=>{
 });
 
 test('glow, shadow, and b-roll get rows and a straight cut still has no join',()=>{
-  assert.deepEqual(plain(glowBar({start:0,end:2,glow:true,glow_amount:0.8,effect_at:0.25,effect_end:0.5})),{start:0.5,end:2});
+  assert.deepEqual(plain(glowBar({start:0,end:2,glow:true,glow_amount:0.8,effect_at:0.25,effect_end:0.5})),{start:0.5,end:1});
   assert.deepEqual(plain(glowBar({start:0,end:2,glow:true,effect_at:0})),{start:0,end:2});
   assert.deepEqual(plain(glowBar({start:0,end:2,glow_amount:0.2,effect_at:0.99})),{start:1.96,end:2});
   assert.equal(glowBar({start:0,end:2,glow:false,glow_amount:0.19}),null);
   assert.equal(glowBar({start:0,end:2}),null);
-  assert.deepEqual(plain(shadowBar({start:0,end:2,shadow:true,shade:0.8,effect_at:0.25,effect_end:0.5})),{start:0.5,end:2});
+  assert.deepEqual(plain(shadowBar({start:0,end:2,shadow:true,shade:0.8,effect_at:0.25,effect_end:0.5})),{start:0.5,end:1});
   assert.deepEqual(plain(shadowBar({start:0,end:4,shadow:true,effect_at:0.1})),{start:0,end:4});
   assert.deepEqual(plain(shadowBar({start:0,end:4,shade:0.2,effect_at:0})),{start:0,end:4});
   assert.equal(shadowBar({start:0,end:2,shadow:false,shade:0}),null);
@@ -94,4 +96,30 @@ test('a constant slow speed gets its own row and speed 1 does not',()=>{
   assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',speed:1,speed_end:1.45}).map(layer=>layer.id)),['shot','speed']);
   assert.equal(speedText({start:0,end:4,speed:0.75,speed_end:0.75}),'0.75×');
   assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',speed:0.75,speed_end:0.75}).map(layer=>layer.id)),['shot','speed']);
+});
+
+test('a cut has no join row and picture layers appear only when the clip has them',()=>{
+  assert.equal(clipLayers({start:0,end:4,text:'',transition:'cut'}).some(layer=>layer.id==='join'),false);
+  const blur=blurBar({start:0,end:5,blur:2,effect_end:0.6});
+  assert.equal(blur.end,0.6*5);
+  assert.ok(blur.end<5);
+  assert.equal(glowBar({start:0,end:5,glow:true,effect_end:0.6}).end,0.6*5);
+  assert.equal(shadowBar({start:0,end:5,shadow:true,effect_end:0.6}).end,0.6*5);
+  assert.equal(blurBar({start:0,end:5,blur:2}).end,5);
+  assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',transition:'cut',cutout:false,mask:false,split:false,picture_insert:null,art:''}).map(layer=>layer.id)),['shot']);
+  assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',cutout:true}).map(layer=>layer.id)),['shot','cutout']);
+  assert.equal(clipLayers({start:0,end:4,text:'',cutout:false}).some(layer=>layer.id==='cutout'),false);
+  assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',mask:true}).find(layer=>layer.id==='mask').windows),[{start:0,end:4}]);
+  assert.equal(clipLayers({start:0,end:4,text:'',mask:false}).some(layer=>layer.id==='mask'),false);
+  assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',split:true}).map(layer=>layer.id)),['shot','split']);
+  assert.equal(clipLayers({start:0,end:4,text:'',split:false}).some(layer=>layer.id==='split'),false);
+  assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',picture_insert:{start:0.4,end:1.2,at:2}}).find(layer=>layer.id==='reference').windows),[{start:0.4,end:1.2}]);
+  assert.equal(clipLayers({start:0,end:4,text:'',picture_insert:null}).some(layer=>layer.id==='reference'),false);
+  assert.equal(clipLayers({start:0,end:4,text:'',picture_insert:{start:5,end:9}}).some(layer=>layer.id==='reference'),false);
+  assert.deepEqual(plain(clipLayers({start:0,end:4,text:'',art:'style-art-2.png'}).find(layer=>layer.id==='art').windows),[{start:0,end:4}]);
+  assert.equal(clipLayers({start:0,end:4,text:'',art:''}).some(layer=>layer.id==='art'),false);
+  assert.equal(clipLayers({start:0,end:4,text:'',art:'still.png'}).some(layer=>layer.id==='art'),false);
+  const ordered=clipLayers({start:0,end:4,text:'Hi',blur:1.5,glow:true,shadow:true,shade:0.5,speed:0.5,transition:'wipe-down',cutout:true,mask:true,split:true,picture_insert:{start:0.2,end:1},art:'style-art-0.png',external_broll:{start:1,end:2},effect_at:0,effect_end:1,card:{start:0,end:4},progress:0.5,progress_at:0,progress_end:1});
+  assert.deepEqual(plain(ordered.map(layer=>layer.id)),['shot','blur','glow','shadow','speed','join','cutout','mask','split','reference','art','broll','callout','card','progress']);
+  assert.equal(clipLayers({start:0,end:4,text:'',transition:'cut',cutout:true,mask:true,split:true,picture_insert:{start:0.2,end:1},art:'style-art-0.png'}).some(layer=>layer.id==='join'),false);
 });

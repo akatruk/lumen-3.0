@@ -164,7 +164,6 @@ export function StudioCreate({
   });
   const [file, setFile] = useState<File | null>(null),
     [referenceFile, setReferenceFile] = useState<File | null>(null),
-    [styleOn, setStyleOn] = useState(false),
     [lookSaved, setLookSaved] = useState(() => readBoard() !== null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -218,7 +217,7 @@ export function StudioCreate({
     const controller=new AbortController();xhr.current=controller;
     let referenceUpload = "";
     try {
-      if (styleOn && referenceFile) referenceUpload = await holdUpload(referenceFile, controller.signal);
+      if (referenceFile) referenceUpload = await holdUpload(referenceFile, controller.signal);
     } catch (err) {
       const code = err instanceof Error ? err.message : "upload_interrupted";
       if (code === "upload_cancelled") setPaused(true); else setError(code);
@@ -240,8 +239,8 @@ export function StudioCreate({
       language: f.get("language"),
       budget: Number(f.get("budget")),
       owned_rights_confirmed: f.has("rights"),
-      style_match: f.has("style_match"),
-      ...(f.has("style_match") && readBoard() ? { effect_board: readBoard() } : {}),
+      style_match: f.has("style_match") || Boolean(referenceUpload),
+      ...((f.has("style_match") || referenceUpload) && readBoard() ? { effect_board: readBoard() } : {}),
       ...(referenceUpload ? { reference_upload_id: referenceUpload } : {}),
       ...(handoff ? { concept_id: handoff.concept_id } : {}),
     };
@@ -393,8 +392,22 @@ export function StudioCreate({
                 "我拥有或已获得此素材的编辑使用权。",
               )}
             </label>
+            <label>
+              {t("Reference video", "参考视频")}
+              <input
+                className="director-file-input"
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,.mov"
+                onChange={(e) => setReferenceFile(e.target.files?.[0] || null)}
+              />
+              <small>
+                {referenceFile
+                  ? referenceFile.name
+                  : t("Upload the reference video. The finished film still uses only your footage.", "上传参考视频。成片仍然只用你的素材。")}
+              </small>
+            </label>
             <label className="director-check">
-              <input name="style_match" type="checkbox" onChange={(e) => setStyleOn(e.target.checked)} />
+              <input name="style_match" type="checkbox" />
               {t(
                 "Match the reference pacing and the visual effects this editor can reproduce, then render. You still approve the result and can edit every cut.",
                 "按该参考的节奏和本编辑器可实现的视觉效果制作成片。你仍需批准结果，也可以修改每一处剪辑。",
@@ -408,22 +421,6 @@ export function StudioCreate({
                 <small>{t("Saved on this device. Style match on the next project uses this plaque.", "已保存在此设备。下一个项目的风格匹配会使用这个面板。")}</small>
               )}
             </p>
-            {styleOn && (
-              <label>
-                {t("Reference video", "参考视频")}
-                <input
-                  className="director-file-input"
-                  type="file"
-                  accept="video/mp4,video/quicktime,video/webm,.mov"
-                  onChange={(e) => setReferenceFile(e.target.files?.[0] || null)}
-                />
-                <small>
-                  {referenceFile
-                    ? referenceFile.name
-                    : t("Upload the reference video. The finished film still uses only your footage.", "上传参考视频。成片仍然只用你的素材。")}
-                </small>
-              </label>
-            )}
           </section>
           <section className="director-card">
             <h2>{t("3. Creator & brand profile", "3. 创作者与品牌风格")}</h2>

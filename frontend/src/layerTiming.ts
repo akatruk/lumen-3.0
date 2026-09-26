@@ -1,7 +1,7 @@
 /** Clip-relative windows already stored on a clip. This does not measure or round a new exit. */
 
 export type LayerWindow = { start: number; end: number };
-export type LayerId = "shot" | "blur" | "glow" | "shadow" | "speed" | "join" | "broll" | "callout" | "card" | "progress";
+export type LayerId = "shot" | "blur" | "glow" | "shadow" | "speed" | "join" | "cutout" | "mask" | "split" | "reference" | "art" | "broll" | "callout" | "card" | "progress";
 export type ClipLayer = { id: LayerId; windows: LayerWindow[] };
 
 export type TimedClip = {
@@ -24,6 +24,11 @@ export type TimedClip = {
   speed_end?: number | null;
   external_broll?: { start: number; end: number } | null;
   cutaway?: { start: number; end: number } | null;
+  picture_insert?: { start: number; end: number; at?: number } | null;
+  art?: string;
+  cutout?: boolean;
+  mask?: boolean;
+  split?: boolean;
   transition?: string;
   transition_seconds?: number | null;
   progress?: number;
@@ -102,37 +107,64 @@ export function progressBar(clip: TimedClip): LayerWindow | null {
   return { start: opened, end: exitAt(finite(clip.progress_end) ?? 1, span, opened) };
 }
 
-/** A measured hold through the clip end. These filters enable from effect_at and have no exit. */
-function holdThroughEnd(clip: TimedClip): LayerWindow | null {
+/** Blur, glow, and vignette. A measured effect_end below the clip stops the bar. An unmeasured exit runs to the clip end. */
+function effectHold(clip: TimedClip): LayerWindow | null {
   const span = clipSpan(clip);
   if (!span) return null;
   const at = finite(clip.effect_at) ?? 0;
   const opened = at >= 0.2 ? Math.max(0, Math.min(0.98, at)) * span : 0;
   if (opened >= span) return null;
-  return { start: opened, end: span };
+  return { start: opened, end: exitAt(finite(clip.effect_end) ?? 1, span, opened) };
 }
 
-/** Blur starts with the measured hold and stays to the clip end. The filter has no exit. */
+/** Blur uses the same window as the gblur gate. */
 export function blurBar(clip: TimedClip): LayerWindow | null {
   const amount = finite(clip.blur);
   if (amount === null || amount < 0.4) return null;
-  return holdThroughEnd(clip);
+  return effectHold(clip);
 }
 
 function amountOn(flag: boolean | undefined, amount: number | null, floor: number): boolean {
   return flag === true || (amount !== null && amount >= floor);
 }
 
-/** Glow uses the same hold as the unsharp gate. Off means no row. */
+/** Glow uses the same window as the unsharp gate. Off means no row. */
 export function glowBar(clip: TimedClip): LayerWindow | null {
   if (!amountOn(clip.glow, finite(clip.glow_amount), 0.2)) return null;
-  return holdThroughEnd(clip);
+  return effectHold(clip);
 }
 
-/** Shadow uses the same hold as the vignette gate. Off means no row. */
+/** Shadow uses the same window as the vignette gate. Off means no row. */
 export function shadowBar(clip: TimedClip): LayerWindow | null {
   if (!amountOn(clip.shadow, finite(clip.shade), 0.2)) return null;
-  return holdThroughEnd(clip);
+  return effectHold(clip);
+}
+
+/** A flag that covers the clip. These filters store no separate window. */
+function clipCover(on: boolean | undefined, span: number): LayerWindow | null {
+  if (on !== true || !span) return null;
+  return { start: 0, end: span };
+}
+
+export function cutoutBar(clip: TimedClip): LayerWindow | null {
+  return clipCover(clip.cutout, clipSpan(clip));
+}
+
+export function maskBar(clip: TimedClip): LayerWindow | null {
+  return clipCover(clip.mask, clipSpan(clip));
+}
+
+export function splitBar(clip: TimedClip): LayerWindow | null {
+  return clipCover(clip.split, clipSpan(clip));
+}
+
+const STYLE_ART = /^style-art-[0-9]{1,2}\.png$/;
+
+/** Generated art from the measured-graphic image path. The overlay covers the clip. */
+export function artBar(clip: TimedClip): LayerWindow | null {
+  const span = clipSpan(clip);
+  if (!span || !STYLE_ART.test(clip.art || "")) return null;
+  return { start: 0, end: span };
 }
 
 /** Insert start and end are clip-relative seconds, the same clock as a card window. */
@@ -148,6 +180,13 @@ export function brollBar(clip: TimedClip): LayerWindow | null {
   const span = clipSpan(clip);
   if (!span) return null;
   return insertInside(clip.external_broll, span) || insertInside(clip.cutaway, span);
+}
+
+/** Reference-frame copy. The bar is the picture_insert window in clip-relative seconds. */
+export function referenceBar(clip: TimedClip): LayerWindow | null {
+  const span = clipSpan(clip);
+  if (!span) return null;
+  return insertInside(clip.picture_insert, span);
 }
 
 /** A hold other than 1×, or a ramp, spans the clip. Speed 1 with no end has no row. */
@@ -208,6 +247,16 @@ export function clipLayers(clip: TimedClip): ClipLayer[] {
   if (speed) layers.push({ id: "speed", windows: [speed] });
   const join = joinBars(clip);
   if (join.length) layers.push({ id: "join", windows: join });
+  const cutout = cutoutBar(clip);
+  if (cutout) layers.push({ id: "cutout", windows: [cutout] });
+  const mask = maskBar(clip);
+  if (mask) layers.push({ id: "mask", windows: [mask] });
+  const split = splitBar(clip);
+  if (split) layers.push({ id: "split", windows: [split] });
+  const reference = referenceBar(clip);
+  if (reference) layers.push({ id: "reference", windows: [reference] });
+  const art = artBar(clip);
+  if (art) layers.push({ id: "art", windows: [art] });
   const broll = brollBar(clip);
   if (broll) layers.push({ id: "broll", windows: [broll] });
   const callout = calloutBars(clip);

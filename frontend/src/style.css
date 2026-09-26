@@ -2922,13 +2922,13 @@ html[lang="zh"] .auth-copy h1 {
 .look-frame { position: absolute; inset: 0; }
 .look-picture { position: absolute; inset: 0; background: linear-gradient(180deg, #d7e2cf 0%, #8ea584 42%, #24362c 100%); }
 .look-subject { position: absolute; left: 28%; top: 22%; width: 44%; height: 48%; border-radius: 40% 40% 18% 18%; background: linear-gradient(180deg, #f2e2cf, #c4a27a 46%, #24362c 47%); }
-.look-subject.is-shaky { animation: look-shake 0.28s linear infinite; }
+.look-subject.is-shaky { animation: none; }
 .look-steady { position: absolute; left: 50%; top: 46%; width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #10161266; }
 .look-steady::before, .look-steady::after { content: ""; position: absolute; background: #fff; }
 .look-steady::before { left: 50%; top: -6px; width: 2px; height: 46px; margin-left: -1px; }
 .look-steady::after { top: 50%; left: -6px; height: 2px; width: 46px; margin-top: -1px; }
 .look-glow { position: absolute; left: 34%; top: 28%; width: 32%; height: 18%; border-radius: 50%; background: #fff4d2; filter: blur(10px); }
-.look-kinetic { position: absolute; left: 12%; top: 16%; color: #fff; font-size: 42px; letter-spacing: -0.04em; text-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); animation: look-pop 0.9s ease; }
+.look-kinetic { position: absolute; left: 12%; top: 16%; color: #fff; font-size: 42px; letter-spacing: -0.04em; text-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); animation: none; }
 .look-progress { position: absolute; left: 10%; bottom: 12%; height: 8px; border-radius: 99px; background: #c7ee91; }
 .look-picture.is-screen { inset: 10%; border-radius: 12px; box-shadow: 0 0 0 14px #101612; }
 .look-picture.is-split { background: linear-gradient(90deg, #d7e2cf 0 48%, #101612 48% 52%, #8ea584 52% 100%); }

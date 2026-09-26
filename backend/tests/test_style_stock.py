@@ -21,7 +21,7 @@ def test_licensed_commons_clip_is_inserted(monkeypatch):
         return [page()]
     monkeypatch.setattr(stock, 'query', query)
     monkeypatch.setattr(stock, 'import_licensed', lambda pid, item: ('a' * 32, 2.0))
-    row = shot(reusable_method={'en': 'b-roll of the coast', 'zh': '空镜'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    row = shot(start=0, end=40, reusable_method={'en': 'b-roll of the coast', 'zh': '空镜'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'insert': 0.2, 'zoom': 1, 'x': 0.5, 'y': 0.5, 'graphic': False, 'split': False, 'screen': False})
     edit, report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False, script='ocean waves')
     edit, report = attach('p' * 32, edit, [row], 'ocean waves', report, 40)
     assert 'ocean' in seen['q'] and 'SECRET' not in seen['q']
@@ -37,7 +37,7 @@ def test_unlicensed_page_is_not_inserted(monkeypatch):
     def refuse(*args, **kwargs):
         raise AssertionError('unlicensed stock was downloaded')
     monkeypatch.setattr(stock, 'import_licensed', refuse)
-    row = shot(reusable_method={'en': 'stock footage', 'zh': '素材'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''})
+    row = shot(start=0, end=40, reusable_method={'en': 'stock footage', 'zh': '素材'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, picture={'insert': 0.2, 'zoom': 1, 'x': 0.5, 'y': 0.5, 'graphic': False, 'split': False, 'screen': False})
     edit, report = build([row], 40, [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}], False, script='ocean waves')
     edit, report = attach('p' * 32, edit, [row], 'ocean waves', report, 40)
     assert edit['clips'][0]['external_broll'] is None
@@ -67,26 +67,52 @@ def test_measured_insert_places_one_stock_clip_at_the_same_fraction(monkeypatch)
     assert reference not in blob and 'SECRET REFERENCE LINE' not in blob
     assert 'broll' not in {gap['id'] for gap in report['gaps']}
 
-def test_two_cover_shots_keep_a_single_commons_clip(monkeypatch):
+def _asking(key, start, end):
+    picture = {'zoom': 1, 'x': 0.5, 'y': 0.5, 'graphic': False, 'split': False, 'screen': False, key: 0.2}
+    return shot(start=start, end=end, motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, visual_type={'en': 'presenter', 'zh': '主讲'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'}, picture=picture)
+
+def test_two_kept_shots_get_two_commons_videos_and_a_third_does_not(monkeypatch):
+    from backend.style_pictures import STILL_CAP
+    assert STILL_CAP == 2
     calls = {'n': 0}
     def query(**kwargs):
         calls['n'] += 1
+        assert 'filetype:video' in kwargs['gsrsearch']
+        assert 'SECRET' not in kwargs['gsrsearch']
         return [page()]
     monkeypatch.setattr(stock, 'query', query)
-    monkeypatch.setattr(stock, 'import_licensed', lambda pid, item: ('a' * 32, 2.0))
-    quiet = dict(information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'})
-    first = shot(reusable_method={'en': 'b-roll of the coast', 'zh': '空镜'}, **quiet)
-    second = shot(start=2, end=4, reusable_method={'en': 'stock footage of the coast', 'zh': '素材'}, **quiet)
+    ids = iter(['a' * 32, 'b' * 32, 'c' * 32])
+    monkeypatch.setattr(stock, 'import_licensed', lambda pid, item: (next(ids), 2.0))
+    monkeypatch.setattr('backend.style_pictures.fetch', lambda prompt: (_ for _ in ()).throw(AssertionError('openrouter')))
     spoken = [{'start': 0, 'end': 4, 'original': 'Visa', 'en': 'Visa', 'zh': '签证'}]
-    edit, report = build([first, second], 40, spoken, False, script='ocean waves')
-    edit, report = attach('p' * 32, edit, [first, second], 'ocean waves', report, 40)
-    assert calls['n'] == 1
-    assert sum(1 for clip in edit['clips'] if clip.get('external_broll')) == 1
+    cover = _asking('cover', 0, 8)
+    edit, report = build([cover], 8, spoken, False, script='ocean waves')
+    edit, report = attach('p' * 32, edit, [cover], 'ocean waves', report, 8)
+    assert calls['n'] == 1 and edit['clips'][0]['external_broll']['asset_id'] == 'a' * 32
+    calls['n'] = 0
+    ids = iter(['a' * 32, 'b' * 32, 'c' * 32])
+    monkeypatch.setattr(stock, 'import_licensed', lambda pid, item: (next(ids), 2.0))
+    shots = [_asking('insert', 0, 4), _asking('broll', 4, 8), _asking('insert', 8, 12)]
+    edit, report = build(shots, 12, spoken, False, script='ocean waves')
+    assert len(edit['clips']) == 3
+    edit, report = attach('p' * 32, edit, shots, 'ocean waves', report, 12)
+    filled = [clip for clip in edit['clips'] if clip.get('external_broll')]
+    assert calls['n'] == 2 and len(filled) == 2
+    assert {clip['external_broll']['asset_id'] for clip in filled} == {'a' * 32, 'b' * 32}
+    assert edit['clips'][2]['external_broll'] is None
     assert all(clip.get('art') == '' for clip in edit['clips'])
     assert 'SECRET' not in json.dumps(edit)
-    again, _report = attach('p' * 32, edit, [first, second], 'ocean waves', report, 40)
-    assert calls['n'] == 1
-    assert sum(1 for clip in again['clips'] if clip.get('external_broll')) == 1
+    again, _report = attach('p' * 32, edit, shots, 'ocean waves', report, 12)
+    assert calls['n'] == 2
+    assert sum(1 for clip in again['clips'] if clip.get('external_broll')) == 2
+    def words_only(**kwargs):
+        raise AssertionError('words alone fetched a video')
+    monkeypatch.setattr(stock, 'query', words_only)
+    monkeypatch.setattr(stock, 'import_licensed', words_only)
+    named = shot(start=0, end=8, motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'b-roll of the coast', 'zh': '空镜'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': 'SECRET REFERENCE LINE', 'zh': '参考'})
+    words, _words_report = build([named], 8, spoken, False, script='ocean waves')
+    words, _words_report = attach('p' * 32, words, [named], 'ocean waves', _words_report, 8)
+    assert all(clip.get('external_broll') is None and clip.get('art') == '' for clip in words['clips'])
 
 def test_missing_stock_leaves_the_essential_broll_gap(monkeypatch):
     reference = '/tmp/SECRET-reference.mp4'

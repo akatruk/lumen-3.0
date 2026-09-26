@@ -75,8 +75,9 @@ def _card_shift(place, size=None):
     cy=min(max(cy,panel_h/2+0.02),1-(panel_h/2+0.02))
     return {'cx':cx,'cy':cy,'left':cx-panel_w/2,'right':cx+panel_w/2,'top':cy-panel_h/2,'bottom':cy+panel_h/2,'dx':cx-0.5,'dy':cy-0.485,'panel_h':panel_h,'sized':sized is not None}
 
-def write_card(path,card,language,w,h,place=None,size=None):
-    from .media import ass_time
+def write_card(path,card,language,w,h,place=None,size=None,face=None,heavy=None):
+    from .media import ass_face, ass_time
+    font_name, bold = ass_face(face, heavy)
     shift=_card_shift(place,size)
     scale=(shift['panel_h']/0.41) if shift and shift.get('sized') else 1.0
     def clean(text):return re.sub(r'[{}\\\r\n]',' ',text).strip()
@@ -98,7 +99,7 @@ PlayResX: {w}
 PlayResY: {h}
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Noto Sans CJK SC,36,&H00FFFFFF,&H00FFFFFF,&H00101614,&H00101614,-1,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
+Style: Default,{font_name},36,&H00FFFFFF,&H00FFFFFF,&H00101614,&H00101614,{bold},0,0,0,100,100,0,0,1,0,0,5,0,0,0,1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
