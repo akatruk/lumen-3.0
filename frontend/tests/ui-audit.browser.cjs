@@ -9,7 +9,7 @@ await test('scene selection and inspect seeks source',async({page,button,expand}
 });
 await test('scene reorder add remove and locked controls',async({page,button,expand,draft})=>{
  await expand();const clip=page.locator('.manual-clip:visible').first();await button('Move down',clip).click();assert.equal((await draft()).clips[1].id,'one');await button('Move up',page.locator('.manual-clip:visible').first()).click();assert.equal((await draft()).clips[0].id,'one');
- await page.locator('.manual-clip:visible').first().getByLabel('Lock',{exact:true}).check();assert(await page.getByLabel('Source end (s)',{exact:true}).first().isDisabled());await page.locator('.manual-clip:visible').first().getByLabel('Lock',{exact:true}).uncheck();
+ await page.locator('.manual-clip:visible').first().getByLabel('Freeze timing',{exact:true}).check();assert(await page.getByLabel('Source end (s)',{exact:true}).first().isDisabled());await page.locator('.manual-clip:visible').first().getByLabel('Freeze timing',{exact:true}).uncheck();
  await button('Add clip from source').click();assert.equal(await page.locator('.ws-scenes button').count(),3);await expand();await button('Remove clip',page.locator('.manual-clip:visible').first()).click();assert.equal(await page.locator('.ws-scenes button').count(),2);
 });
 await test('draft preview before after play pause',async({page,button,tool,draft})=>{
@@ -17,16 +17,16 @@ await test('draft preview before after play pause',async({page,button,tool,draft
  await button('Before').click();assert.equal(await page.locator('.manual-screen video').evaluate(e=>e.style.transform),'none');await button('After').click();await button('Play selected range').click();await page.waitForFunction(()=>document.querySelector('.manual-screen video').currentTime>.1);await button('Pause').click();assert(await page.locator('.manual-screen video').evaluate(e=>e.paused));await button('No motion').click();assert.equal((await draft()).clips[0].zoom_end,1);
 });
 await test('inspector scene navigation presets and lock',async({page,button,tool,draft})=>{
- await tool('Effects');const scene=page.getByRole('combobox',{name:'Select scene',exact:true});
- assert(await button('Previous scene').isDisabled());await button('Next scene').click();assert.equal(await scene.inputValue(),'1');assert(await button('Next scene').isDisabled());
+ await tool('Effects');const scene=page.getByRole('listbox',{name:'Scenes'});
+ assert(await button('Previous scene').isDisabled());await button('Next scene').click();assert.equal(await scene.getByRole('option',{selected:true}).getAttribute('data-scene'),'1');assert(await button('Next scene').isDisabled());
  await button('Cross dissolve',page.locator('.manual-clip:visible')).click();assert.equal((await draft()).clips[1].transition,'crossfade');
- await scene.selectOption('0');const clip=page.locator('.manual-clip:visible');await clip.getByRole('slider',{name:/^End horizontal position/}).focus();await page.keyboard.press('End');await button('No motion').click();const c=(await draft()).clips[0];assert.equal(c.x_end,c.x);
- await clip.getByLabel('Approve',{exact:true}).check();await clip.getByLabel('Lock',{exact:true}).check();assert(await button('Gentle zoom').isDisabled());
- await button('Next scene').click();assert.equal(await scene.inputValue(),'1');await button('Previous scene').click();assert.equal(await scene.inputValue(),'0');
+ await scene.getByRole('option').nth(0).click();const clip=page.locator('.manual-clip:visible');await clip.getByRole('slider',{name:/^End horizontal position/}).focus();await page.keyboard.press('End');await button('No motion').click();const c=(await draft()).clips[0];assert.equal(c.x_end,c.x);
+ await clip.getByLabel('Include in the cut',{exact:true}).check();await clip.getByLabel('Freeze timing',{exact:true}).check();assert(await button('Gentle zoom').isDisabled());
+ await button('Next scene').click();assert.equal(await scene.getByRole('option',{selected:true}).getAttribute('data-scene'),'1');await button('Previous scene').click();assert.equal(await scene.getByRole('option',{selected:true}).getAttribute('data-scene'),'0');
 });
 await test('first scene cannot use incoming dissolve',async({page,button,tool})=>{await tool('Effects');assert(await button('Cross dissolve',page.locator('.ws-effect-presets').first()).isDisabled());});
 await test('save discard reload and approval',async({page,button,tool,save,data})=>{
- await tool('Effects');await button('Gentle zoom').click();await page.locator('.manual-clip:visible').first().getByLabel('Approve',{exact:true}).check();await save();assert.equal(data.manual.edit.clips[0].zoom_end,1.2);await page.locator('.manual-clip:visible .inspector-text > summary').click();await page.getByLabel('Text overlay for this clip',{exact:true}).first().fill('QA draft');await button('Discard edits').click();await page.waitForFunction(()=>document.querySelector('.ws-footer')?.textContent.includes('Saved'));assert.equal(await page.getByLabel('Text overlay for this clip',{exact:true}).first().inputValue(),'');
+ await tool('Effects');await button('Gentle zoom').click();await page.locator('.manual-clip:visible').first().getByLabel('Include in the cut',{exact:true}).check();await save();assert.equal(data.manual.edit.clips[0].zoom_end,1.2);await page.locator('.manual-clip:visible .inspector-text > summary').click();await page.getByLabel('Text overlay for this clip',{exact:true}).first().fill('QA draft');await button('Discard edits').click();await page.waitForFunction(()=>document.querySelector('.ws-footer')?.textContent.includes('Saved'));assert.equal(await page.getByLabel('Text overlay for this clip',{exact:true}).first().inputValue(),'');
 });
 await test('captions styles add remove and empty validation',async({page,button,tool,draft})=>{
  await tool('Subtitles');await page.getByRole('combobox',{name:/^Size/}).selectOption('large');await page.getByRole('combobox',{name:/^Position/}).selectOption('top');await page.getByRole('combobox',{name:/^Color/}).selectOption('yellow');assert.equal((await draft()).font_size,'large');

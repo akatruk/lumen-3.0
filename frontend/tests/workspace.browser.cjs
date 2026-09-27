@@ -139,7 +139,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           .getByRole("button", { name: "Эффекты", exact: true })
           .click();
         const clip = page.locator(".manual-clip:visible");
-        await clip.getByLabel("Утвердить", { exact: true }).check();
+        await clip.getByLabel("Включить в ролик", { exact: true }).check();
         await page
           .getByRole("button", { name: "Сохранить ручные правки", exact: true })
           .click();

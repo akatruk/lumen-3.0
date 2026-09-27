@@ -230,6 +230,26 @@ export function ManualEditor({
         clips: edit.clips.map((c, j) => (i === j ? reviseDecision(c,p) : c)),
       });
   }
+  const framingField = (c: Clip, i: number, key: "start" | "end" | "zoom" | "x" | "y") => (
+    <label key={key} className={key === "start" || key === "end" ? "inspector-time" : "inspector-slider"}>
+      {{
+        start: t("Source start (s)", "原片开始（秒）"),
+        end: t("Source end (s)", "原片结束（秒）"),
+        zoom: t("Zoom (1–3×)", "缩放（1–3 倍）"),
+        x: t("Crop horizontal (0–1)", "水平位置（0–1）"),
+        y: t("Crop vertical (0–1)", "垂直位置（0–1）"),
+      }[key]}
+      <input
+        type={key === "start" || key === "end" ? "number" : "range"}
+        step={key === "start" || key === "end" ? 0.1 : 0.05}
+        min={key === "zoom" ? 1 : 0}
+        max={key === "zoom" ? 3 : key === "x" || key === "y" ? 1 : duration}
+        value={c[key]}
+        onChange={(e) => clipChange(i, { [key]: Number(e.target.value) })}
+      />
+      {key !== "start" && key !== "end" && <output>{c[key].toFixed(2)}{key === "zoom" ? "×" : ""}</output>}
+    </label>
+  );
   function captionChange(i: number, p: Partial<Caption>) {
     if (edit)
       change({
@@ -357,7 +377,7 @@ export function ManualEditor({
       <div hidden={task!=="materials"}>
       <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;workspace?.setTask('effects');setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[contentLanguage(lang)]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
       </div>
-      {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {c.approved===false?w('Нужна проверка','Review needed','待审核'):w('Проверено','Approved','已批准')}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
+      {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {(c.end-c.start).toFixed(1)} {w('сек','sec','秒')} · {c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}{c.locked?` · ${w('Тайминг заморожен','Timing frozen','时间已冻结')}`:''}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
       <section className="inspector-scene-controls">
@@ -365,41 +385,24 @@ export function ManualEditor({
         <fieldset disabled={blocked} className="director-fieldset">
           {edit.clips.map((c, i) => (
             <article className="manual-clip" hidden={!!workspace&&selected!==i} key={c.id||i}>
-<p className="inspector-review-hint">{w('Изменения снимают подтверждение сцены.','Changes clear this scene’s approval.','修改后需要重新批准场景。')}</p><div className="manual-actions inspector-review"><label><input type="checkbox" checked={c.approved!==false} disabled={c.locked} onChange={e=>clipChange(i,{approved:e.target.checked})}/>{t('Approve','批准')}</label><label><input type="checkbox" checked={!!c.locked} disabled={c.approved===false} onChange={e=>clipChange(i,{locked:e.target.checked})}/>{t('Lock','锁定')}</label></div>
+<p className="inspector-review-hint">{w('Изменения снимают подтверждение сцены.','Changes clear this scene’s approval.','修改后需要重新批准场景。')}</p>
+              <div className="scene-choices">
+                <label className="scene-choice">
+                  <input type="checkbox" checked={c.approved!==false} disabled={c.locked} aria-label={w('Включить в ролик','Include in the cut','纳入成片')} aria-describedby={`scene-include-${c.id||i}`} title={c.locked?w('Снимите заморозку тайминга, чтобы исключить сцену','Unfreeze timing before leaving this scene out','取消冻结后才能移出成片'):undefined} onChange={e=>clipChange(i,{approved:e.target.checked})}/>
+                  <span><strong>{w('Включить в ролик','Include in the cut','纳入成片')}</strong><small id={`scene-include-${c.id||i}`}>{w('Сцена входит в финальное видео.','This scene is part of the finished video.','此场景会进入成片。')}</small></span>
+                </label>
+                <label className="scene-choice">
+                  <input type="checkbox" checked={!!c.locked} disabled={c.approved===false} aria-label={w('Заморозить тайминг','Freeze timing','冻结时间')} aria-describedby={`scene-freeze-${c.id||i}`} title={c.approved===false?w('Сначала включите сцену в ролик','Include the scene in the cut first','请先将场景纳入成片'):undefined} onChange={e=>clipChange(i,{locked:e.target.checked})}/>
+                  <span><strong>{w('Заморозить тайминг','Freeze timing','冻结时间')}</strong><small id={`scene-freeze-${c.id||i}`}>{w('Начало и конец этой сцены не меняются.','The start and end of this scene stay fixed.','此场景的起止时间保持不变。')}</small></span>
+                </label>
+              </div>
               <fieldset className="director-fieldset" disabled={c.locked}>
               {task==='effects'&&<EffectPresets lang={lang} duration={c.end-c.start} motionSeconds={c.motion_seconds} first={i===0} zoom={c.zoom} zoomEnd={c.zoom_end} x={c.x} y={c.y} xEnd={c.x_end} yEnd={c.y_end} transition={c.transition} onChange={patch=>clipChange(i,patch)}/>}
-              <details className="inspector-framing" open={task==='edit'}><summary>{w('Границы и кадрирование','Timing and framing','时间与构图')}</summary><div className="manual-grid ws-framing-grid">
-                {(["start", "end", "zoom", "x", "y"] as const).map((key) => (
-                  <label key={key} className={key==='start'||key==='end'?'inspector-time':'inspector-slider'}>
-                    {
-                      {
-                        start: t("Source start (s)", "原片开始（秒）"),
-                        end: t("Source end (s)", "原片结束（秒）"),
-                        zoom: t("Zoom (1–3×)", "缩放（1–3 倍）"),
-                        x: t("Crop horizontal (0–1)", "水平位置（0–1）"),
-                        y: t("Crop vertical (0–1)", "垂直位置（0–1）"),
-                      }[key]
-                    }
-                    <input
-                      type={key === 'start' || key === 'end' ? 'number' : 'range'}
-                      step={key === "start" || key === "end" ? 0.1 : 0.05}
-                      min={key === "zoom" ? 1 : 0}
-                      max={
-                        key === "zoom"
-                          ? 3
-                          : key === "x" || key === "y"
-                            ? 1
-                            : duration
-                      }
-                      value={c[key]}
-                      onChange={(e) =>
-                        clipChange(i, { [key]: Number(e.target.value) })
-                      }
-                    />
-                    {key!=='start'&&key!=='end'&&<output>{c[key].toFixed(2)}{key==='zoom'?'×':''}</output>}
-                  </label>
-                ))}
-              </div></details>
+              <div className="scene-timing">
+                <p className="scene-timing-title">{w('Время и приближение этой сцены','Timing and zoom for this scene','此场景的时间与缩放')}</p>
+                <div className="manual-grid ws-framing-grid">{(["start","end","zoom"] as const).map(key=>framingField(c,i,key))}</div>
+              </div>
+              <details className="inspector-framing"><summary>{w('Положение в кадре','Position in the frame','画面位置')}</summary><div className="manual-grid ws-framing-grid">{(["x","y"] as const).map(key=>framingField(c,i,key))}</div></details>
               <details className="inspector-motion" open={task==='effects'}><summary>{t('Camera motion: end framing','镜头运动：结束构图')}</summary><p>{t('The camera moves smoothly from the initial framing above to these end values. Matching values keep the camera still.','镜头从上方初始构图平滑移动至下方结束构图。数值相同则保持静止。')}</p><div className="manual-grid">{(['zoom_end','x_end','y_end'] as const).map((key,j)=><label key={key}>{[t('End zoom','结束缩放'),t('End horizontal position','结束水平位置'),t('End vertical position','结束垂直位置')][j]}<input type="range" min={j===0?1:0} max={j===0?3:1} step="0.05" value={c[key]??[c.zoom,c.x,c.y][j]} onChange={e=>clipChange(i,{[key]:Number(e.target.value)})}/><output>{(c[key]??[c.zoom,c.x,c.y][j]).toFixed(2)}</output></label>)}</div></details>
               <label>{w('Длительность движения камеры, сек','Camera movement duration, seconds','镜头运动时长（秒）')}<input type="number" min="0.08" max={c.end-c.start} step="0.1" value={Math.min(c.end-c.start,c.motion_seconds||c.end-c.start)} onChange={e=>clipChange(i,{motion_seconds:Number(e.target.value)})}/></label>
               <p>{w('После движения кадр удерживается до конца сцены.','After the move, the framing holds until the scene ends.','运动完成后，构图保持到场景结束。')}</p>

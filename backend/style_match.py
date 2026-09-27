@@ -1700,52 +1700,7 @@ def _scaled(shots, duration):
         cursor = end
     if cuts:
         cuts[-1] = (cuts[-1][0], round(float(duration), 3))
-    merged, cuts = _phrase_beats(merged, cuts or [(0.0, round(float(duration), 3))], duration)
-    return merged, cuts
-
-def _phrase_beats(shots, cuts, duration):
-    """Join reference micro-cuts into beats a viewer can watch.
-
-    A 0.4s reference slice is one measurement, not its own owned shot.
-    The beat keeps the picture that actually carries a treatment.
-    """
-    if len(cuts) < 2 or len(shots) != len(cuts):
-        return shots, cuts
-    floor = 2.8 if float(duration) >= 12 else max(1.6, float(duration) / 6)
-    groups = []
-    start = 0
-    for index in range(len(cuts)):
-        reached = cuts[index][1] - cuts[start][0] >= floor
-        last = index == len(cuts) - 1
-        if reached and not last:
-            groups.append((start, index))
-            start = index + 1
-        elif last:
-            if groups and not reached:
-                groups[-1] = (groups[-1][0], index)
-            else:
-                groups.append((start, index))
-
-    def picture_of(shot):
-        return shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
-
-    def rank(shot):
-        picture = picture_of(shot)
-        join = str(picture.get('join') or 'cut')
-        return (
-            join not in ('', 'cut'),
-            float(picture.get('blur') or 0) >= 1 or float(picture.get('glow') or 0) >= 0.4,
-            float(shot.get('ref_len') or 0),
-        )
-
-    beats, windows = [], []
-    for first, last in groups:
-        chosen = dict(max((shots[index] for index in range(first, last + 1)), key=rank))
-        beats.append(chosen)
-        windows.append((cuts[first][0], cuts[last][1]))
-    if windows:
-        windows[-1] = (windows[-1][0], round(float(duration), 3))
-    return beats or shots, windows or cuts
+    return merged, cuts or [(0.0, round(float(duration), 3))]
 
 def _look(measured):
     measured = measured or {}
