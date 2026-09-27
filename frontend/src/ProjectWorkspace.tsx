@@ -158,6 +158,14 @@ export function ProjectWorkspace({
       setRetrying(false);
     }
   }
+  const stamp = (created: number) =>
+    new Date(created * 1000).toLocaleString(lang === "zh" ? "zh-CN" : lang, {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const currentPicture = p.pictures?.find((picture) => picture.current);
   const versions: Version[] = [
     ...(p.result
       ? [
@@ -166,10 +174,19 @@ export function ProjectWorkspace({
             label: w("Готовый ролик", "Finished video", "已完成视频") + (finalVoice ? ` · ${finalVoice.label}` : ''),
             url: finalVoice ? finalVoice.url : base + "result?v=" + (p.result.render_id || ''),
             download: base + "result",
-            detail: `${fmt(p.result.metadata.duration)} · ${p.result.metadata.width} × ${p.result.metadata.height}`,
+            detail: [currentPicture ? stamp(currentPicture.created) : "", `${fmt(p.result.metadata.duration)} · ${p.result.metadata.width} × ${p.result.metadata.height}`].filter(Boolean).join(" · "),
           },
         ]
       : []),
+    ...(p.pictures ?? [])
+      .filter((picture) => !picture.current)
+      .map((picture) => ({
+        id: `picture-${picture.id}`,
+        label: w("Предыдущий ролик", "Earlier video", "较早成片"),
+        url: `${base}result?render=${picture.id}`,
+        download: `${base}result?render=${picture.id}`,
+        detail: stamp(picture.created),
+      })),
     ...(p.result && finalVoice ? [{id:'master',label:w('Монтаж до озвучки','Edit before voiceover','配音前的剪辑'),url:base+'master?v='+p.result.render_id,download:base+'master',detail:w('Звук сохранённого монтажа','Audio from the rendered edit','已渲染剪辑的声音')}] : []),
     ...dubs,
     {

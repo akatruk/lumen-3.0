@@ -3,7 +3,7 @@ import {StatusBadge,UploadProgress} from './TaskStatus';
 import {useEffect,useImperativeHandle,useRef,useState,type Ref} from 'react';
 import {uploadVideo} from './resumableUpload';
 import type {Lang} from './types';
-export type Asset={id:string;title:string;attribution:string;metadata:{duration:number;kind?:string;rhythm?:{version:number;accents:number[];bpm:number|null;regularity:number}}};
+export type Asset={id:string;title:string;attribution:string;metadata:{duration:number;kind?:string;catalogue_id?:string;reused_from?:string;rhythm?:{version:number;accents:number[];bpm:number|null;regularity:number}}};
 export type ExternalBroll={asset_id:string;start:number;end:number;source_start:number};
 export type MediaLibraryHandle={openMusicUpload:()=>void};
 export function MediaLibrary({pid,lang,assets,onChanged,ref}:{pid:string;lang:Lang;assets:Asset[];onChanged:()=>Promise<void>;ref?:Ref<MediaLibraryHandle>}){

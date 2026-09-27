@@ -93,6 +93,7 @@ export type Project = {
   created: number;
   cost: number;
   events: { kind: string; detail: string; created: number }[];
+  pictures?: { id: string; created: number; current: boolean }[];
 };
 export type Summary = Pick<
   Project,

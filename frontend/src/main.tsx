@@ -60,8 +60,8 @@ import type { Lang, Text, Project, Summary, Recommendation } from "./types";
 import "./style.css";
 import { DouyinSearch } from "./DouyinSearch";
 import { StudioCreate, DirectorProject } from "./Studio";
-import "./apple-design.css";
 import "./workspace.css";
+import "./apple-design.css";
 const Locale = createContext<{ lang: Lang; t: (key: string) => string }>({
   lang: "en",
   t: (k) => k,

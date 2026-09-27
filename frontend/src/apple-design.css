@@ -166,3 +166,319 @@ input[type=checkbox], input[type=radio], input[type=range] { accent-color: #0071
 .sidebar-footer .locale-select { width: 100%; margin-bottom: 12px; }
 .sidebar-footer .locale-select select { flex: 1; }
 @media (max-width: 600px) { .topbar-right .edition { display: none; } .topbar-right .locale-select { gap: 4px; } .topbar-right .locale-select select { min-width: 96px; max-width: 120px; } }
+
+/* Controls. This file loads last, so these states win over earlier screen styles. */
+.project-workspace {
+  --ws-blue: #0071e3;
+  --ws-line: #00000014;
+  color: #1d1d1f;
+  background: #f5f5f7;
+}
+.project-workspace button.primary,
+.project-workspace a.primary,
+.project-workspace button.secondary,
+.project-workspace a.secondary,
+.project-workspace .ws-delete,
+button.primary,
+a.primary,
+button.secondary,
+a.secondary,
+button.danger,
+.ws-edit-actions button,
+.manual-actions button,
+.director-submit button,
+.director-project button.secondary,
+.director-project a.primary,
+.manual-editor .manual-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 980px;
+  background: #e8e8ed;
+  color: #1d1d1f;
+  font-size: 14px;
+  font-weight: 590;
+  letter-spacing: -.012em;
+  line-height: 1.15;
+  text-decoration: none;
+  box-shadow: none;
+  transition: background 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+.project-workspace button.primary,
+.project-workspace a.primary,
+button.primary,
+a.primary,
+.ws-edit-actions button.primary,
+.director-project a.primary,
+.manual-actions button.primary,
+.director-submit .primary,
+.sidebar-new {
+  background: #0071e3;
+  color: #fff;
+}
+.project-workspace button.primary:hover:not(:disabled),
+.project-workspace a.primary:hover,
+button.primary:hover:not(:disabled),
+a.primary:hover,
+.ws-edit-actions button.primary:hover:not(:disabled),
+.sidebar-new:hover:not(:disabled) {
+  background: #0077ed;
+  color: #fff;
+}
+.project-workspace button.secondary:hover:not(:disabled),
+.project-workspace a.secondary:hover,
+button.secondary:hover:not(:disabled),
+a.secondary:hover,
+.ws-edit-actions button:hover:not(:disabled):not(.primary),
+.manual-editor button:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: #dedee3;
+  color: #1d1d1f;
+}
+.project-workspace .ws-delete,
+button.danger {
+  background: #fff;
+  color: #ff3b30;
+  box-shadow: inset 0 0 0 1px #ff3b3033;
+}
+.project-workspace .ws-delete:hover:not(:disabled),
+button.danger:hover:not(:disabled) {
+  background: #fff2f1;
+  color: #ff3b30;
+}
+button.primary:disabled,
+button.secondary:disabled,
+button.danger:disabled,
+.project-workspace button:disabled,
+.ws-edit-actions button:disabled {
+  opacity: .38;
+  background: #e8e8ed;
+  color: #1d1d1f;
+  box-shadow: none;
+  transform: none;
+}
+button.primary:disabled,
+.project-workspace button.primary:disabled,
+.ws-edit-actions button.primary:disabled,
+.director-submit .primary:disabled {
+  background: #0071e3;
+  color: #fff;
+  opacity: .38;
+}
+button.text-button,
+a.text-button,
+.ws-preview-heading .text-button {
+  min-height: 32px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #0071e3;
+  font-weight: 560;
+  box-shadow: none;
+}
+button.text-button:hover,
+a.text-button:hover,
+.ws-preview-heading .text-button:hover {
+  color: #005bbf;
+  background: transparent;
+}
+button.icon,
+.ws-versions .secondary,
+.modal-header .icon {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: #e8e8ed;
+  color: #1d1d1f;
+  border: 0;
+}
+button.icon:hover:not(:disabled),
+.ws-versions .secondary:hover:not(:disabled) {
+  background: #dedee3;
+}
+.ws-tools {
+  background: #f5f5f7;
+  border-bottom: 1px solid #00000010;
+  gap: 4px;
+}
+.ws-tools button {
+  border-radius: 10px;
+  color: #3a3a3c;
+  font-weight: 560;
+  background: transparent;
+}
+.ws-tools button[aria-pressed="true"] {
+  color: #0071e3;
+  background: transparent;
+}
+.menu-slide,
+.sidebar .menu-slide {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px #00000014, 0 4px 12px #0000000a;
+}
+.manual-editor button[aria-pressed="true"],
+.director-tabs button[aria-pressed="true"],
+.soundtrack-library .soundtrack-tabs button[aria-pressed="true"] {
+  background: #fff;
+  color: #0071e3;
+  border-color: transparent;
+  box-shadow: 0 1px 3px #0000001a;
+}
+.director-tabs,
+.soundtrack-tabs {
+  background: #e8e8ed;
+  border-radius: 12px;
+  padding: 3px;
+}
+dialog,
+dialog.ws-versions {
+  color: #1d1d1f;
+  background: #fff;
+  border: 0;
+  border-radius: 22px;
+  box-shadow: 0 24px 80px #0000002e;
+  padding: 28px;
+}
+dialog::backdrop,
+dialog.ws-versions::backdrop {
+  background: #00000059;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+.ws-versions h2,
+dialog h2 {
+  letter-spacing: -.03em;
+  font-weight: 650;
+  color: #1d1d1f;
+}
+.ws-versions article {
+  border-top: 1px solid #00000010;
+}
+.ws-grid {
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 1px 2px #0000000a, 0 12px 32px #00000008;
+}
+.director-card,
+.douyin-search,
+.upload-card,
+.auth-form {
+  border: 0;
+  border-radius: 22px;
+  box-shadow: 0 1px 2px #0000000a, 0 16px 40px #0000000a;
+}
+.tutorial-video {
+  background: #f5f5f7;
+  border: 0;
+  color: #1d1d1f;
+}
+.tutorial-video p,
+.tutorial-links { color: #6e6e73; }
+.tutorial-links a { color: #0071e3; }
+.tutorial-tabs,
+.tutorial-compact.tutorial-v4 .tutorial-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: #e8e8ed;
+  border-radius: 12px;
+}
+.tutorial-tabs button,
+.tutorial-chapters button,
+.tutorial-compact.tutorial-v4 .tutorial-tabs button {
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #3a3a3c;
+  box-shadow: none;
+}
+.tutorial-tabs button[aria-pressed="true"],
+.tutorial-compact.tutorial-v4 .tutorial-tabs button[aria-pressed="true"] {
+  background: #fff;
+  color: #1d1d1f;
+  border: 0;
+  box-shadow: 0 1px 3px #0000001a;
+}
+
+/* Sound picker: segmented choice, then a selected bed. Loaded last so it wins over the green pressed state. */
+.project-workspace .music-bed-switch {
+  display: flex;
+  gap: 2px;
+  margin: 12px 0 14px;
+  padding: 3px;
+  background: #e8e8ed;
+  border-radius: 12px;
+}
+.project-workspace .music-bed-switch button {
+  flex: 1 1 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #3a3a3c;
+  box-shadow: none;
+  min-height: 36px;
+}
+.project-workspace .manual-editor .music-bed-switch button[aria-pressed="true"] {
+  background: #fff;
+  color: #1d1d1f;
+  border: 0;
+  box-shadow: 0 1px 3px #0000001a;
+}
+.project-workspace .music-bed h3 { margin: 0 0 8px; font-size: 17px; }
+.project-workspace .music-bed-status { color: #1d1d1f; }
+.project-workspace .music-bed-status strong { font-weight: 650; }
+.project-workspace .music-bed-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+.project-workspace .ws-inspector .manual-editor .music-bed-item { margin: 8px 0; }
+.project-workspace .ws-inspector .manual-editor label.music-bed-row,
+.project-workspace .ws-inspector .manual-editor label.music-candidate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #d2d2d7;
+  font-weight: 560;
+  cursor: pointer;
+}
+.project-workspace .ws-inspector .manual-editor .music-candidate { margin: 8px 0; }
+.project-workspace .ws-inspector .manual-editor label.music-bed-row.is-selected,
+.project-workspace .ws-inspector .manual-editor label.music-candidate.is-checked,
+.project-workspace .ws-inspector .manual-editor label.music-candidate:has(input:checked) {
+  background: #f2f7ff;
+  box-shadow: inset 0 0 0 2px #0071e3;
+}
+.project-workspace .ws-inspector .manual-editor label.music-bed-row input[type="radio"],
+.project-workspace .ws-inspector .manual-editor label.music-candidate input[type="checkbox"] {
+  appearance: auto;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  min-width: 20px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: #0071e3;
+  cursor: pointer;
+}
+.project-workspace .music-bed-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.project-workspace .music-bed-copy small { color: #6e6e73; font-weight: 450; font-size: 12px; }
+.project-workspace .music-bed-badge {
+  margin-left: auto;
+  color: #0071e3;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.project-workspace .music-bed-item audio { width: 100%; margin: 8px 0 0; }
+.project-workspace .music-bed-current { margin: 0 0 8px; }
