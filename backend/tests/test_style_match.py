@@ -2086,8 +2086,10 @@ def test_style_render_drops_frames_on_the_presenter_and_uses_a_generated_still(t
     assert 'drawbox=' not in joined and '[fg]' not in joined and 'overlay=' not in joined
 
 
-def test_spoken_numbers_become_lower_third_charts():
+def test_spoken_numbers_become_lower_third_charts(tmp_path):
+    from backend.media import caption_lift
     from backend.style_match import present_for_render
+    from backend.visuals import write_card
     edit = {
         'clips': [
             {'id': 'a', 'start': 19.5, 'end': 26.5, 'shot_type': 'presenter', 'text': 'lin 49%', 'kinetic': True, 'progress': 0.4},
@@ -2101,11 +2103,21 @@ def test_spoken_numbers_become_lower_third_charts():
     }
     shown = present_for_render(edit)
     shareholders, cap = shown['clips']
-    assert shareholders['text'] == '' and shareholders['card']['kind'] == 'number'
-    assert shareholders['card']['primary']['zh'] == '3' and shareholders['card_y'] == 0.86 and shareholders['card_h'] == 0.22
+    assert shareholders['text'] == '' and shareholders.get('card') is None
     assert cap['card']['kind'] == 'bar_chart' and cap['card']['primary']['zh'] == '49%'
     assert [item['value'] for item in cap['card']['items']] == [49, 100]
-    assert cap['card_y'] == 0.86 and cap['progress'] == 0 and shown['subtitles'] is True
+    assert cap['card_x'] >= 0.7 and cap['card_w'] <= 0.4 and cap['card_y'] - cap['card_h'] / 2 >= 0.74
+    assert cap['progress'] == 0 and shown['subtitles'] is True
+    assert '口播' not in json.dumps(shown)
+    people = present_for_render({'clips': [{'id': 'c', 'start': 0, 'end': 4, 'shot_type': 'presenter', 'text': 'count'}], 'captions': [{'start': 0, 'end': 4, 'original': '一共有三人', 'en': '', 'zh': ''}], 'subtitles': True})
+    assert people['clips'][0].get('card') is None
+    stored = present_for_render({'clips': [{'id': 'd', 'start': 0, 'end': 4, 'card': {'kind': 'number', 'title': {'en': '股东', 'zh': '股东'}, 'primary': {'en': '3', 'zh': '3'}, 'source': {'en': '口播', 'zh': '口播'}, 'start': 0.2, 'end': 2}}], 'captions': [], 'subtitles': True})
+    assert stored['clips'][0].get('card') is None and '口播' not in json.dumps(stored)
+    card_file = tmp_path / 'proportion.ass'
+    write_card(card_file, cap['card'], 'zh', 1080, 1920, (cap['card_x'], cap['card_y']), (cap['card_w'], cap['card_h']))
+    script = card_file.read_text()
+    assert '49%' in script and '口播' not in script and '股东' not in script
+    assert caption_lift(shown['clips']) < 0.30
 
 
 def test_reference_music_note_mixes_a_licensed_bed(client, tmp_path, monkeypatch):

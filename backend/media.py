@@ -366,6 +366,26 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 rows.append((a,f'Dialogue: 0,{ass_time(a)},{ass_time(b)},Default,,0,0,0,,{chunk}\n'))
     path.write_text(header+''.join(row for _,row in sorted(rows)),encoding='utf-8')
 
+def caption_lift(clips):
+    """Keep captions in the gap above a seated chip, below the eyes."""
+    tops = []
+    for clip in clips or []:
+        if not isinstance(clip, dict) or not clip.get('card'):
+            continue
+        try:
+            y, height = float(clip.get('card_y')), float(clip.get('card_h'))
+        except (TypeError, ValueError):
+            continue
+        if clip.get('card_y') is None or not clip.get('card_h') or height <= 0:
+            continue
+        tops.append(y - height / 2)
+    if tops:
+        text_bottom = min(0.80, max(0.70, min(tops) - 0.04))
+        return round(min(0.34, max(0.16, 1 - text_bottom)), 3)
+    if any(isinstance(clip, dict) and (clip.get('card') or clip.get('bars')) for clip in clips or []):
+        return 0.22
+    return None
+
 def callout_bounds(clip, span):
     """Seconds the owned callout is on. An unset exit keeps the previous full-clip end."""
     span=max(0.0, float(span or 0))
@@ -802,8 +822,10 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                     caption_face, caption_heavy = found_face, found_heavy
                     break
         caption_style={k:manual[k] for k in ('font_size','position','color')} if manual else {}
-        if manual and any(c.get('card') or c.get('bars') for c in manual['clips']):
-            caption_style['lift']=0.30
+        if manual:
+            lifted = caption_lift(manual['clips'])
+            if lifted is not None:
+                caption_style['lift'] = lifted
         subs=folder/'captions.ass'; write_subtitles(subs,[Caption.model_validate(c) for c in manual['captions']] if manual else analysis.transcript,timeline,language,w,h,caption_style,face=caption_face,heavy=caption_heavy)
         beat('burning_captions', 84)
         # All paths generated internally; quote for libavfilter independently of shell.

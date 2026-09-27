@@ -2301,10 +2301,16 @@ def _clear_face_type(clip):
         clip[key] = None
 
 def _seat_chart(clip):
-    """A compact lower-third under the face, clear of the eyes and the caption line."""
-    if clip.get('card'):
-        clip['card_x'], clip['card_y'] = 0.5, 0.86
-        clip['card_w'], clip['card_h'] = 0.88, 0.22
+    """A proportion sits as a side chip. Other cards keep the previous lower-third."""
+    card = clip.get('card') if isinstance(clip.get('card'), dict) else None
+    if card:
+        if card.get('kind') in ('bar_chart', 'ranking'):
+            # Right of the torso, below the mouth. Not a full-width plate on the chest.
+            clip['card_x'], clip['card_y'] = 0.80, 0.86
+            clip['card_w'], clip['card_h'] = 0.32, 0.12
+        else:
+            clip['card_x'], clip['card_y'] = 0.5, 0.86
+            clip['card_w'], clip['card_h'] = 0.88, 0.22
         clip['progress'] = 0
         clip['progress_play'] = False
     if clip.get('bars'):
@@ -2314,10 +2320,39 @@ def _seat_chart(clip):
         clip['progress'] = 0
         clip['progress_play'] = False
 
-_CN_DIGIT = {'一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10}
-
 def _line(text):
     return {'en': text, 'zh': text}
+
+def _people_count_card(card):
+    """A headcount such as 三名股东 is not a chart. A percent is."""
+    if not isinstance(card, dict) or card.get('kind') not in ('number', None):
+        return False
+    primary = str((card.get('primary') or {}).get('zh') or (card.get('primary') or {}).get('en') or '').strip()
+    title = ''.join(str((card.get('title') or {}).get(key) or '') for key in ('zh', 'en'))
+    source = ''.join(str((card.get('source') or {}).get(key) or '') for key in ('zh', 'en'))
+    if '%' in primary:
+        return False
+    if not re.fullmatch(r'\d{1,2}', primary):
+        return False
+    if re.search(r'股东|人数', title):
+        return True
+    return card.get('kind') == 'number' and '口播' in source
+
+def _drop_people_count(clip):
+    if not _people_count_card(clip.get('card')):
+        return
+    clip['card'] = None
+    for key in ('card_x', 'card_y', 'card_w', 'card_h'):
+        clip[key] = None
+
+def _scrub_source(card):
+    source = card.get('source') if isinstance(card, dict) else None
+    if not isinstance(source, dict):
+        return
+    for key in ('en', 'zh'):
+        text = str(source.get(key) or '')
+        if re.search(r'口播|主讲|talking[\s-]?head|douyin|抖音', text, re.I):
+            source[key] = '—'
 
 def _chart_card(kind, title, primary, start, end, items=None):
     card = {
@@ -2326,7 +2361,7 @@ def _chart_card(kind, title, primary, start, end, items=None):
         'end': round(end, 3),
         'title': _line(title),
         'primary': _line(primary),
-        'source': _line('口播'),
+        'source': _line('—'),
         'animation': 'grow' if end - start >= 1.2 else 'none',
         'animation_seconds': 0.6,
     }
@@ -2335,7 +2370,7 @@ def _chart_card(kind, title, primary, start, end, items=None):
     return card
 
 def _spoken_charts(edit):
-    """Charts from numbers the person actually says. At most two, in the lower third."""
+    """A spoken percent can become a side chip. A 名 or 人 headcount does not."""
     clips = [clip for clip in (edit.get('clips') or []) if isinstance(clip, dict) and not clip.get('locked') and not clip.get('art_frame')]
     if sum(1 for clip in clips if clip.get('card')) >= 2:
         return
@@ -2349,30 +2384,16 @@ def _spoken_charts(edit):
         except (TypeError, ValueError):
             continue
         percent = re.search(r'(\d+(?:\.\d+)?)\s*%', text)
-        count = re.search(r'([一二三四五六七八九十两]|\d+)\s*名', text)
-        if percent:
-            value = float(percent.group(1))
-            if not 0 < value <= 100:
-                continue
-            title = '外资比例' if '外资' in text else '比例'
-            card = _chart_card('bar_chart', title, f'{value:g}%', 0, 1, [
-                {'label': _line(title), 'value': value},
-                {'label': _line('100%'), 'value': 100},
-            ])
-        elif count:
-            raw = count.group(1)
-            value = _CN_DIGIT.get(raw, None)
-            if value is None:
-                try:
-                    value = int(raw)
-                except ValueError:
-                    continue
-            if not 1 <= value <= 20:
-                continue
-            title = '股东' if '股东' in text else '人数'
-            card = _chart_card('number', title, str(value), 0, 1)
-        else:
+        if not percent:
             continue
+        value = float(percent.group(1))
+        if not 0 < value <= 100:
+            continue
+        title = '外资比例' if '外资' in text else '比例'
+        card = _chart_card('bar_chart', title, f'{value:g}%', 0, 1, [
+            {'label': _line(title), 'value': value},
+            {'label': _line('100%'), 'value': 100},
+        ])
         host = None
         best = 0.0
         for clip in clips:
@@ -2445,10 +2466,16 @@ def present_for_render(edit):
             clip['external_broll'] = None
             continue
         _clear_face_type(clip)
+        _drop_people_count(clip)
+        _scrub_source(clip.get('card'))
         _seat_chart(clip)
         clip['art'] = ''
         clip['art_frame'] = False
     _spoken_charts(shaped)
+    for clip in shaped.get('clips') or []:
+        if isinstance(clip, dict):
+            _drop_people_count(clip)
+            _scrub_source(clip.get('card'))
     return shaped
 
 def board_for_render(edit, context):
