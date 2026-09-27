@@ -18,19 +18,24 @@ def progress(pid,stage,value):
 def analyze_job(p):
     pid=p['id']; folder=settings.data_dir/pid; source=folder/'source'
     update(pid,status='analyzing',error=None)
-    progress(pid,'preparing',8)
+    from .analysis_activity import note
+    note(pid,'prepare',plan=['prepare','owned_sound','owned_model','director'])
     if not source.exists():
         from .douyin import import_source
         import_source(p)
     metadata=media.probe(source)
     if metadata['duration']>settings.max_duration_seconds: raise ValueError('video_too_long')
     media.prepare(source,folder)
-    metadata['preview_ready']=True
-    update(pid,metadata=metadata)
+    try:
+        saved=(project(pid) or {}).get('metadata') or {}
+    except Exception:
+        saved={}
+    update(pid,metadata={**saved,**metadata,'preview_ready':True})
+    note(pid,'owned_sound')
     silences=media.silence_ranges(source,metadata['duration']) if metadata['has_audio'] else []
-    progress(pid,'understanding',30)
+    note(pid,'owned_model')
     analysis=ai.analyze(pid,folder,metadata,p['brief'],p['language'],silences)
-    progress(pid,'planning',65)
+    note(pid,'director')
     selected=[]
     for r in analysis.recommendations:
         safe = r.auto_apply and r.confidence>=0.85 and (p['generative'] or r.action!='generate_broll')
@@ -82,11 +87,20 @@ def render_job(p,payload):
         from .manual import Edit
         with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
     voice_audio=render_audio.prepare(pid,delivery['voice'],render_folder,timeline) if delivery and delivery['voice'] else None
+    if manual:
+        from .studio import state as studio_state
+        from .style_match import board_for_render
+        current=studio_state(pid)
+        manual=board_for_render(manual,(current or {}).get('context') if current else None)
+        if ((current or {}).get('context') or {}).get('style_match'):
+            from .style_match import animate_for_render
+            manual=animate_for_render(manual)
     result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id
     if delivery and delivery['voice']:result['voiceover']={k:delivery['voice'][k] for k in ('language','voice')}
     if asset_paths:
         used_assets={c['external_broll']['asset_id'] for c in manual['clips'] if c['approved'] and c.get('external_broll')}
+        used_assets.update(c['stock_still'] for c in manual['clips'] if c['approved'] and c.get('stock_still'))
         if manual.get('music'):used_assets.add(manual['music']['asset_id'])
         with connect() as db:
             result['asset_credits']=[{'asset_id':ident,'title':row['title'],'attribution':row['attribution']} for ident in sorted(used_assets) if (row:=db.execute('SELECT title,attribution FROM studio_assets WHERE id=? AND project_id=?',(ident,pid)).fetchone())]
@@ -117,7 +131,7 @@ def render_job(p,payload):
 
 def safe_error(exc):
     allowed={'selected_audio_unavailable','voiceover_timeline_unavailable','voiceover_range_unavailable','douyin_not_configured','douyin_daily_limit','douyin_auth_failed','douyin_credits_required','douyin_rate_limited','douyin_search_failed','douyin_media_unavailable','upload_too_large','budget_limit','not_a_video','invalid_duration','resolution_too_large','video_too_long','provider_not_configured',
-    'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid',
+    'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
     'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips'}

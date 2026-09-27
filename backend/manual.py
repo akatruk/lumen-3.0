@@ -1,7 +1,7 @@
 """Source-only manual edits, versioned with the director plan. No AI calls."""
 import json
 import uuid
-from typing import Literal
+from typing import Annotated, Literal
 from fastapi import APIRouter,Depends,HTTPException,Request
 from pydantic import Field
 from .schemas import Strict,Span,Caption
@@ -15,6 +15,10 @@ router=APIRouter(prefix='/api/studio')
 class Cutaway(Span):
     source_start: float=Field(ge=0)
 
+class PictureInsert(Span):
+    """Owned-clip window that shows a reference picture. `at` is the reference timestamp."""
+    at: float=Field(ge=0)
+
 class ExternalBroll(Cutaway):
     asset_id:str=Field(pattern=r'^[a-f0-9]{32}$')
 
@@ -27,10 +31,18 @@ class Grade(Strict):
     gs: float=Field(default=0,ge=-.3,le=.3)
     bs: float=Field(default=0,ge=-.3,le=.3)
 
+class Spot(Strict):
+    """One measured bright group. Its center is not averaged with the others."""
+    x: float=Field(ge=0,le=1)
+    y: float=Field(ge=0,le=1)
+    w: float | None=Field(default=None,ge=0,le=1)
+    h: float | None=Field(default=None,ge=0,le=1)
+
 class Clip(Span):
     sound_effects:list[SoundEffect]=Field(default_factory=list,max_length=4)
     external_broll: ExternalBroll | None=None
     cutaway: Cutaway | None=None
+    picture_insert: PictureInsert | None=None
     card: VisualCard | None=None
     id: str=Field(default_factory=lambda:uuid.uuid4().hex,pattern=r'^[a-zA-Z0-9_-]{1,64}$')
     approved: bool=True
@@ -41,7 +53,8 @@ class Clip(Span):
     x_end: float | None=Field(default=None,ge=0,le=1)
     y_end: float | None=Field(default=None,ge=0,le=1)
     audio_fade_ms: int=Field(default=0,ge=0,le=100)
-    transition: Literal['cut','fade','crossfade','zoom','wipe','circle']='cut'
+    transition: Literal['cut','fade','crossfade','zoom','wipe','wipe-up','wipe-down','circle','diagtl','diagtr','diagbl','diagbr']='cut'
+    transition_seconds: float | None=Field(default=None,ge=.8,le=2.4)
 
     zoom: float=Field(default=1,ge=1,le=3)
     x: float=Field(default=.5,ge=0,le=1)
@@ -49,38 +62,84 @@ class Clip(Span):
     enhance: bool=False
     speed: float=Field(default=1,ge=.5,le=2)
     speed_end: float | None=Field(default=None,ge=.5,le=2)
+    roll: float=Field(default=0,ge=-18,le=18)
+    roll_end: float | None=Field(default=None,ge=-18,le=18)
+    orbit_x: float=Field(default=0,ge=-.4,le=.4)
+    orbit_y: float=Field(default=0,ge=-.4,le=.4)
+    focus: Literal['in','out'] | None=None
+    sweep: bool=False
     blur: float=Field(default=0,ge=0,le=12)
     glow: bool=False
     glow_amount: float=Field(default=0,ge=0,le=1.5)
     shadow: bool=False
     shade: float=Field(default=0,ge=0,le=1.35)
     split: bool=False
+    split_at: float | None=Field(default=None,ge=.2,le=.8)
     stabilize: bool=False
     shake_rx: int=Field(default=16,ge=0,le=64)
     cutout: bool=False
+    subject_x: float | None=Field(default=None,ge=0,le=1)
+    subject_y: float | None=Field(default=None,ge=0,le=1)
+    subject_w: float | None=Field(default=None,ge=.12,le=.78)
+    subject_h: float | None=Field(default=None,ge=.18,le=.88)
     kinetic: bool=False
+    title_in: float=Field(default=0,ge=0,le=1)
+    title_out: float=Field(default=1,ge=0,le=1)
+    title_x: float | None=Field(default=None,ge=0,le=1)
+    title_y: float | None=Field(default=None,ge=0,le=1)
+    title_x_end: float | None=Field(default=None,ge=0,le=1)
+    title_y_end: float | None=Field(default=None,ge=0,le=1)
+    title_w: float | None=Field(default=None,ge=0,le=1)
+    title_h: float | None=Field(default=None,ge=0,le=1)
+    kinetic_at: list[Annotated[float, Field(ge=0, le=1)]]=Field(default_factory=list, max_length=8)
     graphic: bool=False
     bars: list[float]=Field(default_factory=list,max_length=5)
     lower: bool=False
     icon: bool=False
     mark: float=Field(default=0,ge=0,le=1)
+    card_x: float | None=Field(default=None,ge=0,le=1)
+    card_y: float | None=Field(default=None,ge=0,le=1)
+    lower_x: float | None=Field(default=None,ge=0,le=1)
+    lower_y: float | None=Field(default=None,ge=0,le=1)
+    chart_x: float | None=Field(default=None,ge=0,le=1)
+    chart_y: float | None=Field(default=None,ge=0,le=1)
+    chart_w: float | None=Field(default=None,ge=0,le=1)
+    chart_h: float | None=Field(default=None,ge=0,le=1)
+    card_w: float | None=Field(default=None,ge=0,le=1)
+    card_h: float | None=Field(default=None,ge=0,le=1)
     still: float | None=Field(default=None,ge=0)
     screen: float | None=Field(default=None,ge=0)
     bezel: float=Field(default=0.1,ge=0.04,le=0.32)
     diagram: int=Field(default=0,ge=0,le=4)
     art: str=Field(default='',pattern=r'^$|^style-art-[0-9]{1,2}\.png$')
+    stock_still: str=Field(default='',pattern=r'^$|^[a-f0-9]{32}$')
     panel: float | None=Field(default=None,ge=0)
     mask: bool=False
+    mask_rx: float | None=Field(default=None,ge=.16,le=.48)
+    mask_ry: float | None=Field(default=None,ge=.16,le=.48)
     track: bool=False
     exposure: float=Field(default=0,ge=-1,le=1)
+    key_side: Literal['left','right','top'] | None=None
+    key_amount: float=Field(default=0,ge=0,le=.35)
+    fill_side: Literal['left','right','bottom'] | None=None
+    fill_amount: float=Field(default=0,ge=0,le=.2)
+    rim_amount: float=Field(default=0,ge=0,le=.35)
     progress: float=Field(default=0,ge=0,le=1)
-    effect_at: float=Field(default=0,ge=0,le=0.85)
+    progress_at: float=Field(default=0,ge=0,le=1)
+    progress_end: float=Field(default=1,ge=0,le=1)
+    progress_play: bool=False
+    effect_at: float=Field(default=0,ge=0,le=0.98)
+    effect_end: float=Field(default=1,ge=0,le=1)
     plate: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
+    ink: str=Field(default='',pattern=r'^$|^[0-9A-Fa-f]{6}$')
+    face: str=Field(default='',max_length=80)
+    type_style: str=Field(default='',pattern=r'^$|^(serif|sans)-(light|heavy)$')
+    spots: list[Spot]=Field(default_factory=list,max_length=16)
     grade: Grade | None=None
     text: str=Field(default='',max_length=160)
 class Edit(Strict):
     music: Music | None=None
-    clips: list[Clip]=Field(min_length=1,max_length=40)
+    clips: list[Clip]=Field(min_length=1)
     captions: list[Caption]=Field(default_factory=list,max_length=160)
     subtitles: bool=False
     normalize: bool=False
@@ -116,6 +175,7 @@ def check(edit,duration):
         if any(e.at+DURATIONS[e.kind]>c.end-c.start for e in c.sound_effects):raise HTTPException(422,'invalid_sound_range')
         if c.external_broll and (c.cutaway or c.external_broll.end>c.end-c.start or c.external_broll.end-c.external_broll.start<.08):raise HTTPException(422,'invalid_cutaway_range')
         if c.cutaway and (c.cutaway.end>c.end-c.start or c.cutaway.end-c.cutaway.start<.08 or c.cutaway.source_start+c.cutaway.end-c.cutaway.start>duration):raise HTTPException(422,'invalid_cutaway_range')
+        if c.picture_insert and (c.picture_insert.end>c.end-c.start+1e-3 or c.picture_insert.end-c.picture_insert.start<.08):raise HTTPException(422,'invalid_cutaway_range')
         if c.card and (c.card.end>c.end-c.start or c.card.end-c.card.start<.5):raise HTTPException(422,'invalid_card_range')
         if c.card and c.card.kind=='comparison' and not c.card.secondary:raise HTTPException(422,'comparison_requires_two_values')
     ids=[c.id for c in edit.clips]

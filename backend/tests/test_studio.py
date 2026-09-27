@@ -142,3 +142,25 @@ def test_analysis_automatically_queues_dna_based_decisions(client,monkeypatch):
   assert json.loads(row['snapshot'])['dna']==cached
   assert json.loads(row['snapshot'])['decision_evidence'] is True
   assert db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='creative_plan'",(pid,)).fetchone()[0]==1
+
+def test_analysis_publishes_each_step_and_keeps_the_video_metadata(client,monkeypatch):
+ pid=create(client).json()['id']
+ cached=[dict(reference_id='1234567890123456789',duration=20,analysis={'summary':T,'shots':[]})]
+ with connect() as db:db.execute('UPDATE studio_projects SET dna=? WHERE project_id=?',(json.dumps(cached),pid))
+ seen={}
+ def director_response(*args,**kwargs):
+  item=project(pid)
+  seen['step']=item['metadata']['activity']['step']
+  seen['plan']=item['metadata']['activity']['plan']
+  seen['done']=[row['step'] for row in item['metadata']['activity']['log']]
+  return plan()
+ monkeypatch.setattr(studio.media,'prepare',lambda *args:None)
+ monkeypatch.setattr(studio.ai,'json_call',director_response)
+ studio.analyze(project(pid))
+ assert seen['step']=='director'
+ assert seen['done']==['prepare']
+ assert seen['plan'][0]=='prepare' and seen['plan'][-1]=='director'
+ item=project(pid)
+ assert item['status']=='ready' and item['progress']==100
+ assert item['metadata']['duration']==40 and item['metadata']['preview_ready'] is True
+ assert item['metadata']['activity']['step']=='director'

@@ -9,7 +9,13 @@ def compile_timeline(edit):
              'shot_type':clip.shot_type,'locked':clip.locked,'motion':{'from':[clip.zoom,clip.x,clip.y],'to':[clip.zoom_end if clip.zoom_end is not None else clip.zoom,clip.x_end if clip.x_end is not None else clip.x,clip.y_end if clip.y_end is not None else clip.y]},'transition':clip.transition,'audio_fade_ms':clip.audio_fade_ms}
         row['motion']['duration']=min(length,clip.motion_seconds or length)
         shots.append(row)
-        if clip.text:titles.append({'decision_id':clip.id,'start':row['start'],'end':row['end'],'text':clip.text})
+        if clip.text:
+            title_start,title_end=row['start'],row['end']
+            if clip.effect_end<0.999:
+                title_start=row['start']+max(0,min(clip.effect_at,0.98))*length
+                title_end=row['start']+max(clip.effect_at,clip.effect_end)*length
+                if title_end<=title_start: title_start,title_end=row['start'],row['end']
+            titles.append({'decision_id':clip.id,'start':round(title_start,6),'end':round(title_end,6),'text':clip.text})
         if clip.card:inserts.append(clip.card.model_dump()|{'decision_id':clip.id,'start':round(cursor+clip.card.start,6),'end':round(cursor+clip.card.end,6)})
         if clip.cutaway:cutaways.append({'decision_id':clip.id,'start':round(cursor+clip.cutaway.start,6),'end':round(cursor+clip.cutaway.end,6),'source_start':clip.cutaway.source_start,'source_end':clip.cutaway.source_start+clip.cutaway.end-clip.cutaway.start,'audio':'base_source','locked':clip.locked})
         if clip.external_broll:
@@ -47,25 +53,52 @@ def motion_filter(clip,width,height,length):
     z0=clip['zoom'];z1=clip.get('zoom_end') if clip.get('zoom_end') is not None else z0
     x0=clip['x'];x1=clip.get('x_end') if clip.get('x_end') is not None else x0
     y0=clip['y'];y1=clip.get('y_end') if clip.get('y_end') is not None else y0
+    ox=max(-0.35, min(0.35, _num(clip, 'orbit_x', 0)))
+    oy=max(-0.35, min(0.35, _num(clip, 'orbit_y', 0)))
+    bowing=abs(ox)>=0.08 or abs(oy)>=0.08
     rx=max(4, min(64, int(clip.get('shake_rx') or 16))) if clip.get('stabilize') else 0
     pre=f'deshake=rx={rx}:ry={rx}:edge=0,' if rx else ''
-    if (z0,x0,y0)==(z1,x1,y1):
+    if (z0,x0,y0)==(z1,x1,y1) and not bowing:
         base=f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
     else:
-        n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1);progress=f'min(on/{n},1)'
-        base=f"fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({x0}+({x1}-{x0})*{progress})':y='(ih-ih/zoom)*({y0}+({y1}-{y0})*{progress})':d=1:s={width}x{height}:fps=30,"
+        n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1)
+        linear=f'min(on/{n},1)'
+        # Smoothstep: the move starts and settles, instead of sliding at one speed.
+        progress=f'({linear})*({linear})*(3-2*({linear}))'
+        # zoompan resamples with bilinear. A 2x lanczos source keeps a punch-in from softening a small frame.
+        arc=f'4*{progress}*(1-{progress})'
+        xfrac=f'min(1\\,max(0\\,{x0}+({x1}-{x0})*{progress}+{ox:.4f}*({arc})))' if bowing else f'{x0}+({x1}-{x0})*{progress}'
+        yfrac=f'min(1\\,max(0\\,{y0}+({y1}-{y0})*{progress}+{oy:.4f}*({arc})))' if bowing else f'{y0}+({y1}-{y0})*{progress}'
+        base=f"scale=iw*2:ih*2:flags=lanczos,fps=30,zoompan=z='{z0}+({z1}-{z0})*{progress}':x='(iw-iw/zoom)*({xfrac})':y='(ih-ih/zoom)*({yfrac})':d=1:s={width}x{height}:fps=30,"
+    roll0=_num(clip,'roll',0)
+    roll1=clip.get('roll_end')
+    roll1=roll0 if roll1 is None else _num(clip,'roll_end',roll0)
+    if abs(roll0)>=4 or abs(roll1)>=4:
+        a0, a1 = roll0*3.14159265/180, roll1*3.14159265/180
+        if abs(a1-a0)<0.05:
+            base+=f"rotate={a0:.5f}:ow=iw:oh=ih:fillcolor=0x101614,"
+        else:
+            span=max(0.08, float(length))
+            base+=f"rotate='{a0:.5f}+({a1-a0:.5f})*min(t/{span:.3f}\\,1)':ow=iw:oh=ih:fillcolor=0x101614,"
     speed,end,_average=playback(clip,length)
     if abs(end-speed)>0.04: base+=_ramp(speed,end,length)
     elif abs(speed-1)>0.04: base+=f'setpts=PTS/{speed:.4f},'
     grade=clip.get('grade') or None
+    short=min(width,height)<720
     if grade:
-        base+=f"eq=contrast={_num(grade,'contrast',1):.4f}:brightness={_num(grade,'brightness',0):.4f}:saturation={_num(grade,'saturation',1):.4f}:gamma={_num(grade,'gamma',1):.4f},"
+        contrast=_num(grade,'contrast',1)
+        saturation=_num(grade,'saturation',1)
+        if short:
+            # Match color on a small frame. A full contrast or saturation lift looks softer than the source.
+            contrast=1+(contrast-1)*0.25
+            saturation=1+(saturation-1)*0.25
+        base+=f"eq=contrast={contrast:.4f}:brightness={_num(grade,'brightness',0):.4f}:saturation={saturation:.4f}:gamma={_num(grade,'gamma',1):.4f},"
         base+=f"colorbalance=rs={_num(grade,'rs',0):.4f}:gs={_num(grade,'gs',0):.4f}:bs={_num(grade,'bs',0):.4f},"
-    elif clip.get('enhance'):
-        # A small lift only. It does not copy a reference grade.
+    elif clip.get('enhance') and not short:
         base+='eq=contrast=1.04:brightness=0.02:saturation=1.06:gamma=1.02,'
     at=float(clip.get('effect_at') or 0)
-    gate=f":enable='gte(t\\,{at:.3f})'" if at>=0.2 else ''
+    opened=max(0.0, min(at, 0.98)) * float(length) if at >= 0.2 else 0.0
+    gate=_effect_gate(clip, length, opened)
     if _num(clip,'blur',0)>=0.4: base+=f"gblur=sigma={min(12,_num(clip,'blur',0)):.2f}{gate},"
     if clip.get('glow'):
         amount=_num(clip,'glow_amount',0)
@@ -76,4 +109,58 @@ def motion_filter(clip,width,height,length):
         if angle<0.2: angle=3.1416/5
         base+=f"vignette=angle={min(1.35,angle):.3f}{gate},"
     if abs(_num(clip,'exposure',0))>0.02: base+=f"exposure={_num(clip,'exposure',0):.3f},"
+    base+=_directional_light(clip)
+    if clip.get('sweep'):
+        base+=_light_sweep(length)
     return pre+base
+
+def _light_sweep(length):
+    """A soft highlight that travels across the frame and fades out. Not a static glow."""
+    span=max(0.2, float(length))
+    center=f'(0.16+0.68*T/{span:.3f})'
+    return f"geq=lum='lum(X,Y)+16*sin(3.1416*T/{span:.3f})*exp(-((X/W-{center})*(X/W-{center}))/0.02)*exp(-((Y/H-0.46)*(Y/H-0.46))/0.2)':cb='cb(X,Y)':cr='cr(X,Y)',"
+
+def _effect_gate(clip, length, opened):
+    """Blur, glow, and vignette. A measured exit below the clip uses between. Otherwise gte, or the whole clip."""
+    raw=clip.get('effect_end')
+    try:
+        end_frac=1.0 if raw is None else float(raw)
+    except (TypeError, ValueError):
+        end_frac=1.0
+    if end_frac!=end_frac:
+        end_frac=1.0
+    end_frac=max(0.0, min(1.0, end_frac))
+    closed=end_frac*float(length)
+    if end_frac<0.999 and closed>opened:
+        return f":enable='between(t\\,{opened:.3f}\\,{min(float(length), closed):.3f})'"
+    if opened>=0.2:
+        return f":enable='gte(t\\,{opened:.3f})'"
+    return ''
+
+def _directional_light(clip):
+    """A measured key, fill, or rim. Amounts are fractions, not a copied frame."""
+    key, fill = clip.get('key_side') or '', clip.get('fill_side') or ''
+    key_amount, fill_amount, rim_amount = _num(clip, 'key_amount', 0), _num(clip, 'fill_amount', 0), _num(clip, 'rim_amount', 0)
+    if key_amount < 0.04 and fill_amount < 0.04 and rim_amount < 0.04:
+        return ''
+    term = 'lum(X,Y)'
+    if key_amount >= 0.04:
+        gain = min(0.35, key_amount) * 70
+        if key == 'left':
+            term += f'+{gain:.2f}*(W-X)/W'
+        elif key == 'right':
+            term += f'+{gain:.2f}*X/W'
+        elif key == 'top':
+            term += f'+{gain:.2f}*(H-Y)/H'
+    if fill_amount >= 0.04:
+        gain = min(0.2, fill_amount) * 50
+        if fill == 'right':
+            term += f'+{gain:.2f}*X/W'
+        elif fill == 'left':
+            term += f'+{gain:.2f}*(W-X)/W'
+        elif fill == 'bottom':
+            term += f'+{gain:.2f}*Y/H'
+    if rim_amount >= 0.04:
+        gain = min(0.35, rim_amount) * 28
+        term += f'+{gain:.2f}*((1-4*X/W*(1-X/W))+(1-4*Y/H*(1-Y/H)))'
+    return f"geq=lum='{term}':cb='cb(X,Y)':cr='cr(X,Y)',"

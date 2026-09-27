@@ -58,11 +58,16 @@ def strict_schema(schema):
     return spec
 
 
-def json_call(project_id, path, prompt, schema, purpose, reference=None, system=None, validator=None, _repair=False, reference_label="ORIGINAL SOURCE VIDEO"):
+def json_call(project_id, path, prompt, schema, purpose, reference=None, system=None, validator=None, _repair=False, reference_label="ORIGINAL SOURCE VIDEO", attach_video=True):
+    path=Path(path)
+    # A missing file used to reserve $0.50 and then raise before the provider request.
+    if attach_video and not path.is_file():raise ValueError('analysis_proxy_missing')
+    if reference is not None and not Path(reference).is_file():raise ValueError('media_processing_failed')
     request_headers=headers()
     token=reserve(project_id,0.50,purpose)
     media_parts=([{'type':'text','text':reference_label},video_part(reference)] if reference else [])
-    media_parts += [{'type':'text','text':'VIDEO TO ANALYZE / REVIEW'},video_part(path)]
+    if attach_video:media_parts += [{'type':'text','text':'VIDEO TO ANALYZE / REVIEW'},video_part(path)]
+    else:media_parts += [{'type':'text','text':'No scene video was attached. Use only the written context.'}]
     # Full bilingual transcripts plus the executable plan exceed the reference/QA allowance.
     output_limit = 32000 if purpose in ('director_plan','creative_plan','reference_dna') else 12000
     payload={'model':settings.analysis_model,'temperature':0.15,'max_tokens':output_limit,

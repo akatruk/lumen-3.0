@@ -113,7 +113,7 @@
       ]
     },
     "style": {
-      "seconds": 86.63333333333334,
+      "seconds": 122.26666666666667,
       "chapters": [
         {
           "id": "upload",
@@ -125,25 +125,25 @@
           "id": "automatic",
           "title": "The cut is built for you.",
           "text": "After analysis, Lumen measures the reference and builds a timeline from your footage. You do not place cuts, zooms, or graphics by hand. The reference is measured only. Its pictures do not enter the finished file.",
-          "start": 13.167
+          "start": 19.0
         },
         {
           "id": "picture",
           "title": "Pacing, pictures, and credits.",
           "text": "The cut follows the reference rhythm: shot length, zooms, color, captions, and charts from numbers in your script. A screen-like shot holds your frame. An illustration uses your words. If the reference asks for B-roll, one Commons clip may be added, and only with a CC BY, CC0, or public-domain license. The credit stays on the asset.",
-          "start": 26.967
+          "start": 36.867
         },
         {
           "id": "buttons",
           "title": "Three choices after the render.",
           "text": "Watch the result. Choose Approve this cut when it is right. Choose Regenerate video to rebuild the whole cut. Choose a section, then Regenerate selected section, to rebuild only that part. The manual editor stays on the page, so you can still change a shot yourself.",
-          "start": 49.533
+          "start": 66.867
         },
         {
           "id": "limits",
           "title": "What the report will ask you.",
           "text": "If a chart needs a number, put that number in your script. Nothing is invented. If no Commons clip matches your words under those licenses, the report says so and the video still renders. Face tracking and a complex room background are not copied. Download the file, reload, and download again: both files are the same finished cut.",
-          "start": 66.167
+          "start": 91.833
         }
       ]
     }
@@ -262,7 +262,7 @@
       ]
     },
     "style": {
-      "seconds": 107.4,
+      "seconds": 89.0,
       "chapters": [
         {
           "id": "upload",
@@ -274,25 +274,25 @@
           "id": "automatic",
           "title": "成片会自动生成",
           "text": "分析完成后，Lumen 测量参考视频，并用你的素材生成时间线。你不需要手动放置剪辑、变焦或图形。参考视频只用于测量，它的画面不会进入成片。",
-          "start": 15.667
+          "start": 13.233
         },
         {
           "id": "picture",
           "title": "节奏、画面与署名",
           "text": "成片跟随参考的节奏：镜头长度、变焦、色彩、字幕，以及来自你脚本数字的图表。像屏幕的镜头会放进你的画面。插图使用你的词语。如果参考需要补充镜头，可能会加入一条 Commons 视频，且只能是 CC BY、CC0 或公有领域。署名保留在素材上。",
-          "start": 32.333
+          "start": 27.0
         },
         {
           "id": "buttons",
           "title": "制作完成后的三个选择",
           "text": "观看结果。合适就选择“批准这个成片”。选择“重新生成视频”会重做整条成片。先选一个片段，再选择“重新生成所选片段”，就只重做这一段。手动编辑器仍留在页面上，你也可以自己修改镜头。",
-          "start": 60.767
+          "start": 49.533
         },
         {
           "id": "limits",
           "title": "报告会向你询问什么",
           "text": "如果图表需要数字，请把数字写进脚本。系统不会编造。如果没有符合这些许可、又匹配你词语的 Commons 片段，报告会说明，视频仍会完成制作。人脸跟踪和复杂的房间背景不会被复制。下载文件，刷新后再下载：两次都是同一条成片。",
-          "start": 82.067
+          "start": 67.5
         }
       ]
     }
@@ -411,7 +411,7 @@
       ]
     },
     "style": {
-      "seconds": 86.63333333333334,
+      "seconds": 122.26666666666667,
       "chapters": [
         {
           "id": "upload",
@@ -423,25 +423,25 @@
           "id": "automatic",
           "title": "Монтаж собирается сам",
           "text": "После анализа Lumen измеряет референс и собирает таймлайн из вашего видео. Склейки, наезды и графику вручную ставить не нужно. Референс только измеряется. Его кадры в файл не попадают.",
-          "start": 13.167
+          "start": 19.0
         },
         {
           "id": "picture",
           "title": "Ритм, картинки и авторы",
           "text": "Ролик следует ритму референса: длина планов, наезды, цвет, подписи и графики из цифр вашего сценария. Кадр-экран держит ваш кадр. Иллюстрация берёт ваши слова. Если референс просит перебивку, может добавиться один ролик Commons, и только с лицензией CC BY, CC0 или общественным достоянием. Авторство остаётся у материала.",
-          "start": 26.967
+          "start": 36.867
         },
         {
           "id": "buttons",
           "title": "Три действия после рендера",
           "text": "Посмотрите результат. Если он верный, нажмите «Утвердить». «Собрать видео заново» пересобирает весь ролик. Выберите фрагмент и «Собрать выбранный фрагмент заново», чтобы переделать только его. Редактор остаётся на странице, кадр можно поправить самим.",
-          "start": 49.533
+          "start": 66.867
         },
         {
           "id": "limits",
           "title": "О чём спросит отчёт",
           "text": "Если графику нужна цифра, напишите её в сценарии. Ничего не выдумывается. Если ролик Commons с такой лицензией не нашёлся, отчёт так и скажет, а видео всё равно соберётся. Слежение за лицом и сложный фон комнаты не копируются. Скачайте файл, обновите страницу и скачайте снова: это один и тот же готовый ролик.",
-          "start": 66.167
+          "start": 91.833
         }
       ]
     }

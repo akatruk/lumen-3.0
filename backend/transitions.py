@@ -1,16 +1,29 @@
 """Centered moving-shot transitions; preserve each clip's duration and audio.
 
-A short tail/head (at most 150 ms each) is stretched across the 300 ms
-transition window. No frames outside approved source ranges are introduced.
-Audio remains sample-identical; visual timing displacement is bounded by 150 ms.
+The default blend is 400 ms on each side of the join. A measured blend may run
+longer, and neither side is longer than a quarter of its clip. No frames
+outside approved source ranges are introduced. Audio stays sample-identical;
+only the picture blends.
 """
-KINDS={'crossfade':'fade','zoom':'zoomin','wipe':'wipeleft','circle':'circleopen'}
+# ffmpeg wipeleft reveals the incoming picture from the right. wiperight reveals it
+# from the left, so a right-arrival uses wipe rather than a second filter name.
+# wipeup shows the new picture on the bottom first. wipedown shows it on the top first.
+# diagtl travels toward the top left: the new picture arrives at the opposite corner.
+KINDS={'crossfade':'fade','zoom':'zoomin','wipe':'wipeleft','wipe-up':'wipeup','wipe-down':'wipedown','circle':'circleopen','diagtl':'diagtl','diagtr':'diagtr','diagbl':'diagbl','diagbr':'diagbr'}
 
-def apply(previous,current,kind,duration):
+def apply(previous,current,kind,duration,blend=None):
     from .media import ffmpeg,probe
     previous_duration=probe(previous)['duration']
-    # Whole frames make the split and concatenation stable at the render rate.
-    frames=min(4,int(previous_duration*30/4),int(duration*30/4))
+    # 12 frames is the default 400 ms on each side. A measured blend is the full
+    # window, so each side is half of that. A quarter of either clip still wins.
+    side=12
+    try:
+        measured=float(blend) if blend is not None else 0.0
+    except (TypeError, ValueError):
+        measured=0.0
+    if measured>0.8:
+        side=max(12,int(round(measured*30/2)))
+    frames=min(side,int(previous_duration*30/4),int(duration*30/4))
     if frames<1:return
     half=frames/30
     window=2*half

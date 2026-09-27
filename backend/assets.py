@@ -73,12 +73,18 @@ def validate(edit,pid,db):
         paths[m.asset_id]=path(pid,m.asset_id)
     for clip in edit.clips:
         c=clip.external_broll
-        if not c:continue
-        r=db.execute('SELECT metadata FROM studio_assets WHERE id=? AND project_id=?',(c.asset_id,pid)).fetchone()
-        if not r:raise HTTPException(422,'asset_not_found')
-        if json.loads(r['metadata']).get('kind')=='music':raise HTTPException(422,'not_a_video')
-        if c.source_start+c.end-c.start>json.loads(r['metadata'])['duration']:raise HTTPException(422,'invalid_cutaway_range')
-        paths[c.asset_id]=path(pid,c.asset_id)
+        if c:
+            r=db.execute('SELECT metadata FROM studio_assets WHERE id=? AND project_id=?',(c.asset_id,pid)).fetchone()
+            if not r:raise HTTPException(422,'asset_not_found')
+            if json.loads(r['metadata']).get('kind')=='music':raise HTTPException(422,'not_a_video')
+            if c.source_start+c.end-c.start>json.loads(r['metadata'])['duration']:raise HTTPException(422,'invalid_cutaway_range')
+            paths[c.asset_id]=path(pid,c.asset_id)
+        still=clip.stock_still
+        if not still:continue
+        row=db.execute('SELECT metadata FROM studio_assets WHERE id=? AND project_id=?',(still,pid)).fetchone()
+        if not row:raise HTTPException(422,'asset_not_found')
+        if json.loads(row['metadata']).get('kind')=='music':raise HTTPException(422,'not_a_video')
+        paths[still]=path(pid,still)
     return paths
 
 async def ingest(ident,body,user):

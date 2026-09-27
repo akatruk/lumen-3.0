@@ -3,7 +3,10 @@ import {ProjectWorkspace, useWorkspace} from './ProjectWorkspace';
 import { LanguageSelect } from './LanguageSelect';
 import { translate, contentLanguage, readLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
+import { AnalysisActivity, activityDetail, activityTitle } from "./AnalysisActivity";
 import { TutorialVideos } from "./TutorialVideos";
+import { LookBoard } from "./LookBoard";
+import { MenuSlide } from "./MenuSlide";
 import React, {
   useState,
   useEffect,
@@ -76,7 +79,7 @@ function initialRoute() {
   return {
     pid: /^project\/[a-f0-9]{32}$/.test(h) ? h.slice(8) : null,
     trend,
-    page: trend ? "trends" : ["studio", "library", "settings", "guide", "trends"].includes(h) ? h : "studio",
+    page: trend ? "trends" : ["studio", "look", "library", "settings", "guide", "trends"].includes(h) ? h : "studio",
   };
 }
 const active = (p: { status: string }) =>
@@ -139,7 +142,11 @@ function App() {
     [initialFile, setInitialFile] = useState<File | null>(null),
     [nav, setNav] = useState(false),
     [error, setError] = useState(""),
-    [missingProject, setMissingProject] = useState(false);
+    [missingProject, setMissingProject] = useState(false),
+    [deleteId, setDeleteId] = useState<string | null>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const menuWasOpen = useRef(false);
   useEffect(() => {
     const change = () => {
       const r = initialRoute();
@@ -150,6 +157,14 @@ function App() {
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
   }, []);
+  const lookFrom = useRef<string | null>(null);
+  useEffect(() => {
+    const here = pid ? "project/" + pid : trend ? "trend/" + trend : page;
+    if (page === "look" && lookFrom.current && lookFrom.current !== "look") {
+      sessionStorage.setItem("lumen-look-return", lookFrom.current);
+    }
+    lookFrom.current = here;
+  }, [page, pid, trend]);
   useEffect(() => {
     const next = pid ? "project/" + pid : trend ? "trend/" + trend : page;
     if (window.location.hash.slice(1) !== next) window.location.hash = next;
@@ -164,6 +179,22 @@ function App() {
     document.documentElement.lang = lang;
     localStorage.setItem("lumen_language", lang);
   }, [lang]);
+  useEffect(() => {
+    if (nav) {
+      menuWasOpen.current = true;
+      sidebarRef.current?.querySelector<HTMLElement>("nav button")?.focus();
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key === "Escape") setNav(false);
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }
+    if (menuWasOpen.current) {
+      menuWasOpen.current = false;
+      const button = menuButton.current;
+      if (button && getComputedStyle(button).display !== "none") button.focus();
+    }
+  }, [nav]);
   const refresh = async () => {
     try {
       setItems(await api("/projects"));
@@ -236,6 +267,24 @@ function App() {
     setTrend(null);
     setNav(false);
   };
+  const leaveLook = () => {
+    const back = sessionStorage.getItem("lumen-look-return");
+    if (back && /^project\/[a-f0-9]{32}$/.test(back)) {
+      setTrend(null);
+      setPage("studio");
+      setPid(back.slice(8));
+      setNav(false);
+      return;
+    }
+    if (back && /^trend\/[a-f0-9]{32}$/.test(back)) {
+      setPid(null);
+      setTrend(back.slice(6));
+      setPage("trends");
+      setNav(false);
+      return;
+    }
+    navigate(back && ["studio", "library", "settings", "guide", "trends"].includes(back) ? back : "studio");
+  };
   const useTrend = (handoff: { concept_id: string; title: string; script: string; trend: string }) => {
     sessionStorage.setItem("lumen-trend-handoff", JSON.stringify(handoff));
     setStudioEpoch((n) => n + 1);
@@ -274,7 +323,7 @@ function App() {
               onClick={() => setNav(false)}
             />
           )}
-          <aside className={"sidebar " + (nav ? "mobile-open" : "")}>
+          <aside ref={sidebarRef} className={"sidebar " + (nav ? "mobile-open" : "")}>
             <button className="logo" onClick={() => navigate("studio")}>
               <Mark />
               <span>
@@ -296,9 +345,15 @@ function App() {
               {t("newProject")}
             </button>
             <div className="nav-label">{translate(lang, "WORKSPACE", "WORKSPACE")}</div>
-            <nav>
+            <MenuSlide
+              className="sidebar-nav"
+              label={translate(lang, "WORKSPACE", "WORKSPACE")}
+              marker="button.active"
+              active={pid ? "" : page}
+            >
               {[
                 ["studio", ScanLine],
+                ["look", SlidersHorizontal],
                 ["trends", TrendingUp],
                 ["library", LayoutGrid],
                 ["settings", Settings2],
@@ -309,7 +364,13 @@ function App() {
                   <button
                     key={String(key)}
                     className={!pid && page === key ? "active" : ""}
-                    onClick={() => navigate(String(key))}
+                    onClick={() => {
+                      if (String(key) === "look") {
+                        const from = pid ? "project/" + pid : trend ? "trend/" + trend : page;
+                        if (from && from !== "look") sessionStorage.setItem("lumen-look-return", from);
+                      }
+                      navigate(String(key));
+                    }}
                   >
                     <K size={19} />
                     {t(String(key))}
@@ -319,7 +380,7 @@ function App() {
                   </button>
                 );
               })}
-            </nav>
+            </MenuSlide>
             <div className="sidebar-note">
               <span className="tiny-orbit">
                 <Sparkles size={20} />
@@ -345,8 +406,10 @@ function App() {
             <header className="topbar">
               <div className="breadcrumb">
                 <button
+                  ref={menuButton}
                   className="icon mobile-menu"
                   aria-label={t("menu")}
+                  aria-expanded={nav}
                   onClick={() => setNav(true)}
                 >
                   <Menu size={21} />
@@ -380,7 +443,7 @@ function App() {
             )}
             {pid ? (
               project ? (
-                <ProjectWorkspace key={project.id} p={project} lang={lang} onBack={() => navigate("library")}>{project.studio ? (
+                <ProjectWorkspace key={project.id} p={project} lang={lang} onBack={() => navigate("library")} onDelete={() => setDeleteId(project.id)}>{project.studio ? (
                   <DirectorProject
                     key={project.id}
                     p={project}
@@ -429,6 +492,8 @@ function App() {
                   void refresh();
                 }}
               />
+            ) : page === "look" ? (
+              <LookBoard lang={lang} onBack={leaveLook} />
             ) : page === "trends" ? (
               <Trends
                 lang={lang}
@@ -446,6 +511,7 @@ function App() {
                 items={items}
                 open={open}
                 newProject={() => newProject()}
+                onDelete={setDeleteId}
               />
             ) : page === "guide" ? (
               <div className="page tutorial-page"><TutorialVideos lang={lang}/></div>
@@ -462,6 +528,23 @@ function App() {
                 setPid(p.id);
                 setProject(p);
                 void refresh();
+              }}
+            />
+          )}
+          {deleteId && (
+            <Confirm
+              onClose={() => setDeleteId(null)}
+              onConfirm={async () => {
+                const id = deleteId;
+                try {
+                  await api(`/projects/${id}`, { method: "DELETE" });
+                  if (pid === id) navigate("library");
+                  await refresh();
+                  setDeleteId(null);
+                } catch (e) {
+                  setError((e as Error).message);
+                  setDeleteId(null);
+                }
               }}
             />
           )}
@@ -569,11 +652,13 @@ function Home({
   open,
   newProject,
   all,
+  onDelete,
 }: {
   items: Summary[];
   open: (id: string) => void;
   newProject: (f?: File) => void;
   all: () => void;
+  onDelete: (id: string) => void;
 }) {
   const { t, lang } = useL();
   const [drag, setDrag] = useState(false);
@@ -686,7 +771,7 @@ function Home({
         {items.length ? (
           <div className="project-grid">
             {items.slice(0, 3).map((p) => (
-              <ProjectCard key={p.id} p={p} onClick={() => open(p.id)} />
+              <ProjectCard key={p.id} p={p} onClick={() => open(p.id)} onDelete={() => onDelete(p.id)} />
             ))}
           </div>
         ) : (
@@ -713,11 +798,13 @@ function Home({
     </div>
   );
 }
-function ProjectCard({ p, onClick }: { p: Summary; onClick: () => void }) {
+function ProjectCard({ p, onClick, onDelete }: { p: Summary; onClick: () => void; onDelete: () => void }) {
   const { lang, t } = useL();
   const meta = p.metadata ? JSON.parse(p.metadata) : null;
+  const running = active(p);
   return (
-    <button className="project-card" onClick={onClick}>
+    <article className="project-card">
+      <button type="button" className="project-card-open" onClick={onClick}>
       <div className="project-cover">
         {!["queued"].includes(p.status) && (
           <img
@@ -748,22 +835,38 @@ function ProjectCard({ p, onClick }: { p: Summary; onClick: () => void }) {
           <ArrowUpRight size={17} />
         </div>
         {active(p) && (
-          <div className="mini-progress" aria-label={t("processing")}>
-            <i style={{ width: `${p.progress}%` }} />
-          </div>
+          <>
+            <p className="project-card-activity">{activityTitle(meta?.activity, lang, p.stage)}</p>
+            <div className="mini-progress" aria-label={t("processing")}>
+              <i style={{ width: `${p.progress}%` }} />
+            </div>
+          </>
         )}
       </div>
-    </button>
+      </button>
+      <button
+        type="button"
+        className="project-delete"
+        disabled={running}
+        title={running ? t("job_already_running") : t("deleteProject")}
+        onClick={onDelete}
+      >
+        <Trash2 size={14} />
+        {t("deleteProject")}
+      </button>
+    </article>
   );
 }
 function Library({
   items,
   open,
   newProject,
+  onDelete,
 }: {
   items: Summary[];
   open: (id: string) => void;
   newProject: () => void;
+  onDelete: (id: string) => void;
 }) {
   const { t, lang } = useL();
   const [q, setQ] = useState("");
@@ -806,7 +909,7 @@ function Library({
       {filtered.length ? (
         <div className="project-grid">
           {filtered.map((p) => (
-            <ProjectCard key={p.id} p={p} onClick={() => open(p.id)} />
+            <ProjectCard key={p.id} p={p} onClick={() => open(p.id)} onDelete={() => onDelete(p.id)} />
           ))}
         </div>
       ) : (
@@ -1314,7 +1417,7 @@ function ProjectView({
               ) : (
                 <div className="video-placeholder">
                   <ScanLine size={48} strokeWidth={1} />
-                  <p>{t("stage_" + p.stage)}</p>
+                  <p>{activityTitle(p.metadata?.activity, lang, p.stage)}</p>
                 </div>
               )}
             </div>
@@ -1361,29 +1464,7 @@ function ProjectView({
             </div>
           </div>
           }
-          {working && (
-            <div className="processing-card">
-              <span className="processing-icon">
-                <Loader2 className="spin" size={22} />
-              </span>
-              <div>
-                <strong>{t("stage_" + p.stage)}</strong>
-                <p>
-                  {t(
-                    p.stage === "importing"
-                      ? "douyinImportDesc"
-                      : p.status === "queued"
-                        ? "queueDesc"
-                        : "pendingDesc",
-                  )}
-                </p>
-                <div className="progress">
-                  <i style={{ width: `${Math.max(4, p.progress)}%` }} />
-                </div>
-              </div>
-              <span>{p.progress}%</span>
-            </div>
-          )}
+          {working && <AnalysisActivity project={p} lang={lang} />}
           {p.error && (
             <div className="failure-card">
               <ErrorBox error={p.error} />
@@ -1494,7 +1575,9 @@ function ProjectView({
                 {t(p.status === "failed" ? "stage_failed" : "analysisPending")}
               </h2>
               <p>
-                {t(p.status === "failed" ? "processing_failed" : "pendingDesc")}
+                {working
+                  ? activityDetail(p.metadata?.activity, lang, p.stage)
+                  : t(p.status === "failed" ? "processing_failed" : "pendingDesc")}
               </p>
               <div className="skeleton-line" />
               <div className="skeleton-line short" />

@@ -3,13 +3,16 @@ import {useWorkspace, workspaceText} from './ProjectWorkspace';
 import { translate, contentLanguage } from './locale';
 import { Dubbing } from './Dubbing';
 import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
+import {activityDetail,activityTitle} from './AnalysisActivity';
 import {StatusBadge,TaskProgress,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
 import {holdUpload, uploadVideo} from './resumableUpload';
+import {readBoard} from './look';
 import {ManualEditor} from './ManualEditor';
 import { DirectorAlternatives } from "./DirectorAlternatives";
 import { PlatformVariants } from "./PlatformVariants";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { DouyinSearch, type Hit } from "./DouyinSearch";
 import type { Lang, Project, Analysis, Text } from "./types";
 import "./studio.css";
@@ -162,7 +165,7 @@ export function StudioCreate({
   });
   const [file, setFile] = useState<File | null>(null),
     [referenceFile, setReferenceFile] = useState<File | null>(null),
-    [styleOn, setStyleOn] = useState(false),
+    [lookSaved, setLookSaved] = useState(() => readBoard() !== null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [percent, setPercent] = useState(0),
@@ -182,6 +185,11 @@ export function StudioCreate({
   useEffect(() => {
     sessionStorage.setItem(cache, JSON.stringify(refs));
   }, [cache, refs]);
+  useEffect(() => {
+    const sync = () => setLookSaved(readBoard() !== null);
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
   useEffect(
     () => () => {
       xhr.current?.abort();
@@ -210,7 +218,7 @@ export function StudioCreate({
     const controller=new AbortController();xhr.current=controller;
     let referenceUpload = "";
     try {
-      if (styleOn && referenceFile) referenceUpload = await holdUpload(referenceFile, controller.signal);
+      if (referenceFile) referenceUpload = await holdUpload(referenceFile, controller.signal);
     } catch (err) {
       const code = err instanceof Error ? err.message : "upload_interrupted";
       if (code === "upload_cancelled") setPaused(true); else setError(code);
@@ -232,7 +240,8 @@ export function StudioCreate({
       language: f.get("language"),
       budget: Number(f.get("budget")),
       owned_rights_confirmed: f.has("rights"),
-      style_match: f.has("style_match"),
+      style_match: f.has("style_match") || Boolean(referenceUpload),
+      ...((f.has("style_match") || referenceUpload) && readBoard() ? { effect_board: readBoard() } : {}),
       ...(referenceUpload ? { reference_upload_id: referenceUpload } : {}),
       ...(handoff ? { concept_id: handoff.concept_id } : {}),
     };
@@ -384,29 +393,35 @@ export function StudioCreate({
                 "我拥有或已获得此素材的编辑使用权。",
               )}
             </label>
+            <label>
+              {t("Reference video", "参考视频")}
+              <input
+                className="director-file-input"
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,.mov"
+                onChange={(e) => setReferenceFile(e.target.files?.[0] || null)}
+              />
+              <small>
+                {referenceFile
+                  ? referenceFile.name
+                  : t("Upload the reference video. The finished film still uses only your footage.", "上传参考视频。成片仍然只用你的素材。")}
+              </small>
+            </label>
             <label className="director-check">
-              <input name="style_match" type="checkbox" onChange={(e) => setStyleOn(e.target.checked)} />
+              <input name="style_match" type="checkbox" />
               {t(
                 "Match the reference pacing and the visual effects this editor can reproduce, then render. You still approve the result and can edit every cut.",
                 "按该参考的节奏和本编辑器可实现的视觉效果制作成片。你仍需批准结果，也可以修改每一处剪辑。",
               )}
             </label>
-            {styleOn && (
-              <label>
-                {t("Reference video", "参考视频")}
-                <input
-                  className="director-file-input"
-                  type="file"
-                  accept="video/mp4,video/quicktime,video/webm,.mov"
-                  onChange={(e) => setReferenceFile(e.target.files?.[0] || null)}
-                />
-                <small>
-                  {referenceFile
-                    ? referenceFile.name
-                    : t("Upload the reference video. The finished film still uses only your footage.", "上传参考视频。成片仍然只用你的素材。")}
-                </small>
-              </label>
-            )}
+            <p className="look-create-note">
+              <button type="button" className="secondary" onClick={() => { window.location.hash = "look"; }}>
+                {t("Open the visual effect plaque", "打开视觉效果面板")}
+              </button>
+              {lookSaved && (
+                <small>{t("Saved on this device. Style match on the next project uses this plaque.", "已保存在此设备。下一个项目的风格匹配会使用这个面板。")}</small>
+              )}
+            </p>
           </section>
           <section className="director-card">
             <h2>{t("3. Creator & brand profile", "3. 创作者与品牌风格")}</h2>
@@ -541,6 +556,10 @@ type StyleReport = {
   applied: string[];
   gaps: { id: string; essential: boolean }[];
   sections: { index: number; start: number; end: number }[];
+  compared?: boolean;
+  effect_similarity_rule?: number;
+  measured_effect_similarity?: number;
+  comparison_note?: string;
 };
 
 function StyleMatch({
@@ -548,14 +567,18 @@ function StyleMatch({
   lang,
   report,
   status,
+  plaque,
   locked,
+  working,
   onDone,
 }: {
   pid: string;
   lang: Lang;
   report?: StyleReport | null;
   status?: string;
+  plaque?: boolean;
   locked: boolean;
+  working: boolean;
   onDone: () => Promise<void>;
 }) {
   const t = (en: string, zh: string) => translate(lang, en, zh);
@@ -632,29 +655,58 @@ function StyleMatch({
     if (id === "style_match_failed") return t("The automatic cut could not be built. Regenerate video to try again.", "未能自动生成剪辑。请重新生成视频。");
     return id;
   }
+  const title = t("Automatic style match", "自动风格匹配");
   if (!report) {
     return (
-      <section className="director-card style-match">
-        <h2>{t("Automatic style match", "自动风格匹配")}</h2>
-        <p>{t("Style match starts when analysis finishes.", "分析完成后开始风格匹配。")}</p>
-      </section>
+      <details className="style-match-fold">
+        <summary>{title}</summary>
+        <div className="style-match-body">
+          <p>{t("Style match starts when analysis finishes.", "分析完成后开始风格匹配。")}</p>
+        </div>
+      </details>
     );
   }
   return (
-    <section className="director-card style-match">
-      <h2>{t("Automatic style match", "自动风格匹配")}</h2>
+    <details className="style-match-fold">
+      <summary>
+        {title}
+        <strong>{report.scores.overall}/100</strong>
+      </summary>
+      <div className="style-match-body">
       <p>
         <strong>{report.scores.overall}/100</strong>{" "}
+        {report.compared === true && report.measured_effect_similarity != null
+          ? t(
+              "Effect similarity averages the rule score with the measured frames. It is not a copy of the reference. Unsupported effects are listed and are not imitated. The cut uses your footage only.",
+              "效果相似度是规则分和画面测量的平均。这不是参考视频的副本。无法实现的效果会列出，不会被模仿。成片只用你的素材。",
+            )
+          : t(
+              "These scores follow the edit rules. A score of 100 is not a picture match. Frames have not been compared yet. Unsupported effects are listed and are not imitated. The cut uses your footage only.",
+              "这些分数遵循剪辑规则。100 分不是画面核对。尚未比较画面。无法实现的效果会列出，不会被模仿。成片只用你的素材。",
+            )}
+      </p>
+      <p>
         {t(
-          "Visual fidelity to the reference structure. Unsupported effects are listed and are not imitated. The cut uses your footage only.",
-          "这是与参考结构的视觉吻合度。无法实现的效果会列出，不会被模仿。成片只用你的素材。",
+          "Approve renders the saved edit with the voice and music you selected. It does not publish the video, and it does not copy the reference. The editor stays on this page.",
+          "批准会渲染已保存的剪辑，并带上你选的声音和音乐。它不会发布视频，也不会复制参考视频。编辑器仍留在此页。",
         )}
       </p>
-      {status === "approved" && <p>{t("You approved this cut.", "你已批准这个成片。")}</p>}
+      {status === "approved" && <p>{t("The saved edit was sent to render. Nothing was published, and the reference was not copied.", "已保存的剪辑已送去渲染。没有发布任何内容，也没有复制参考视频。")}</p>}
+      {plaque && <p>{t("This cut follows your visual effect plaque.", "这个成片遵循你的视觉效果面板。")}</p>}
       <ul>
         <li>{t("Shot structure", "镜头结构")}: {report.scores.shot_structure}/100</li>
         <li>{t("Visual pacing", "视觉节奏")}: {report.scores.visual_pacing}/100</li>
-        <li>{t("Effect similarity", "效果相似度")}: {report.scores.effect_similarity}/100</li>
+        {report.compared === true && report.measured_effect_similarity != null ? (
+          <li>
+            {t("Effect similarity", "效果相似度")}: {report.scores.effect_similarity}/100
+            {" · "}
+            {t("Effect rule score", "效果规则分")}: {report.effect_similarity_rule ?? report.scores.effect_similarity}/100
+            {" · "}
+            {t("Frame measurement", "画面测量")}: {report.measured_effect_similarity}/100
+          </li>
+        ) : (
+          <li>{t("Effect rule score", "效果规则分")}: {report.effect_similarity_rule ?? report.scores.effect_similarity}/100</li>
+        )}
         <li>{t("Motion-graphic style", "动态图形风格")}: {report.scores.motion_graphic_style}/100</li>
         <li>{t("Color treatment", "色彩处理")}: {report.scores.color_treatment}/100</li>
         <li>{t("Production quality", "成片完成度")}: {report.scores.production_quality}/100</li>
@@ -676,7 +728,7 @@ function StyleMatch({
         </p>
       )}
       <div className="trend-actions">
-        <button type="button" className="primary" disabled={busy || status === "approved"} onClick={() => void run(`/studio/projects/${pid}/style-match/approve`)}>
+        <button type="button" className="primary" disabled={busy || working} onClick={() => void run(`/studio/projects/${pid}/style-match/approve`)}>
           {t("Approve this cut", "批准这个成片")}
         </button>
         <button type="button" className="secondary" disabled={busy || locked} onClick={() => void run(`/studio/projects/${pid}/style-match/regenerate`)}>
@@ -703,7 +755,8 @@ function StyleMatch({
           {t("Regenerate selected section", "重新生成所选片段")}
         </button>
       </div>
-    </section>
+      </div>
+    </details>
   );
 }
 
@@ -720,6 +773,7 @@ type State = {
     style_match?: boolean;
     style_report?: StyleReport | null;
     style_match_status?: string;
+    effect_board?: { name?: string } | null;
   };
   dna: {
     reference_id: string;
@@ -872,16 +926,6 @@ export function DirectorProject({
     }
   }
   function seek(start:number,end:number) { workspace?.seekSource(start,end); }
-  const stages: Record<string, string> = {
-    queued: t("Queued", "排队中"),
-    preparing: t("Preparing your footage", "准备自有素材"),
-    reference_analysis: t("Analyzing reference techniques", "分析参考视频"),
-    director_planning: t("Building your Director Timeline", "创建剪辑计划"),
-    render_queued: t("Render queued", "等待制作"),
-    creating: t("Preparing the cut", "准备剪辑"),
-    rendering: t("Rendering", "制作中"),
-    checking: t("Reviewing quality", "质量复核"),
-  };
   return (
     <div className="page director-project">
       {error && (
@@ -893,26 +937,30 @@ export function DirectorProject({
       {lang === 'ru' && !manualTask && <p className="muted">{t('Generated analysis is displayed in English.','AI 分析文本以英语显示。')}</p>}
       <div className="director-layout">
         <section className="director-inspector">
-          {state?.context.style_match && (
+          {state?.context.style_match && workspace?.styleTarget && createPortal(
             <StyleMatch
               pid={p.id}
               lang={lang}
               report={state.context.style_report}
               status={state.context.style_match_status}
+              working={working}
+              plaque={!!state.context.effect_board}
               locked={working || busy}
               onDone={async () => {
                 const next = await request("/studio/projects/" + p.id);
                 setState(next);
                 await onRefresh();
               }}
-            />
+            />,
+            workspace.styleTarget,
           )}
           {state?.plan && <div hidden={!manualTask}><ManualEditor serverRevision={state.revision} onDirtyChange={setManualDirty} hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} voiceover={<Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} embedded onFinalChange={()=>workspace?.refreshFinal()} onPreview={(url,label)=>workspace?.previewVersion(url,label)}/>} /></div>}
-          {manualTask&&!state?.plan&&<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}
+          {manualTask&&working&&<p role="status" className="analysis-activity-line"><strong>{activityTitle(p.metadata?.activity,lang,p.stage)}</strong><span>{activityDetail(p.metadata?.activity,lang,p.stage)}</span></p>}
+          {manualTask&&!state?.plan&&<>{p.error?<div role="alert"><p>{message(p.error,lang)}</p></div>:<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}{p.error&&!p.analysis&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</>}
           <div hidden={!!manualTask}>
           {manualDirty&&<p role="status">{w('Сначала сохраните правки в разделе «Монтаж».','Save your manual edits in Edit first.','请先在剪辑中保存手动更改。')}</p>}
-          {working && <TaskProgress title={stages[p.stage] || t("Processing", "处理中")} percent={p.progress}/>}
-          {p.error&&<div role="alert"><p>{message(p.error,lang)}</p>{!p.analysis&&<button onClick={retry} disabled={busy}>{t("Retry analysis","重新分析")}</button>}</div>}
+          {working && <TaskProgress title={activityTitle(p.metadata?.activity,lang,p.stage)} detail={activityDetail(p.metadata?.activity,lang,p.stage)} percent={p.progress}/>}
+          {p.error&&<div role="alert"><p>{message(p.error,lang)}</p>{!p.analysis&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</div>}
           <details className="ws-quality"><summary>{w('Проверка готовой версии','Finished video review','成片审核')}</summary>
           {p.result && (
             <section className="director-result">
