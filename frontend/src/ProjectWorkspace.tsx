@@ -25,7 +25,8 @@ import {
 import { MenuSlide } from "./MenuSlide";
 import type { Project, Lang } from "./types";
 import { contentLanguage, translate } from "./locale";
-import { StatusBadge, TaskProgress } from "./TaskStatus";
+import { AnalysisActivity, activityTitle } from "./AnalysisActivity";
+import { StatusBadge } from "./TaskStatus";
 export type WorkspaceTask =
   "edit" | "subtitles" | "audio" | "effects" | "materials" | "review";
 export const workspaceText = (
@@ -157,6 +158,14 @@ export function ProjectWorkspace({
       setRetrying(false);
     }
   }
+  const stamp = (created: number) =>
+    new Date(created * 1000).toLocaleString(lang === "zh" ? "zh-CN" : lang, {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const currentPicture = p.pictures?.find((picture) => picture.current);
   const versions: Version[] = [
     ...(p.result
       ? [
@@ -165,10 +174,19 @@ export function ProjectWorkspace({
             label: w("Готовый ролик", "Finished video", "已完成视频") + (finalVoice ? ` · ${finalVoice.label}` : ''),
             url: finalVoice ? finalVoice.url : base + "result?v=" + (p.result.render_id || ''),
             download: base + "result",
-            detail: `${fmt(p.result.metadata.duration)} · ${p.result.metadata.width} × ${p.result.metadata.height}`,
+            detail: [currentPicture ? stamp(currentPicture.created) : "", `${fmt(p.result.metadata.duration)} · ${p.result.metadata.width} × ${p.result.metadata.height}`].filter(Boolean).join(" · "),
           },
         ]
       : []),
+    ...(p.pictures ?? [])
+      .filter((picture) => !picture.current)
+      .map((picture) => ({
+        id: `picture-${picture.id}`,
+        label: w("Предыдущий ролик", "Earlier video", "较早成片"),
+        url: `${base}result?render=${picture.id}`,
+        download: `${base}result?render=${picture.id}`,
+        detail: stamp(picture.created),
+      })),
     ...(p.result && finalVoice ? [{id:'master',label:w('Монтаж до озвучки','Edit before voiceover','配音前的剪辑'),url:base+'master?v='+p.result.render_id,download:base+'master',detail:w('Звук сохранённого монтажа','Audio from the rendered edit','已渲染剪辑的声音')}] : []),
     ...dubs,
     {
@@ -461,11 +479,13 @@ export function ProjectWorkspace({
                 />
               ) : (
                 <p role="status">
-                  {w(
-                    "Готовим предпросмотр видео…",
-                    "Preparing video preview…",
-                    "正在准备视频预览…",
-                  )}
+                  {working
+                    ? activityTitle(p.metadata?.activity, lang, p.stage)
+                    : w(
+                        "Готовим предпросмотр видео…",
+                        "Preparing video preview…",
+                        "正在准备视频预览…",
+                      )}
                 </p>
               )}
             </div>
@@ -528,16 +548,7 @@ export function ProjectWorkspace({
                 ))}
               </div>
             )}
-            {working && (
-              <TaskProgress
-                title={w(
-                  "Обработка проекта",
-                  "Processing project",
-                  "正在处理项目",
-                )}
-                percent={p.progress}
-              />
-            )}
+            {working && <AnalysisActivity project={p} lang={lang} />}
             {p.error && (
               <div className="ws-analysis-alert">
                 <p role="alert" className="error-box">

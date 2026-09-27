@@ -61,7 +61,10 @@ def motion_filter(clip,width,height,length):
     if (z0,x0,y0)==(z1,x1,y1) and not bowing:
         base=f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
     else:
-        n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1);progress=f'min(on/{n},1)'
+        n=max(1,round(min(length,clip.get('motion_seconds') or length)*30)-1)
+        linear=f'min(on/{n},1)'
+        # Smoothstep: the move starts and settles, instead of sliding at one speed.
+        progress=f'({linear})*({linear})*(3-2*({linear}))'
         # zoompan resamples with bilinear. A 2x lanczos source keeps a punch-in from softening a small frame.
         arc=f'4*{progress}*(1-{progress})'
         xfrac=f'min(1\\,max(0\\,{x0}+({x1}-{x0})*{progress}+{ox:.4f}*({arc})))' if bowing else f'{x0}+({x1}-{x0})*{progress}'

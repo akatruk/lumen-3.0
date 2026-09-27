@@ -7,8 +7,28 @@ import tempfile
 from pathlib import Path
 from . import media
 
+def _fast_vf(vf):
+    """Jump near a trim point instead of decoding from the start of a long file.
+
+    -ss before -i resets timestamps, so trim=start is rewritten from that jump.
+    """
+    match = re.match(r'trim=start=([\d.]+)', vf)
+    if not match:
+        return [], vf
+    at = float(match.group(1))
+    lead = min(at, 0.4)
+    seek = at - lead
+    rewritten = f'trim=start={lead:.3f}' + vf[match.end():]
+    if seek <= 0.001:
+        return [], rewritten
+    return ['-ss', f'{seek:.3f}'], rewritten
+
+def _ffmpeg_vf(path, vf, *tail, timeout=180):
+    seek, vf = _fast_vf(vf)
+    return media.ffmpeg(*seek, '-i', path, '-vf', vf, *tail, timeout=timeout)
+
 def _stats(path, vf, frames=8):
-    out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(frames), '-f', 'null', '-', timeout=180)
+    out, err = _ffmpeg_vf(path, vf, '-frames:v', str(frames), '-f', 'null', '-', timeout=180)
     text = out + '\n' + err
     def values(key):
         return [float(item) for item in re.findall(r'signalstats\.' + key + r'=([\d.]+)', text)]
@@ -56,9 +76,10 @@ def _spread_edge(path, at, width, height):
 def _stamp_grid(path, at, cols=8, rows=12):
     """Coarse luma at one stamp. The cells are discarded after the fractions are read."""
     vf = f'trim=start={max(0, at):.3f}:duration=0.04,scale={cols}:{rows}:flags=area,format=gray'
+    seek, vf = _fast_vf(vf)
     try:
         completed = subprocess.run(
-            ['ffmpeg', '-hide_banner', '-nostdin', '-v', 'error', '-threads', '2', '-i', str(path), '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
+            ['ffmpeg', '-hide_banner', '-nostdin', '-v', 'error', '-threads', '2', *seek, '-i', str(path), '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
             capture_output=True, timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired):
@@ -159,9 +180,10 @@ def _edge_in_box(path, at, box, width, height):
     crop_w = int(max(8, min(width - left, round(w * width))))
     crop_h = int(max(8, min(height - top, round(h * height))))
     vf = f'trim=start={max(0, at):.3f}:duration=0.04,crop={crop_w}:{crop_h}:{left}:{top},scale=8:4:flags=area,format=gray'
+    seek, vf = _fast_vf(vf)
     try:
         completed = subprocess.run(
-            ['ffmpeg', '-hide_banner', '-nostdin', '-v', 'error', '-threads', '2', '-i', str(path), '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
+            ['ffmpeg', '-hide_banner', '-nostdin', '-v', 'error', '-threads', '2', *seek, '-i', str(path), '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'],
             capture_output=True, timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired):
@@ -664,7 +686,7 @@ def _down_grid(path, cols, rows, extra=''):
     try:
         prefix = f'{extra},' if extra else ''
         vf = f'trim=start={at:.3f}:duration=0.08,setpts=PTS-STARTPTS,{prefix}scale={cols}:{rows}:flags=area,format=gray'
-        media.ffmpeg('-i', path, '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', name)
+        _ffmpeg_vf(path, vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', name)
         data = Path(name).read_bytes()
     finally:
         try:
@@ -977,7 +999,7 @@ def _lumas(path, start, end, crop, samples):
     samples = max(4, min(24, int(samples)))
     rate = samples / span
     vf = f'trim=start={max(0, start):.3f}:duration={span:.3f},setpts=PTS-STARTPTS,fps={rate:.4f},{crop},signalstats,metadata=print:file=-'
-    out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(samples), '-f', 'null', '-', timeout=180)
+    out, err = _ffmpeg_vf(path, vf, '-frames:v', str(samples), '-f', 'null', '-', timeout=180)
     return [float(item) for item in re.findall(r'signalstats\.YAVG=([\d.]+)', out + '\n' + err)]
 
 def _bar_span(path, width, height, duration):
@@ -1160,7 +1182,7 @@ def _series(path, start, end, crop, fps=4, limit=6):
     span = max(0.2, end - start)
     frames = max(3, min(int(limit), int(span * fps)))
     vf = f'trim=start={max(0, start):.3f}:duration={span:.3f},setpts=PTS-STARTPTS,fps={fps},{crop},signalstats,metadata=print:file=-'
-    out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(frames), '-f', 'null', '-', timeout=180)
+    out, err = _ffmpeg_vf(path, vf, '-frames:v', str(frames), '-f', 'null', '-', timeout=180)
     return [float(item) for item in re.findall(r'signalstats\.YAVG=([\d.]+)', out + '\n' + err)]
 
 def _plate_bounds(path, start, end, width, height):
@@ -1845,7 +1867,7 @@ def _band_luma(path, start, end, crop, count):
     count = max(4, min(40, int(count)))
     fps = count / span
     vf = f'trim=start={max(0, float(start)):.3f}:duration={span:.3f},setpts=PTS-STARTPTS,fps={fps:.4f},{crop},signalstats,metadata=print:file=-'
-    out, err = media.ffmpeg('-i', path, '-vf', vf, '-frames:v', str(count), '-f', 'null', '-', timeout=180)
+    out, err = _ffmpeg_vf(path, vf, '-frames:v', str(count), '-f', 'null', '-', timeout=180)
     return [float(item) for item in re.findall(r'signalstats\.YAVG=([\d.]+)', out + '\n' + err)]
 
 def kinetic_appearances(path, start, end):
@@ -2181,11 +2203,22 @@ def kept_shots(shots):
     """Every reference shot the edit keeps. Boundaries are not joined, and each picture stays on its own shot."""
     return [dict(shot) for shot in shots or []]
 
-def annotate_pictures(path, shots):
+def annotate_pictures(path, shots, on_step=None):
     """Measure each original shot window. A longer scene list is not joined first."""
     rows = list(shots or [])
-    for shot in rows:
+    total = len(rows)
+
+    def tell(done, part):
+        if not on_step:
+            return
+        try:
+            on_step('reference_shots', part, done, total)
+        except Exception:
+            return
+
+    for index, shot in enumerate(rows, start=1):
         start, end = float(shot['start']), float(shot['end'])
+        tell(index, 'frame')
         try:
             shot['picture'] = picture_of(path, start, end)
         except Exception:
@@ -2193,6 +2226,7 @@ def annotate_pictures(path, shots):
         picture = shot.get('picture')
         if not isinstance(picture, dict):
             continue
+        tell(index, 'graphics')
         try:
             marks = support_of(path, start, end, picture)
         except Exception:
@@ -2205,6 +2239,7 @@ def annotate_pictures(path, shots):
             span = None
         if span:
             picture['join_seconds'] = span
+        tell(index, 'motion')
         try:
             pace = pace_of(path, start, end)
         except Exception:
@@ -2231,6 +2266,7 @@ def annotate_pictures(path, shots):
             pull = None
         if pull in ('in', 'out'):
             picture['focus'] = pull
+        tell(index, 'type')
         try:
             motion = title_motion(path, start, end)
         except Exception:
@@ -2262,6 +2298,7 @@ def annotate_pictures(path, shots):
             appearances = []
         if appearances:
             picture['kinetic_at'] = appearances
+        tell(index, 'places')
         try:
             window = callout_window(path, start, end)
         except Exception:
@@ -2285,13 +2322,25 @@ def annotate_pictures(path, shots):
                 picture['groups'] = groups
     return shots
 
-def measure(path):
+def measure(path, on_step=None):
+    def tell(step, part=None, done=None, total=None):
+        if not on_step:
+            return
+        try:
+            on_step(step, part, done, total)
+        except Exception:
+            return
     meta = media.probe(path)
+    tell('reference_cuts')
     shots = kept_shots(scene_shots(path, meta['duration']))
-    annotate_pictures(path, shots)
+    annotate_pictures(path, shots, on_step=tell)
+    tell('reference_grade', 'color')
+    color = color_sample(path)
+    tell('reference_grade', 'flat')
+    flat = flat_background(path)
     return {
         'duration': meta['duration'],
         'shots': shots,
-        'color': color_sample(path),
-        'flat': flat_background(path),
+        'color': color,
+        'flat': flat,
     }

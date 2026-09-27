@@ -3,6 +3,7 @@ import {useWorkspace, workspaceText} from './ProjectWorkspace';
 import { translate, contentLanguage } from './locale';
 import { Dubbing } from './Dubbing';
 import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
+import {activityDetail,activityTitle} from './AnalysisActivity';
 import {StatusBadge,TaskProgress,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
 import {holdUpload, uploadVideo} from './resumableUpload';
@@ -646,7 +647,7 @@ function StyleMatch({
     if (id === "number_card") return t("A chart or number card needs the figure and its label from you. Nothing was invented.", "图表或数字卡需要你提供数字和标签。系统不会编造。");
     if (id === "broll") return t("No Commons clip with a CC BY, CC0, or public-domain license matched your words.", "没有找到与你的词语匹配、且为 CC BY、CC0 或公有领域的 Commons 视频。");
     if (id === "captions_need_speech") return t("Captions need a speech transcript from your video.", "字幕需要你视频里的语音文本。");
-    if (id === "reference_music") return t("Reference music was not copied.", "没有复制参考视频的音乐。");
+    if (id === "reference_music") return t("Reference audio is not copied. A licensed bed matched to that note is mixed under the voice.", "不复制参考音频。与该说明匹配的授权配乐会混在人声下面。");
     if (id === "blur") return t("Blur is not available.", "无法做模糊。");
     if (id === "glow") return t("Glow is not available.", "无法做发光。");
     if (id === "shadow") return t("Drop shadows are not available.", "无法做投影。");
@@ -925,16 +926,6 @@ export function DirectorProject({
     }
   }
   function seek(start:number,end:number) { workspace?.seekSource(start,end); }
-  const stages: Record<string, string> = {
-    queued: t("Queued", "排队中"),
-    preparing: t("Preparing your footage", "准备自有素材"),
-    reference_analysis: t("Analyzing reference techniques", "分析参考视频"),
-    director_planning: t("Building your Director Timeline", "创建剪辑计划"),
-    render_queued: t("Render queued", "等待制作"),
-    creating: t("Preparing the cut", "准备剪辑"),
-    rendering: t("Rendering", "制作中"),
-    checking: t("Reviewing quality", "质量复核"),
-  };
   return (
     <div className="page director-project">
       {error && (
@@ -964,10 +955,11 @@ export function DirectorProject({
             workspace.styleTarget,
           )}
           {state?.plan && <div hidden={!manualTask}><ManualEditor serverRevision={state.revision} onDirtyChange={setManualDirty} hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} voiceover={<Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} embedded onFinalChange={()=>workspace?.refreshFinal()} onPreview={(url,label)=>workspace?.previewVersion(url,label)}/>} /></div>}
+          {manualTask&&working&&<p role="status" className="analysis-activity-line"><strong>{activityTitle(p.metadata?.activity,lang,p.stage)}</strong><span>{activityDetail(p.metadata?.activity,lang,p.stage)}</span></p>}
           {manualTask&&!state?.plan&&<>{p.error?<div role="alert"><p>{message(p.error,lang)}</p></div>:<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}{p.error&&!p.analysis&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</>}
           <div hidden={!!manualTask}>
           {manualDirty&&<p role="status">{w('Сначала сохраните правки в разделе «Монтаж».','Save your manual edits in Edit first.','请先在剪辑中保存手动更改。')}</p>}
-          {working && <TaskProgress title={stages[p.stage] || t("Processing", "处理中")} percent={p.progress}/>}
+          {working && <TaskProgress title={activityTitle(p.metadata?.activity,lang,p.stage)} detail={activityDetail(p.metadata?.activity,lang,p.stage)} percent={p.progress}/>}
           {p.error&&<div role="alert"><p>{message(p.error,lang)}</p>{!p.analysis&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</div>}
           <details className="ws-quality"><summary>{w('Проверка готовой версии','Finished video review','成片审核')}</summary>
           {p.result && (

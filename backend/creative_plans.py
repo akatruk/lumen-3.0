@@ -236,6 +236,9 @@ def run_job(p,payload):
     def validate_result(result):
         # Transcript is already analyzed: do not ask a second model pass to retime speech.
         result.edit.captions=[c.model_copy(deep=True) for c in transcript]
+        if snapshot.get('mode') != 'sound_effects':
+            for clip in result.edit.clips:
+                clip.sound_effects = []
         from .music import Music
         result.edit.music=Music.model_validate(snapshot['saved_music']) if snapshot.get('saved_music') else None
         validate(result,duration,speech,snapshot.get('saved_music'),snapshot.get('current_edit'))
@@ -303,7 +306,7 @@ cutaway selects visible OWNED source B-roll: start/end are clip-local seconds; s
 No new external media has been supplied. You may retain an existing external_broll ONLY with its exact saved fields and unchanged parent clip source start/end. Otherwise external_broll MUST be null; do not relocate unseen footage. Preserve existing external_broll on locked shots exactly. Do not pretend to retrieve or generate footage.
 card can be number/comparison/bar_chart/ranking/timeline/map ONLY when exact facts, values and units exist in supplied script or transcript.
 For maps use locations only with explicit verified coordinates from context; never guess. Keep locations=[] for other card kinds. Never invent statistics, prices, dates, eligibility, geography or sources. Card start/end are clip-local. Use empty optional lists when not applicable.
-Sound accents: optional chime(.6s), click(.08s), whoosh(.4s), relative to clip start, -30 to -24 dB, sparse and never masking speech.
+Sound: sound_effects must be []. Do not add chime, click, or whoosh. Those tones are not part of the picture.
 Return edit.music=null: music can be added manually from the private library, but no tracks are supplied to this planner. Keep source audio. audio_fade_ms defaults to 0; optionally use 10–30 ms at clips with non-speech edges to reduce cut clicks, never as a claim to repair music rhythm. This fades both ends of the source mix, not separate stems. normalize only adjusts mixed-track loudness.
 Captions are already transcribed. If current_edit exists, its saved captions (including manual corrections or an intentionally empty list) are authoritative; otherwise use analysis.transcript. Return edit.captions=[]; the server restores that exact validated transcript and emphasis. Set subtitles according to readability; never re-transcribe or retime speech. No invented speech or song lyrics. Choose clip starts and ends ONLY from safe_cut_times, which preserve existing speech boundaries.
 Avoid burning duplicate captions over existing text. Captions cannot cross a cut inside a spoken phrase. Include retained speech captions.

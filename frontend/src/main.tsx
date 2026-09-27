@@ -3,6 +3,7 @@ import {ProjectWorkspace, useWorkspace} from './ProjectWorkspace';
 import { LanguageSelect } from './LanguageSelect';
 import { translate, contentLanguage, readLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
+import { AnalysisActivity, activityDetail, activityTitle } from "./AnalysisActivity";
 import { TutorialVideos } from "./TutorialVideos";
 import { LookBoard } from "./LookBoard";
 import { MenuSlide } from "./MenuSlide";
@@ -59,8 +60,8 @@ import type { Lang, Text, Project, Summary, Recommendation } from "./types";
 import "./style.css";
 import { DouyinSearch } from "./DouyinSearch";
 import { StudioCreate, DirectorProject } from "./Studio";
-import "./apple-design.css";
 import "./workspace.css";
+import "./apple-design.css";
 const Locale = createContext<{ lang: Lang; t: (key: string) => string }>({
   lang: "en",
   t: (k) => k,
@@ -834,9 +835,12 @@ function ProjectCard({ p, onClick, onDelete }: { p: Summary; onClick: () => void
           <ArrowUpRight size={17} />
         </div>
         {active(p) && (
-          <div className="mini-progress" aria-label={t("processing")}>
-            <i style={{ width: `${p.progress}%` }} />
-          </div>
+          <>
+            <p className="project-card-activity">{activityTitle(meta?.activity, lang, p.stage)}</p>
+            <div className="mini-progress" aria-label={t("processing")}>
+              <i style={{ width: `${p.progress}%` }} />
+            </div>
+          </>
         )}
       </div>
       </button>
@@ -1413,7 +1417,7 @@ function ProjectView({
               ) : (
                 <div className="video-placeholder">
                   <ScanLine size={48} strokeWidth={1} />
-                  <p>{t("stage_" + p.stage)}</p>
+                  <p>{activityTitle(p.metadata?.activity, lang, p.stage)}</p>
                 </div>
               )}
             </div>
@@ -1460,29 +1464,7 @@ function ProjectView({
             </div>
           </div>
           }
-          {working && (
-            <div className="processing-card">
-              <span className="processing-icon">
-                <Loader2 className="spin" size={22} />
-              </span>
-              <div>
-                <strong>{t("stage_" + p.stage)}</strong>
-                <p>
-                  {t(
-                    p.stage === "importing"
-                      ? "douyinImportDesc"
-                      : p.status === "queued"
-                        ? "queueDesc"
-                        : "pendingDesc",
-                  )}
-                </p>
-                <div className="progress">
-                  <i style={{ width: `${Math.max(4, p.progress)}%` }} />
-                </div>
-              </div>
-              <span>{p.progress}%</span>
-            </div>
-          )}
+          {working && <AnalysisActivity project={p} lang={lang} />}
           {p.error && (
             <div className="failure-card">
               <ErrorBox error={p.error} />
@@ -1593,7 +1575,9 @@ function ProjectView({
                 {t(p.status === "failed" ? "stage_failed" : "analysisPending")}
               </h2>
               <p>
-                {t(p.status === "failed" ? "processing_failed" : "pendingDesc")}
+                {working
+                  ? activityDetail(p.metadata?.activity, lang, p.stage)
+                  : t(p.status === "failed" ? "processing_failed" : "pendingDesc")}
               </p>
               <div className="skeleton-line" />
               <div className="skeleton-line short" />

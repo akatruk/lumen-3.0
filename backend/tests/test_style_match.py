@@ -28,6 +28,7 @@ def client(tmp_path, monkeypatch):
             ref = dict(aweme_id='1234567890123456789', title='Reference', author='Author', share_url='https://www.douyin.com/video/1234567890123456789', duration=20)
             db.execute('INSERT INTO douyin_results VALUES(?,?,?,?)', ('a' * 32, 'u', json.dumps(ref), time.time()))
         monkeypatch.setattr(studio.media, 'probe', lambda _: dict(duration=40, width=320, height=568, has_audio=False, size=16))
+        monkeypatch.setattr('backend.style_pictures.fetch', lambda prompt: (_ for _ in ()).throw(AssertionError('openrouter')))
         yield c
     app.dependency_overrides.clear()
 
@@ -213,7 +214,7 @@ def test_approve_renders_the_saved_edit_and_keeps_the_selected_delivery(client, 
         return render_folder / 'voice-clean.wav'
     def render_picture(source, render_folder, *_args, **kwargs):
         assert source.read_bytes() == b'owned-source-only'
-        assert kwargs['manual']['clips'][0]['zoom'] == 1.05
+        assert kwargs['manual']['clips'][0]['zoom'] == 1.05 and kwargs['manual']['clips'][0].get('zoom_end') is None and kwargs['manual']['clips'][0].get('sweep') is not True
         assert kwargs['manual']['music']['asset_id'] == aid
         assert kwargs.get('voice_audio')
         (render_folder / 'result.mp4').write_bytes(b'new-picture-with-voice-and-music')
@@ -1994,3 +1995,145 @@ def test_failed_picture_render_keeps_the_previous_file(client, monkeypatch):
     with connect() as db:
         assert db.execute('SELECT version_id FROM project_final_outputs WHERE project_id=?', (pid,)).fetchone()['version_id'] == voice
     assert client.get(f'/api/projects/{pid}/media/result').content == b'chosen-voice'
+
+def test_a_still_style_shot_is_not_pushed_or_swept(tmp_path):
+    from backend import media
+    from backend.style_match import animate_for_render
+    from backend.timeline import motion_filter
+    still = {'clips': [{'id': 'a', 'start': 0, 'end': 4, 'zoom': 1.05, 'zoom_end': None, 'x': 0.5, 'y': 0.5, 'approved': True}]}
+    moved = animate_for_render(still)['clips'][0]
+    assert moved.get('sweep') is not True and moved['zoom'] == 1.05 and moved.get('zoom_end') is None
+    assert moved['y'] == 0.5 and moved.get('y_end') is None
+    held = animate_for_render({'clips': [{'start': 0, 'end': 4, 'zoom': 1, 'zoom_end': 1, 'x': 0.5, 'x_end': 0.5, 'y': 0.5, 'y_end': 0.5}]})['clips'][0]
+    assert held['zoom_end'] == 1 and held.get('sweep') is not True
+    strong = animate_for_render({'clips': [{'start': 0, 'end': 4, 'zoom': 1.15, 'zoom_end': 1.35, 'x': 0.62, 'x_end': 0.38, 'y': 0.5}]})['clips'][0]
+    assert strong['zoom'] == 1.15 and strong['zoom_end'] == 1.35 and strong['x'] == 0.62 and strong['x_end'] == 0.38 and strong.get('sweep') is not True
+    crop = animate_for_render({'clips': [{'start': 0, 'end': 4, 'zoom': 1.28, 'x': 0.57, 'y': 0.43}]})['clips'][0]
+    assert crop['zoom'] == 1.28 and crop.get('zoom_end') is None and crop['y'] == 0.43 and crop.get('y_end') is None and crop.get('sweep') is not True
+    staged = animate_for_render({'clips': [{'start': 0, 'end': 4, 'zoom': 1.02, 'zoom_end': 1.18, 'x': 0.5, 'x_end': 0.5, 'y': 0.56, 'y_end': 0.42}]})['clips'][0]
+    assert staged['zoom'] == 1 and staged.get('zoom_end') is None and staged.get('sweep') is not True
+    chain = motion_filter(moved, 180, 320, 4)
+    assert 'geq=lum=' not in chain and 'zoompan' not in chain
+    strong_chain = motion_filter(strong, 180, 320, 4)
+    assert 'zoompan' in strong_chain and '1.15' in strong_chain and '1.35' in strong_chain and '0.62' in strong_chain and '0.38' in strong_chain
+    assert 'geq=lum=' not in strong_chain
+    source = tmp_path / 'src.mp4'
+    out = tmp_path / 'out.mp4'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=c=0x334455:s=180x320:r=30:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', source)
+    media.ffmpeg('-i', source, '-vf', strong_chain.rstrip(','), '-frames:v', '8', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', out)
+    assert out.stat().st_size > 500
+
+
+def test_style_render_drops_frames_on_the_presenter_and_uses_a_generated_still(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend import media
+    from backend.manual import Edit
+    from backend.style_match import present_for_render
+    from backend.style_pictures import attach_shot_frames
+    monkeypatch.setattr('backend.style_pictures.fetch', lambda prompt: (_ for _ in ()).throw(AssertionError('openrouter')))
+    face = {
+        'id': 'face', 'start': 0, 'end': 2, 'shot_type': 'presenter', 'text': 'lin 49%', 'kinetic': True,
+        'title_w': 0.42, 'title_h': 0.14, 'title_x': 0.5, 'title_y': 0.2, 'lower': True, 'icon': True,
+        'spots': [{'x': 0.2, 'y': 0.3, 'w': 0.2, 'h': 0.1}], 'card': {'title': {'en': 'Price', 'zh': '价格'}, 'primary': {'en': '80', 'zh': '80'}, 'start': 0, 'end': 1},
+        'bars': [1, 0.4], 'graphic': False, 'roll': 9, 'orbit_y': 0.2, 'sweep': True,
+        'zoom': 1.15, 'zoom_end': 1.35, 'x': 0.62, 'x_end': 0.38, 'y': 0.5,
+    }
+    edit = {
+        'clips': [face, {'id': 'chart', 'start': 2, 'end': 4, 'shot_type': 'presenter', 'graphic': True, 'bars': [1, 0.5], 'text': 'capital ratio', 'diagram': 2}],
+        'captions': [{'start': 0, 'end': 2, 'original': 'Keep this caption', 'en': 'Keep this caption', 'zh': '保留'}],
+        'subtitles': True,
+    }
+    shown = present_for_render(edit)
+    presenter = shown['clips'][0]
+    assert presenter['text'] == '' and presenter['kinetic'] is False
+    assert presenter['title_w'] is None and presenter['title_h'] is None
+    assert presenter['card']['title']['en'] == 'Price' and presenter['card_y'] == 0.86
+    assert presenter['bars'] == [1, 0.4] and presenter['chart_y'] == 0.86
+    assert presenter['progress'] == 0
+    assert presenter['diagram'] == 0 and presenter['screen'] is None
+    assert presenter['lower'] is False and presenter['spots'] == [] and presenter['art'] == ''
+    assert presenter['roll'] == 0 and presenter['orbit_y'] == 0 and presenter.get('sweep') is not True
+    assert presenter['zoom'] == 1.15 and presenter['zoom_end'] == 1.35 and presenter['x'] == 0.62 and presenter['x_end'] == 0.38
+    assert shown['captions'][0]['original'] == 'Keep this caption' and shown['subtitles'] is True
+    project = tmp_path / ('p' * 32)
+    project.mkdir()
+    source = project / 'source.mp4'
+    seed = project / 'seed.png'
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=c=0x224466:s=180x320:r=30:d=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', source)
+    media.ffmpeg('-f', 'lavfi', '-i', 'color=c=0xE7C27A:s=80x120:d=0.2', '-frames:v', '1', seed)
+    monkeypatch.setattr('backend.style_pictures.fetch', lambda prompt: seed.read_bytes())
+    monkeypatch.setattr('backend.style_pictures.settings.openrouter_api_key', 'test-not-a-key')
+    monkeypatch.setattr('backend.style_pictures.settings.data_dir', tmp_path)
+    monkeypatch.setattr('backend.style_pictures.reserve', lambda *args, **kwargs: 'token')
+    monkeypatch.setattr('backend.style_pictures.settle', lambda *args, **kwargs: None)
+    framed = attach_shot_frames('p' * 32, edit)
+    assert framed['clips'][0].get('art_frame') is not True
+    assert framed['clips'][1]['art_frame'] is True and framed['clips'][1]['art'] == 'style-art-1.png'
+    ready = present_for_render(framed)
+    assert ready['clips'][1]['art_frame'] is True and ready['clips'][1]['bars'] == [] and ready['clips'][1]['diagram'] == 0
+    png = project / 'style-art-1.png'
+    assert png.read_bytes().startswith(b'\x89PNG')
+    calls = []
+    real = media.ffmpeg
+    def spy(*args, **kwargs):
+        calls.append(tuple(str(part) for part in args))
+        return real(*args, **kwargs)
+    monkeypatch.setattr(media, 'ffmpeg', spy)
+    folder = tmp_path / 'render'
+    folder.mkdir()
+    shot = ready['clips'][1]
+    media.render(source, folder, media.probe(source), SimpleNamespace(transcript=[]), [], 'en', 'original', manual=Edit(clips=[shot], subtitles=False, captions=[]).model_dump())
+    joined = '\n'.join(' '.join(call) for call in calls)
+    assert 'style-art-1.png' in joined and '[1:v]scale=' in joined
+    assert 'drawbox=' not in joined and '[fg]' not in joined and 'overlay=' not in joined
+
+
+def test_spoken_numbers_become_lower_third_charts(tmp_path):
+    from backend.media import caption_lift
+    from backend.style_match import present_for_render
+    from backend.visuals import write_card
+    edit = {
+        'clips': [
+            {'id': 'a', 'start': 19.5, 'end': 26.5, 'shot_type': 'presenter', 'text': 'lin 49%', 'kinetic': True, 'progress': 0.4},
+            {'id': 'b', 'start': 26.5, 'end': 34.5, 'shot_type': 'presenter', 'text': 'lin illustrate', 'kinetic': True, 'progress': 0.5},
+        ],
+        'captions': [
+            {'start': 19.5, 'end': 26.5, 'original': '普通泰国有限公司通常需要至少三名股东', 'en': '', 'zh': ''},
+            {'start': 26.5, 'end': 34.5, 'original': '外资比例一般是不超过49%', 'en': '', 'zh': ''},
+        ],
+        'subtitles': True,
+    }
+    shown = present_for_render(edit)
+    shareholders, cap = shown['clips']
+    assert shareholders['text'] == '' and shareholders.get('card') is None
+    assert cap['card']['kind'] == 'bar_chart' and cap['card']['primary']['zh'] == '49%'
+    assert [item['value'] for item in cap['card']['items']] == [49, 100]
+    assert cap['card_x'] >= 0.7 and cap['card_w'] <= 0.4 and cap['card_y'] - cap['card_h'] / 2 >= 0.74
+    assert cap['progress'] == 0 and shown['subtitles'] is True
+    assert '口播' not in json.dumps(shown)
+    people = present_for_render({'clips': [{'id': 'c', 'start': 0, 'end': 4, 'shot_type': 'presenter', 'text': 'count'}], 'captions': [{'start': 0, 'end': 4, 'original': '一共有三人', 'en': '', 'zh': ''}], 'subtitles': True})
+    assert people['clips'][0].get('card') is None
+    stored = present_for_render({'clips': [{'id': 'd', 'start': 0, 'end': 4, 'card': {'kind': 'number', 'title': {'en': '股东', 'zh': '股东'}, 'primary': {'en': '3', 'zh': '3'}, 'source': {'en': '口播', 'zh': '口播'}, 'start': 0.2, 'end': 2}}], 'captions': [], 'subtitles': True})
+    assert stored['clips'][0].get('card') is None and '口播' not in json.dumps(stored)
+    card_file = tmp_path / 'proportion.ass'
+    write_card(card_file, cap['card'], 'zh', 1080, 1920, (cap['card_x'], cap['card_y']), (cap['card_w'], cap['card_h']))
+    script = card_file.read_text()
+    assert '49%' in script and '口播' not in script and '股东' not in script
+    assert caption_lift(shown['clips']) < 0.30
+
+
+def test_reference_music_note_mixes_a_licensed_bed(client, tmp_path, monkeypatch):
+    from backend.style_match import attach_recommended_bed, recommend_bed
+    pid = create(client).json()['id']
+    track = tmp_path / 'bed.mp3'
+    track.write_bytes(b'licensed-bed')
+    monkeypatch.setattr('backend.style_match._catalogue_file', lambda row: track)
+    studio_state = {'dna': [{'analysis': {'shots': [{'music': {'en': 'background bed', 'zh': '配乐'}}]}}]}
+    shown = attach_recommended_bed(pid, {'clips': [{'start': 0, 'end': 2}]}, studio_state)
+    assert shown['music']['duck'] is True and shown['music']['gain_db'] == -22
+    assert recommend_bed([{'music': {'en': 'fast dance drop', 'zh': ''}}]) == 'cipher'
+    assert recommend_bed([{'music': {'en': '', 'zh': ''}}]) is None
+    kept = {'music': {'asset_id': 'a' * 32}}
+    assert attach_recommended_bed(pid, kept, studio_state)['music']['asset_id'] == 'a' * 32
+    again = attach_recommended_bed(pid, {'clips': []}, studio_state)
+    assert again['music']['asset_id'] == shown['music']['asset_id']

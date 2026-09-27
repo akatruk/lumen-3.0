@@ -13,6 +13,46 @@ def _video(path, *graphs):
     media.ffmpeg(*graphs, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path)
 
 
+def test_a_late_sample_seeks_instead_of_decoding_from_the_start(monkeypatch):
+    seen = {}
+
+    def fake(*args, timeout=180):
+        seen['args'] = args
+        return '', 'signalstats.YAVG=40\nsignalstats.UAVG=128\nsignalstats.VAVG=128\n'
+
+    monkeypatch.setattr('backend.style_vision.media.ffmpeg', fake)
+    from backend.style_vision import _stats
+    sample = _stats('clip.mp4', 'trim=start=146.007:duration=0.08,crop=8:8:0:0,signalstats,metadata=print:file=-', frames=1)
+    args = list(seen['args'])
+    assert sample['y'] == 40
+    assert args.index('-ss') < args.index('-i')
+    assert args[args.index('-ss') + 1] == '145.607'
+    vf = args[args.index('-vf') + 1]
+    assert vf.startswith('trim=start=0.400:duration=0.08,crop=8:8:0:0')
+
+
+def test_an_opening_sample_does_not_seek(monkeypatch):
+    seen = {}
+
+    def fake(*args, timeout=180):
+        seen['args'] = args
+        return '', 'signalstats.YAVG=10\nsignalstats.UAVG=128\nsignalstats.VAVG=128\n'
+
+    monkeypatch.setattr('backend.style_vision.media.ffmpeg', fake)
+    from backend.style_vision import _stats
+    _stats('clip.mp4', 'trim=start=0.000:duration=0.08,signalstats,metadata=print:file=-', frames=1)
+    assert '-ss' not in seen['args']
+
+
+def test_a_late_real_frame_is_still_read(tmp_path):
+    path = tmp_path / 'late.mp4'
+    _video(path, '-f', 'lavfi', '-i', 'color=c=0x101010:s=64x64:r=10:d=4', '-f', 'lavfi', '-i', 'color=c=white:s=64x64:r=10:d=1', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
+    from backend.style_vision import _stats
+    early = _stats(path, 'trim=start=0.200:duration=0.08,signalstats,metadata=print:file=-', frames=1)
+    late = _stats(path, 'trim=start=4.200:duration=0.08,signalstats,metadata=print:file=-', frames=1)
+    assert early and late and late['y'] > early['y'] + 40
+
+
 def test_measure_finds_a_cut_and_a_flat_plate(tmp_path):
     cuts = tmp_path / 'cuts.mp4'
     _video(cuts, '-f', 'lavfi', '-i', 'color=red:s=320x568:r=30:d=1', '-f', 'lavfi', '-i', 'color=blue:s=320x568:r=30:d=1', '-filter_complex', '[0:v][1:v]concat=n=2:v=1:a=0')
@@ -1048,3 +1088,15 @@ def test_a_serif_mark_picks_a_non_sans_face_when_one_is_installed(tmp_path):
         assert face in body and 'SECRET' not in body
         if not heavy:
             assert ',0,0,0,0,' in body
+
+def test_each_reference_shot_reports_what_it_is_reading(monkeypatch):
+    import backend.style_vision as vision
+    monkeypatch.setattr(vision, 'picture_of', lambda *args, **kwargs: {})
+    for name in ('support_of', 'join_span', 'pace_of', 'roll_of', 'orbit_of', 'focus_of', 'title_motion', 'title_letter', 'highlight_moments', 'card_moment', 'kinetic_appearances', 'callout_window', 'graphic_places'):
+        monkeypatch.setattr(vision, name, lambda *args, **kwargs: None)
+    calls = []
+    vision.annotate_pictures('clip.mp4', [{'start': 0, 'end': 1}, {'start': 1, 'end': 2}], on_step=lambda *args: calls.append(args))
+    assert calls[0] == ('reference_shots', 'frame', 1, 2)
+    assert ('reference_shots', 'motion', 1, 2) in calls
+    assert ('reference_shots', 'type', 2, 2) in calls
+    assert calls[-1][0:2] == ('reference_shots', 'places')

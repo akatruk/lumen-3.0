@@ -139,8 +139,11 @@ export function ManualEditor({
   async function loadRenderSummary(){
     const request=++summaryRequest.current;
     setRenderSummary(null);setSummaryError(false);
-    try{const r=await fetch(base+'/summary');if(!r.ok)throw Error();const data=await r.json();if(request===summaryRequest.current)setRenderSummary(data)}
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),12000);
+    try{const r=await fetch(base+'/summary',{signal:controller.signal});if(!r.ok)throw Error();const data=await r.json();if(request===summaryRequest.current)setRenderSummary(data)}
     catch{if(request===summaryRequest.current)setSummaryError(true)}
+    finally{clearTimeout(timer)}
   }
   const reviewDialog=useRef<HTMLDialogElement>(null);
   const reviewOpener=useRef<HTMLElement|null>(null);
@@ -342,7 +345,7 @@ export function ManualEditor({
       aria-label={t("Manual editor", "手动剪辑")}
     >
       <div hidden={task!=="audio"}>
-
+      <MusicPlan onUploadMusic={()=>{workspace?.setTask('materials');requestAnimationFrame(()=>mediaLibrary.current?.openMusicUpload())}} onUse={music=>change({music},false)} onAssetsChanged={loadAssets} currentMusic={edit.music} pid={pid} revision={revision} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} suggestDisabled={blocked||dirty||!!edit.music?.locked} onApplied={async nextRevision=>{sessionStorage.removeItem(draftKey);await load();await onSaved();await finalMusic.current?.apply(nextRevision)}}/>
       <MusicEditor delivery={<FinalMusic ref={finalMusic} pid={pid} lang={lang} music={edit.music||null} disabled={blocked||invalid} save={()=>act(false)}/>} pid={pid} onAnalyzed={loadAssets} firstCut={edit.clips.filter(c=>c.approved!==false).length>1?(()=>{const c=edit.clips.find(c=>c.approved!==false)!;return c.end-c.start})():null} value={edit.music||null} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked} onChange={music=>change({music},false)}/>
       {edit.music&&<BeatPreview pid={pid} revision={revision} lang={lang} disabled={blocked||dirty} onPreview={value=>{setEdit(value);setDirty(true)}}/>}
       <details className="audio-voiceover"><summary>{w('Озвучка и язык','Voiceover and language','配音与语言')}</summary>{voiceover}</details>
@@ -350,9 +353,6 @@ export function ManualEditor({
       </div>
       <div hidden={task!=="materials"}>
       <MediaLibrary ref={mediaLibrary} pid={pid} lang={lang} assets={assets} onChanged={loadAssets}/>
-      </div>
-      <div hidden={task!=="audio"}>
-      <MusicPlan onUploadMusic={()=>{workspace?.setTask('materials');requestAnimationFrame(()=>mediaLibrary.current?.openMusicUpload())}} currentMusic={edit.music} pid={pid} revision={revision} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked||dirty||!!edit.music?.locked} onApplied={async nextRevision=>{sessionStorage.removeItem(draftKey);await load();await onSaved();await finalMusic.current?.apply(nextRevision)}}/>
       </div>
       <div hidden={task!=="materials"}>
       <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;workspace?.setTask('effects');setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[contentLanguage(lang)]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>

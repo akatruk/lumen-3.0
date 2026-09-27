@@ -217,7 +217,11 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         assert.equal(await page.locator(".ws-header-download").count(), 1);
         assert.match(
           await page.locator(".ws-preview").innerText(),
-          /Готовые версии сохранены/,
+          /Обработка прервана/,
+        );
+        assert.equal(
+          await page.getByRole("button", { name: "Повторить анализ" }).count(),
+          0,
         );
       }
       assert.deepEqual(errors, [], scenario);

@@ -251,6 +251,101 @@
 .style-match-body { max-height: 240px; overflow: auto; padding: 0 14px 14px; font-size: 13px; color: #3c4a62; }
 .style-match-body ul { margin: 8px 0; padding-left: 18px; }
 .style-match-body .trend-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.analysis-activity {
+  width: 100%;
+  margin-top: 12px;
+  padding: 16px 16px 8px;
+  border: 1px solid #b7cef0;
+  border-radius: 14px;
+  background: #f4f8ff;
+  color: #234669;
+  text-align: left;
+}
+.analysis-activity-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.analysis-activity-kicker {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5d7594;
+}
+.analysis-activity-head strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.35;
+}
+.analysis-activity-head > b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.analysis-activity-bar {
+  height: 9px;
+  margin: 12px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dce7f5;
+}
+.analysis-activity-bar > i {
+  display: block;
+  height: 100%;
+  background: #2873ca;
+  transition: width 0.25s ease;
+}
+.analysis-activity-now {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.analysis-activity-clock {
+  font-variant-numeric: tabular-nums;
+  color: #3d5876;
+}
+.analysis-activity ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.analysis-activity li {
+  display: grid;
+  grid-template-columns: 1.1rem 1fr;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.analysis-activity li.is-done { color: #1d6b45; }
+.analysis-activity li.is-current { font-weight: 650; }
+.analysis-activity li.is-current > span:first-child { animation: analysis-pulse 1.4s ease-in-out infinite; }
+.analysis-activity li.is-wait { color: #6d829b; }
+.analysis-activity-line {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 12px;
+}
+.analysis-activity-line span { color: #3d5876; font-size: 14px; }
+.project-card-activity {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #3d5876;
+}
+@keyframes analysis-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .analysis-activity li.is-current > span:first-child,
+  .analysis-activity-bar > i { animation: none; transition: none; }
+}
 .ws-analysis-alert {
   display: flex;
   flex-wrap: wrap;

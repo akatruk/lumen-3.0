@@ -14,6 +14,15 @@ export type Recommendation = {
   action: string;
   generation_prompt: string;
 };
+export type AnalysisActivityState = {
+  step: string;
+  part?: string | null;
+  done?: number | null;
+  total?: number | null;
+  at?: number;
+  log?: { step: string }[];
+  plan?: string[];
+};
 export type Metadata = {
   duration: number;
   width: number;
@@ -21,6 +30,7 @@ export type Metadata = {
   has_audio: boolean;
   size: number;
   preview_ready?: boolean;
+  activity?: AnalysisActivityState | null;
 };
 export type Analysis = {
   summary: Text;
@@ -83,6 +93,7 @@ export type Project = {
   created: number;
   cost: number;
   events: { kind: string; detail: string; created: number }[];
+  pictures?: { id: string; created: number; current: boolean }[];
 };
 export type Summary = Pick<
   Project,

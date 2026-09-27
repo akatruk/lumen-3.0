@@ -18,19 +18,24 @@ def progress(pid,stage,value):
 def analyze_job(p):
     pid=p['id']; folder=settings.data_dir/pid; source=folder/'source'
     update(pid,status='analyzing',error=None)
-    progress(pid,'preparing',8)
+    from .analysis_activity import note
+    note(pid,'prepare',plan=['prepare','owned_sound','owned_model','director'])
     if not source.exists():
         from .douyin import import_source
         import_source(p)
     metadata=media.probe(source)
     if metadata['duration']>settings.max_duration_seconds: raise ValueError('video_too_long')
     media.prepare(source,folder)
-    metadata['preview_ready']=True
-    update(pid,metadata=metadata)
+    try:
+        saved=(project(pid) or {}).get('metadata') or {}
+    except Exception:
+        saved={}
+    update(pid,metadata={**saved,**metadata,'preview_ready':True})
+    note(pid,'owned_sound')
     silences=media.silence_ranges(source,metadata['duration']) if metadata['has_audio'] else []
-    progress(pid,'understanding',30)
+    note(pid,'owned_model')
     analysis=ai.analyze(pid,folder,metadata,p['brief'],p['language'],silences)
-    progress(pid,'planning',65)
+    note(pid,'director')
     selected=[]
     for r in analysis.recommendations:
         safe = r.auto_apply and r.confidence>=0.85 and (p['generative'] or r.action!='generate_broll')
@@ -66,18 +71,25 @@ def render_job(p,payload):
     timeline=[(c['start'],c['end']) for c in manual['clips'] if c.get('approved',True)] if manual else media.build_timeline(p['metadata']['duration'],selected)
     if delivery and delivery['voice']:render_audio.map_ranges(delivery['voice']['timeline'],timeline)
     update(pid,status='rendering',error=None)
-    progress(pid,'creating',10)
+    progress(pid,'preparing_picture',8)
     brolls=[]
     generative=[r for r in selected if r.action=='generate_broll']
     if len(generative)>2: raise ValueError('too_many_generated_clips')
     for r in generative:
         brolls.append(ai.generate_broll(pid,folder,folder/'source',r,p['aspect'] if p['aspect'] in ('16:9','9:16') else ('16:9' if p['metadata']['width']>=p['metadata']['height'] else '9:16')))
-    progress(pid,'rendering',40)
+    progress(pid,'preparing_picture',12)
     render_id=uuid.uuid4().hex
     render_folder=folder/'renders'/render_id
     render_folder.mkdir(parents=True)
     asset_paths={}
     if manual:
+        from .studio import state as studio_state
+        current=studio_state(pid)
+        context=(current or {}).get('context') if current else None
+        if (context or {}).get('style_match') and not manual.get('music'):
+            from .style_match import attach_recommended_bed
+            progress(pid,'matching_music',16)
+            manual=attach_recommended_bed(pid, manual, current)
         from .assets import validate as validate_assets
         from .manual import Edit
         with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
@@ -87,7 +99,12 @@ def render_job(p,payload):
         from .style_match import board_for_render
         current=studio_state(pid)
         manual=board_for_render(manual,(current or {}).get('context') if current else None)
-    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
+        if ((current or {}).get('context') or {}).get('style_match'):
+            from .style_match import animate_for_render, present_for_render
+            progress(pid,'drawing_graphics',22)
+            manual=animate_for_render(manual)
+            manual=present_for_render(manual)
+    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id
     if delivery and delivery['voice']:result['voiceover']={k:delivery['voice'][k] for k in ('language','voice')}
     if asset_paths:
@@ -96,7 +113,7 @@ def render_job(p,payload):
         if manual.get('music'):used_assets.add(manual['music']['asset_id'])
         with connect() as db:
             result['asset_credits']=[{'asset_id':ident,'title':row['title'],'attribution':row['attribution']} for ident in sorted(used_assets) if (row:=db.execute('SELECT title,attribution FROM studio_assets WHERE id=? AND project_id=?',(ident,pid)).fetchone())]
-    progress(pid,'checking',85)
+    progress(pid,'checking',94)
     try:
         if manual and not payload.get('quality_review'): raise ValueError('manual_review_required')
         qa=ai.review(pid,render_folder,p['brief'],manual if manual else [r.model_dump() for r in selected])
