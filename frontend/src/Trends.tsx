@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { apiErrorCode } from "./apiError";
+import { localDateTimeToUnix, localDateTimeValue } from "./localTime";
 import { translate } from "./locale";
 import type { Lang } from "./types";
 
@@ -70,7 +72,7 @@ type Handoff = { concept_id: string; title: string; script: string; trend: strin
 async function call(path: string, init?: RequestInit) {
   const response = await fetch("/api/trends" + path, { credentials: "same-origin", ...init });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "request_failed");
+  if (!response.ok) throw new Error(apiErrorCode(data));
   return data;
 }
 
@@ -94,6 +96,12 @@ export function Trends({
   onCreate: (handoff: Handoff) => void;
 }) {
   const t = (en: string, zh: string) => translate(lang, en, zh);
+  const trendError = (code: string) => {
+    if (code === "invalid_date") return t("That publish time is in the future. Choose a time that has already happened.", "发布时间不能是将来。请选择已经过去的时间。");
+    if (code === "invalid_url") return t("Use a public http or https link.", "请使用公开的 http 或 https 链接。");
+    if (code === "request_failed") return t("Could not save this trend. Check the fields and try again.", "无法保存这条趋势。请检查字段后重试。");
+    return code;
+  };
   const [items, setItems] = useState<Item[]>([]);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [detail, setDetail] = useState<Item | null>(null);
@@ -102,7 +110,7 @@ export function Trends({
   const [form, setForm] = useState({
     url: "",
     creator: "",
-    published_at: new Date(Date.now() - 3600_000).toISOString().slice(0, 16),
+    published_at: localDateTimeValue(new Date(Date.now() - 3600_000)),
     duration: "15",
     caption: "",
     hashtags: "",
@@ -153,9 +161,14 @@ export function Trends({
 
   async function saveManual(event: React.FormEvent) {
     event.preventDefault();
+    const published = localDateTimeToUnix(form.published_at);
+    if (!Number.isFinite(published)) {
+      setError("invalid_date");
+      return;
+    }
     await act("/manual", {
       ...form,
-      published_at: new Date(form.published_at).getTime() / 1000,
+      published_at: published,
       duration: Number(form.duration),
       views: Number(form.views),
       likes: Number(form.likes),
@@ -169,7 +182,7 @@ export function Trends({
     return (
       <div className="page trends-page">
         <button className="text-button" onClick={onBack}>{t("All trends", "全部趋势")}</button>
-        {error && <p role="alert" className="error-box">{error}</p>}
+        {error && <p role="alert" className="error-box">{trendError(error)}</p>}
         {!row ? <p>{t("Loading trend…", "正在加载趋势…")}</p> : (
           <>
             <header className="director-intro">
@@ -228,7 +241,7 @@ export function Trends({
         <h1>{t("Find a structure. Then tell your own story.", "先看结构，再讲自己的故事。")}</h1>
         <p>{t("Trends sit in front of Studio. You still upload your footage and approve every edit.", "趋势在 Studio 之前。你仍然上传自己的素材，并批准每一次剪辑。")}</p>
       </header>
-      {error && <p role="alert" className="error-box">{error}</p>}
+      {error && <p role="alert" className="error-box">{trendError(error)}</p>}
       <section className="trend-grid">
         {items.map((item) => (
           <button key={item.id} className="trend-card" onClick={() => onOpen(item.id)}>

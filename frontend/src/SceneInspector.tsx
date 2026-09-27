@@ -1,14 +1,43 @@
-import {ChevronLeft,ChevronRight,ZoomIn,Blend,Frame} from 'lucide-react';
+import {useEffect,useRef} from 'react';
+import {ChevronLeft,ChevronRight,Lock,ZoomIn,Blend,Frame} from 'lucide-react';
 import type {Lang} from './types';
 import {workspaceText} from './ProjectWorkspace';
 type Scene={start:number;end:number;text:string;approved?:boolean;locked?:boolean};
 export function SceneInspector({clips,selected,onSelect,lang}:{clips:Scene[];selected:number;onSelect:(i:number)=>void;lang:Lang}){
  const w=(r:string,e:string,z:string)=>workspaceText(lang,r,e,z),clip=clips[selected]||clips[0];
+ const list=useRef<HTMLDivElement>(null);
  const stamp=(v:number)=>`${Math.floor(v/60)}:${(v%60).toFixed(1).padStart(4,'0')}`;
- return <header className="inspector-scene">
- <div className="inspector-scene-top"><span>{w('ВЫБРАННАЯ СЦЕНА','SELECTED SCENE','所选场景')}</span><span className={'inspector-status '+(clip.locked?'locked':clip.approved===false?'pending':'approved')}>{clip.locked?w('Закреплена','Locked','已锁定'):clip.approved===false?w('Нужна проверка','Needs review','待审核'):w('Проверена','Approved','已批准')}</span></div>
- <div className="inspector-scene-nav"><button type="button" aria-label={w('Предыдущая сцена','Previous scene','上一个镜头')} disabled={selected===0} onClick={()=>onSelect(selected-1)}><ChevronLeft size={17}/></button><select aria-label={w('Выбрать сцену','Select scene','选择镜头')} value={selected} onChange={e=>onSelect(Number(e.target.value))}>{clips.map((c,i)=><option key={i} value={i}>{`${String(i+1).padStart(2,'0')} · ${c.text||w('Сцена','Scene','镜头')+' '+(i+1)}`}</option>)}</select><button type="button" aria-label={w('Следующая сцена','Next scene','下一个镜头')} disabled={selected>=clips.length-1} onClick={()=>onSelect(selected+1)}><ChevronRight size={17}/></button></div>
- <div className="inspector-scene-meta"><span>{stamp(clip.start)} — {stamp(clip.end)}</span><span>{(clip.end-clip.start).toFixed(1)} {w('сек','sec','秒')} · {selected+1}/{clips.length}</span></div>
+ const seconds=(c:Scene)=>`${(c.end-c.start).toFixed(1)} ${w('сек','sec','秒')}`;
+ const title=w('Сцена {n} из {total}','Scene {n} of {total}','镜头 {n}/{total}').replaceAll('{n}',String(selected+1)).replaceAll('{total}',String(clips.length));
+ const step=(delta:number,focus=false)=>{const next=selected+delta;if(next<0||next>=clips.length)return;onSelect(next);if(focus)requestAnimationFrame(()=>document.getElementById(`montage-scene-${next}`)?.focus())};
+ useEffect(()=>{
+  const box=list.current,row=box?.querySelector<HTMLElement>('[aria-selected="true"]');
+  if(!box||!row)return;
+  const boxTop=box.getBoundingClientRect().top,rowBox=row.getBoundingClientRect();
+  if(rowBox.top<boxTop)box.scrollTop-=boxTop-rowBox.top;
+  else if(rowBox.bottom>boxTop+box.clientHeight)box.scrollTop+=rowBox.bottom-(boxTop+box.clientHeight);
+ },[selected,clips.length]);
+ const flags=(c:Scene)=><span className="scene-flags"><em className={c.approved===false?'scene-flag out':'scene-flag in'}>{c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}</em>{c.locked&&<em className="scene-flag frozen"><Lock size={12} aria-hidden="true"/>{w('Тайминг заморожен','Timing frozen','时间已冻结')}</em>}</span>;
+ return <header className="scene-picker">
+  <div className="scene-picker-top">
+   <div>
+    <p className="scene-picker-kicker">{w('Выбранная сцена','Selected scene','所选场景')}</p>
+    <p className="scene-picker-range"><span>{stamp(clip.start)} — {stamp(clip.end)}</span><span>{seconds(clip)}</span></p>
+   </div>
+   {flags(clip)}
+  </div>
+  <div className="scene-picker-nav">
+   <button type="button" className="scene-step" aria-label={w('Предыдущая сцена','Previous scene','上一个镜头')} disabled={selected===0} onClick={()=>step(-1)}><ChevronLeft size={20}/></button>
+   <p>{title}</p>
+   <button type="button" className="scene-step" aria-label={w('Следующая сцена','Next scene','下一个镜头')} disabled={selected>=clips.length-1} onClick={()=>step(1)}><ChevronRight size={20}/></button>
+  </div>
+  <div className="scene-strip" role="listbox" aria-label={w('Сцены','Scenes','场景')} aria-activedescendant={`montage-scene-${selected}`} tabIndex={0} ref={list} onKeyDown={e=>{if(e.key==='ArrowDown'||e.key==='ArrowRight'){e.preventDefault();step(1,true)}else if(e.key==='ArrowUp'||e.key==='ArrowLeft'){e.preventDefault();step(-1,true)}}}>
+   {clips.map((c,i)=><button key={i} id={`montage-scene-${i}`} type="button" role="option" data-scene={i} aria-selected={selected===i} tabIndex={-1} onClick={()=>onSelect(i)}>
+    <span className="scene-strip-num">{i+1}</span>
+    <span className="scene-strip-copy"><strong>{stamp(c.start)} — {stamp(c.end)}</strong><small>{seconds(c)}</small></span>
+    {flags(c)}
+   </button>)}
+  </div>
  </header>;
 }
 export function EffectPresets({lang,duration,motionSeconds,first,zoom,zoomEnd,x,y,xEnd,yEnd,transition,onChange}:{lang:Lang;duration:number;motionSeconds?:number|null;first:boolean;zoom:number;zoomEnd?:number|null;x:number;y:number;xEnd?:number|null;yEnd?:number|null;transition?:string;onChange:(value:{motion_seconds?:number;zoom?:number;zoom_end?:number;x_end?:number;y_end?:number;transition?:'crossfade'|'cut'})=>void}){

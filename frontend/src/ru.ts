@@ -1266,5 +1266,8 @@ export const ru: Record<string, string> = {
   "The saved edit is waiting for the renderer.": "Сохранённый монтаж ждёт сборку.",
   "The cut is being prepared from your saved edit.": "Ролик готовится из сохранённого монтажа.",
   "Frames are being written. The previous finished video stays until this one succeeds.": "Кадры записываются. Прошлый готовый ролик остаётся, пока этот не соберётся.",
-  "The finished file is being checked.": "Готовый файл проверяется."
+  "The finished file is being checked.": "Готовый файл проверяется.",
+  "That publish time is in the future. Choose a time that has already happened.": "Время публикации ещё не наступило. Выберите время, которое уже прошло.",
+  "Use a public http or https link.": "Используйте публичную ссылку http или https.",
+  "Could not save this trend. Check the fields and try again.": "Не удалось сохранить тренд. Проверьте поля и попробуйте ещё раз."
 };

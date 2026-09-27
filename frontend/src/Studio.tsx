@@ -8,6 +8,7 @@ import {StatusBadge,TaskProgress,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
 import {holdUpload, uploadVideo} from './resumableUpload';
 import {readBoard} from './look';
+import {createPrompt} from './studioCreate';
 import {ManualEditor} from './ManualEditor';
 import { DirectorAlternatives } from "./DirectorAlternatives";
 import { PlatformVariants } from "./PlatformVariants";
@@ -207,7 +208,7 @@ export function StudioCreate({
   }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file || (!refs.length && !referenceFile)) return;
+    if (!file || createPrompt(true, refs.length, !!referenceFile) !== "ready") return;
     setError("");
     if (file.size > 250 * 1024 * 1024 || (referenceFile && referenceFile.size > 250 * 1024 * 1024)) {
       setError("upload_too_large");
@@ -254,6 +255,7 @@ export function StudioCreate({
     } finally {setBusy(false)}
 
   }
+  const prompt = createPrompt(!!file, refs.length, !!referenceFile);
   return (
     <div className="director-create page">
       <header className="director-intro">
@@ -506,11 +508,11 @@ export function StudioCreate({
                     "上传已完成，正在检查文件…",
                   )
                 : `${t("Uploading · saved", "上传中 · 已保存")} ${percent}%${transfer?` · ${(transfer.bytes/1048576).toFixed(1)} / ${(transfer.total/1048576).toFixed(1)} MB${transfer.mbps>0?` · ${transfer.mbps.toFixed(1)} MB/s`:""}`:""}`
-              : !file && !refs.length
+              : prompt === "both"
                 ? t("Select at least one reference in step 1 and your own video in step 2.", "请在第 1 步选择至少一个参考视频，并在第 2 步选择自有视频。")
-                : !file
+                : prompt === "video"
                   ? t("Choose your own video in step 2 to continue.", "请在第 2 步选择自有视频以继续。")
-                  : !refs.length
+                  : prompt === "reference"
                     ? t("Select at least one reference in step 1 to continue.", "请在第 1 步选择至少一个参考视频以继续。")
                     : t(
                   "Next: Video DNA → Director Timeline → your approval",
@@ -526,7 +528,7 @@ export function StudioCreate({
               {t("Pause upload", "暂停上传")}
             </button>
           ) : (
-            <button className="primary" disabled={!file || (!refs.length && !referenceFile)}>
+            <button className="primary" disabled={prompt !== "ready"}>
               {t("Analyze & build my plan", "分析并创建剪辑计划")}
             </button>
           )}

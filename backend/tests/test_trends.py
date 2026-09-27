@@ -52,6 +52,12 @@ def test_missing_ass_filter_is_named(monkeypatch):
         media.ffmpeg('-vf', "scale=16:16,ass='caption.ass'", 'out.mp4')
 
 
+def test_future_publish_time_names_invalid_date(client):
+    response = manual(client, published_at=time.time() + 3600)
+    assert response.status_code == 422
+    assert 'invalid_date' in response.text
+
+
 def test_manual_trend_stores_metadata_without_a_download(client, tmp_path):
     response = manual(client)
     assert response.status_code == 201, response.text
