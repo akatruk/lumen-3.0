@@ -119,14 +119,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     elif card['kind']=='timeline':
         rows+=milestone_rows(card,language,w,h,event,ass_time,clean,dx,dy)
     elif card['kind'] in ('bar_chart','ranking'):
-        rows+=data_rows(card,language,w,h,event,ass_time,clean,dx,dy)
+        rows+=data_rows(card,language,w,h,event,ass_time,clean,dx,dy,thick=bool(shift and shift.get('sized')))
     else:rows+=event(value('primary'),.44 if card['kind']=='comparison' else .48,h*.08,'&H009EEF D1'.replace(' ',''))
     if card['kind']=='comparison':rows+=event(value('secondary'),.54,h*.065)
     rows+=event(value('source'),.64,h*.023)
     path.write_text(header+rows,encoding='utf-8')
 
 
-def data_rows(card,language,w,h,event,ass_time,clean,dx=0.0,dy=0.0):
+def data_rows(card,language,w,h,event,ass_time,clean,dx=0.0,dy=0.0,thick=False):
     items=card['items']
     if card['kind']=='ranking':items=sorted(items,key=lambda item:item['value'],reverse=True)
     maximum=max(item['value'] for item in items) or 1
@@ -137,8 +137,13 @@ def data_rows(card,language,w,h,event,ass_time,clean,dx=0.0,dy=0.0):
         prefix=f'{index+1}. ' if card['kind']=='ranking' else ''
         text=prefix+clean(item['label'][language])+f"  {item['value']:g}"
         rows+=event(text,y,h*min(.024,step*.5))
-        left=w*.13+(w*dx if dx else 0);right=left+w*.74*item['value']/maximum;top=h*(y+step*.22)+(h*dy if dy else 0);bottom=top+h*.008
+        left=w*.13+(w*dx if dx else 0);right=left+w*.74*item['value']/maximum;top=h*(y+step*.22)+(h*dy if dy else 0)
+        bottom=top+(max(h*.022, 8) if thick else h*.008)
         # Shared zero baseline and maximum, with proportional bar length.
+        if thick:
+            track_right=left+w*.74
+            track=f'm {left:.2f} {top:.2f} l {track_right:.2f} {top:.2f} {track_right:.2f} {bottom:.2f} {left:.2f} {bottom:.2f}'
+            rows+=f'Dialogue: 1,{ass_time(card["start"])},{ass_time(card["end"])},Default,,0,0,0,,{{\\an7\\pos(0,0)\\p1\\c&H003A4440\\alpha&H40\\fad(150,150)}}{track}\n'
         tags=r'{\an7\pos(0,0)\p1\c&H009EEFD1\fad(150,150)}'
         if card.get('animation')=='grow':
             # Rectangular ASS clips interpolate in output coordinates. Values and labels stay fixed.

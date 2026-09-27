@@ -3,8 +3,13 @@
 Reference dialogue and reference music never become export inputs. A measured non-presenter picture may be copied from the reference file. Effects the renderer cannot reproduce are listed on the fidelity report.
 """
 import copy
+import hashlib
 import json
+import os
 import re
+import shutil
+import time
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from .auth import current_user
 from .db import connect, enqueue, project
@@ -1950,8 +1955,6 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
             clip.text = _prefix_title(clip.text, word)
         if brand and (clip.text or clip.bars or clip.graphic or clip.lower or clip.progress):
             clip.ink = brand
-    if measured.get('shots'):
-        _stage_clips(clips)
     _retarget_owned_screens(clips, source, float(duration))
     emphasize = _wants_captions(timed or shots)
     captions = _captions(transcript, emphasize)
@@ -1968,6 +1971,86 @@ def _context(db, pid):
     from .studio import state
     current = state(pid, db)
     return current, json.loads(json.dumps(current['context']))
+
+_BED_MOODS = (
+    (('energy', 'energetic', 'hype', 'drive', 'upbeat', 'dance', 'fast'), 'cipher'),
+    (('acoustic', 'guitar', 'folk'), 'clear-air'),
+    (('calm', 'soft', 'ambient', 'piano', 'slow', 'quiet', 'gentle'), 'dream-culture'),
+    (('bright', 'corporate', 'business', 'uplift', 'hopeful', 'light'), 'carefree'),
+)
+
+def recommend_bed(shots):
+    """A catalogue id for the reference music note. None when the reference has no music note."""
+    notes = ' '.join(plain(shot.get('music')) for shot in shots or []).lower()
+    if not notes.strip():
+        return None
+    for words, ident in _BED_MOODS:
+        if any(word in notes for word in words):
+            return ident
+    return 'carefree'
+
+def _catalogue_file(row):
+    """The licensed file for this catalogue row. A bad download is discarded."""
+    from .config import settings
+    path = settings.data_dir / 'soundtracks' / (row['id'] + '.mp3')
+    if path.is_file():
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest == row['sha256']:
+            return path
+        path.unlink()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    import urllib.request
+    try:
+        urllib.request.urlretrieve(row['download_url'], path)
+    except Exception:
+        path.unlink(missing_ok=True)
+        return None
+    if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != row['sha256']:
+        path.unlink(missing_ok=True)
+        return None
+    return path
+
+def attach_recommended_bed(pid, edit, studio):
+    """Mix a licensed bed that matches the reference music note. The reference file is not an input."""
+    if not isinstance(edit, dict) or edit.get('music'):
+        return edit
+    ident = recommend_bed(shots_of((studio or {}).get('dna')))
+    if not ident:
+        return edit
+    from .soundtracks import curated
+    from .assets import path as asset_path
+    from .music import Music
+    row = next((item for item in curated() if item['id'] == ident), None)
+    if row is None:
+        return edit
+    source = _catalogue_file(row)
+    if source is None:
+        return edit
+    request_id = uuid.uuid5(uuid.NAMESPACE_URL, 'lumen:soundtrack:' + pid + ':curated:' + ident).hex
+    with connect() as db:
+        db.lock()
+        old = db.execute('SELECT id FROM studio_assets WHERE project_id=? AND request_id=?', (pid, request_id)).fetchone()
+        if old:
+            asset_id = old['id']
+        else:
+            if db.execute('SELECT count(*) FROM studio_assets WHERE project_id=?', (pid,)).fetchone()[0] >= 20:
+                return edit
+            asset_id = uuid.uuid4().hex
+            target = asset_path(pid, asset_id)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                try:
+                    os.link(source, target)
+                except OSError:
+                    shutil.copyfile(source, target)
+                meta = {'duration': row['duration'], 'kind': 'music', 'mime': 'audio/mpeg', 'catalogue_id': ident, 'reused_from': 'curated:' + ident, 'size': target.stat().st_size}
+                db.execute('INSERT INTO studio_assets VALUES(?,?,?,?,?,?,?)', (asset_id, pid, request_id, row['title'], row['attribution'], json.dumps(meta), time.time()))
+            except Exception:
+                target.unlink(missing_ok=True)
+                return edit
+    shaped = json.loads(json.dumps(edit))
+    shaped['music'] = Music(asset_id=asset_id, gain_db=-22, fade_in=0.8, fade_out=1.6, duck=True).model_dump()
+    return shaped
 
 def _carry_selected_music(db, pid, edit):
     """Keep a selected music bed on the next picture without changing the saved edit."""
@@ -2111,111 +2194,261 @@ def apply_effect_board(edit, board):
             clip['screen'] = _limit(clip.get('start') or 0, 0, 10_000)
     return shaped
 
-_STAGE_MOVES = (
+# Pushes previously invented for a still. A measured move does not use these exact ends.
+_STAGED_PUSHES = (
     (1.02, 1.18, 0.50, 0.50, 0.56, 0.42),
     (1.16, 1.04, 0.38, 0.58, 0.48, 0.50),
     (1.04, 1.20, 0.58, 0.42, 0.50, 0.50),
     (1.12, 1.02, 0.50, 0.50, 0.40, 0.58),
 )
-# A held crop already has a frame. Drift from that frame instead of replacing it.
-_DRIFT = (
-    (0.16, 0.00, -0.10),
-    (-0.12, 0.12, 0.02),
-    (0.14, -0.10, 0.00),
-    (-0.10, 0.04, 0.12),
-)
 
-def _barely_moves(clip):
-    """A saved still or a zoom too small to see. An intentional matching end frame stays."""
+def _near(left, right):
     try:
-        zoom = float(clip.get('zoom') or 1)
-        x = float(clip.get('x') if clip.get('x') is not None else 0.5)
-        y = float(clip.get('y') if clip.get('y') is not None else 0.5)
+        return abs(float(left) - float(right)) < 0.001
     except (TypeError, ValueError):
         return False
-    if clip.get('zoom_end') is not None or clip.get('x_end') is not None or clip.get('y_end') is not None:
+
+def _undo_staged_push(clip):
+    """Drop a saved invented push. A different measured move stays."""
+    zoom_end = clip.get('zoom_end')
+    if zoom_end is None:
+        return
+    x0 = 0.5 if clip.get('x') is None else clip.get('x')
+    y0 = 0.5 if clip.get('y') is None else clip.get('y')
+    x1 = x0 if clip.get('x_end') is None else clip.get('x_end')
+    y1 = y0 if clip.get('y_end') is None else clip.get('y_end')
+    for z0, z1, ax, bx, ay, by in _STAGED_PUSHES:
+        if _near(clip.get('zoom'), z0) and _near(zoom_end, z1) and _near(x0, ax) and _near(x1, bx) and _near(y0, ay) and _near(y1, by):
+            clip['zoom'], clip['zoom_end'] = 1, None
+            clip['x'], clip['x_end'] = 0.5, None
+            clip['y'], clip['y_end'] = 0.5, None
+            clip['motion_seconds'] = None
+            return
+
+def owned_face(clip):
+    """The owned presenter is the picture. A card, chart, cutaway, or screen is not."""
+    if not isinstance(clip, dict) or clip.get('locked') or clip.get('split') or clip.get('mask') or clip.get('cutout'):
+        return False
+    kind = str(clip.get('shot_type') or 'presenter')
+    if kind not in ('presenter', 'close_up', 'medium'):
+        return False
+    if clip.get('picture_insert') or clip.get('cutaway') or clip.get('external_broll'):
+        return False
+    if clip.get('screen') is not None or clip.get('still') is not None:
+        return False
+    if clip.get('graphic') or clip.get('diagram'):
+        return False
+    return True
+
+def replaceable_shot(clip):
+    """B-roll, a graphic, a cutaway, or a card/chart picture. The presenter is not one."""
+    if not isinstance(clip, dict) or clip.get('locked') or clip.get('split') or clip.get('mask') or clip.get('cutout'):
+        return False
+    if clip.get('art_frame') or clip.get('external_broll') or str(clip.get('stock_still') or '').strip():
+        return False
+    if owned_face(clip):
+        return False
+    kind = str(clip.get('shot_type') or 'presenter')
+    if kind in ('broll', 'document', 'archive', 'news'):
+        return True
+    if clip.get('graphic') or clip.get('bars') or clip.get('diagram') or clip.get('card'):
+        return True
+    if clip.get('screen') is not None or clip.get('still') is not None:
+        return True
+    if clip.get('picture_insert') or clip.get('cutaway'):
+        return True
+    return False
+
+def _drop_panels(clip):
+    """A generated still is the whole frame. No chart or title is drawn on top of it."""
+    clip['card'] = None
+    clip['text'] = ''
+    clip['kinetic'] = False
+    clip['kinetic_at'] = []
+    clip['bars'] = []
+    clip['graphic'] = False
+    clip['diagram'] = 0
+    clip['screen'] = None
+    clip['lower'] = False
+    clip['icon'] = False
+    clip['mark'] = 0
+    clip['spots'] = []
+    clip['still'] = None
+    for key in (
+        'card_x', 'card_y', 'card_w', 'card_h',
+        'title_x', 'title_y', 'title_x_end', 'title_y_end', 'title_w', 'title_h',
+        'chart_x', 'chart_y', 'chart_w', 'chart_h',
+        'lower_x', 'lower_y',
+    ):
+        clip[key] = None
+
+def _clear_face_type(clip):
+    """Title plates sit on the face. A chart does not."""
+    clip['text'] = ''
+    clip['kinetic'] = False
+    clip['kinetic_at'] = []
+    clip['lower'] = False
+    clip['icon'] = False
+    clip['mark'] = 0
+    clip['spots'] = []
+    clip['screen'] = None
+    clip['diagram'] = 0
+    clip['still'] = None
+    for key in (
+        'title_x', 'title_y', 'title_x_end', 'title_y_end', 'title_w', 'title_h',
+        'lower_x', 'lower_y',
+    ):
+        clip[key] = None
+
+def _seat_chart(clip):
+    """A compact lower-third under the face, clear of the eyes and the caption line."""
+    if clip.get('card'):
+        clip['card_x'], clip['card_y'] = 0.5, 0.86
+        clip['card_w'], clip['card_h'] = 0.88, 0.22
+        clip['progress'] = 0
+        clip['progress_play'] = False
+    if clip.get('bars'):
+        clip['graphic'] = True
+        clip['chart_x'], clip['chart_y'] = 0.5, 0.86
+        clip['chart_w'], clip['chart_h'] = 0.72, 0.2
+        clip['progress'] = 0
+        clip['progress_play'] = False
+
+_CN_DIGIT = {'一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10}
+
+def _line(text):
+    return {'en': text, 'zh': text}
+
+def _chart_card(kind, title, primary, start, end, items=None):
+    card = {
+        'kind': kind,
+        'start': round(start, 3),
+        'end': round(end, 3),
+        'title': _line(title),
+        'primary': _line(primary),
+        'source': _line('口播'),
+        'animation': 'grow' if end - start >= 1.2 else 'none',
+        'animation_seconds': 0.6,
+    }
+    if items:
+        card['items'] = items
+    return card
+
+def _spoken_charts(edit):
+    """Charts from numbers the person actually says. At most two, in the lower third."""
+    clips = [clip for clip in (edit.get('clips') or []) if isinstance(clip, dict) and not clip.get('locked') and not clip.get('art_frame')]
+    if sum(1 for clip in clips if clip.get('card')) >= 2:
+        return
+    added = sum(1 for clip in clips if clip.get('card'))
+    for row in edit.get('captions') or []:
+        if added >= 2 or not isinstance(row, dict):
+            continue
+        text = str(row.get('original') or row.get('en') or '')
         try:
-            z1 = zoom if clip.get('zoom_end') is None else float(clip.get('zoom_end'))
-            x1 = x if clip.get('x_end') is None else float(clip.get('x_end'))
-            y1 = y if clip.get('y_end') is None else float(clip.get('y_end'))
+            cap_start, cap_end = float(row.get('start') or 0), float(row.get('end') or 0)
         except (TypeError, ValueError):
-            return False
-        if abs(zoom - z1) < 0.001 and abs(x - x1) < 0.001 and abs(y - y1) < 0.001:
-            return False
-        return abs(zoom - z1) < 0.08 and abs(x - x1) < 0.04 and abs(y - y1) < 0.04
-    return abs(zoom - 1) < 0.08
-
-def _stage_clips(clips):
-    """Give a still style shot one eased camera move and a traveling light."""
-    for index, clip in enumerate(clips or []):
-        if getattr(clip, 'locked', False) or getattr(clip, 'split', False):
             continue
-        clip.sweep = True
-        if getattr(clip, 'mask', False) or getattr(clip, 'cutout', False):
+        percent = re.search(r'(\d+(?:\.\d+)?)\s*%', text)
+        count = re.search(r'([一二三四五六七八九十两]|\d+)\s*名', text)
+        if percent:
+            value = float(percent.group(1))
+            if not 0 < value <= 100:
+                continue
+            title = '外资比例' if '外资' in text else '比例'
+            card = _chart_card('bar_chart', title, f'{value:g}%', 0, 1, [
+                {'label': _line(title), 'value': value},
+                {'label': _line('100%'), 'value': 100},
+            ])
+        elif count:
+            raw = count.group(1)
+            value = _CN_DIGIT.get(raw, None)
+            if value is None:
+                try:
+                    value = int(raw)
+                except ValueError:
+                    continue
+            if not 1 <= value <= 20:
+                continue
+            title = '股东' if '股东' in text else '人数'
+            card = _chart_card('number', title, str(value), 0, 1)
+        else:
             continue
-        raw = clip.model_dump() if hasattr(clip, 'model_dump') else clip
-        if not _barely_moves(raw):
+        host = None
+        best = 0.0
+        for clip in clips:
+            if clip.get('card') or clip.get('art_frame'):
+                continue
+            try:
+                start, end = float(clip['start']), float(clip['end'])
+            except (TypeError, ValueError, KeyError):
+                continue
+            overlap = min(end, cap_end) - max(start, cap_start)
+            if overlap > best and end - start >= 1.2:
+                best, host = overlap, clip
+        if host is None or best < 0.4:
             continue
-        z0, z1, x0, x1, y0, y1 = _STAGE_MOVES[index % len(_STAGE_MOVES)]
-        clip.zoom, clip.zoom_end = z0, z1
-        clip.x, clip.x_end = x0, x1
-        clip.y, clip.y_end = y0, y1
-        span = float(clip.end) - float(clip.start)
-        clip.motion_seconds = round(min(max(span, 0.4), 8.0), 3)
+        start, end = float(host['start']), float(host['end'])
+        span = end - start
+        if span < 0.7:
+            continue
+        local_start = max(0.0, cap_start - start)
+        local_end = min(span, max(0.0, cap_end - start))
+        if local_end - local_start < 0.8:
+            local_start, local_end = 0.15, min(span, 2.6)
+        local_end = min(local_end, span - 0.02)
+        local_start = min(local_start, max(0.0, local_end - 0.5))
+        if local_end - local_start < 0.5:
+            continue
+        card['start'] = round(local_start, 3)
+        card['end'] = round(local_end, 3)
+        host['card'] = card
+        _seat_chart(host)
+        added += 1
 
-def _frame_of(clip):
-    zoom = float(clip.get('zoom') or 1)
-    x = float(clip.get('x') if clip.get('x') is not None else 0.5)
-    y = float(clip.get('y') if clip.get('y') is not None else 0.5)
-    return zoom, x, y
-
-def _held_crop(clip):
-    """Zoom and position are set, and no end frame was saved. That is a still crop."""
-    return clip.get('zoom_end') is None and clip.get('x_end') is None and clip.get('y_end') is None
-
-def _place(zoom, x, y):
-    return (
-        round(max(1.0, min(1.85, zoom)), 3),
-        round(max(0.08, min(0.92, x)), 3),
-        round(max(0.08, min(0.92, y)), 3),
-    )
-
-def _write_move(clip, z0, z1, x0, x1, y0, y1):
-    clip['zoom'], clip['zoom_end'] = z0, z1
-    clip['x'], clip['x_end'] = x0, x1
-    clip['y'], clip['y_end'] = y0, y1
-    try:
-        span = float(clip['end']) - float(clip['start'])
-    except (TypeError, ValueError, KeyError):
-        span = 4.0
-    clip['motion_seconds'] = round(min(max(span, 0.4), 8.0), 3)
+def _unbend(clip):
+    """No traveling light and no filter that twists the presenter."""
+    clip['sweep'] = False
+    clip['roll'] = 0
+    clip['roll_end'] = None
+    clip['orbit_x'] = 0
+    clip['orbit_y'] = 0
 
 def animate_for_render(edit):
-    """The next picture of a style project moves. A held crop drifts from its own frame."""
+    """Keep a measured camera move. Do not invent a push, a drift, or a light sweep."""
     if not isinstance(edit, dict):
         return edit
     shaped = json.loads(json.dumps(edit))
-    for index, clip in enumerate(shaped.get('clips') or []):
-        if not isinstance(clip, dict) or clip.get('locked') or clip.get('split'):
+    for clip in shaped.get('clips') or []:
+        if not isinstance(clip, dict) or clip.get('locked'):
             continue
-        clip['sweep'] = True
-        if clip.get('mask') or clip.get('cutout'):
+        clip['sweep'] = False
+        if clip.get('split'):
             continue
-        if _barely_moves(clip):
-            z0, z1, x0, x1, y0, y1 = _STAGE_MOVES[index % len(_STAGE_MOVES)]
-            _write_move(clip, z0, z1, x0, x1, y0, y1)
+        _undo_staged_push(clip)
+    return shaped
+
+def present_for_render(edit):
+    """Captions stay. Title plates leave the face. Spoken numbers become lower-third charts."""
+    if not isinstance(edit, dict):
+        return edit
+    shaped = json.loads(json.dumps(edit))
+    for clip in shaped.get('clips') or []:
+        if not isinstance(clip, dict) or clip.get('locked'):
             continue
-        if not _held_crop(clip):
+        _unbend(clip)
+        clip['progress'] = 0
+        clip['progress_play'] = False
+        if clip.get('art_frame'):
+            _drop_panels(clip)
+            clip['picture_insert'] = None
+            clip['cutaway'] = None
+            clip['external_broll'] = None
             continue
-        try:
-            zoom, x, y = _frame_of(clip)
-        except (TypeError, ValueError):
-            continue
-        dz, dx, dy = _DRIFT[index % len(_DRIFT)]
-        z1, x1, y1 = _place(zoom + dz, x + dx, y + dy)
-        if abs(z1 - zoom) < 0.08 and abs(x1 - x) < 0.04 and abs(y1 - y) < 0.04:
-            z1, x1, y1 = _place(zoom + 0.16, x, y - 0.10)
-        _write_move(clip, round(zoom, 3), z1, round(x, 3), x1, round(y, 3), y1)
+        _clear_face_type(clip)
+        _seat_chart(clip)
+        clip['art'] = ''
+        clip['art_frame'] = False
+    _spoken_charts(shaped)
     return shaped
 
 def board_for_render(edit, context):

@@ -181,10 +181,24 @@ def projects(user=Depends(current_user)):
     with connect() as db:
         return [dict(r) for r in db.execute('SELECT id,title,status,stage,progress,language,created,metadata FROM projects WHERE user_id=? ORDER BY created DESC',(user['id'],))]
 
+def finished_pictures(pid:str,current:str):
+    """Finished renders that are still on disk, newest first."""
+    root=settings.data_dir/pid/'renders'
+    found=[]
+    if root.is_dir():
+        for folder in root.iterdir():
+            if not re.fullmatch(r'[a-f0-9]{32}',folder.name): continue
+            video=folder/'result.mp4'
+            if not video.is_file() or video.stat().st_size<=0: continue
+            found.append({'id':folder.name,'created':video.stat().st_mtime,'current':folder.name==current})
+    found.sort(key=lambda row:row['created'],reverse=True)
+    return found
+
 @app.get('/api/projects/{pid}')
 def detail(pid:str,user=Depends(current_user)):
     p=project(pid,user['id'])
     if not p: raise HTTPException(404,'not_found')
+    p['pictures']=finished_pictures(pid,(p.get('result') or {}).get('render_id',''))
     return p
 
 class DouyinSearchRequest(BaseModel):
@@ -336,9 +350,16 @@ def retry(pid:str,request:Request,user=Depends(current_user)):
     return {'ok':True}
 
 @app.get('/api/projects/{pid}/media/{kind}')
-def media_file(pid:str,kind:str,user=Depends(current_user)):
+def media_file(pid:str,kind:str,render:str='',user=Depends(current_user)):
     p=project(pid,user['id'])
     if not p: raise HTTPException(404,'not_found')
+    if render and kind=='result':
+        if not re.fullmatch(r'[a-f0-9]{32}',render): raise HTTPException(404,'not_found')
+        current=(p.get('result') or {}).get('render_id','')
+        if render!=current:
+            path=settings.data_dir/pid/'renders'/render/'result.mp4'
+            if not path.is_file(): raise HTTPException(404,'not_found')
+            return FileResponse(path,media_type='video/mp4',filename='lumen-'+pid[:8]+'.mp4',content_disposition_type='inline',headers={'Cache-Control':'no-store'})
     files={'source':('analysis.mp4','video/mp4'),'original':('source','application/octet-stream'),'poster':('poster.jpg','image/jpeg'),
            'result':('result.mp4','video/mp4'),'master':('result.mp4','video/mp4'),'captions':('captions.ass','text/plain')}
     if kind not in files: raise HTTPException(404,'not_found')

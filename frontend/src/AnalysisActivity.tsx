@@ -69,8 +69,14 @@ function partDetail(step: string, part: string | null | undefined, lang: Lang) {
 function renderTitle(stage: string | undefined, lang: Lang) {
   if (stage === "importing") return translate(lang, "Downloading from Douyin", "正在从抖音导入");
   if (stage === "render_queued") return translate(lang, "Your new cut is queued", "新版本已排队");
-  if (stage === "creating") return translate(lang, "Preparing selected changes", "准备所选改动");
-  if (stage === "rendering") return translate(lang, "Rendering the new cut", "渲染新版本");
+  if (stage === "creating" || stage === "preparing_picture") return translate(lang, "Preparing the picture", "准备画面");
+  if (stage === "matching_music") return translate(lang, "Matching the soundtrack", "匹配配乐");
+  if (stage === "drawing_graphics") return translate(lang, "Drawing the graphics", "绘制图形");
+  if (stage === "rendering" || stage === "rendering_shots") return translate(lang, "Rendering each shot", "逐个渲染镜头");
+  if (stage === "assembling") return translate(lang, "Assembling the cut", "拼接成片");
+  if (stage === "mixing_music") return translate(lang, "Mixing the soundtrack", "混入配乐");
+  if (stage === "burning_captions") return translate(lang, "Burning captions", "烧录字幕");
+  if (stage === "writing_file") return translate(lang, "Writing the video file", "写出视频文件");
   if (stage === "checking") return translate(lang, "Checking the finished video", "检查成片");
   return "";
 }
@@ -78,8 +84,14 @@ function renderTitle(stage: string | undefined, lang: Lang) {
 function renderDetail(stage: string | undefined, lang: Lang) {
   if (stage === "importing") return translate(lang, "Lumen is retrieving the selected source. Analysis starts after the download is verified.", "正在获取所选原视频，下载验证完成后开始分析。");
   if (stage === "render_queued") return translate(lang, "The saved edit is waiting for the renderer.", "已保存的剪辑正在等待渲染。");
-  if (stage === "creating") return translate(lang, "The cut is being prepared from your saved edit.", "正在根据已保存的剪辑准备成片。");
-  if (stage === "rendering") return translate(lang, "Frames are being written. The previous finished video stays until this one succeeds.", "正在写出画面。上一版成片会保留，直到这一版成功。");
+  if (stage === "creating" || stage === "preparing_picture") return translate(lang, "The saved edit is being prepared. The previous finished video stays until this one succeeds.", "正在准备已保存的剪辑。上一版成片会保留，直到这一版成功。");
+  if (stage === "matching_music") return translate(lang, "A licensed bed is chosen from the reference music note. The reference audio is not copied.", "根据参考音乐说明选择授权配乐。不复制参考音频。");
+  if (stage === "drawing_graphics") return translate(lang, "Charts and stills are prepared for the shots that need them.", "正在为需要的镜头准备图表和静帧。");
+  if (stage === "rendering" || stage === "rendering_shots") return translate(lang, "Each shot is encoded on its own. The bar moves as shots finish.", "每个镜头单独编码。进度条会随镜头完成而前进。");
+  if (stage === "assembling") return translate(lang, "The shots are joined into one picture.", "镜头正在拼成一条画面。");
+  if (stage === "mixing_music") return translate(lang, "The soundtrack is ducked under the voice.", "配乐在人声下被压低。");
+  if (stage === "burning_captions") return translate(lang, "Captions are placed above the graphics.", "字幕放在图形上方。");
+  if (stage === "writing_file") return translate(lang, "The finished file is being written.", "正在写出成片文件。");
   if (stage === "checking") return translate(lang, "The finished file is being checked.", "正在检查成片文件。");
   return "";
 }

@@ -1,3 +1,4 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from backend.config import settings
@@ -42,6 +43,27 @@ def test_project_and_media_isolation(clients,monkeypatch):
     assert a.delete('/api/projects/'+pid).status_code==409
     assert len(a.get('/api/projects').json())==1
     assert b.get('/api/projects').json()==[]
+
+def test_earlier_finished_pictures_stay_playable(clients,monkeypatch):
+    a,b=clients
+    pid=create_project(a,monkeypatch).json()['id']
+    current,earlier='a'*32,'b'*32
+    root=settings.data_dir/pid/'renders'
+    (root/current).mkdir(parents=True)
+    (root/earlier).mkdir()
+    (root/current/'result.mp4').write_bytes(b'current-video-bytes')
+    earlier_file=root/earlier/'result.mp4'
+    earlier_file.write_bytes(b'earlier-video-bytes')
+    os.utime(earlier_file,(1,1))
+    from backend.db import update
+    update(pid,result={'render_id':current,'metadata':{'duration':3,'width':9,'height':16}},status='complete')
+    pictures=a.get(f'/api/projects/{pid}').json()['pictures']
+    assert [row['id'] for row in pictures]==[current,earlier]
+    assert pictures[0]['current'] is True and pictures[1]['current'] is False
+    assert a.get(f'/api/projects/{pid}/media/result',params={'render':earlier}).content==b'earlier-video-bytes'
+    assert a.get(f'/api/projects/{pid}/media/result').content==b'current-video-bytes'
+    assert b.get(f'/api/projects/{pid}/media/result',params={'render':earlier}).status_code==404
+    assert a.get(f'/api/projects/{pid}/media/result',params={'render':'../'+earlier}).status_code==404
 
 def test_pending_limit_and_budget_atomicity(clients,monkeypatch):
     a,_=clients

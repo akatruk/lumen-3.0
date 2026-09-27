@@ -647,7 +647,7 @@ function StyleMatch({
     if (id === "number_card") return t("A chart or number card needs the figure and its label from you. Nothing was invented.", "图表或数字卡需要你提供数字和标签。系统不会编造。");
     if (id === "broll") return t("No Commons clip with a CC BY, CC0, or public-domain license matched your words.", "没有找到与你的词语匹配、且为 CC BY、CC0 或公有领域的 Commons 视频。");
     if (id === "captions_need_speech") return t("Captions need a speech transcript from your video.", "字幕需要你视频里的语音文本。");
-    if (id === "reference_music") return t("Reference music was not copied.", "没有复制参考视频的音乐。");
+    if (id === "reference_music") return t("Reference audio is not copied. A licensed bed matched to that note is mixed under the voice.", "不复制参考音频。与该说明匹配的授权配乐会混在人声下面。");
     if (id === "blur") return t("Blur is not available.", "无法做模糊。");
     if (id === "glow") return t("Glow is not available.", "无法做发光。");
     if (id === "shadow") return t("Drop shadows are not available.", "无法做投影。");

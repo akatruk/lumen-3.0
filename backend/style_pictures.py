@@ -19,6 +19,7 @@ from .db import connect, reserve, settle
 STILL_CAP = 2
 STILL_KINDS = {'photo', 'illustration', 'image', 'still', 'cutaway'}
 _ART_PROMPT = 'Abstract editorial illustration, flat shapes, no text, no letters, no logos, no watermark, no people. Subject: '
+_SHOT_PROMPT = 'Full-frame cinematic photograph, dynamic light, a changed real scene, no text, no letters, no logos, no watermark, no border, no picture frame. Subject: '
 
 def subject(text):
     """Owned words only. Letters outside the owned title or keyword are dropped."""
@@ -172,6 +173,69 @@ def attach_art(pid, manual, enabled=False):
                 pass
             clip['art'] = ''
     _remember(pid, manual)
+    return manual
+
+def _shot_subject(clip, edit):
+    """Owned card, title, or caption. Reference dialogue is not included."""
+    words = graphic_words(clip)
+    if words:
+        return words
+    try:
+        start, end = float(clip.get('start') or 0), float(clip.get('end') or 0)
+    except (TypeError, ValueError):
+        start, end = 0.0, 0.0
+    parts = []
+    for row in (edit or {}).get('captions') or []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            if float(row.get('end') or 0) > start and float(row.get('start') or 0) < end:
+                parts.append(str(row.get('original') or row.get('en') or ''))
+        except (TypeError, ValueError):
+            continue
+    return subject(' '.join(parts)) or 'editorial scene'
+
+def _hold_frame(clip, name):
+    """The generated still is the shot. It is not a panel on the presenter."""
+    clip['art'] = name
+    clip['art_frame'] = True
+    clip['picture_insert'] = None
+    clip['cutaway'] = None
+    clip['external_broll'] = None
+
+def attach_shot_frames(pid, manual):
+    """Up to two generated stills for shots that are not the presenter. A failed call keeps that shot."""
+    if not manual:
+        return manual
+    from .style_match import replaceable_shot
+    clips = manual.get('clips') or []
+    if not settings.openrouter_api_key:
+        return manual
+    attempts = 0
+    for index, clip in enumerate(clips):
+        if attempts >= STILL_CAP:
+            break
+        if not replaceable_shot(clip):
+            continue
+        words = _shot_subject(clip, manual)
+        name = f'style-art-{index}.png'
+        try:
+            token = reserve(pid, 0.08, 'style_illustration')
+        except Exception:
+            continue
+        attempts += 1
+        try:
+            raw = fetch(_SHOT_PROMPT + words)
+            dest = settings.data_dir / pid / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(raw)
+            settle(token, 0.08)
+            _hold_frame(clip, name)
+        except Exception:
+            try:
+                settle(token, 0)
+            except Exception:
+                pass
     return manual
 
 def measured_still(shot):

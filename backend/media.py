@@ -330,6 +330,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 def write_subtitles(path, captions, timeline, language, w,h,style=None, face=None, heavy=None):
     style=style or {}
+    try:
+        lift=float(style.get('lift') if style.get('lift') is not None else 0.15)
+    except (TypeError, ValueError):
+        lift=0.15
+    margin=int(h*max(0.08, min(0.42, lift)))
     font=max(22,round(h*{'small':.026,'medium':.035,'large':.045}.get(style.get('font_size'),.035)))
     color='&H0000FFFF' if style.get('color')=='yellow' else '&H00FFFFFF'
     alignment=8 if style.get('position')=='top' else 2
@@ -341,7 +346,7 @@ PlayResY: {h}
 WrapStyle: 0
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font_name},{font},{color},&H00FFFFFF,&H00121212,&H80000000,{bold},0,0,0,100,100,0,0,1,2,1,{alignment},{int(w*.08)},{int(w*.08)},{int(h*.15)},1
+Style: Default,{font_name},{font},{color},&H00FFFFFF,&H00121212,&H80000000,{bold},0,0,0,100,100,0,0,1,2,1,{alignment},{int(w*.08)},{int(w*.08)},{margin},1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 '''
@@ -518,7 +523,10 @@ def _mask_axes(clip):
         return 0.38, 0.42
     return rx, ry
 
-def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None):
+def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None):
+    def beat(stage, value):
+        if on_progress:
+            on_progress(stage, value)
     if manual:
         from .manual import Edit,check
         from .schemas import Caption
@@ -539,6 +547,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         captions=manual['subtitles'];normalize=manual['normalize']
     parts=[]
     # Sequential clips keep memory bounded on the 4GB droplet.
+    beat('rendering_shots', 28)
     for i,(a,b) in enumerate(timeline):
         part=folder/f'part-{i:03}.mp4'; parts.append(part)
         vf=f'scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x101614,setsar=1,fps=30'
@@ -612,7 +621,12 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 base_vf+=f',drawbox=x=0:y=ih-12:w={width}:h=10:color=0x{_paint(clip)}@0.92:t=fill{gate}'
             post=vf;vf=base_vf+post
             reference=_reference_clip(source, clip.get('picture_insert'))
-        if cutaway and not (reference and 'asset_id' not in cutaway):
+        if manual and clip.get('art_frame') and _art_file(source, clip.get('art')) and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+            span=max(b-a,0.2); frames=int(span*30)+8
+            graph=f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f}{post}[v]"
+            inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_art_file(source, clip.get('art'))]
+            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+        elif cutaway and not (reference and 'asset_id' not in cutaway):
             footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
             if footage is None:raise ValueError('asset_not_found')
             length=cutaway['end']-cutaway['start']
@@ -743,6 +757,8 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         if manual and i>0:
             from .transitions import KINDS,apply
             if clip['transition'] in KINDS:apply(parts[i-1],part,clip['transition'],b-a,clip.get('transition_seconds'))
+        beat('rendering_shots', 28+int(40*(i+1)/max(1,len(timeline))))
+    beat('assembling', 72)
     listing=folder/'concat.txt'
     listing.write_text(''.join(f"file '{p.name}'\n" for p in parts))
     base=folder/'assembled.mp4'
@@ -771,6 +787,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             input_path=mix(input_path,folder,effects,cursor,bool(voice_audio) or metadata['has_audio'])
     music_free_input=input_path
     if manual and manual.get('music'):
+        beat('mixing_music', 78)
         from .music import mix as mix_music
         track=(asset_paths or {}).get(manual['music']['asset_id'])
         if track is None:raise ValueError('asset_not_found')
@@ -784,7 +801,11 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 if found_face or found_heavy is not None:
                     caption_face, caption_heavy = found_face, found_heavy
                     break
-        subs=folder/'captions.ass'; write_subtitles(subs,[Caption.model_validate(c) for c in manual['captions']] if manual else analysis.transcript,timeline,language,w,h,manual,face=caption_face,heavy=caption_heavy)
+        caption_style={k:manual[k] for k in ('font_size','position','color')} if manual else {}
+        if manual and any(c.get('card') or c.get('bars') for c in manual['clips']):
+            caption_style['lift']=0.30
+        subs=folder/'captions.ass'; write_subtitles(subs,[Caption.model_validate(c) for c in manual['captions']] if manual else analysis.transcript,timeline,language,w,h,caption_style,face=caption_face,heavy=caption_heavy)
+        beat('burning_captions', 84)
         # All paths generated internally; quote for libavfilter independently of shell.
         escaped=str(subs.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
         filters.append(f"ass='{escaped}'")
@@ -798,6 +819,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         if all(v is not None and math.isfinite(float(v)) for v in measured):
             filters_a=f'loudnorm=I=-16:TP=-1.5:LRA=11:measured_I={measured[0]}:measured_TP={measured[1]}:measured_LRA={measured[2]}:measured_thresh={measured[3]}:offset={measured[4]}:linear=true'
             args+=['-af',filters_a]
+    beat('writing_file', 90)
     args+=['-map','0:v:0','-map','0:a:0?','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000','-movflags','+faststart',folder/'result.mp4']
     ffmpeg(*args,timeout=1200)
     if preserve_caption_master and captions:

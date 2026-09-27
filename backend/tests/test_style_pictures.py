@@ -1,6 +1,6 @@
 from backend import ai
 from backend.config import settings
-from backend.style_pictures import attach_art, image_bytes
+from backend.style_pictures import attach_art, attach_shot_frames, image_bytes
 
 PNG = b'\x89PNG\r\n\x1a\n' + b'0' * 24
 
@@ -101,6 +101,36 @@ def test_commons_photo_and_illustration_stay_licensed_stills(monkeypatch):
         assert edit['clips'][0]['stock_still'] == 'b' * 32
         assert edit['clips'][0]['art'] == ''
         assert edit['clips'][0]['external_broll'] is None
+
+def test_style_render_generates_at_most_two_full_frames(monkeypatch, tmp_path):
+    _ready(monkeypatch, tmp_path)
+    prompts = []
+    monkeypatch.setattr('backend.style_pictures.fetch', lambda prompt: prompts.append(prompt) or PNG)
+    monkeypatch.setattr('backend.style_pictures.httpx.Client', lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError('openrouter')))
+    manual = {'clips': [
+        {'id': 'face', 'shot_type': 'presenter', 'start': 0, 'end': 2, 'text': 'lin title', 'title_w': 0.4, 'title_h': 0.14, 'lower': True, 'card': {'title': {'en': 'Price'}}},
+        {'id': 'chart', 'shot_type': 'presenter', 'start': 2, 'end': 4, 'graphic': True, 'bars': [1, 0.4], 'text': 'capital ratio'},
+        {'id': 'cut', 'shot_type': 'broll', 'start': 4, 'end': 6, 'text': 'meeting table', 'picture_insert': {'start': 0, 'end': 2, 'at': 1}},
+        {'id': 'screen', 'shot_type': 'presenter', 'start': 6, 'end': 8, 'screen': 3, 'text': 'shareholders'},
+    ], 'captions': [{'start': 0, 'end': 2, 'original': 'owned caption', 'en': 'owned caption'}]}
+    result = attach_shot_frames('p' * 32, manual)
+    assert len(prompts) == 2
+    assert 'capital ratio' in prompts[0] and 'meeting table' in prompts[1]
+    assert 'lin title' not in ''.join(prompts) and 'shareholders' not in ''.join(prompts)
+    assert result['clips'][0].get('art') in (None, '')
+    assert result['clips'][1]['art'] == 'style-art-1.png' and result['clips'][1]['art_frame'] is True
+    assert result['clips'][1]['picture_insert'] is None
+    assert result['clips'][2]['art'] == 'style-art-2.png' and result['clips'][2]['art_frame'] is True
+    assert result['clips'][2]['picture_insert'] is None
+    assert result['clips'][3].get('art_frame') is not True and result['clips'][3]['screen'] == 3
+    from backend.style_match import present_for_render
+    shown = present_for_render(result)
+    assert shown['clips'][0]['text'] == '' and shown['clips'][0]['title_w'] is None and shown['clips'][0]['lower'] is False
+    assert shown['clips'][0]['card']['title']['en'] == 'Price' and shown['clips'][0]['card_y'] == 0.86
+    assert shown['captions'][0]['original'] == 'owned caption'
+    assert shown['clips'][1]['art_frame'] is True and shown['clips'][1]['bars'] == []
+    assert shown['clips'][3]['screen'] is None
+
 
 def test_image_bytes_accepts_a_png_data_url():
     import base64
