@@ -807,9 +807,10 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
                    '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
             input_path=overlay
-    if manual and manual.get('presentation'):
-        from .presentation_graphics import burn, shown_language
-        input_path=burn(input_path, folder, manual['presentation'], shown_language(language, presentation_language), w, h)
+    if manual and manual.get('presentation') and picture_engine != 'hypit':
+        from .hypit_picture import apply_presentation
+        from .presentation_graphics import shown_language
+        input_path=apply_presentation(input_path, folder, manual, w, h, shown_language(language, presentation_language))
     # A Hypit picture already cleaned the host stem inside that render.
     if picture_engine != 'hypit':
         from .voice_cleanup import prepare_track

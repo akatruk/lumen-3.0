@@ -6,13 +6,15 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
 (async () => {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   try {
+    const selected = (process.env.SCENARIO || "").split(",").filter(Boolean);
     for (const scenario of [
+      "presentation",
       "studio",
       "other-project",
       "legacy",
       "processing",
       "failure",
-    ]) {
+    ].filter((name) => !selected.length || selected.includes(name))) {
       const page = await browser.newPage({
         viewport: { width: 1440, height: 1000 },
         reducedMotion: "reduce",
@@ -85,7 +87,20 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
       await page.goto(`${baseURL}/#project/${pid}`);
       await page.locator(".ws-heading h1").waitFor();
       assert.equal(await page.locator(".project-workspace").count(), 1);
-      if (scenario === "studio" || scenario === "other-project") {
+      if (scenario === "presentation") {
+        await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
+        const slider = page.getByLabel("Промпт Hypit, %");
+        assert.equal(await slider.isDisabled(), false);
+        await slider.fill("40");
+        await page.locator(".presentation-share output").getByText("40%").waitFor();
+        assert.match(await page.locator(".presentation-prompt").innerText(), /Hypit/);
+        assert.match(await page.locator(".presentation-prompt").innerText(), /40%/);
+        await page.locator(".presentation-share").getByText("Привет").waitFor();
+        await page.locator(".presentation-share").getByText("Доля сохранена в проект").waitFor();
+        const saved = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual"));
+        assert.equal(saved.at(-1).body.edit.presentation_share, 40);
+        assert.equal(saved.at(-1).body.edit.presentation[0].title.ru, "Привет");
+      } else if (scenario === "studio" || scenario === "other-project") {
         await page.locator(".ws-scenes button").first().waitFor();
         assert.equal(await page.locator(".manual-clip:visible").count(), 1);
         await page
@@ -215,7 +230,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         await page.keyboard.press("Escape");
         assert.equal(await page.locator("dialog[open]").count(), 0);
         await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
-        await page.getByLabel("Доля презентационной анимации").fill("20");
+        await page.getByLabel("Промпт Hypit, %").fill("20");
         await page.locator(".presentation-share").getByText("Привет").waitFor();
         const scan = writes.find((row) => row.path.endsWith("/presentation"));
         assert.equal(scan.body.edit.presentation_share, 20);

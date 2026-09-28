@@ -148,6 +148,7 @@ class Edit(Strict):
     voice_cleanup: bool=False
     picture_quality: bool=False
     presentation_share: int=Field(default=0, ge=0, le=100)
+    presentation_prompt: str=Field(default='', max_length=800)
     presentation: list[PresentationBeat]=Field(default_factory=list, max_length=16)
     font_size: Literal['small','medium','large']='medium'
     position: Literal['bottom','top']='bottom'

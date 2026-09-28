@@ -19,6 +19,26 @@ def edit(**extra):
     body.update(extra)
     return Edit.model_validate(body)
 
+def test_slider_percentage_is_the_hypit_prompt():
+    planned = plan(edit(presentation_share=10))
+    assert 'https://github.com/hypit-ai/hypit' in planned.presentation_prompt
+    assert '10%' in planned.presentation_prompt
+    assert '3D pop-out windows' in planned.presentation_prompt
+    covered = sum(beat.end - beat.start for beat in planned.presentation)
+    assert covered == pytest.approx(2, abs=0.05)
+    assert plan(edit(presentation_share=0)).presentation_prompt == ''
+
+def test_hypit_page_uses_that_prompt_percentage():
+    from backend.hypit_picture import _presentation_page, presentation_layers
+    planned = plan(edit(presentation_share=10))
+    beats = [beat.model_dump() for beat in planned.presentation]
+    layers = presentation_layers(beats, 'en', 20 * 30)
+    page = _presentation_page(320, 240, '20.000', 600, layers, planned.presentation_prompt)
+    assert 'data-hypit-prompt="' in page and '10%' in page and 'github.com/hypit-ai/hypit' in page
+    assert 'rotateY' in page and 'hf-window' in page
+    spans = [(int(a), int(b)) for a, b in __import__('re').findall(r'<aside[^>]*data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', page)]
+    assert sum(b - a for a, b in spans) / 30 == pytest.approx(2, abs=0.05)
+
 def test_share_moves_in_steps_of_five_and_covers_that_fraction():
     with pytest.raises(ValidationError):
         Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'presentation_share': 7})

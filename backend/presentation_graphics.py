@@ -130,8 +130,24 @@ def build(edit):
         ))
     return beats
 
+def presentation_prompt(share):
+    """The slider percentage is the Hypit prompt, not a separate graphics engine."""
+    share = int(share or 0)
+    if share <= 0:
+        return ''
+    return (
+        'Use the Hypit framework (https://github.com/hypit-ai/hypit) for presentation graphics on '
+        f'{share}% of this finished video. Place moving 3D pop-out windows and mini presentations '
+        'on the scanned speech. Do not invent facts. On-screen words follow the voiceover language, '
+        'or the project language when there is no voiceover.'
+    )
+
 def plan(edit):
-    return edit.model_copy(update={'presentation': build(edit)})
+    share = int(edit.presentation_share or 0)
+    return edit.model_copy(update={
+        'presentation': build(edit),
+        'presentation_prompt': presentation_prompt(share),
+    })
 
 def _fit(text, size, width):
     per = 0.95 if re.search(r'[\u4e00-\u9fff]', text) else 0.55

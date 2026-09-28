@@ -377,6 +377,35 @@ def _host_chips(clips, ranges, captions, language, total, style):
     return layers
 
 
+def presentation_layers(beats, language, total_frames):
+    """Hypit layers whose on-screen time is the prompt percentage."""
+    from .presentation_graphics import _words
+    layers = []
+    for beat in beats or []:
+        if not isinstance(beat, dict):
+            beat = beat.model_dump()
+        start, end = float(beat['start']), float(beat['end'])
+        a = max(0, int(round(start * FPS)))
+        b = max(a + 1, min(int(total_frames), int(round(end * FPS))))
+        title = _words(beat.get('title') or {}, language)
+        body = _words(beat.get('body') or {}, language) if beat.get('kind') == 'mini' and beat.get('body') else ''
+        kind = 'mini' if body else 'window'
+        x = float(beat.get('x') or 0.72) * 100
+        y = float(beat.get('y') or 0.28) * 100
+        width = 46 if kind == 'mini' else 62
+        cls = 'hf-chip hf-mini' if kind == 'mini' else 'hf-card hf-window'
+        inner = (
+            f'<div class="hf-card-title">{html.escape(title)}</div>'
+            + (f'<div class="hf-card-sub">{html.escape(body)}</div>' if body else '<div class="hf-card-bar"></div>')
+        )
+        layers.append(
+            f'<aside class="{cls}" data-hypit-kind="{kind}" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
+            f'data-hf-fade-in="6" data-hf-fade-out="6" '
+            f'style="left:{x:.1f}%;top:{y:.1f}%;right:auto;bottom:auto;width:{width}%">{inner}</aside>'
+        )
+    return layers
+
+
 def composition(source, work, manual, width, height, language, style=None):
     """HyperFrames HTML. A paragraph, 口播, and a lone headcount digit are not drawn.
 
@@ -405,6 +434,8 @@ def composition(source, work, manual, width, height, language, style=None):
     layers.extend(_plates(clips, ranges, language, total))
     layers.extend(_side_cards(clips, ranges, manual.get('captions') or [], language, total, style))
     layers.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style))
+    if int(manual.get('presentation_share') or 0) > 0 and manual.get('presentation'):
+        layers.extend(presentation_layers(manual['presentation'], language, total))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
     page = f'''<!doctype html>
@@ -451,7 +482,8 @@ def composition(source, work, manual, width, height, language, style=None):
         }}
         el.style.opacity = String(opacity);
         if (el.classList.contains('hf-card') || el.classList.contains('hf-plate')) {{
-          el.style.transform = 'translateY(' + Math.round((1 - opacity) * 36) + 'px)';
+          const yaw = el.classList.contains('hf-window') ? 22 : 8;
+        el.style.transform = 'translateY(' + Math.round((1 - opacity) * 36) + 'px) rotateY(' + Math.round((1 - opacity) * yaw) + 'deg)';
         }}
       }}
       const video = document.getElementById('picture');
@@ -499,7 +531,15 @@ def composition(source, work, manual, width, height, language, style=None):
 </body>
 </html>
 '''
-    (work / 'index.html').write_text(_apply_style(page, style))
+    page = _apply_style(page, style)
+    prompt = manual.get('presentation_prompt') or ''
+    if prompt:
+        page = page.replace(
+            'data-composition-id="lumen"',
+            'data-composition-id="lumen" data-hypit-prompt="' + html.escape(prompt, quote=True) + '"',
+            1,
+        )
+    (work / 'index.html').write_text(page)
     return total
 
 
@@ -615,3 +655,102 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     else:
         ffmpeg('-i', visual, '-c', 'copy', '-movflags', '+faststart', assembled, timeout=600)
     return assembled
+
+
+def _presentation_page(width, height, seconds, frames, layers, prompt):
+    body = '\n    '.join(layers)
+    escaped = html.escape(prompt or '', quote=True)
+    return f'''<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    html,body{{margin:0;overflow:hidden;background:#101614}}
+    [data-composition-id]{{position:relative;width:{width}px;height:{height}px;overflow:hidden;background:#101614;perspective:900px}}
+    video{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}}
+    .hf-window,.hf-mini{{position:absolute;z-index:4;box-sizing:border-box;padding:16px 14px;border-radius:22px;background:#10233f;color:#fff;opacity:0;box-shadow:0 18px 48px rgba(0,0,0,.45);transform-style:preserve-3d}}
+    .hf-mini{{width:46%;padding:12px 14px;border-radius:16px}}
+    .hf-card-title{{font:700 {max(22, int(height) // 22)}px/1.12 sans-serif}}
+    .hf-card-sub{{margin-top:6px;font:600 {max(13, int(height) // 48)}px/1.2 sans-serif;opacity:.86}}
+    .hf-card-bar{{width:48px;height:6px;border-radius:6px;background:#7eb6ff;margin-bottom:10px}}
+  </style>
+</head>
+<body>
+  <div data-composition-id="lumen" data-hypit-prompt="{escaped}" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{frames}">
+    <video id="picture" src="cut.mp4" muted playsinline data-has-audio="false" data-start="0.000" data-end="{seconds}" data-media-start="0.000" data-hypit-start-frame="0" data-hypit-end-frame="{frames}"></video>
+    {body}
+  </div>
+  <script>
+    const fps = {FPS};
+    const layers = [...document.querySelectorAll('[data-hypit-kind]')];
+    const apply = (time) => {{
+      const frame = Math.max(0, Math.round(Number(time || 0) * fps));
+      for (const el of layers) {{
+        const start = Number(el.getAttribute('data-hypit-start-frame'));
+        const end = Number(el.getAttribute('data-hypit-end-frame'));
+        const fadeIn = Number(el.getAttribute('data-hf-fade-in') || 0);
+        const fadeOut = Number(el.getAttribute('data-hf-fade-out') || 0);
+        let opacity = 0;
+        if (frame >= start && frame < end) {{
+          const inn = fadeIn ? Math.min(1, (frame - start + 1) / fadeIn) : 1;
+          const out = fadeOut ? Math.min(1, (end - frame) / fadeOut) : 1;
+          opacity = Math.min(inn, out);
+        }}
+        el.style.opacity = String(opacity);
+        const yaw = el.classList.contains('hf-window') ? 22 : 8;
+        el.style.transform = 'translateY(' + Math.round((1 - opacity) * 36) + 'px) rotateY(' + Math.round((1 - opacity) * yaw) + 'deg)';
+      }}
+    }};
+    apply(0);
+    window.addEventListener('hf-seek', (event) => apply(event.detail && event.detail.time));
+  </script>
+</body>
+</html>
+'''
+
+
+def apply_presentation(video, folder, manual, width, height, language):
+    """Run the slider prompt through Hypit. The share is the graphics coverage."""
+    beats = manual.get('presentation') or []
+    prompt = manual.get('presentation_prompt') or ''
+    if int(manual.get('presentation_share') or 0) <= 0 or not beats:
+        return video
+    work = Path(folder) / 'hypit-presentation'
+    work.mkdir(parents=True, exist_ok=True)
+    cut = work / 'cut.mp4'
+    ffmpeg('-y', '-i', str(video), '-an', '-c:v', 'copy', str(cut), timeout=600)
+    duration = _piece_duration(cut) or _piece_duration(video)
+    frames = max(1, int(round(duration * FPS)))
+    seconds = f'{frames / FPS:.3f}'
+    page = _presentation_page(width, height, seconds, frames, presentation_layers(beats, language, frames), prompt)
+    (work / 'index.html').write_text(page)
+    job = {
+        'directory': str(work),
+        'width': int(width),
+        'height': int(height),
+        'fpsNum': FPS,
+        'fpsDen': 1,
+        'frameCount': frames,
+    }
+    job_path = work / 'job.json'
+    job_path.write_text(json.dumps(job))
+    argv, root, tsx = command(job_path)
+    if not tsx.is_file() or not SCRIPT.is_file():
+        raise RuntimeError('hypit_unavailable')
+    env = os.environ.copy()
+    env['HYPIT_ROOT'] = str(root)
+    try:
+        spawn(argv, env)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        log.warning('hypit presentation capture failed: %s', exc)
+        raise RuntimeError('hypit_unavailable') from exc
+    visual = work / 'visual.mp4'
+    if not visual.is_file() or visual.stat().st_size < 32:
+        raise RuntimeError('hypit_unavailable')
+    presented = Path(folder) / 'presented.mp4'
+    ffmpeg(
+        '-y', '-i', str(visual), '-i', str(video), '-map', '0:v:0', '-map', '1:a:0?',
+        '-c:v', 'copy', '-c:a', 'copy', '-shortest', '-movflags', '+faststart', str(presented),
+        timeout=600,
+    )
+    return presented
