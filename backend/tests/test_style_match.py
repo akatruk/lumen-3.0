@@ -1258,13 +1258,12 @@ def test_reference_fraction_lands_on_the_owned_timeline():
     assert 'SECRET REFERENCE LINE' not in json.dumps(edit)
     rows = [{**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4} for index in range(30)]
     many, _report = build([shot(**quiet)], 40, [], False, measured={'duration': 12, 'shots': rows})
-    assert len(many['clips']) < 16
-    assert min(clip['end'] - clip['start'] for clip in many['clips']) >= 2.8
+    assert len(many['clips']) == 30
     assert 'SECRET REFERENCE LINE' not in json.dumps(many)
     pictured = [{**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4, 'picture': {'zoom': 1 if index % 2 == 0 else 2, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False}} for index in range(45)]
     full, _report = build([shot(**quiet)], 40, [], False, measured={'duration': 18, 'shots': pictured})
-    assert len(full['clips']) < 16
-    assert min(clip['end'] - clip['start'] for clip in full['clips']) >= 2.8
+    assert len(full['clips']) == 45
+    assert [clip['zoom'] for clip in full['clips']] == [1 if index % 2 == 0 else 2 for index in range(45)]
     frame = {'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False}
     owned_rows = []
     for index in range(45):
@@ -1273,17 +1272,20 @@ def test_reference_fraction_lands_on_the_owned_timeline():
             picture = {**frame, 'blur': 4, 'glow': 0.8, 'hold': 0.25, 'release': 0.5, 'join': 'wipe-down', 'join_seconds': 1.2}
         owned_rows.append({**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4, 'picture': picture})
     placed, _report = build([shot(**quiet)], 18, [], False, measured={'duration': 18, 'shots': owned_rows})
-    assert len(placed['clips']) < 10
-    late = placed['clips'][-1]
-    assert late['end'] - late['start'] >= 2.8
+    assert len(placed['clips']) == 45
+    late = placed['clips'][44]
     assert late['start'] > 9
     landed = late['start'] + late['effect_at'] * (late['end'] - late['start'])
-    assert late['start'] < landed <= late['end']
-    assert late['blur'] == 4 and late['glow'] is True
+    assert late['start'] < landed < late['end']
+    assert abs(late['effect_at'] - 0.25) < 0.06
+    assert abs(late['effect_end'] - 0.5) < 0.06
     assert late['transition'] == 'wipe-down'
     assert late['transition_seconds'] == 1.2
     assert placed['clips'][0]['transition'] == 'cut'
     assert placed['clips'][0]['effect_at'] == 0
+    from backend.timeline import motion_filter
+    chain = motion_filter(late, 160, 240, late['end'] - late['start'])
+    assert "between(t\\" in chain
 
 def test_overlay_window_is_absent_outside_the_measured_span(tmp_path, monkeypatch):
     import subprocess
