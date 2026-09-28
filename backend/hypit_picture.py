@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 from fractions import Fraction
 from pathlib import Path
@@ -733,7 +734,7 @@ def _presentation_page(width, height, seconds, frames, layers, prompt):
 </head>
 <body>
   <div data-composition-id="lumen" data-hypit-prompt="{escaped}" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{frames}">
-    <video id="picture" src="cut.mp4" muted playsinline data-has-audio="false" data-start="0.000" data-end="{seconds}" data-media-start="0.000" data-hypit-start-frame="0" data-hypit-end-frame="{frames}"></video>
+    <video id="picture" src="cut.mp4" muted playsinline data-has-audio="false" data-start="0.000" data-end="{seconds}" data-media-start="0.000" data-hypit-start-frame="0" data-hypit-end-frame="{frames}" data-hypit-source-frame="0/1" data-hypit-source-rate="1/1" data-hypit-source-fps="{FPS}/1"></video>
     {body}
   </div>
   <script>
@@ -772,7 +773,10 @@ def apply_presentation(video, folder, manual, width, height, language):
     if int(manual.get('presentation_share') or 0) <= 0 or not beats:
         return video
     work = Path(folder) / 'hypit-presentation'
-    work.mkdir(parents=True, exist_ok=True)
+    # A second capture in this folder must not die on Hypit's worker-0 mkdir.
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
     cut = work / 'cut.mp4'
     ffmpeg('-y', '-i', str(video), '-an', '-c:v', 'copy', str(cut), timeout=600)
     duration = _piece_duration(cut) or _piece_duration(video)

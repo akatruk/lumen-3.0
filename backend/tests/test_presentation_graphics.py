@@ -2,7 +2,7 @@ import shutil
 import pytest
 from pydantic import ValidationError
 from backend.manual import Edit
-from backend.media import ass_available, ffmpeg, probe, render
+from backend.media import ffmpeg, probe, render
 from backend.presentation_graphics import plan, shown_language, write_presentation
 from backend.schemas import Analysis
 from backend.tests.test_render import T
@@ -35,6 +35,7 @@ def test_hypit_page_uses_that_prompt_percentage():
     layers = presentation_layers(beats, 'en', 20 * 30)
     page = _presentation_page(320, 240, '20.000', 600, layers, planned.presentation_prompt)
     assert 'data-hypit-prompt="' in page and '10%' in page and 'github.com/hypit-ai/hypit' in page
+    assert 'data-hypit-source-fps="30/1"' in page and 'data-hypit-source-rate="1/1"' in page
     assert 'rotateY' in page and 'hf-window' in page
     spans = [(int(a), int(b)) for a, b in __import__('re').findall(r'<aside[^>]*data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', page)]
     assert sum(b - a for a, b in spans) / 30 == pytest.approx(2, abs=0.05)
@@ -94,7 +95,6 @@ def test_languages_follow_voiceover_then_project(tmp_path):
     assert 'Карточка' in russian and 'Style: Ru,Noto Sans' in russian
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'), reason='FFmpeg required')
-@pytest.mark.skipif(not ass_available(), reason='FFmpeg ass filter required')
 def test_windows_are_burned_in_the_requested_language(tmp_path):
     src = tmp_path / 'source.mp4'
     ffmpeg('-f', 'lavfi', '-i', 'color=red:s=320x240:d=4:r=30', '-c:v', 'libx264', src)
@@ -105,17 +105,20 @@ def test_windows_are_burned_in_the_requested_language(tmp_path):
         {'start': 2.0, 'end': 3.2, 'original': 'Карточка', 'en': 'Card', 'zh': '卡片'},
     ]))
     result = render(src, tmp_path, probe(src), analysis, [], 'en', 'original', manual=planned.model_dump(), presentation_language='zh')
-    script = (tmp_path / 'presentation.ass').read_text()
-    assert '卡片' in script and '\\fry' in script and '\\frx' in script and '\\t(' in script
-    assert 'Card' not in script
+    page = (tmp_path / 'hypit-presentation' / 'index.html').read_text()
+    assert '卡片' in page and 'data-hypit-source-fps="30/1"' in page
+    assert 'Card' not in page
     assert abs(result['metadata']['duration'] - 4) < 0.2
     import subprocess
     beat = planned.presentation[0]
     mid = (beat.start + beat.end) / 2
-    x, y = int(320 * beat.x), int(240 * beat.y)
+    # Sample inside the rounded card. The corner itself stays transparent.
+    x, y = min(312, int(320 * beat.x) + 36), min(232, int(240 * beat.y) + 36)
     def pixel(t):
-        return subprocess.check_output(['ffmpeg', '-v', 'error', '-ss', f'{t:.2f}', '-i', str(tmp_path / 'result.mp4'),
-                                         '-vf', f'crop=8:8:{x}:{y},scale=1:1', '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
+        frame = int(round(t * 30))
+        return subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(tmp_path / 'result.mp4'),
+                                         '-vf', f'select=eq(n\\,{frame}),crop=8:8:{x}:{y},scale=1:1',
+                                         '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
     covered = pixel(mid)
     assert covered[0] < 180
     quiet = tmp_path / 'quiet.ass'
