@@ -103,34 +103,34 @@ def _fit_type(text, size, width):
     return min(size, max(8, width*0.9 / max(1, len(text)) / per))
 
 def _pro_chip(card, language, w, h, shift, ass_time, clean, value):
-    """Short label, one figure, a hairline chip. No reference chrome and no full-width slab."""
+    """One short label, one figure, a soft plate. Not a slab, a hairline, or a lone digit."""
     left, right = w*shift['left'], w*shift['right']
     top, bottom = h*shift['top'], h*shift['bottom']
     span=f'{ass_time(card["start"])},{ass_time(card["end"])}'
-    soft=r'{\an7\pos(0,0)\p1\c&H00161410\alpha&HA8\fad(150,150)}'+f'm {left:.1f} {top:.1f} l {right:.1f} {top:.1f} {right:.1f} {bottom:.1f} {left:.1f} {bottom:.1f}'
-    stroke=max(1.5, min(w, h)*0.0025)
-    hair=(
-        f'm {left:.1f} {top:.1f} l {right:.1f} {top:.1f} {right:.1f} {top+stroke:.1f} {left:.1f} {top+stroke:.1f} '
-        f'm {left:.1f} {bottom-stroke:.1f} l {right:.1f} {bottom-stroke:.1f} {right:.1f} {bottom:.1f} {left:.1f} {bottom:.1f} '
-        f'm {left:.1f} {top:.1f} l {left+stroke:.1f} {top:.1f} {left+stroke:.1f} {bottom:.1f} {left:.1f} {bottom:.1f} '
-        f'm {right-stroke:.1f} {top:.1f} l {right:.1f} {top:.1f} {right:.1f} {bottom:.1f} {right-stroke:.1f} {bottom:.1f}'
-    )
-    rule=r'{\an7\pos(0,0)\p1\c&H009EEFD1\alpha&H30\fad(150,150)}'+hair
-    rows=f'Dialogue: 0,{span},Default,,0,0,0,,{soft}\n'
-    rows+=f'Dialogue: 1,{span},Default,,0,0,0,,{rule}\n'
     ph=max(1.0, bottom-top)
     pw=max(1.0, right-left)
+    pad=max(8.0, min(pw, ph)*0.10)
+    accent=max(4.0, min(10.0, pw*0.035))
+    panel=r'{\an7\pos(0,0)\p1\c&H00181C16\alpha&H28\fad(180,180)}'+f'm {left:.1f} {top:.1f} l {right:.1f} {top:.1f} {right:.1f} {bottom:.1f} {left:.1f} {bottom:.1f}'
+    stripe=r'{\an7\pos(0,0)\p1\c&H009EEFD1\fad(180,180)}'+f'm {left:.1f} {top:.1f} l {left+accent:.1f} {top:.1f} {left+accent:.1f} {bottom:.1f} {left:.1f} {bottom:.1f}'
+    rows=f'Dialogue: 0,{span},Default,,0,0,0,,{panel}\n'
+    rows+=f'Dialogue: 1,{span},Default,,0,0,0,,{stripe}\n'
     chart=card.get('kind') in ('bar_chart','ranking')
-    def line(text, y, size, color='&H00FFFFFF', layer=2):
-        size=_fit_type(text, size, pw)
-        tags=r'{\an5\pos('+f'{(left+right)/2:.1f},{y:.1f}'+r')\fs'+f'{size:.1f}'+r'\c'+color+r'\fad(150,150)}'
+    inner_left=left+accent+pad
+    inner_right=right-pad
+    inner_w=max(1.0, inner_right-inner_left)
+    def line(text, x, y, size, color='&H00FFFFFF', layer=2):
+        size=_fit_type(text, size, inner_w)
+        tags=r'{\an4\pos('+f'{x:.1f},{y:.1f}'+r')\fs'+f'{size:.1f}'+r'\c'+color+r'\fad(180,180)}'
         return f'Dialogue: {layer},{span},Default,,0,0,0,,{tags}{text}\n'
-    label_y=top+ph*(0.26 if chart else 0.34)
-    figure_y=top+ph*(0.52 if chart else 0.66)
-    rows+=line(value('title'), label_y, min(ph*0.22, h*0.028))
-    rows+=line(value('primary'), figure_y, min(ph*0.36, h*0.055), '&H009EEFD1', 3)
+    label_size=min(ph*0.16, h*0.022)
+    figure_size=min(ph*0.32, h*0.055)
+    label_y=top+pad+label_size*0.65
+    figure_y=label_y+label_size*0.85+figure_size*0.45
+    rows+=line(value('title'), inner_left, label_y, label_size)
+    rows+=line(value('primary'), inner_left, figure_y, figure_size, '&H009EEFD1', 3)
     if card.get('kind')=='comparison' and card.get('secondary'):
-        rows+=line(value('secondary'), top+ph*0.84, min(ph*0.22, h*0.03))
+        rows+=line(value('secondary'), inner_left, top+ph*0.78, min(ph*0.16, h*0.024))
     if not chart:
         return rows
     items=list(card.get('items') or [])
@@ -139,18 +139,17 @@ def _pro_chip(card, language, w, h, shift, ass_time, clean, value):
     maximum=max((float(item['value']) for item in items), default=1) or 1
     lead=float(items[0]['value']) if items else 0
     ratio=max(0.0, min(1.0, lead/maximum))
-    pad=max(6.0, pw*0.08)
-    bar_h=max(3.0, ph*0.11)
-    bar_bottom=bottom-max(4.0, ph*0.1)
+    bar_h=max(10.0, ph*0.16)
+    bar_bottom=bottom-pad
     bar_top=bar_bottom-bar_h
-    track_left, track_right=left+pad, right-pad
+    track_left, track_right=inner_left, inner_right
     fill_right=track_left+(track_right-track_left)*ratio
     track=f'm {track_left:.1f} {bar_top:.1f} l {track_right:.1f} {bar_top:.1f} {track_right:.1f} {bar_bottom:.1f} {track_left:.1f} {bar_bottom:.1f}'
-    rows+=f'Dialogue: 2,{span},Default,,0,0,0,,{{\\an7\\pos(0,0)\\p1\\c&H003A4440\\alpha&H40\\fad(150,150)}}{track}\n'
+    rows+=f'Dialogue: 2,{span},Default,,0,0,0,,{{\\an7\\pos(0,0)\\p1\\c&H0030382C\\alpha&H20\\fad(180,180)}}{track}\n'
     if lead<=0:
         return rows
     drawing=f'm {track_left:.1f} {bar_top:.1f} l {fill_right:.1f} {bar_top:.1f} {fill_right:.1f} {bar_bottom:.1f} {track_left:.1f} {bar_bottom:.1f}'
-    tags=r'{\an7\pos(0,0)\p1\c&H009EEFD1\fad(150,150)}'
+    tags=r'{\an7\pos(0,0)\p1\c&H009EEFD1\fad(180,180)}'
     if card.get('animation')=='grow':
         import math
         x0=math.floor(track_left); x1=math.ceil(fill_right); y0=math.floor(bar_top)-1; y1=math.ceil(bar_bottom)+1

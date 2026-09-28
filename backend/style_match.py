@@ -2256,13 +2256,13 @@ def _clear_face_type(clip):
         clip[key] = None
 
 def _seat_chart(clip):
-    """A proportion sits as a side chip. Other cards keep the previous lower-third."""
+    """A proportion sits as a compact plate beside the speaker. Other cards keep the previous lower-third."""
     card = clip.get('card') if isinstance(clip.get('card'), dict) else None
     if card:
         if card.get('kind') in ('bar_chart', 'ranking'):
-            # Right of the torso, below the mouth. Not a full-width plate on the chest.
-            clip['card_x'], clip['card_y'] = 0.80, 0.86
-            clip['card_w'], clip['card_h'] = 0.32, 0.12
+            # Right of the torso, below the mouth. Wide enough for a label, a figure, and a bar.
+            clip['card_x'], clip['card_y'] = 0.78, 0.86
+            clip['card_w'], clip['card_h'] = 0.36, 0.20
         else:
             clip['card_x'], clip['card_y'] = 0.5, 0.86
             clip['card_w'], clip['card_h'] = 0.88, 0.22
@@ -2270,8 +2270,8 @@ def _seat_chart(clip):
         clip['progress_play'] = False
     if clip.get('bars'):
         clip['graphic'] = True
-        clip['chart_x'], clip['chart_y'] = 0.5, 0.86
-        clip['chart_w'], clip['chart_h'] = 0.72, 0.2
+        clip['chart_x'], clip['chart_y'] = 0.78, 0.86
+        clip['chart_w'], clip['chart_h'] = 0.36, 0.20
         clip['progress'] = 0
         clip['progress_play'] = False
 
@@ -2381,6 +2381,45 @@ def _spoken_charts(edit):
         _seat_chart(host)
         added += 1
 
+def _join_window(span):
+    """Seconds a designed join stays visible. A short shot gets a shorter blend."""
+    try:
+        span = float(span)
+    except (TypeError, ValueError):
+        span = 2.0
+    if span != span or span <= 0:
+        span = 2.0
+    if span < 1.2:
+        return round(min(0.34, max(0.16, span * 0.28)), 2)
+    return 0.48
+
+def _dress_joins(edit):
+    """A hard cut or a flat dip becomes a short eased blend. A measured direction stays."""
+    clips = edit.get('clips') or []
+    for index, clip in enumerate(clips):
+        if index == 0 or not isinstance(clip, dict) or clip.get('locked'):
+            continue
+        kind = str(clip.get('transition') or 'cut')
+        if kind not in ('cut', 'fade', 'crossfade', 'wipe', 'wipe-up', 'wipe-down'):
+            continue
+        try:
+            measured = float(clip.get('transition_seconds') or 0)
+        except (TypeError, ValueError):
+            measured = 0
+        if kind in ('cut', 'fade'):
+            clip['transition'] = 'crossfade'
+            kind = 'crossfade'
+        if measured > 0.8:
+            continue
+        if kind in ('crossfade', 'wipe', 'wipe-up', 'wipe-down'):
+            try:
+                span = float(clip['end']) - float(clip['start'])
+            except (TypeError, ValueError, KeyError):
+                span = 2.0
+            clip['transition_seconds'] = _join_window(span)
+            if not clip.get('audio_fade_ms'):
+                clip['audio_fade_ms'] = 16
+
 def _unbend(clip):
     """No traveling light and no filter that twists the presenter."""
     clip['sweep'] = False
@@ -2431,6 +2470,7 @@ def present_for_render(edit):
         if isinstance(clip, dict):
             _drop_people_count(clip)
             _scrub_source(clip.get('card'))
+    _dress_joins(shaped)
     return shaped
 
 def board_for_render(edit, context):
