@@ -1,6 +1,7 @@
 import fcntl
 import json
 import logging
+import sys
 import time
 import uuid
 from .config import settings
@@ -151,8 +152,14 @@ def safe_error(exc):
     'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
-    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable'}
+    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable',
+    'unverified_claim','property_not_approved','property_plan_changed','property_workflow','property_too_short','property_delivery_missing','reference_media_blocked','invalid_media_path','asset_not_found'}
     return str(exc) if str(exc) in allowed else 'processing_failed'
+
+def failure_detail(exc):
+    """Worker-log text. The browser still receives only safe_error()."""
+    from .hypit_picture import capture_note
+    return capture_note(exc)
 
 def run_once():
     with connect() as db:
@@ -198,11 +205,21 @@ def run_once():
         elif job['kind']=='platform_variants':
             from .variants import run_job
             run_job(p,json.loads(job['payload']))
+        elif job['kind']=='property_render':
+            from .property_video import render_job as property_render_job
+            property_render_job(p,json.loads(job['payload']))
         else: raise ValueError('unknown_job')
         state='complete'
     except Exception as exc:
         code=safe_error(exc)
-        log.error('Job %s failed: %s (%s)',job['id'],code,type(exc).__name__)
+        # A closed worker terminal must not skip the status update or hide the cause.
+        try:
+            detail=failure_detail(exc)
+            log.error('Job %s failed: %s (%s)%s',job['id'],code,type(exc).__name__,f'; {detail}' if detail else '')
+            for handler in logging.getLogger().handlers:
+                handler.flush()
+        except Exception:
+            pass
         if job['kind'] not in ('final_music','dubbing','platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'): update(p['id'],status='failed',stage='failed',error=code)
         event(p['id'],'failed',code)
         state='failed'
@@ -248,5 +265,10 @@ def main():
         serve(guard)
 
 if __name__=='__main__':
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure=getattr(stream, 'reconfigure', None)
+        if reconfigure:
+            try: reconfigure(line_buffering=True)
+            except (OSError, ValueError): pass
     logging.basicConfig(level=logging.INFO)
     main()

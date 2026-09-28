@@ -56,6 +56,7 @@ export type Analysis = {
 };
 export type Project = {
   studio?: boolean;
+  topic?: string;
   source?: {
     platform: string;
     share_url: string;
@@ -83,6 +84,7 @@ export type Project = {
     applied: string[];
     generated_clips: number;
     qa_status: string;
+    property_package?: string;
     quality_score?:number;
     quality_comparison?:{previous_render_id:string;comparable:boolean;reason:string|null;previous_score?:number;current_score?:number;delta?:number;categories?:{category:string;previous:number;current:number;delta:number}[];regressions?:string[]}|null;
     quality_revision_id?:string;

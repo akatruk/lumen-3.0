@@ -183,6 +183,21 @@ def read(pid,db):
     for i,c in enumerate(config['clips']):c.setdefault('id',f'legacy_{i}')
     return Edit.model_validate(config).model_dump()
 
+# Probe duration and the last clip end can disagree by a fraction of a frame.
+RANGE_SLACK = 0.05
+
+def _inside(end, duration):
+    return end <= duration + RANGE_SLACK
+
+def ranges_fit(timeline, duration):
+    limit = float(duration) + RANGE_SLACK
+    return bool(timeline) and all(0 <= a < b <= limit for a, b in timeline)
+
+def snap_ranges(timeline, duration):
+    """Pull a frame-rounding overrun back onto the measured duration."""
+    duration = float(duration)
+    return [(a, b if b <= duration else duration) for a, b in timeline]
+
 def check(edit,duration):
     for c in edit.clips:
         if any(e.at+DURATIONS[e.kind]>c.end-c.start for e in c.sound_effects):raise HTTPException(422,'invalid_sound_range')
@@ -194,9 +209,9 @@ def check(edit,duration):
     ids=[c.id for c in edit.clips]
     if len(ids)!=len(set(ids)):raise HTTPException(422,'duplicate_decision')
     if any(c.locked and not c.approved for c in edit.clips):raise HTTPException(422,'lock_requires_approval')
-    if any(c.end>duration or c.end-c.start<.08 for c in edit.clips):raise HTTPException(422,'invalid_clip_range')
-    if sum(c.end-c.start for c in edit.clips)>duration*2:raise HTTPException(422,'manual_cut_too_long')
-    if any(c.end>duration for c in edit.captions):raise HTTPException(422,'invalid_caption_range')
+    if any(not _inside(c.end, duration) or c.end-c.start<.08 for c in edit.clips):raise HTTPException(422,'invalid_clip_range')
+    if sum(c.end-c.start for c in edit.clips)>duration*2+RANGE_SLACK:raise HTTPException(422,'manual_cut_too_long')
+    if any(not _inside(c.end, duration) for c in edit.captions):raise HTTPException(422,'invalid_caption_range')
     if edit.subtitles and (not edit.captions or any(not (c.en.strip() or c.zh.strip() or c.original.strip()) for c in edit.captions)):raise HTTPException(422,'captions_required')
 
 def locked_state(pid,revision,db):

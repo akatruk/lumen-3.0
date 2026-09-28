@@ -3,13 +3,13 @@ import {useWorkspace, workspaceText} from './ProjectWorkspace';
 import { translate, contentLanguage } from './locale';
 import { Dubbing } from './Dubbing';
 import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
-import {activityDetail,activityTitle} from './AnalysisActivity';
-import {StatusBadge,TaskProgress,UploadProgress} from './TaskStatus';
+import {StatusBadge,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
 import {holdUpload, uploadVideo} from './resumableUpload';
 import {readBoard} from './look';
 import {createPrompt} from './studioCreate';
 import {ManualEditor} from './ManualEditor';
+import {PropertyVideo} from './PropertyVideo';
 import { DirectorAlternatives } from "./DirectorAlternatives";
 import { PlatformVariants } from "./PlatformVariants";
 import { useEffect, useRef, useState } from "react";
@@ -939,6 +939,7 @@ export function DirectorProject({
       {lang === 'ru' && !manualTask && <p className="muted">{t('Generated analysis is displayed in English.','AI 分析文本以英语显示。')}</p>}
       <div className="director-layout">
         <section className="director-inspector">
+          {state?.context?.creator?.topic === "real_estate" && <PropertyVideo pid={p.id} lang={lang} />}
           {state?.context.style_match && workspace?.styleTarget && createPortal(
             <StyleMatch
               pid={p.id}
@@ -957,17 +958,15 @@ export function DirectorProject({
             workspace.styleTarget,
           )}
           {state?.plan && <div hidden={!manualTask}><ManualEditor serverRevision={state.revision} onDirtyChange={setManualDirty} hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} voiceover={<Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} embedded onFinalChange={()=>workspace?.refreshFinal()} onPreview={(url,label)=>workspace?.previewVersion(url,label)}/>} /></div>}
-          {manualTask&&working&&<p role="status" className="analysis-activity-line"><strong>{activityTitle(p.metadata?.activity,lang,p.stage)}</strong><span>{activityDetail(p.metadata?.activity,lang,p.stage)}</span></p>}
-          {manualTask&&!state?.plan&&<>{p.error?<div role="alert"><p>{message(p.error,lang)}</p></div>:<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}{p.error&&!p.analysis&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</>}
+          {manualTask&&!state?.plan&&<>{p.error?<div role="alert"><p>{message(p.error,lang)}</p></div>:<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}{p.error&&!p.analysis&&state?.context?.creator?.topic!=="real_estate"&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</>}
           <div hidden={!!manualTask}>
           {manualDirty&&<p role="status">{w('Сначала сохраните правки в разделе «Монтаж».','Save your manual edits in Edit first.','请先在剪辑中保存手动更改。')}</p>}
-          {working && <TaskProgress title={activityTitle(p.metadata?.activity,lang,p.stage)} detail={activityDetail(p.metadata?.activity,lang,p.stage)} percent={p.progress}/>}
-          {p.error&&<div role="alert"><p>{message(p.error,lang)}</p>{!p.analysis&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</div>}
+          {p.error&&<div role="alert"><p>{message(p.error,lang)}</p>{!p.analysis&&state?.context?.creator?.topic!=="real_estate"&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</div>}
           <details className="ws-quality"><summary>{w('Проверка готовой версии','Finished video review','成片审核')}</summary>
           {p.result && (
             <section className="director-result">
               <h2>{t("Master review", "主版本复核")}</h2>
-              {state && p.result.plan_revision !== state.revision && <p role="status">{t("This master belongs to an earlier plan. Review and render the updated plan to include your changes.","此主版本来自旧计划。请审核并制作更新后的计划以应用改动。")}</p>}
+              {state && !p.result.property_package && p.result.plan_revision !== state.revision && <p role="status">{t("This master belongs to an earlier plan. Review and render the updated plan to include your changes.","此主版本来自旧计划。请审核并制作更新后的计划以应用改动。")}</p>}
               <p>
                 {p.result.qa_status === "passed"
                   ? t(

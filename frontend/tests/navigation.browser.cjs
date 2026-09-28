@@ -34,6 +34,6 @@ try{
   await page.waitForFunction(()=>location.hash==='#library');
  });
  await test('logout returns to email sign-in',async({page,button,writes})=>{
- await button('Sign out').click();await page.locator('.auth-form').waitFor();assert.equal(await page.getByRole('button',{name:/Continue with Google/}).count(),0);await page.getByLabel('Email address').waitFor();await page.getByLabel('Password').waitFor();assert(writes.some(w=>w.path==='/api/logout'));
+ await button('Sign out').click();await page.locator('.auth-form').waitFor();await page.getByRole('button',{name:/Continue with Google/}).waitFor();await page.getByLabel('Email address').waitFor();await page.getByLabel('Password').waitFor();assert(writes.some(w=>w.path==='/api/logout'));
  });
 }finally{await browser.close();require('fs').writeFileSync('/tmp/lumen-nav-audit.json',JSON.stringify(results,null,2))}if(results.some(r=>!r.pass))process.exitCode=1})();

@@ -166,7 +166,7 @@ def test_hypit_controls_name_cleanup_quality_and_leave_generation_closed():
 
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'), reason='FFmpeg required')
-def test_picture_quality_runs_the_hypit_frame_program(tmp_path, monkeypatch):
+def test_picture_quality_is_not_part_of_the_render(tmp_path, monkeypatch):
     src = tmp_path / 'source.mp4'
     ffmpeg(
         '-f', 'lavfi', '-i', 'color=c=red:s=160x240:d=1:r=30',
@@ -204,10 +204,8 @@ def test_picture_quality_runs_the_hypit_frame_program(tmp_path, monkeypatch):
     edit = {'clips': [{'start': 0, 'end': 1}], 'captions': [], 'picture_quality': True, 'voice_cleanup': False}
     before = probe(src)['duration']
     result = render(src, tmp_path, probe(src), analysis, [], 'en', 'original', manual=edit, picture_engine='hypit')
-    assert seen['frames'] >= 1
-    assert seen['operations'][0]['kind'] == 'denoise'
-    note = json.loads((tmp_path / 'hypit' / 'quality-000.json').read_text())
-    assert note['control'] == 'picture_quality'
+    assert seen['frames'] == 0
+    assert not (tmp_path / 'hypit' / 'quality-000.json').exists()
     assert abs(result['metadata']['duration'] - before) < 0.35
     assert not (tmp_path / 'hypit' / 'voice-cleanup.json').exists()
 

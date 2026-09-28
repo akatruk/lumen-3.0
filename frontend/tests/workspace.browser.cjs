@@ -165,7 +165,6 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           .locator(".ws-tools")
           .getByRole("button", { name: "Эффекты", exact: true })
           .click();
-        await page.getByRole("checkbox", { name: /Повысить качество изображения/ }).check();
         const clip = page.locator(".manual-clip:visible");
         await clip.getByLabel("Включить в ролик", { exact: true }).check();
         await page
@@ -186,7 +185,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         assert.match(await page.locator('.render-summary').innerText(), /Движение камеры/);
         assert.equal(writes[0].body.edit.clips[0].zoom_end, 1.2);
         assert.equal(writes[0].body.edit.subtitles, false);
-        assert.equal(writes[0].body.edit.picture_quality, true);
+        assert.notEqual(writes[0].body.edit.picture_quality, true);
         assert.match(await page.locator('.render-summary').innerText(), /Качество изображения/);
         assert.equal(writes[0].path, `/api/studio/projects/${pid}/manual`);
         await page

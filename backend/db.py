@@ -52,7 +52,16 @@ def project(project_id, user_id=None):
                        (project_id, user_id) if user_id else (project_id,)).fetchone()
         if not r: return None
         p = dict(r)
-        p['studio'] = bool(db.execute('SELECT 1 FROM studio_projects WHERE project_id=?',(project_id,)).fetchone())
+        studio_row = db.execute('SELECT context FROM studio_projects WHERE project_id=?',(project_id,)).fetchone()
+        p['studio'] = bool(studio_row)
+        topic = ''
+        if studio_row and studio_row['context']:
+            try:
+                found = json.loads(studio_row['context']).get('creator', {}).get('topic')
+                if isinstance(found, str): topic = found
+            except (TypeError, json.JSONDecodeError):
+                topic = ''
+        p['topic'] = topic
         for key in ['metadata','analysis','result']:
             p[key] = json.loads(p[key]) if p[key] else None
         source = db.execute('SELECT data FROM project_sources WHERE project_id=?',(project_id,)).fetchone()

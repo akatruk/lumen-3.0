@@ -188,7 +188,8 @@ export function ManualEditor({
       } catch {}
       setDelivery(data.delivery||null);
       setEdit(draft?.edit || data.edit);
-      setRevision(draft?.revision || data.revision);
+      revisionRef.current = data.revision;
+      setRevision(data.revision);
       setDirty(!!draft || !data.saved);
       setSelected(0);
     } catch {
@@ -227,7 +228,12 @@ export function ManualEditor({
   useEffect(()=>{if(workspace&&!workspace.draftActive)video.current?.pause()},[workspace?.draftActive]);
   useEffect(()=>{onDirtyChange?.(dirty)},[dirty,onDirtyChange]);
   useEffect(()=>{let live=true;fetch(base).then(r=>r.ok?r.json():null).then(data=>{if(live)setDelivery(data?.delivery||null)}).catch(()=>{if(live)setDelivery(null)});return()=>{live=false}},[pid,revision,workspace?.renderId,workspace?.finalAudioId]);
-  useEffect(()=>{if(edit&&!dirty&&serverRevision!==undefined&&serverRevision!==revision)void load()},[serverRevision]);
+  useEffect(()=>{
+    if (!edit || serverRevision===undefined || serverRevision===revision) return;
+    if (!dirty) { void load(); return; }
+    revisionRef.current = serverRevision;
+    setRevision(serverRevision);
+  },[serverRevision, dirty, edit, revision]);
   const blocked = disabled || busy;
   editRef.current = edit;
   revisionRef.current = revision;
@@ -282,24 +288,38 @@ export function ManualEditor({
   const finalMusic = useRef<FinalMusicHandle>(null);
   async function act(render = false) {
     if (!edit) return null;
-    let savedRevision=revision;
+    let savedRevision=revisionRef.current || revision;
     setBusy(true);
     setError("");
     try {
-      const r = await fetch(base + (render ? "/render" : ""), {
-        method: render ? "POST" : "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(render ? { revision,quality_review:qualityReview } : { revision, edit }),
-      });
-      if (!r.ok) {
-        const d = await r.json();
+      let rev = savedRevision;
+      let r: Response | null = null;
+      let detail: unknown;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        r = await fetch(base + (render ? "/render" : ""), {
+          method: render ? "POST" : "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(render ? { revision: rev, quality_review: qualityReview } : { revision: rev, edit }),
+        });
+        if (r.ok) break;
+        const d = await r.json().catch(() => ({}));
+        detail = d.detail;
+        if (detail !== "plan_changed" || render || attempt > 0) break;
+        const fresh = await fetch(base);
+        if (!fresh.ok) break;
+        const current = await fresh.json();
+        rev = current.revision;
+        revisionRef.current = current.revision;
+        setRevision(current.revision);
+      }
+      if (!r || !r.ok) {
         throw Error(
-          d.detail === "plan_changed"
+          detail === "plan_changed"
             ? t(
                 "The plan changed. Reload saved edits before continuing.",
                 "计划已更新，请重新加载已保存的剪辑。",
               )
-            : d.detail === "presentation_needs_context"
+            : detail === "presentation_needs_context"
               ? w(
                   "Сначала нужен текст речи или сцены. Скан не нашёл, о чём говорить в анимации.",
                   "The scan needs speech or scene text before it can place animation.",
@@ -436,7 +456,7 @@ export function ManualEditor({
         !Number.isFinite(c.start) ||
         !Number.isFinite(c.end) ||
         c.start < 0 ||
-        c.end > duration ||
+        c.end > duration + 0.05 ||
         c.end - c.start < 0.08 ||
         (c.motion_seconds!=null&&(!Number.isFinite(c.motion_seconds)||c.motion_seconds<.08||c.motion_seconds>840)) ||
         !Number.isFinite(c.zoom) || c.zoom < 1 || c.zoom > 3 ||
@@ -444,7 +464,7 @@ export function ManualEditor({
         !Number.isFinite(c.y) || c.y < 0 || c.y > 1,
     ) ||
     edit.captions.some(
-      (c) => c.start < 0 || c.end > duration || c.end <= c.start,
+      (c) => c.start < 0 || c.end > duration + 0.05 || c.end <= c.start,
     ) ||
     (edit.subtitles && (!edit.captions.length || edit.captions.some(c=>![c.en,c.zh,c.original].some(text=>text.trim()))));
   return (
@@ -493,15 +513,6 @@ export function ManualEditor({
         {(edit.presentation||[]).length>0&&<p role="status">{w('Скан поставил','The scan placed','扫描已放置')} {(edit.presentation||[]).filter(b=>b.kind==='window').length} {w('окон','windows','个窗口')} · {(edit.presentation||[]).filter(b=>b.kind==='mini').length} {w('мини-презентаций','mini presentations','个迷你演示')} · {(edit.presentation||[]).reduce((sum,b)=>sum+b.end-b.start,0).toFixed(1)} {w('с','s','秒')}</p>}
         {(edit.presentation||[]).length>0&&<ol>{(edit.presentation||[]).map((beat,index)=>{const line=lang==='zh'?beat.title.zh:lang==='ru'?beat.title.ru:beat.title.en;return <li key={index}>{beat.kind==='mini'?w('Мини-презентация','Mini presentation','迷你演示'):w('3D-окно','3D window','3D 窗口')} · {beat.start.toFixed(1)}–{beat.end.toFixed(1)} {w('с','s','秒')} · {line}</li>})}</ol>}
       </section>}
-      {task==='effects'&&<div className="scene-choices">
-        <label className="scene-choice">
-          <input type="checkbox" checked={!!edit.picture_quality} disabled={blocked} onChange={e=>change({picture_quality:e.target.checked})} />
-          <span>
-            <strong>{w('Повысить качество изображения','Improve picture quality','提高画面质量')}</strong>
-            <small>{w('Прогон убирает шум кадра и возвращает резкость. Длина ролика не меняется.','A pass removes frame noise and restores sharpness. The video length stays the same.','处理会去除画面噪点并恢复清晰度。视频时长不变。')}</small>
-          </span>
-        </label>
-      </div>}
       <section className="inspector-scene-controls">
         <SceneInspector clips={edit.clips} selected={selected} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}}/>
         <fieldset disabled={blocked} className="director-fieldset">

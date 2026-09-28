@@ -27,6 +27,22 @@ def test_manual_ownership_revision_and_immutable_render(client):
  assert client.get(url).status_code==404
  assert client.put(url,json={'revision':2,'edit':manual()}).status_code==404
 
+def test_probe_rounding_does_not_reject_the_last_frame():
+    from fastapi import HTTPException
+    from backend.manual import Edit, check
+    check(Edit.model_validate({'clips': [{'start': 0, 'end': 63.467}]}), 63.466667)
+    with pytest.raises(HTTPException) as caught:
+        check(Edit.model_validate({'clips': [{'start': 0, 'end': 64}]}), 63.466667)
+    assert caught.value.detail == 'invalid_clip_range'
+
+def test_probe_rounding_fits_the_render_timeline():
+    from backend.manual import ranges_fit, snap_ranges
+    assert ranges_fit([(0, 63.467)], 63.466667)
+    assert snap_ranges([(0, 63.467)], 63.466667) == [(0, 63.466667)]
+    assert ranges_fit([(0, 63.466667)], 63.466667)
+    assert not ranges_fit([(0, 64)], 63.466667)
+    assert not ranges_fit([], 63.466667)
+
 def test_manual_ranges_and_no_approved_ai_needed(client):
  pid=create(client).json()['id'];seed_plan(pid);url=f'/api/studio/projects/{pid}/manual'
  bad=manual();bad['clips'][0]['end']=50

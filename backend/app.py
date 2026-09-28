@@ -343,8 +343,14 @@ def retry(pid:str,request:Request,user=Depends(current_user)):
         db.lock()
         p=db.execute("SELECT * FROM projects WHERE id=? AND user_id=? AND status='failed'",(pid,user['id'])).fetchone()
         if not p: raise HTTPException(409,'retry_unavailable')
+        studio_row=db.execute('SELECT context FROM studio_projects WHERE project_id=?',(pid,)).fetchone()
+        topic=''
+        if studio_row and studio_row['context']:
+            try: topic=json.loads(studio_row['context']).get('creator',{}).get('topic') or ''
+            except (TypeError, json.JSONDecodeError): topic=''
+        if topic=='real_estate': raise HTTPException(409,'property_workflow')
         if p['analysis']: raise HTTPException(409,'choose_render_again')
-        is_studio=db.execute('SELECT 1 FROM studio_projects WHERE project_id=?',(pid,)).fetchone()
+        is_studio=studio_row
         enqueue(db,pid,'studio_analyze' if is_studio else 'analyze')
         db.execute("UPDATE projects SET status='queued',stage='queued',progress=0,error=NULL WHERE id=?",(pid,))
     return {'ok':True}

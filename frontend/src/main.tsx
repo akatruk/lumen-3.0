@@ -315,7 +315,7 @@ function App() {
       ) : !user ? (
         <Auth onAuth={setUser} lang={lang} setLang={setLang} />
       ) : (
-        <div className="app">
+        <div className={pid ? "app project-focus" : "app"}>
           {nav && (
             <button
               className="nav-scrim"
@@ -323,7 +323,12 @@ function App() {
               onClick={() => setNav(false)}
             />
           )}
-          <aside ref={sidebarRef} className={"sidebar " + (nav ? "mobile-open" : "")}>
+          <aside
+            id="app-nav"
+            ref={sidebarRef}
+            className={"sidebar" + (nav ? " mobile-open" : "")}
+            inert={pid && !nav ? true : undefined}
+          >
             <button className="logo" onClick={() => navigate("studio")}>
               <Mark />
               <span>
@@ -408,11 +413,12 @@ function App() {
                 <button
                   ref={menuButton}
                   className="icon mobile-menu"
-                  aria-label={t("menu")}
+                  aria-label={nav ? t("close") : t("menu")}
                   aria-expanded={nav}
-                  onClick={() => setNav(true)}
+                  aria-controls="app-nav"
+                  onClick={() => setNav((open) => !open)}
                 >
-                  <Menu size={21} />
+                  {nav ? <X size={21} /> : <Menu size={21} />}
                 </button>
                 <span>Lumen</span>
                 <ChevronRight size={14} />
@@ -568,6 +574,15 @@ function Auth({
   const [account, setAccount] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const authError = new URLSearchParams(window.location.search).get("auth_error");
+  useEffect(() => {
+    api("/auth/config")
+      .then((c) => setReady(Boolean(c.google_ready)))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
   return (
     <div className="auth">
       <section className="auth-art">
@@ -614,6 +629,21 @@ function Auth({
           <span className="eyebrow">{translate(lang, "LUMEN WORKSPACE", "LUMEN WORKSPACE")}</span>
           <h2>{account ? t("register") : t("signIn")}</h2>
           <p>{t("authDesc")}</p>
+          {authError && (
+            <p role="alert">
+              {authError === "access_denied"
+                ? translate(lang, "This Google account does not have access. Choose an approved account.", "此 Google 帐号没有访问权限。请选择已获授权的帐号。")
+                : translate(lang, "Google sign-in could not be completed. Please try again.", "Google 登录未完成，请重试。")}
+            </p>
+          )}
+          <button type="button" className="primary" disabled={!ready} onClick={() => { if (ready) window.location.assign("/api/auth/google"); }}>
+            {!loaded ? <Loader2 className="spin" size={18} /> : <>
+              <span aria-hidden="true">G</span>
+              {translate(lang, "Continue with Google", "使用 Google 登录")}
+              <ArrowRight size={18} />
+            </>}
+          </button>
+          {loaded && !ready && <p role="status">{translate(lang, "Google sign-in is being configured. Please check back shortly.", "Google 登录正在配置中，请稍后再试。")}</p>}
           <label>
             {t("email")}
             <input name="email" type="email" required autoComplete="username" />

@@ -21,6 +21,10 @@ log = logging.getLogger('lumen.hypit')
 FPS = 30
 FADE = 6
 SCRIPT = Path(__file__).resolve().parent / 'hypit_render.mjs'
+_LEAK = re.compile(
+    r'(?i)(api[_-]?key|secret|token|password|authorization|bearer)\s*[:=]\s*\S+'
+    r'|sk-[A-Za-z0-9]{8,}|BEGIN [A-Z ]*PRIVATE KEY'
+)
 
 
 def engine_for(context):
@@ -42,9 +46,58 @@ def command(job_path):
     return [node, str(cli), str(SCRIPT), str(job_path)], root, cli
 
 
+def redact_capture(text):
+    """Keep a short capture note. Drop credentials; the command line is never included."""
+    if not text:
+        return ''
+    cleaned = _LEAK.sub('[redacted]', str(text)[-4000:])
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+    return '\n'.join(lines[-30:])[:2000]
+
+
+def _note_failure(exc, detail):
+    exc.hypit_detail = redact_capture(detail) or type(exc).__name__
+    return exc
+
+
+def capture_note(exc):
+    """Text for the worker log. Browser responses stay on the stable error code."""
+    parts = []
+    seen = set()
+    current = exc
+    while current is not None and id(current) not in seen and len(parts) < 5:
+        seen.add(id(current))
+        detail = getattr(current, 'hypit_detail', '')
+        if detail:
+            parts.append(detail)
+        elif not isinstance(current, (subprocess.CalledProcessError, subprocess.TimeoutExpired)):
+            text = str(current)
+            if text and text != 'hypit_unavailable':
+                parts.append(redact_capture(f'{type(current).__name__}: {text}')[:500])
+        current = current.__cause__
+    return ' | '.join(dict.fromkeys(parts))[:2000]
+
+
 def spawn(argv, env):
+    """Run capture with its own pipes so a worker terminal cannot drop or kill it.
+
+    Node writes the diagnosable cause to those pipes. The parent's stdout stays
+    blocking, and the command line is not kept on the exception.
+    """
     work = str(Path(argv[-1]).resolve().parent)
-    subprocess.run(argv, check=True, env=env, timeout=45 * 60, cwd=work)
+    try:
+        subprocess.run(
+            argv, check=True, env=env, timeout=45 * 60, cwd=work,
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, errors='replace',
+        )
+    except subprocess.CalledProcessError as exc:
+        output = (exc.stderr or '').strip() or (exc.stdout or '').strip()
+        raise _note_failure(exc, f'exit {exc.returncode}: {output}' if output else f'exit {exc.returncode}') from None
+    except subprocess.TimeoutExpired as exc:
+        raise _note_failure(exc, 'capture timed out') from None
+    except OSError as exc:
+        raise _note_failure(exc, f'{type(exc).__name__}: {exc.strerror or "capture could not start"}') from None
 
 
 def _caption_line(caption, language):
@@ -151,7 +204,7 @@ def _span(clip, available):
     return start, length, length * average, average
 
 
-def _picture_cut(source, work, clips, width, height, picture_quality=False):
+def _picture_cut(source, work, clips, width, height):
     """One continuous picture. Separate scene files leave a gap when joined.
 
     A crossfade would shorten the picture while the voice stays at the full
@@ -178,9 +231,6 @@ def _picture_cut(source, work, clips, width, height, picture_quality=False):
         '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
         str(out), timeout=600,
     )
-    if picture_quality:
-        from .hypit_controls import apply_picture
-        apply_picture(out, work, 0)
     ranges = []
     cursor = 0.0
     for length in lengths:
@@ -413,7 +463,7 @@ def composition(source, work, manual, width, height, language, style=None):
     piece at once and the capture never finishes.
     """
     clips = [clip for clip in manual['clips'] if clip.get('approved', True)]
-    total, ranges = _picture_cut(source, work, clips, width, height, bool(manual.get('picture_quality')))
+    total, ranges = _picture_cut(source, work, clips, width, height)
     layers = [_video(
         'picture', 'cut.mp4', 0, total, 0, 0.0, Fraction(1, 1), FPS, 1, 0, 0,
     )]
@@ -640,7 +690,7 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     try:
         spawn(argv, env)
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        log.warning('hypit capture failed: %s', exc)
+        log.warning('hypit capture failed: %s', capture_note(exc) or type(exc).__name__)
         raise RuntimeError('hypit_unavailable') from exc
     visual = work / 'visual.mp4'
     if not visual.is_file() or visual.stat().st_size < 32:
@@ -742,7 +792,7 @@ def apply_presentation(video, folder, manual, width, height, language):
     try:
         spawn(argv, env)
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        log.warning('hypit presentation capture failed: %s', exc)
+        log.warning('hypit presentation capture failed: %s', capture_note(exc) or type(exc).__name__)
         raise RuntimeError('hypit_unavailable') from exc
     visual = work / 'visual.mp4'
     if not visual.is_file() or visual.stat().st_size < 32:
