@@ -99,6 +99,7 @@ export type Edit = {
   subtitles: boolean;
   normalize: boolean;
   voice_cleanup?: boolean;
+  picture_quality?: boolean;
   font_size: "small" | "medium" | "large";
   position: "top" | "bottom";
   color: "white" | "yellow";
@@ -371,8 +372,8 @@ export function ManualEditor({
         <label className="scene-choice">
           <input type="checkbox" checked={!!edit.voice_cleanup} disabled={blocked} onChange={e=>change({voice_cleanup:e.target.checked})} />
           <span>
-            <strong>{w('Очистить голос ведущего',"Clean the presenter's voice",'清理主持人声音')}</strong>
-            <small>{w('Убирает шум, шипение, гул помещения и посторонние звуки из речи. Музыка добавляется позже и остаётся.','Reduces noise, hiss, room rumble, and unwanted sounds in the speech. Music is mixed in afterwards and stays.','减弱语音中的噪声、嘶声、房间低频杂音和多余声音。音乐随后混入并保留。')}</small>
+            <strong>{w('Убрать лишние звуки из основной речи','Remove extra sound from the main speech','去除主语音中的多余声音')}</strong>
+            <small>{w('Шипение, гул и посторонние звуки уходят из речи. Музыка добавляется позже и остаётся.','Hiss, rumble, and other extra sounds leave the speech. Music is mixed in afterwards and stays.','嘶声、低频杂音和其他多余声音会从语音中去掉。音乐随后混入并保留。')}</small>
           </span>
         </label>
       </div>
@@ -388,6 +389,15 @@ export function ManualEditor({
       {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {(c.end-c.start).toFixed(1)} {w('сек','sec','秒')} · {c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}{c.locked?` · ${w('Тайминг заморожен','Timing frozen','时间已冻结')}`:''}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
+      {task==='effects'&&<div className="scene-choices">
+        <label className="scene-choice">
+          <input type="checkbox" checked={!!edit.picture_quality} disabled={blocked} onChange={e=>change({picture_quality:e.target.checked})} />
+          <span>
+            <strong>{w('Повысить качество изображения','Improve picture quality','提高画面质量')}</strong>
+            <small>{w('Прогон убирает шум кадра и возвращает резкость. Длина ролика не меняется.','A pass removes frame noise and restores sharpness. The video length stays the same.','处理会去除画面噪点并恢复清晰度。视频时长不变。')}</small>
+          </span>
+        </label>
+      </div>}
       <section className="inspector-scene-controls">
         <SceneInspector clips={edit.clips} selected={selected} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}}/>
         <fieldset disabled={blocked} className="director-fieldset">

@@ -785,6 +785,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             args=[*inputs,'-t',b-a,*filters,'-map','0:a:0?',
                   '-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000',part]
             ffmpeg(*args,timeout=900)
+            if manual and manual.get('picture_quality'):
+                from .hypit_controls import apply_picture
+                apply_picture(part, folder, i)
             if manual and i>0:
                 from .transitions import KINDS,apply
                 if clip['transition'] in KINDS:apply(parts[i-1],part,clip['transition'],b-a,clip.get('transition_seconds'))
@@ -804,8 +807,10 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
                    '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
             input_path=overlay
-    from .voice_cleanup import prepare_track
-    input_path=prepare_track(input_path, folder, manual, metadata.get('has_audio'))
+    # A Hypit picture already cleaned the host stem inside that render.
+    if picture_engine != 'hypit':
+        from .voice_cleanup import prepare_track
+        input_path=prepare_track(input_path, folder, manual, metadata.get('has_audio'))
     original_audio_input=input_path
     if voice_audio:
         from .render_audio import replace_picture_audio

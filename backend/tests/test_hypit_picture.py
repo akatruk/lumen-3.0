@@ -99,7 +99,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'hf-plate' in html and '外资比例' in html and '49%' in html
     assert 'data-hf-avatar="1"' in html and 'top:22%' in html
     assert not list(tmp_path.glob('*.ass'))
-    assert (tmp_path / 'host-voice.mp4').is_file()
+    cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
+    assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
+    assert (tmp_path / 'hypit' / 'host-cleaned.wav').is_file()
     assert result['metadata']['has_audio']
     assert abs(result['metadata']['duration'] - 2) < 0.6
     streams = json.loads(run(
@@ -139,3 +141,86 @@ def test_a_host_moment_keeps_a_corner_title():
     assert "geq=lum='lum(X,Y)+" in look
     plain, _plain_rate = _piece_vf({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1}, 1080, 1920, 1)
     assert 'eq=' not in plain and 'vignette=' not in plain and 'zoompan=' not in plain
+
+
+def test_hypit_controls_name_cleanup_quality_and_leave_generation_closed():
+    from backend.hypit_controls import controls_for, picture_program, run_generate
+
+    assert controls_for({'voice_cleanup': True, 'picture_quality': True}) == ['voice_cleanup', 'picture_quality']
+    assert controls_for({}) == []
+    program = picture_program()
+    assert program[0]['kind'] == 'denoise' and program[0]['method'] == 'nlm-ycrcb'
+    assert program[0]['lumaStrength'] == 2 and program[0]['chromaStrength'] == 10
+    assert program[0]['saturationRecovery'] == 1.02
+    assert program[1]['kind'] == 'sharpen' and program[2] == {'kind': 'encode', 'format': 'png'}
+    with pytest.raises(RuntimeError, match='hypit_generation_unavailable'):
+        run_generate()
+
+
+@pytest.mark.skipif(not shutil.which('ffmpeg'), reason='FFmpeg required')
+def test_picture_quality_runs_the_hypit_frame_program(tmp_path, monkeypatch):
+    src = tmp_path / 'source.mp4'
+    ffmpeg(
+        '-f', 'lavfi', '-i', 'color=c=red:s=160x240:d=1:r=30',
+        '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1',
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', src,
+    )
+    root = tmp_path / 'hypit-root'
+    cli = root / 'node_modules' / 'tsx' / 'dist'
+    cli.mkdir(parents=True)
+    (cli / 'cli.mjs').write_text('')
+    monkeypatch.setenv('HYPIT_ROOT', str(root))
+    seen = {'frames': 0, 'operations': None}
+
+    def fake_spawn(argv, env):
+        job = json.loads(Path(argv[-1]).read_text())
+        frames = job['frameCount']
+        ffmpeg(
+            '-f', 'lavfi', '-i', f'color=c=blue:s={job["width"]}x{job["height"]}:d={frames / 30:.3f}:r=30',
+            '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', Path(job['directory']) / 'visual.mp4',
+        )
+
+    def fake_raster(source, dest, operations):
+        seen['frames'] += 1
+        seen['operations'] = operations
+        shutil.copyfile(source, dest)
+
+    monkeypatch.setattr('backend.hypit_picture.spawn', fake_spawn)
+    monkeypatch.setattr('backend.hypit_controls.invoke_raster', fake_raster)
+    analysis = Analysis(
+        summary=T, strongest_moment=T, audience=T,
+        scores=[{'category': 'clarity', 'value': 50, 'reason': T}],
+        scenes=[{'start': 0, 'end': 1, 'title': T, 'observation': T, 'role': 'context'}],
+        transcript=[], recommendations=[], uncertainties=[],
+    )
+    edit = {'clips': [{'start': 0, 'end': 1}], 'captions': [], 'picture_quality': True, 'voice_cleanup': False}
+    before = probe(src)['duration']
+    result = render(src, tmp_path, probe(src), analysis, [], 'en', 'original', manual=edit, picture_engine='hypit')
+    assert seen['frames'] >= 1
+    assert seen['operations'][0]['kind'] == 'denoise'
+    note = json.loads((tmp_path / 'hypit' / 'quality-000.json').read_text())
+    assert note['control'] == 'picture_quality'
+    assert abs(result['metadata']['duration'] - before) < 0.35
+    assert not (tmp_path / 'hypit' / 'voice-cleanup.json').exists()
+
+
+@pytest.mark.skipif(not shutil.which('ffmpeg'), reason='FFmpeg required')
+def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkeypatch):
+    piece = tmp_path / 'piece.mp4'
+    ffmpeg(
+        '-f', 'lavfi', '-i', 'color=c=green:s=160x240:d=1:r=30',
+        '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1',
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', piece,
+    )
+
+    def fake_raster(source, dest, operations):
+        shutil.copyfile(source, dest)
+
+    monkeypatch.setattr('backend.hypit_controls.invoke_raster', fake_raster)
+    from backend.hypit_controls import apply_picture
+    apply_picture(piece, tmp_path, 0)
+    streams = json.loads(run(
+        ['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'json', str(piece)],
+        30,
+    )[0])['streams']
+    assert {item['codec_type'] for item in streams} == {'video', 'audio'}

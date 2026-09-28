@@ -32,6 +32,7 @@ def audit_edit(edit, duration):
     if edit.music: global_operations.append('music')
     if edit.normalize: global_operations.append('normalize')
     if edit.voice_cleanup: global_operations.append('voice_cleanup')
+    if edit.picture_quality: global_operations.append('picture_quality')
     return {
         'clips': rows, 'global_operations': global_operations,
         'removed_seconds': round(removed, 3),

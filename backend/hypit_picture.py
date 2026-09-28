@@ -142,7 +142,7 @@ def _piece_vf(clip, width, height, length, room=None):
     return chain + fill, average
 
 
-def _picture_cut(source, work, clips, width, height):
+def _picture_cut(source, work, clips, width, height, picture_quality=False):
     """One h264 picture joined end to end.
 
     A crossfade would shorten the picture while the voice stays at the full
@@ -163,6 +163,9 @@ def _picture_cut(source, work, clips, width, height):
             '-vf', vf, '-t', f'{length:.3f}', '-c:v', 'libx264', '-preset', 'fast',
             '-crf', '18', '-pix_fmt', 'yuv420p', str(piece), timeout=180,
         )
+        if picture_quality:
+            from .hypit_controls import apply_picture
+            apply_picture(piece, work, index)
         pieces.append(piece)
         lengths.append(length)
     out = work / 'cut.mp4'
@@ -372,7 +375,7 @@ def composition(source, work, manual, width, height, language, style=None):
     piece at once and the capture never finishes.
     """
     clips = [clip for clip in manual['clips'] if clip.get('approved', True)]
-    total, ranges = _picture_cut(source, work, clips, width, height)
+    total, ranges = _picture_cut(source, work, clips, width, height, bool(manual.get('picture_quality')))
     layers = [_video(
         'picture', 'cut.mp4', 0, total, 0, 0.0, Fraction(1, 1), FPS, 1, 0, 0,
     )]
@@ -601,6 +604,9 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     assembled = Path(folder) / 'assembled.mp4'
     if metadata.get('has_audio'):
         audio = _host_audio(source, work, clips)
+        if manual.get('voice_cleanup'):
+            from .hypit_controls import clean_host
+            audio = clean_host(audio, work)
         ffmpeg('-i', visual, '-i', audio, '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', '-movflags', '+faststart', assembled, timeout=600)
     else:
         ffmpeg('-i', visual, '-c', 'copy', '-movflags', '+faststart', assembled, timeout=600)

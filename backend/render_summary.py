@@ -17,13 +17,14 @@ def summarize(edit, duration):
         removed.append([round(cursor,3), round(duration,3)])
     visual = any(set(row['operations']) - {'sound_effects'} for row in audit['clips'])
     # A small tail trim, normalization, or fake split is not a visible new edit.
-    near_original = not (visual or timeline['tracks']['captions'] or 'reorder' in audit['global_operations'] or audit['removed_seconds'] > max(2, duration * .02))
+    near_original = not (visual or timeline['tracks']['captions'] or 'reorder' in audit['global_operations'] or 'picture_quality' in audit['global_operations'] or audit['removed_seconds'] > max(2, duration * .02))
     return {
         'source_duration': duration, 'output_duration': timeline['duration'],
         'removed_ranges': removed, 'removed_seconds': audit['removed_seconds'],
         'global_operations': audit['global_operations'], 'near_original': near_original,
         'captions': len(timeline['tracks']['captions']), 'music': bool(edit.music),
         'normalize': edit.normalize, 'voice_cleanup': edit.voice_cleanup,
+        'picture_quality': edit.picture_quality,
         'slow_motion_scenes': [i+1 for i,c in enumerate(edit.clips) if 'motion' in audit['clips'][i]['operations'] and min(c.end-c.start,c.motion_seconds or c.end-c.start)>12],
         'clips': [shot | {'operations': row['operations']} for shot, row in zip(timeline['tracks']['video'], audit['clips'])],
     }

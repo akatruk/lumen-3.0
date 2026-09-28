@@ -145,6 +145,7 @@ class Edit(Strict):
     subtitles: bool=False
     normalize: bool=False
     voice_cleanup: bool=False
+    picture_quality: bool=False
     font_size: Literal['small','medium','large']='medium'
     position: Literal['bottom','top']='bottom'
     color: Literal['white','yellow']='white'

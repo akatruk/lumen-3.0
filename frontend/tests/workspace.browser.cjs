@@ -132,12 +132,14 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           .locator(".ws-tools")
           .getByRole("button", { name: "Звук", exact: true })
           .click();
+        await page.getByText("Убрать лишние звуки из основной речи").waitFor();
         await page.locator('.audio-voiceover > summary').click();
         await page.getByLabel("Язык озвучки").selectOption("en");
         await page
           .locator(".ws-tools")
           .getByRole("button", { name: "Эффекты", exact: true })
           .click();
+        await page.getByRole("checkbox", { name: /Повысить качество изображения/ }).check();
         const clip = page.locator(".manual-clip:visible");
         await clip.getByLabel("Включить в ролик", { exact: true }).check();
         await page
@@ -158,6 +160,8 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         assert.match(await page.locator('.render-summary').innerText(), /Движение камеры/);
         assert.equal(writes[0].body.edit.clips[0].zoom_end, 1.2);
         assert.equal(writes[0].body.edit.subtitles, false);
+        assert.equal(writes[0].body.edit.picture_quality, true);
+        assert.match(await page.locator('.render-summary').innerText(), /Качество изображения/);
         assert.equal(writes[0].path, `/api/studio/projects/${pid}/manual`);
         await page
           .getByRole("button", { name: "Создать видео с этими изменениями", exact: true })
