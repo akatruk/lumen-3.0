@@ -261,11 +261,11 @@ def test_measured_shots_keep_short_beats_fast_and_match_color():
     grade = {'brightness': 0.02, 'contrast': 1.05, 'saturation': 1.08, 'gamma': 1, 'rs': 0.01, 'gs': 0, 'bs': -0.01}
     measured = {'shots': [{'start': 0, 'end': 0.4, 'motion': {'en': 'fast punch in', 'zh': '快推'}, 'transition': {'en': 'cut', 'zh': '切'}}, {'start': 0.4, 'end': 2.4, 'motion': {'en': 'blur and glow with shadows', 'zh': '模糊'}, 'transition': {'en': 'fade', 'zh': '淡入'}}], 'flat': True, 'grade': grade, 'silences': [{'start': 30, 'end': 36}]}
     edit, report = build([shot()], 40, [], False, measured=measured)
-    assert edit['clips'][0]['speed'] == 1
+    assert edit['clips'][0]['speed'] == 1.35
     assert edit['clips'][1]['blur'] == 0 and edit['clips'][1]['glow'] is False and edit['clips'][1]['shadow'] is False
     assert edit['clips'][0]['grade']['brightness'] == 0.02
     assert edit['clips'][0]['enhance'] is False
-    assert 'speed' not in report['applied'] and 'grade' in report['applied'] and 'blur' not in report['applied']
+    assert 'speed' in report['applied'] and 'grade' in report['applied'] and 'blur' not in report['applied']
     assert abs(sum(c['end'] - c['start'] for c in edit['clips']) - 40) < 1
 
 def test_measured_lights_are_not_turned_on_by_words():

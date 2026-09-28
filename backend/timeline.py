@@ -110,15 +110,7 @@ def motion_filter(clip,width,height,length):
         base+=f"vignette=angle={min(1.35,angle):.3f}{gate},"
     if abs(_num(clip,'exposure',0))>0.02: base+=f"exposure={_num(clip,'exposure',0):.3f},"
     base+=_directional_light(clip)
-    if clip.get('sweep'):
-        base+=_light_sweep(length)
     return pre+base
-
-def _light_sweep(length):
-    """A soft highlight that travels across the frame and fades out. Not a static glow."""
-    span=max(0.2, float(length))
-    center=f'(0.16+0.68*T/{span:.3f})'
-    return f"geq=lum='lum(X,Y)+16*sin(3.1416*T/{span:.3f})*exp(-((X/W-{center})*(X/W-{center}))/0.02)*exp(-((Y/H-0.46)*(Y/H-0.46))/0.2)':cb='cb(X,Y)':cr='cr(X,Y)',"
 
 def _effect_gate(clip, length, opened):
     """Blur, glow, and vignette. A measured exit below the clip uses between. Otherwise gte, or the whole clip."""

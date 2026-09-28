@@ -9,7 +9,7 @@ export function TutorialVideos({
   lang: Lang;
   compact?: boolean;
 }) {
-  const [mode, setMode] = useState<"guide" | "walkthrough" | "style">(
+  const [mode, setMode] = useState<"guide" | "walkthrough" | "style" | "voice">(
     compact ? "guide" : "walkthrough",
   );
   const video = useRef<HTMLVideoElement>(null);
@@ -18,7 +18,10 @@ export function TutorialVideos({
   const full = mode !== "guide";
   const duration = (seconds: number) => `${Math.floor(Math.round(seconds) / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`;
   const info = content[lang][mode];
-  const asset = `/tutorial/lumen-${mode}-${contentLanguage(lang)}-v5`;
+  const asset =
+    mode === "voice"
+      ? `/tutorial/lumen-voice-${contentLanguage(lang)}-v6`
+      : `/tutorial/lumen-${mode}-${contentLanguage(lang)}-v5`;
   return (
     <section
       className={
@@ -53,6 +56,9 @@ export function TutorialVideos({
         </button>
         <button aria-pressed={mode === "style"} onClick={() => setMode("style")}>
           {t("Style match", "风格匹配")} · {duration(content[contentLanguage(lang)].style.seconds)}
+        </button>
+        <button aria-pressed={mode === "voice"} onClick={() => setMode("voice")}>
+          {t("Voice and download", "配音与下载")} · {duration(content[contentLanguage(lang)].voice.seconds)}
         </button>
       </div>
       <video

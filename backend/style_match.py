@@ -620,7 +620,7 @@ def _effects(shot, ref_len, flat, chroma=False, look_split=False, look_shake=Fal
         'cutout': keyed or room_cut,
         'subject': box if room_cut else None,
         'mask': bool((shot.get('picture') or {}).get('mask')),
-        'speed': 1.0,
+        'speed': 1.35 if ref_len < 0.55 else 1.0,
         'kinetic': isinstance(picture.get('title'), dict) or bool(_kinetic_fractions(picture)),
     }
 

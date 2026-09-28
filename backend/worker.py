@@ -106,11 +106,9 @@ def render_job(p,payload):
         manual=board_for_render(manual,(current or {}).get('context') if current else None)
         if ((current or {}).get('context') or {}).get('style_match'):
             from .style_match import animate_for_render, present_for_render
-            from .style_pictures import attach_shot_frames
             from .hypit_picture import engine_for
             progress(pid,'drawing_graphics',22)
             manual=animate_for_render(manual)
-            manual=attach_shot_frames(pid, manual)
             manual=present_for_render(manual)
             picture_engine=engine_for((current or {}).get('context'))
     result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))

@@ -18,8 +18,8 @@ from .db import connect, reserve, settle
 
 STILL_CAP = 2
 STILL_KINDS = {'photo', 'illustration', 'image', 'still', 'cutaway'}
-_ART_PROMPT = 'Abstract editorial illustration, flat shapes, no text, no letters, no logos, no watermark, no people. Subject: '
 _SHOT_PROMPT = 'Full-frame cinematic photograph, dynamic light, a changed real scene, no text, no letters, no logos, no watermark, no border, no picture frame. Subject: '
+_ART_PROMPT = 'Abstract editorial illustration, flat shapes, no text, no letters, no logos, no watermark, no people. Subject: '
 
 def subject(text):
     """Owned words only. Letters outside the owned title or keyword are dropped."""

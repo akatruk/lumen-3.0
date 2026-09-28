@@ -1,11 +1,11 @@
 {
   "en": {
-    "frames": 2599,
+    "frames": 3668,
     "scenes": [
       {
         "id": "upload",
         "fromFrame": 0,
-        "frames": 395,
+        "frames": 570,
         "audio": "style-guide/en-upload.wav",
         "title": "Two files. One switch.",
         "lines": [
@@ -16,8 +16,8 @@
       },
       {
         "id": "automatic",
-        "fromFrame": 395,
-        "frames": 414,
+        "fromFrame": 570,
+        "frames": 536,
         "audio": "style-guide/en-automatic.wav",
         "title": "The cut is built for you.",
         "lines": [
@@ -28,8 +28,8 @@
       },
       {
         "id": "picture",
-        "fromFrame": 809,
-        "frames": 677,
+        "fromFrame": 1106,
+        "frames": 900,
         "audio": "style-guide/en-picture.wav",
         "title": "Pacing, pictures, and credits.",
         "lines": [
@@ -40,8 +40,8 @@
       },
       {
         "id": "buttons",
-        "fromFrame": 1486,
-        "frames": 499,
+        "fromFrame": 2006,
+        "frames": 749,
         "audio": "style-guide/en-buttons.wav",
         "title": "Three choices after the render.",
         "lines": [
@@ -52,8 +52,8 @@
       },
       {
         "id": "limits",
-        "fromFrame": 1985,
-        "frames": 614,
+        "fromFrame": 2755,
+        "frames": 913,
         "audio": "style-guide/en-limits.wav",
         "title": "What the report will ask you.",
         "lines": [
@@ -67,162 +67,162 @@
       {
         "text": "Open Video Studio.",
         "startMs": 200,
-        "endMs": 1305
+        "endMs": 1830
       },
       {
         "text": "Turn on Match the reference pacing.",
-        "startMs": 1305,
-        "endMs": 3452
+        "startMs": 1830,
+        "endMs": 4999
       },
       {
         "text": "Upload your presenter video, then upload one reference video.",
-        "startMs": 3452,
-        "endMs": 7196
+        "startMs": 4999,
+        "endMs": 10522
       },
       {
         "text": "Name the project, add your script, and confirm",
-        "startMs": 7196,
-        "endMs": 10019
+        "startMs": 10522,
+        "endMs": 14687
       },
       {
         "text": "you have the rights to edit your footage.",
-        "startMs": 10019,
-        "endMs": 12535
+        "startMs": 14687,
+        "endMs": 18399
       },
       {
         "text": "After analysis, Lumen measures the reference",
-        "startMs": 13367,
-        "endMs": 16103
+        "startMs": 19200,
+        "endMs": 22789
       },
       {
         "text": "and builds a timeline from your footage.",
-        "startMs": 16103,
-        "endMs": 18591
+        "startMs": 22789,
+        "endMs": 26052
       },
       {
         "text": "You do not place cuts, zooms, or graphics by hand.",
-        "startMs": 18591,
-        "endMs": 21701
+        "startMs": 26052,
+        "endMs": 30130
       },
       {
         "text": "The reference is measured only.",
-        "startMs": 21701,
-        "endMs": 23630
+        "startMs": 30130,
+        "endMs": 32659
       },
       {
         "text": "Its pictures do not enter the finished file.",
-        "startMs": 23630,
-        "endMs": 26366
+        "startMs": 32659,
+        "endMs": 36247
       },
       {
         "text": "The cut follows the reference rhythm: shot length, zooms,",
-        "startMs": 27167,
-        "endMs": 30945
+        "startMs": 37067,
+        "endMs": 42137
       },
       {
         "text": "color, captions, and charts from numbers in your script.",
-        "startMs": 30945,
-        "endMs": 34657
+        "startMs": 42137,
+        "endMs": 47119
       },
       {
         "text": "A screen-like shot holds your frame.",
-        "startMs": 34657,
-        "endMs": 37044
+        "startMs": 47119,
+        "endMs": 50322
       },
       {
         "text": "An illustration uses your words.",
-        "startMs": 37044,
-        "endMs": 39165
+        "startMs": 50322,
+        "endMs": 53169
       },
       {
         "text": "If the reference asks for B-roll, one Commons clip may be",
-        "startMs": 39165,
-        "endMs": 42944
+        "startMs": 53169,
+        "endMs": 58240
       },
       {
         "text": "added, and only with a CC BY, CC0, or public-domain license.",
-        "startMs": 42944,
-        "endMs": 46921
+        "startMs": 58240,
+        "endMs": 63577
       },
       {
         "text": "The credit stays on the asset.",
-        "startMs": 46921,
-        "endMs": 48910
+        "startMs": 63577,
+        "endMs": 66246
       },
       {
         "text": "Watch the result.",
-        "startMs": 49733,
-        "endMs": 50763
+        "startMs": 67067,
+        "endMs": 68639
       },
       {
         "text": "Choose Approve this cut when it is right.",
-        "startMs": 50763,
-        "endMs": 53248
+        "startMs": 68639,
+        "endMs": 72431
       },
       {
         "text": "Choose Regenerate video to rebuild the whole cut.",
-        "startMs": 53248,
-        "endMs": 56217
+        "startMs": 72431,
+        "endMs": 76963
       },
       {
         "text": "Choose a section, then Regenerate selected section, to rebuild only that part.",
-        "startMs": 56217,
-        "endMs": 60944
+        "startMs": 76963,
+        "endMs": 84177
       },
       {
         "text": "The manual editor stays on the page, so",
-        "startMs": 60944,
-        "endMs": 63307
+        "startMs": 84177,
+        "endMs": 87784
       },
       {
         "text": "you can still change a shot yourself.",
-        "startMs": 63307,
-        "endMs": 65549
+        "startMs": 87784,
+        "endMs": 91206
       },
       {
         "text": "If a chart needs a number, put that number in your script.",
-        "startMs": 66367,
-        "endMs": 69864
+        "startMs": 92033,
+        "endMs": 97302
       },
       {
         "text": "Nothing is invented.",
-        "startMs": 69864,
-        "endMs": 71071
+        "startMs": 97302,
+        "endMs": 99118
       },
       {
         "text": "If no Commons clip matches your words under those licenses,",
-        "startMs": 71071,
-        "endMs": 74629
+        "startMs": 99118,
+        "endMs": 104477
       },
       {
         "text": "the report says so and the video still renders.",
-        "startMs": 74629,
-        "endMs": 77463
+        "startMs": 104477,
+        "endMs": 108747
       },
       {
         "text": "Face tracking and a complex room background are not copied.",
-        "startMs": 77463,
-        "endMs": 81021
+        "startMs": 108747,
+        "endMs": 114106
       },
       {
         "text": "Download the file, reload, and download again:",
-        "startMs": 81021,
-        "endMs": 83795
+        "startMs": 114106,
+        "endMs": 118284
       },
       {
         "text": "both files are the same finished cut.",
-        "startMs": 83795,
-        "endMs": 86027
+        "startMs": 118284,
+        "endMs": 121645
       }
     ]
   },
   "zh": {
-    "frames": 3222,
+    "frames": 2670,
     "scenes": [
       {
         "id": "upload",
         "fromFrame": 0,
-        "frames": 470,
+        "frames": 397,
         "audio": "style-guide/zh-upload.wav",
         "title": "两个文件，一个开关",
         "lines": [
@@ -233,8 +233,8 @@
       },
       {
         "id": "automatic",
-        "fromFrame": 470,
-        "frames": 500,
+        "fromFrame": 397,
+        "frames": 413,
         "audio": "style-guide/zh-automatic.wav",
         "title": "成片会自动生成",
         "lines": [
@@ -245,8 +245,8 @@
       },
       {
         "id": "picture",
-        "fromFrame": 970,
-        "frames": 853,
+        "fromFrame": 810,
+        "frames": 676,
         "audio": "style-guide/zh-picture.wav",
         "title": "节奏、画面与署名",
         "lines": [
@@ -257,8 +257,8 @@
       },
       {
         "id": "buttons",
-        "fromFrame": 1823,
-        "frames": 639,
+        "fromFrame": 1486,
+        "frames": 539,
         "audio": "style-guide/zh-buttons.wav",
         "title": "制作完成后的三个选择",
         "lines": [
@@ -269,8 +269,8 @@
       },
       {
         "id": "limits",
-        "fromFrame": 2462,
-        "frames": 760,
+        "fromFrame": 2025,
+        "frames": 645,
         "audio": "style-guide/zh-limits.wav",
         "title": "报告会向你询问什么",
         "lines": [
@@ -284,142 +284,142 @@
       {
         "text": "打开视频工作室。",
         "startMs": 200,
-        "endMs": 2058
+        "endMs": 1750
       },
       {
         "text": "打开“按参考节奏制作”。",
-        "startMs": 2058,
-        "endMs": 4845
+        "startMs": 1750,
+        "endMs": 4076
       },
       {
         "text": "先上传你的主讲视频，再上传一个参考视频。",
-        "startMs": 4845,
-        "endMs": 9491
+        "startMs": 4076,
+        "endMs": 7952
       },
       {
         "text": "填写项目名称和脚本，并确认你有权剪辑自己的素材。",
-        "startMs": 9491,
-        "endMs": 15065
+        "startMs": 7952,
+        "endMs": 12603
       },
       {
         "text": "分析完成后，Lumen 测量参考",
-        "startMs": 15867,
-        "endMs": 19540
+        "startMs": 13433,
+        "endMs": 16435
       },
       {
         "text": "视频，并用你的素材生成时间线。",
-        "startMs": 19540,
-        "endMs": 22983
+        "startMs": 16435,
+        "endMs": 19249
       },
       {
         "text": "你不需要手动放置剪辑、变焦或图形。",
-        "startMs": 22983,
-        "endMs": 26885
+        "startMs": 19249,
+        "endMs": 22437
       },
       {
         "text": "参考视频只用于测量，它的画面不会进入成片。",
-        "startMs": 26885,
-        "endMs": 31706
+        "startMs": 22437,
+        "endMs": 26377
       },
       {
         "text": "成片跟随参考的节奏：镜头长度、变焦、",
-        "startMs": 32533,
-        "endMs": 36678
+        "startMs": 27200,
+        "endMs": 30459
       },
       {
         "text": "色彩、字幕，以及来自你脚本数字的图表。",
-        "startMs": 36678,
-        "endMs": 41052
+        "startMs": 30459,
+        "endMs": 33899
       },
       {
         "text": "像屏幕的镜头会放进你的画面。",
-        "startMs": 41052,
-        "endMs": 44275
+        "startMs": 33899,
+        "endMs": 36434
       },
       {
         "text": "插图使用你的词语。",
-        "startMs": 44275,
-        "endMs": 46347
+        "startMs": 36434,
+        "endMs": 38064
       },
       {
         "text": "如果参考需要补充镜头，可能会加入一",
-        "startMs": 46347,
-        "endMs": 50261
+        "startMs": 38064,
+        "endMs": 41142
       },
       {
         "text": "条 Commons 视频，且只能是",
-        "startMs": 50261,
-        "endMs": 54175
+        "startMs": 41142,
+        "endMs": 44220
       },
       {
         "text": " CC BY、CC0 或公有领域。",
-        "startMs": 54175,
-        "endMs": 58089
+        "startMs": 44220,
+        "endMs": 47298
       },
       {
         "text": "署名保留在素材上。",
-        "startMs": 58089,
-        "endMs": 60162
+        "startMs": 47298,
+        "endMs": 48927
       },
       {
         "text": "观看结果。",
-        "startMs": 60967,
-        "endMs": 62118
+        "startMs": 49733,
+        "endMs": 50697
       },
       {
         "text": "合适就选择“批准这个成片”。",
-        "startMs": 62118,
-        "endMs": 65341
+        "startMs": 50697,
+        "endMs": 53396
       },
       {
         "text": "选择“重新生成视频”会重做整条成片。",
-        "startMs": 65341,
-        "endMs": 69485
+        "startMs": 53396,
+        "endMs": 56865
       },
       {
         "text": "先选一个片段，再选择“重新生",
-        "startMs": 69485,
-        "endMs": 72708
+        "startMs": 56865,
+        "endMs": 59564
       },
       {
         "text": "成所选片段”，就只重做这一段。",
-        "startMs": 72708,
-        "endMs": 76162
+        "startMs": 59564,
+        "endMs": 62455
       },
       {
         "text": "手动编辑器仍留在页面上，你也可以自己修改镜头。",
-        "startMs": 76162,
-        "endMs": 81457
+        "startMs": 62455,
+        "endMs": 66889
       },
       {
         "text": "如果图表需要数字，请把数字写进脚本。",
-        "startMs": 82267,
-        "endMs": 86280
+        "startMs": 67700,
+        "endMs": 71085
       },
       {
         "text": "系统不会编造。",
-        "startMs": 86280,
-        "endMs": 87841
+        "startMs": 71085,
+        "endMs": 72401
       },
       {
         "text": "如果没有符合这些许可、又匹配你词语的 Com",
-        "startMs": 87841,
-        "endMs": 92746
+        "startMs": 72401,
+        "endMs": 76537
       },
       {
         "text": "mons 片段，报告会说明，视频仍会完成制作。",
-        "startMs": 92746,
-        "endMs": 97874
+        "startMs": 76537,
+        "endMs": 80862
       },
       {
         "text": "人脸跟踪和复杂的房间背景不会被复制。",
-        "startMs": 97874,
-        "endMs": 101888
+        "startMs": 80862,
+        "endMs": 84247
       },
       {
         "text": "下载文件，刷新后再下载：两次都是同一条成片。",
-        "startMs": 101888,
-        "endMs": 106793
+        "startMs": 84247,
+        "endMs": 88383
       }
     ]
   }
