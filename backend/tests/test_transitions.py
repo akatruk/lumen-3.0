@@ -52,3 +52,34 @@ def test_measured_blend_runs_past_the_default_side(tmp_path):
     apply(short_before, short_after, 'crossfade', 4)
     apply(long_before, long_after, 'crossfade', 4, 1.2)
     assert level(long_before) > level(short_before) + 10
+
+
+def test_designed_join_eases_without_a_hard_edge(tmp_path):
+    before = tmp_path / 'before.mp4'
+    after = tmp_path / 'after.mp4'
+    for path, color in ((before, 'black'), (after, '0xE8E4DC')):
+        media.ffmpeg('-f', 'lavfi', '-i', f'color={color}:s=160x240:d=2:r=30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path)
+    calls = []
+    real = media.ffmpeg
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return real(*args, **kwargs)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(media, 'ffmpeg', spy)
+    try:
+        apply(before, after, 'wipe-down', 2, 0.48)
+    finally:
+        monkeypatch.undo()
+    rendered = ' '.join(str(part) for args in calls for part in args)
+    assert 'smoothdown' in rendered and 'diagbl' not in rendered
+    assert 'zoompan' not in rendered and 'geq=lum=' not in rendered
+
+    def level(path, stamp):
+        raw = subprocess.check_output(['ffmpeg', '-v', 'error', '-ss', str(stamp), '-i', str(path), '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'])
+        return sum(raw) / len(raw)
+
+    # The blend is visible on the incoming head and gone before the shot settles.
+    assert 40 < level(after, 0.08) < 200
+    assert level(after, 0.7) > 180

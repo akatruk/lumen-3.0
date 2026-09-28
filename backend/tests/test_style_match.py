@@ -2108,8 +2108,11 @@ def test_spoken_numbers_become_lower_third_charts(tmp_path):
     assert shareholders['text'] == '' and shareholders.get('card') is None
     assert cap['card']['kind'] == 'bar_chart' and cap['card']['primary']['zh'] == '49%'
     assert [item['value'] for item in cap['card']['items']] == [49, 100]
-    assert cap['card_x'] >= 0.7 and cap['card_w'] <= 0.4 and cap['card_y'] - cap['card_h'] / 2 >= 0.74
+    assert cap['card_x'] >= 0.7 and cap['card_w'] <= 0.4 and cap['card_h'] >= 0.18 and cap['card_y'] - cap['card_h'] / 2 >= 0.74
     assert cap['progress'] == 0 and shown['subtitles'] is True
+    assert cap['transition'] == 'crossfade' and 0.35 <= cap['transition_seconds'] <= 0.6
+    assert shareholders.get('transition') in (None, 'cut')
+    assert cap.get('sweep') is not True and cap.get('zoom_end') is None and shareholders.get('zoom_end') is None
     assert '口播' not in json.dumps(shown)
     people = present_for_render({'clips': [{'id': 'c', 'start': 0, 'end': 4, 'shot_type': 'presenter', 'text': 'count'}], 'captions': [{'start': 0, 'end': 4, 'original': '一共有三人', 'en': '', 'zh': ''}], 'subtitles': True})
     assert people['clips'][0].get('card') is None
@@ -2118,8 +2121,16 @@ def test_spoken_numbers_become_lower_third_charts(tmp_path):
     card_file = tmp_path / 'proportion.ass'
     write_card(card_file, cap['card'], 'zh', 1080, 1920, (cap['card_x'], cap['card_y']), (cap['card_w'], cap['card_h']))
     script = card_file.read_text()
-    assert '49%' in script and '口播' not in script and '股东' not in script
+    assert '49%' in script and '外资比例' in script and '口播' not in script and '股东' not in script
+    assert '&HA8' not in script and 'm 54 ' not in script
     assert caption_lift(shown['clips']) < 0.30
+    kept = present_for_render({'clips': [{'id': 'a', 'start': 0, 'end': 4, 'zoom': 1.1, 'zoom_end': 1.4}, {'id': 'b', 'start': 4, 'end': 8, 'transition': 'wipe-down', 'zoom': 1.02, 'zoom_end': 1.18, 'sweep': True}], 'captions': [], 'subtitles': False})
+    assert kept['clips'][1]['transition'] == 'wipe-down' and 0.35 <= kept['clips'][1]['transition_seconds'] <= 0.6
+    assert kept['clips'][1]['zoom'] == 1.02 and kept['clips'][1]['zoom_end'] == 1.18 and kept['clips'][1].get('sweep') is not True
+    short = present_for_render({'clips': [{'id': 'a', 'start': 0, 'end': 0.9}, {'id': 'b', 'start': 0.9, 'end': 1.7, 'transition': 'cut'}], 'captions': [], 'subtitles': False})
+    assert short['clips'][1]['transition'] == 'crossfade' and short['clips'][1]['transition_seconds'] < 0.35
+    held = present_for_render({'clips': [{'id': 'a', 'start': 0, 'end': 4}, {'id': 'b', 'start': 4, 'end': 8, 'transition': 'wipe-up', 'transition_seconds': 1.2}], 'captions': [], 'subtitles': False})
+    assert held['clips'][1]['transition'] == 'wipe-up' and held['clips'][1]['transition_seconds'] == 1.2
 
 
 def test_reference_music_note_mixes_a_licensed_bed(client, tmp_path, monkeypatch):
