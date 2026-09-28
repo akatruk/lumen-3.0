@@ -64,9 +64,13 @@ def render_job(p,payload):
     with connect() as db:delivery=render_audio.snapshot(db,p)
     if not manual and delivery:
         from .manual import Edit,Clip
+        from .studio import state as studio_state
+        from .voice_cleanup import default_enabled
+        style=bool(((studio_state(pid) or {}).get('context') or {}).get('style_match'))
         manual=Edit(clips=[Clip(start=a,end=b) for a,b in media.build_timeline(p['metadata']['duration'],selected)],
             captions=analysis.transcript,subtitles=any(r.action=='captions' for r in selected),
-            normalize=any(r.action=='normalize_audio' for r in selected),music=delivery['music']).model_dump()
+            normalize=any(r.action=='normalize_audio' for r in selected),music=delivery['music'],
+            voice_cleanup=default_enabled(style, bool(delivery.get('voice')))).model_dump()
         payload=payload|{'quality_review':True} # Automatic renders already run QA.
     timeline=[(c['start'],c['end']) for c in manual['clips'] if c.get('approved',True)] if manual else media.build_timeline(p['metadata']['duration'],selected)
     if delivery and delivery['voice']:render_audio.map_ranges(delivery['voice']['timeline'],timeline)

@@ -23,7 +23,7 @@ def summarize(edit, duration):
         'removed_ranges': removed, 'removed_seconds': audit['removed_seconds'],
         'global_operations': audit['global_operations'], 'near_original': near_original,
         'captions': len(timeline['tracks']['captions']), 'music': bool(edit.music),
-        'normalize': edit.normalize,
+        'normalize': edit.normalize, 'voice_cleanup': edit.voice_cleanup,
         'slow_motion_scenes': [i+1 for i,c in enumerate(edit.clips) if 'motion' in audit['clips'][i]['operations'] and min(c.end-c.start,c.motion_seconds or c.end-c.start)>12],
         'clips': [shot | {'operations': row['operations']} for shot, row in zip(timeline['tracks']['video'], audit['clips'])],
     }

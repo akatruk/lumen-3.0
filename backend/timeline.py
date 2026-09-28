@@ -29,7 +29,7 @@ def compile_timeline(edit):
             for c in edit.captions:
                 a=max(c.start,shot['source_start']);b=min(c.end,shot['source_end'])
                 if b>a:captions.append({'start':round(shot['start']+a-shot['source_start'],6),'end':round(shot['start']+b-shot['source_start'],6),'en':c.en or c.original,'zh':c.zh or c.original,'emphasis_en':c.emphasis_en,'emphasis_zh':c.emphasis_zh})
-    return {'version':2,'duration':round(cursor,6),'tracks':{'music':[edit.music.model_dump()|{'start':0,'end':round(cursor,6),'loop':True}] if edit.music else [],'sound_effects':effects,'video':shots,'titles':titles,'inserts':inserts,'cutaways':cutaways,'captions':sorted(captions,key=lambda c:c['start']),'audio':[{'start':0,'end':round(cursor,6),'source':'original','normalize':edit.normalize}] if shots else []}}
+    return {'version':2,'duration':round(cursor,6),'tracks':{'music':[edit.music.model_dump()|{'start':0,'end':round(cursor,6),'loop':True}] if edit.music else [],'sound_effects':effects,'video':shots,'titles':titles,'inserts':inserts,'cutaways':cutaways,'captions':sorted(captions,key=lambda c:c['start']),'audio':[{'start':0,'end':round(cursor,6),'source':'original','normalize':edit.normalize,'voice_cleanup':edit.voice_cleanup}] if shots else []}}
 
 def _num(clip, key, default):
     try: return float(clip.get(key) if clip.get(key) is not None else default)

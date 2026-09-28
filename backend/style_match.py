@@ -1916,7 +1916,7 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
     saw_highlight = _emphasize_owned_hits(captions, timed, cuts)
     subtitles = bool(captions) and (emphasize or saw_highlight)
     emphasized = any(c.emphasis_en or c.emphasis_zh for c in captions) if subtitles else False
-    edit = Edit(clips=clips, captions=captions if subtitles else [], subtitles=subtitles, normalize=bool(has_audio), font_size='large' if emphasized else 'medium', color='yellow' if emphasized else 'white')
+    edit = Edit(clips=clips, captions=captions if subtitles else [], subtitles=subtitles, normalize=bool(has_audio), voice_cleanup=True, font_size='large' if emphasized else 'medium', color='yellow' if emphasized else 'white')
     check(edit, float(duration))
     dumped = edit.model_dump()
     trimmed = abs(sum(c['end'] - c['start'] for c in dumped['clips']) - float(duration)) >= 0.5

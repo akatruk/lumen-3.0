@@ -144,6 +144,7 @@ class Edit(Strict):
     captions: list[Caption]=Field(default_factory=list,max_length=160)
     subtitles: bool=False
     normalize: bool=False
+    voice_cleanup: bool=False
     font_size: Literal['small','medium','large']='medium'
     position: Literal['bottom','top']='bottom'
     color: Literal['white','yellow']='white'
@@ -202,8 +203,10 @@ def get(pid:str,user=Depends(current_user)):
         s=state(pid,db);edit=read(pid,db);saved=edit is not None
         from .final_output import current
         selected_audio=current(db,pid,(p.get('result') or {}).get('render_id',''))
+        from .voice_cleanup import default_enabled, has_voiceover
+        voice_cleanup=default_enabled(bool((s.get('context') or {}).get('style_match')), has_voiceover(db, p)) if edit is None else False
     if edit is None:
-        edit=Edit(clips=[Clip(start=0,end=p['metadata']['duration'])],captions=(s['plan'] or {}).get('transcript',[])).model_dump()
+        edit=Edit(clips=[Clip(start=0,end=p['metadata']['duration'])],captions=(s['plan'] or {}).get('transcript',[]),voice_cleanup=voice_cleanup).model_dump()
     from .timeline import compile_timeline
     from .render_state import delivery_state
     validated=Edit.model_validate(edit)
@@ -331,5 +334,7 @@ def from_plan(pid:str,body:Render,user=Depends(current_user)):
         approved={d['id']:d for d in s['decisions'] if d['approved']}
         recs=[Recommendation.model_validate(r|{'start':approved[r['id']]['start'],'end':approved[r['id']]['end']}) for r in s['plan']['recommendations'] if r['id'] in approved]
         timeline=build_timeline(p['metadata']['duration'],recs)
-    edit=Edit(clips=[Clip(start=a,end=b) for a,b in timeline],captions=s['plan']['transcript'],subtitles=any(r.action=='captions' for r in recs),normalize=any(r.action=='normalize_audio' for r in recs))
+        from .voice_cleanup import default_enabled, has_voiceover
+        voice_cleanup=default_enabled(bool((s.get('context') or {}).get('style_match')), has_voiceover(db, p))
+    edit=Edit(clips=[Clip(start=a,end=b) for a,b in timeline],captions=s['plan']['transcript'],subtitles=any(r.action=='captions' for r in recs),normalize=any(r.action=='normalize_audio' for r in recs),voice_cleanup=voice_cleanup)
     return {'revision':s['revision'],'edit':edit.model_dump()}

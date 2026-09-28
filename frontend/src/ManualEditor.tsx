@@ -98,6 +98,7 @@ export type Edit = {
   captions: Caption[];
   subtitles: boolean;
   normalize: boolean;
+  voice_cleanup?: boolean;
   font_size: "small" | "medium" | "large";
   position: "top" | "bottom";
   color: "white" | "yellow";
@@ -368,6 +369,15 @@ export function ManualEditor({
       <MusicPlan onUploadMusic={()=>{workspace?.setTask('materials');requestAnimationFrame(()=>mediaLibrary.current?.openMusicUpload())}} onUse={music=>change({music},false)} onAssetsChanged={loadAssets} currentMusic={edit.music} pid={pid} revision={revision} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} suggestDisabled={blocked||dirty||!!edit.music?.locked} onApplied={async nextRevision=>{sessionStorage.removeItem(draftKey);await load();await onSaved();await finalMusic.current?.apply(nextRevision)}}/>
       <MusicEditor delivery={<FinalMusic ref={finalMusic} pid={pid} lang={lang} music={edit.music||null} disabled={blocked||invalid} save={()=>act(false)}/>} pid={pid} onAnalyzed={loadAssets} firstCut={edit.clips.filter(c=>c.approved!==false).length>1?(()=>{const c=edit.clips.find(c=>c.approved!==false)!;return c.end-c.start})():null} value={edit.music||null} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked} onChange={music=>change({music},false)}/>
       {edit.music&&<BeatPreview pid={pid} revision={revision} lang={lang} disabled={blocked||dirty} onPreview={value=>{setEdit(value);setDirty(true)}}/>}
+      <div className="scene-choices">
+        <label className="scene-choice">
+          <input type="checkbox" checked={!!edit.voice_cleanup} disabled={blocked} onChange={e=>change({voice_cleanup:e.target.checked})} />
+          <span>
+            <strong>{w('Очистить голос ведущего',"Clean the presenter's voice",'清理主持人声音')}</strong>
+            <small>{w('Убирает шум, шипение, гул помещения и посторонние звуки из речи. Музыка добавляется позже и остаётся.','Reduces noise, hiss, room rumble, and unwanted sounds in the speech. Music is mixed in afterwards and stays.','减弱语音中的噪声、嘶声、房间低频杂音和多余声音。音乐随后混入并保留。')}</small>
+          </span>
+        </label>
+      </div>
       <details className="audio-voiceover"><summary>{w('Озвучка и язык','Voiceover and language','配音与语言')}</summary>{voiceover}</details>
       <details className="audio-library"><summary>{w('Библиотека музыки','Music library','音乐库')}</summary><SoundtrackLibrary pid={pid} lang={lang} full={assets.length>=20} onChanged={loadAssets}/></details>
       </div>

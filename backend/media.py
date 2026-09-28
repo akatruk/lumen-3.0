@@ -794,6 +794,8 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
                '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
         input_path=overlay
+    from .voice_cleanup import prepare_track
+    input_path=prepare_track(input_path, folder, manual, metadata.get('has_audio'))
     original_audio_input=input_path
     if voice_audio:
         from .render_audio import replace_picture_audio
