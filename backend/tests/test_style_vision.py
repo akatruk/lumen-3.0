@@ -1100,3 +1100,24 @@ def test_each_reference_shot_reports_what_it_is_reading(monkeypatch):
     assert ('reference_shots', 'motion', 1, 2) in calls
     assert ('reference_shots', 'type', 2, 2) in calls
     assert calls[-1][0:2] == ('reference_shots', 'places')
+
+
+def test_a_reference_card_is_read_apart_from_the_presenter(tmp_path):
+    from backend.style_vision import frame_style, read_style
+    stage = tmp_path / 'stage.mp4'
+    host = tmp_path / 'host.mp4'
+    circle = "geq=r='if(lt(pow(X-292\\,2)+pow(Y-160\\,2)\\,2401)\\,230\\,r(X\\,Y))':g='if(lt(pow(X-292\\,2)+pow(Y-160\\,2)\\,2401)\\,190\\,g(X\\,Y))':b='if(lt(pow(X-292\\,2)+pow(Y-160\\,2)\\,2401)\\,170\\,b(X\\,Y))'"
+    _video(
+        stage, '-f', 'lavfi', '-i', 'color=c=0x070b12:s=384x832:d=0.4:r=8',
+        '-vf', f'drawbox=x=48:y=220:w=288:h=420:color=0x1a4f8c@1:t=fill,format=rgb24,{circle}',
+    )
+    _video(host, '-f', 'lavfi', '-i', 'color=c=0xE8D5C4:s=384x832:d=0.4:r=8')
+    read = frame_style(stage, 0.1, 384, 832)
+    assert read['kind'] == 'stage'
+    assert read['avatar']['x'] > 0.6 and read['avatar']['y'] < 0.35
+    assert read['card']['w'] > 0.5
+    assert int(read['fill'][4:], 16) > int(read['fill'][:2], 16)
+    assert frame_style(host, 0.1, 384, 832)['kind'] == 'host'
+    recipe = read_style(stage)
+    assert recipe['stage']['kind'] == 'stage' and recipe['stage']['avatar']['d'] > 0.1
+

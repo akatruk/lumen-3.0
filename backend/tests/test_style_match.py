@@ -1515,7 +1515,7 @@ def test_owned_color_and_short_name_stay_on_existing_graphics(monkeypatch):
     spoken = [{'start': 0, 'end': 4, 'original': 'Visa days', 'en': 'Visa days', 'zh': '签证'}]
     layout = {'split': False, 'bar': False, 'lower': True, 'shake': False}
     named, named_report = build([shot(**quiet)], 40, spoken, False, title='Harbor guide', measured={'layout': layout})
-    assert named['clips'][0]['text'].startswith('Harbor ')
+    assert 'Harbor' not in named['clips'][0]['text']
     assert named['clips'][0]['ink'] == ''
     assert 'owned_brand' not in {gap['id'] for gap in named_report['gaps']}
     bare, _bare_report = build([shot(**quiet)], 40, [], False, title='Harbor guide')
@@ -1523,7 +1523,7 @@ def test_owned_color_and_short_name_stay_on_existing_graphics(monkeypatch):
     monkeypatch.setattr('backend.style_vision.owned_ink', lambda path: '')
     gray, gray_report = build([shot(**quiet)], 40, spoken, False, title='Harbor guide', source='owned.mp4', measured={'layout': layout})
     assert gray['clips'][0]['ink'] == ''
-    assert gray['clips'][0]['text'].startswith('Harbor ')
+    assert 'Harbor' not in gray['clips'][0]['text']
     assert any(gap['id'] == 'owned_brand' and gap['essential'] is False for gap in gray_report['gaps'])
     monkeypatch.setattr('backend.style_vision.owned_ink', lambda path: '224466')
     painted, painted_report = build([shot(**quiet)], 40, spoken, False, title='Harbor guide', source='owned.mp4', measured={'layout': layout})
@@ -2110,7 +2110,7 @@ def test_spoken_numbers_become_lower_third_charts(tmp_path):
     assert [item['value'] for item in cap['card']['items']] == [49, 100]
     assert cap['card_x'] >= 0.7 and cap['card_w'] <= 0.4 and cap['card_h'] >= 0.18 and cap['card_y'] - cap['card_h'] / 2 >= 0.74
     assert cap['progress'] == 0 and shown['subtitles'] is True
-    assert cap['transition'] == 'crossfade' and 0.35 <= cap['transition_seconds'] <= 0.6
+    assert cap.get('transition') in (None, 'cut') and not cap.get('transition_seconds')
     assert shareholders.get('transition') in (None, 'cut')
     assert cap.get('sweep') is not True and cap.get('zoom_end') is None and shareholders.get('zoom_end') is None
     assert '口播' not in json.dumps(shown)
@@ -2125,10 +2125,10 @@ def test_spoken_numbers_become_lower_third_charts(tmp_path):
     assert '&HA8' not in script and 'm 54 ' not in script
     assert caption_lift(shown['clips']) < 0.30
     kept = present_for_render({'clips': [{'id': 'a', 'start': 0, 'end': 4, 'zoom': 1.1, 'zoom_end': 1.4}, {'id': 'b', 'start': 4, 'end': 8, 'transition': 'wipe-down', 'zoom': 1.02, 'zoom_end': 1.18, 'sweep': True}], 'captions': [], 'subtitles': False})
-    assert kept['clips'][1]['transition'] == 'wipe-down' and 0.35 <= kept['clips'][1]['transition_seconds'] <= 0.6
+    assert kept['clips'][1]['transition'] == 'wipe-down' and not kept['clips'][1].get('transition_seconds')
     assert kept['clips'][1]['zoom'] == 1.02 and kept['clips'][1]['zoom_end'] == 1.18 and kept['clips'][1].get('sweep') is not True
     short = present_for_render({'clips': [{'id': 'a', 'start': 0, 'end': 0.9}, {'id': 'b', 'start': 0.9, 'end': 1.7, 'transition': 'cut'}], 'captions': [], 'subtitles': False})
-    assert short['clips'][1]['transition'] == 'crossfade' and short['clips'][1]['transition_seconds'] < 0.35
+    assert short['clips'][1]['transition'] == 'cut' and not short['clips'][1].get('transition_seconds')
     held = present_for_render({'clips': [{'id': 'a', 'start': 0, 'end': 4}, {'id': 'b', 'start': 4, 'end': 8, 'transition': 'wipe-up', 'transition_seconds': 1.2}], 'captions': [], 'subtitles': False})
     assert held['clips'][1]['transition'] == 'wipe-up' and held['clips'][1]['transition_seconds'] == 1.2
 

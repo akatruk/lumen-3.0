@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from backend.hypit_picture import engine_for
-from backend.media import ffmpeg, probe, render
+from backend.media import ffmpeg, probe, render, run
 from backend.schemas import Analysis
 from backend.worker import render_job
 
@@ -64,9 +64,22 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     edit = {
         'clips': [
             {'start': 0, 'end': 1, 'text': '口播', 'card': card, 'transition': 'wipe-down'},
-            {'start': 1, 'end': 2, 'transition': 'diagbl'},
+            {'start': 1, 'end': 2, 'transition': 'diagbl', 'zoom': 1, 'zoom_end': 1.4, 'y': 0.4,
+             'grade': {'contrast': 1.08, 'gamma': 0.95, 'bs': 0.04}, 'shadow': True, 'shade': 0.5, 'card': {
+                'kind': 'bar_chart', 'start': 0.1, 'end': 0.9, 'animation': 'none',
+                'title': {'en': 'Foreign share', 'zh': '外资比例'},
+                'primary': {'en': '49%', 'zh': '49%'},
+                'source': {'en': 'Narration', 'zh': '旁白'},
+                'items': [
+                    {'label': {'en': 'Foreign share', 'zh': '外资比例'}, 'value': 49},
+                    {'label': {'en': 'Full', 'zh': '全部'}, 'value': 100},
+                ],
+            }},
         ],
-        'captions': [{'start': 0.2, 'end': 1.4, 'original': '三名股东开会', 'en': 'Three shareholders meet', 'zh': '三名股东开会'}],
+        'captions': [
+            {'start': 0.2, 'end': 1.4, 'original': '三名股东开会', 'en': 'Three shareholders meet', 'zh': '三名股东开会'},
+            {'start': 1.0, 'end': 1.8, 'original': '管理逻辑', 'en': 'Governance logic also differs and keeps a paragraph across the face of the speaker', 'zh': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限'},
+        ],
         'subtitles': True,
         'voice_cleanup': True,
     }
@@ -77,9 +90,52 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'data-composition-id="lumen"' in html
     assert 'data-hypit-start-frame=' in html
     assert 'data-hypit-source-fps=' in html
+    assert 'data-start="0.000"' in html and 'data-end="' in html and 'data-media-start="0.000"' in html
+    assert 'data-has-audio="false"' in html
     assert '三名股东开会' in html
     assert '口播' not in html and 'Shareholders' not in html and '>3<' not in html
+    assert 'Governance logic also differs' not in html
+    assert 'hf-card' in html and '股东结构' in html and '董事权限' in html
+    assert 'hf-plate' in html and '外资比例' in html and '49%' in html
+    assert 'data-hf-avatar="1"' in html and 'top:22%' in html
     assert not list(tmp_path.glob('*.ass'))
     assert (tmp_path / 'host-voice.mp4').is_file()
     assert result['metadata']['has_audio']
     assert abs(result['metadata']['duration'] - 2) < 0.6
+    streams = json.loads(run(
+        ['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type,duration', '-of', 'json', str(tmp_path / 'result.mp4')],
+        30,
+    )[0])['streams']
+    video = float(next(item['duration'] for item in streams if item['codec_type'] == 'video'))
+    audio = float(next(item['duration'] for item in streams if item['codec_type'] == 'audio'))
+    assert abs(video - audio) < 0.2
+
+
+def test_a_host_moment_keeps_a_corner_title():
+    from backend.hypit_picture import _host_chips, _piece_vf, _side_cards
+
+    style = {
+        'frames': [{'at': 0.0, 'kind': 'host'}, {'at': 0.5, 'kind': 'stage'}, {'at': 0.8, 'kind': 'plate'}, {'at': 1.0, 'kind': 'host'}],
+        'stage': {'fill': '282a44', 'ink': 'ffffff'},
+    }
+    clips = [{'start': 0, 'end': 2}]
+    ranges = [(0.0, 2.0)]
+    captions = [{'start': 0.1, 'end': 1.2, 'zh': '三名股东开会', 'en': 'Three shareholders meet', 'original': '三名股东开会'}]
+    cards = _side_cards(clips, ranges, captions, 'en', 60, style)
+    chips = _host_chips(clips, ranges, captions, 'en', 60, style)
+    assert cards == []
+    assert len(chips) == 1
+    assert 'hf-chip' in chips[0] and '股东结构' in chips[0]
+    assert 'data-hf-avatar' not in chips[0]
+    look, rate = _piece_vf({
+        'zoom': 1, 'zoom_end': 1.35, 'x': 0.5, 'y': 0.62, 'speed': 1,
+        'grade': {'contrast': 1.1, 'brightness': 0.02, 'saturation': 0.9, 'gamma': 1.0, 'bs': 0.05},
+        'shadow': True, 'shade': 0.4, 'key_side': 'left', 'key_amount': 0.2,
+    }, 1080, 1920, 2)
+    assert rate == 1
+    assert 'zoompan=' in look
+    assert 'eq=contrast=1.1000' in look
+    assert 'vignette=angle=0.400' in look
+    assert "geq=lum='lum(X,Y)+" in look
+    plain, _plain_rate = _piece_vf({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1}, 1080, 1920, 1)
+    assert 'eq=' not in plain and 'vignette=' not in plain and 'zoompan=' not in plain

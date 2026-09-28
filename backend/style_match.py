@@ -194,21 +194,6 @@ def _safe_removes(recommendations, transcript, duration):
         removes.append((a, b))
     return removes
 
-def _merged_spans(spans):
-    rows = []
-    for span in spans or []:
-        try:
-            start, end = float(span['start']), float(span['end'])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if end - start < 0.4:
-            continue
-        if rows and start <= rows[-1][1] + 0.05:
-            rows[-1][1] = max(rows[-1][1], end)
-        else:
-            rows.append([start, end])
-    return [{'start': round(start, 3), 'end': round(end, 3)} for start, end in rows]
-
 def _overlap(start, end, spans):
     return sum(max(0, min(end, b) - max(start, a)) for a, b in spans)
 
@@ -327,12 +312,6 @@ def _kinetic_fractions(picture):
             break
     return found
 
-def _caption_at(captions, moment):
-    for cap in captions:
-        if cap.start - 1e-3 <= moment < cap.end + 1e-3:
-            return cap
-    return None
-
 def _highlight_spans(shot, start, end):
     """Map a measured highlight onto the owned clip. A stored start gets an exit so it does not cover the shot."""
     picture = shot.get('picture') if isinstance(shot.get('picture'), dict) else {}
@@ -353,10 +332,6 @@ def _highlight_spans(shot, start, end):
     for frac in _highlight_fractions(shot):
         spans.append((start + frac * length, start + min(1.0, frac + 0.15) * length))
     return spans
-
-def _emphasize_owned_hits(captions, shots, cuts):
-    """A bright pop stays a measured time mark. It does not write keyword emphasis or callout text."""
-    return False
 
 def _bars(facts):
     peak = max((item[2] for item in facts), default=0) or 1
@@ -1855,19 +1830,6 @@ def _best_takes(cuts, transcript, unusable):
         return list(cuts)
     return kept
 
-def _title_word(title):
-    for word in re.findall(r'[A-Za-z\u0400-\u04FF]{3,}', title or ''):
-        if word.lower() not in STOP:
-            return word[:24]
-    return ''
-
-def _prefix_title(text, word):
-    if not word or not str(text or '').strip():
-        return text or ''
-    if str(text).split()[0].lower() == word.lower():
-        return text
-    return f'{word} {text}'[:160]
-
 def build(shots, duration, transcript, has_audio, script='', recommendations=None, measured=None, source=None, title=''):
     measured = measured or {}
     timed = list(shots)
@@ -1897,7 +1859,6 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
     owned_bar = _owned_fill(facts) if look.get('bar') else None
     playhead = bool(look.get('bar')) and owned_bar is None
     clips = [_clip(timed[i % len(timed)] if timed else {}, start, end, transcript, f'style_{i}', float(duration), facts, allow_card=(i == graphic), look=look, ref_len=(timed[i % len(timed)].get('ref_len') if timed else None), progress=(owned_bar if owned_bar is not None else ((i + 1) / len(cuts) if look.get('bar') else 0)), progress_play=playhead, script=script) for i, (start, end) in enumerate(cuts)]
-    word = _title_word(title)
     brand = None
     if source:
         try:
@@ -1906,15 +1867,12 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
         except Exception:
             brand = None
     for clip in clips:
-        if word:
-            clip.text = _prefix_title(clip.text, word)
         if brand and (clip.text or clip.bars or clip.graphic or clip.lower or clip.progress):
             clip.ink = brand
     _retarget_owned_screens(clips, source, float(duration))
     emphasize = _wants_captions(timed or shots)
     captions = _captions(transcript, emphasize)
-    saw_highlight = _emphasize_owned_hits(captions, timed, cuts)
-    subtitles = bool(captions) and (emphasize or saw_highlight)
+    subtitles = bool(captions) and emphasize
     emphasized = any(c.emphasis_en or c.emphasis_zh for c in captions) if subtitles else False
     edit = Edit(clips=clips, captions=captions if subtitles else [], subtitles=subtitles, normalize=bool(has_audio), voice_cleanup=True, font_size='large' if emphasized else 'medium', color='yellow' if emphasized else 'white')
     check(edit, float(duration))
@@ -2381,45 +2339,6 @@ def _spoken_charts(edit):
         _seat_chart(host)
         added += 1
 
-def _join_window(span):
-    """Seconds a designed join stays visible. A short shot gets a shorter blend."""
-    try:
-        span = float(span)
-    except (TypeError, ValueError):
-        span = 2.0
-    if span != span or span <= 0:
-        span = 2.0
-    if span < 1.2:
-        return round(min(0.34, max(0.16, span * 0.28)), 2)
-    return 0.48
-
-def _dress_joins(edit):
-    """A hard cut or a flat dip becomes a short eased blend. A measured direction stays."""
-    clips = edit.get('clips') or []
-    for index, clip in enumerate(clips):
-        if index == 0 or not isinstance(clip, dict) or clip.get('locked'):
-            continue
-        kind = str(clip.get('transition') or 'cut')
-        if kind not in ('cut', 'fade', 'crossfade', 'wipe', 'wipe-up', 'wipe-down'):
-            continue
-        try:
-            measured = float(clip.get('transition_seconds') or 0)
-        except (TypeError, ValueError):
-            measured = 0
-        if kind in ('cut', 'fade'):
-            clip['transition'] = 'crossfade'
-            kind = 'crossfade'
-        if measured > 0.8:
-            continue
-        if kind in ('crossfade', 'wipe', 'wipe-up', 'wipe-down'):
-            try:
-                span = float(clip['end']) - float(clip['start'])
-            except (TypeError, ValueError, KeyError):
-                span = 2.0
-            clip['transition_seconds'] = _join_window(span)
-            if not clip.get('audio_fade_ms'):
-                clip['audio_fade_ms'] = 16
-
 def _unbend(clip):
     """No traveling light and no filter that twists the presenter."""
     clip['sweep'] = False
@@ -2470,7 +2389,6 @@ def present_for_render(edit):
         if isinstance(clip, dict):
             _drop_people_count(clip)
             _scrub_source(clip.get('card'))
-    _dress_joins(shaped)
     return shaped
 
 def board_for_render(edit, context):

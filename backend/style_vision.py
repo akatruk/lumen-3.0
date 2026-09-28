@@ -1212,9 +1212,185 @@ def _plate_bounds(path, start, end, width, height):
             left = round(min(0.98, entered + 0.08), 2)
     return entered, left
 
-def _entered(path, start, end, width, height):
-    """Fraction where a lower plate appears after the opening, else 0."""
-    return _plate_bounds(path, start, end, width, height)[0]
+def _rgb_grid(path, at, cols=24, rows=40):
+    """Inner color grid. The outer band is the player chrome, not the picture."""
+    vf = (
+        f'trim=start={max(0, float(at)):.3f}:duration=0.04,'
+        'crop=iw*0.88:ih*0.84:iw*0.06:ih*0.08,'
+        f'scale={cols}:{rows}:flags=area,format=rgb24'
+    )
+    seek, vf = _fast_vf(vf)
+    try:
+        completed = subprocess.run(
+            ['ffmpeg', '-hide_banner', '-nostdin', '-v', 'error', '-threads', '2', *seek, '-i', str(path), '-vf', vf, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'],
+            capture_output=True, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    need = cols * rows * 3
+    raw = completed.stdout
+    if completed.returncode or len(raw) < need:
+        return None
+    grid = []
+    for row in range(rows):
+        line = []
+        for col in range(cols):
+            index = (row * cols + col) * 3
+            line.append((raw[index], raw[index + 1], raw[index + 2]))
+        grid.append(line)
+    return grid
+
+
+def _luma(rgb):
+    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+
+
+def _full_point(col, row, cols, rows):
+    return 0.06 + (col + 0.5) / cols * 0.88, 0.08 + (row + 0.5) / rows * 0.84
+
+
+def _hex_color(rgb):
+    return ''.join(f'{max(0, min(255, int(channel))):02x}' for channel in rgb)
+
+
+def _component_box(cells, cols, rows, width, height):
+    xs = [col for _row, col in cells]
+    ys = [row for row, _col in cells]
+    x0, y0 = _full_point(min(xs), min(ys), cols, rows)
+    x1, y1 = _full_point(max(xs) + 1, max(ys) + 1, cols, rows)
+    pixel_w = max(1.0, (x1 - x0) * width)
+    pixel_h = max(1.0, (y1 - y0) * height)
+    return {
+        'x': round((x0 + x1) / 2, 3),
+        'y': round((y0 + y1) / 2, 3),
+        'w': round(x1 - x0, 3),
+        'h': round(y1 - y0, 3),
+        'fill_ratio': len(cells) / max(1, (max(xs) - min(xs) + 1) * (max(ys) - min(ys) + 1)),
+        'pixel_ratio': pixel_w / pixel_h,
+        'area': (pixel_w * pixel_h) / max(1.0, width * height),
+    }
+
+
+def frame_style(path, at, width, height):
+    """One reference frame: a designed card, a diagram, or the presenter.
+
+    A dark field with a card and a small round face is a stage. A lit presenter
+    is not a card, and a dark diagram without that face is not a screenshot.
+    """
+    cols, rows = 24, 40
+    grid = _rgb_grid(path, at, cols, rows)
+    if not grid or width < 64 or height < 64:
+        return None
+    luma = [[_luma(cell) for cell in line] for line in grid]
+    corners = [luma[row][col] for row in (0, 1, rows - 2, rows - 1) for col in (0, 1, cols - 2, cols - 1)]
+    corner = sorted(corners)[len(corners) // 2]
+    body = [(row, col) for row in range(rows) for col in range(cols) if luma[row][col] >= corner + 16]
+    if len(body) < 8:
+        return {'kind': 'host', 'fill': None, 'card': None, 'avatar': None}
+    hot = [[luma[row][col] >= max(78, corner + 40) for col in range(cols)] for row in range(rows)]
+    blobs = [cells for cells in _components(hot, cols, rows) if len(cells) >= 3]
+    avatar = None
+    avatar_cells = []
+    for cells in blobs:
+        box = _component_box(cells, cols, rows, width, height)
+        if box['y'] > 0.42 or not 0.62 <= box['pixel_ratio'] <= 1.45:
+            continue
+        if not 0.003 <= box['area'] <= 0.09 or box['fill_ratio'] < 0.4:
+            continue
+        if avatar is None or box['area'] > avatar['area']:
+            avatar = box
+            avatar_cells = cells
+    skip = set(avatar_cells)
+    card_cells = [(row, col) for row, col in body if (row, col) not in skip]
+    card = None
+    fill = None
+    if card_cells:
+        groups = _components([[(row, col) in set(card_cells) for col in range(cols)] for row in range(rows)], cols, rows)
+        groups = [group for group in groups if len(group) >= 12]
+        if groups:
+            group = max(groups, key=len)
+            main = _component_box(group, cols, rows, width, height)
+            union = []
+            for other in groups:
+                box = _component_box(other, cols, rows, width, height)
+                stacked = abs(box['x'] - main['x']) <= 0.14 and abs(box['y'] - main['y']) <= (main['h'] + box['h']) / 2 + 0.08
+                if stacked:
+                    union.extend(other)
+            card = _component_box(union or group, cols, rows, width, height)
+            colors = [grid[row][col] for row, col in (union or group)]
+            mid = len(colors) // 2
+            fill = _hex_color(tuple(sorted(channel)[mid] for channel in zip(*colors)))
+    channels = [int(fill[index:index + 2], 16) for index in (0, 2, 4)] if fill else [0, 0, 0]
+    saturated = max(channels) - min(channels) >= 22
+    dark = corner < 52
+    card_big = isinstance(card, dict) and card['area'] >= 0.16 and card['w'] >= 0.45 and card['h'] >= 0.22
+    if dark and card_big and avatar and saturated:
+        kind = 'stage'
+    elif dark and card_big and saturated:
+        kind = 'plate'
+    else:
+        kind = 'host'
+        card = None
+        avatar = None
+    if isinstance(avatar, dict):
+        avatar = {'x': avatar['x'], 'y': avatar['y'], 'd': round(max(avatar['w'], avatar['h'] * height / max(1, width)), 3)}
+    if isinstance(card, dict):
+        card = {key: card[key] for key in ('x', 'y', 'w', 'h')}
+    return {'kind': kind, 'fill': fill, 'card': card, 'avatar': avatar}
+
+
+def read_style(path):
+    """The reference's card, face circle, and when the presenter is full frame."""
+    try:
+        meta = media.probe(path)
+        duration = float(meta.get('duration') or 0)
+        width, height = int(meta['width']), int(meta['height'])
+    except Exception:
+        return None
+    if duration < 0.4 or width < 64 or height < 64:
+        return None
+    frames = []
+    if duration < 4:
+        stamps = [min(max(0.04, duration * 0.45), duration - 0.05)]
+    else:
+        stamps = []
+        at = 0.45
+        while at < duration - 0.08 and len(stamps) < 48:
+            stamps.append(at)
+            at += 3.0
+    for at in stamps:
+        try:
+            row = frame_style(path, at, width, height)
+        except Exception:
+            row = None
+        if row:
+            row['at'] = round(at / duration, 3)
+            frames.append(row)
+    designed = [row for row in frames if row['kind'] in ('stage', 'plate') and row.get('card')]
+    if not designed:
+        return {'frames': frames, 'stage': None}
+    pool = [row for row in designed if row['kind'] == 'stage'] or designed
+
+    def median(name, boxes):
+        values = sorted(float(box[name]) for box in boxes)
+        return round(values[len(values) // 2], 3)
+
+    cards = [row['card'] for row in pool]
+    avatars = [row['avatar'] for row in pool if isinstance(row.get('avatar'), dict)]
+    fills = [row['fill'] for row in pool if row.get('fill')]
+    if not fills:
+        return {'frames': frames, 'stage': None}
+    fill = fills[len(fills) // 2]
+    ink = '10233f' if int(fill[:2], 16) * 0.21 + int(fill[2:4], 16) * 0.72 + int(fill[4:], 16) * 0.07 > 150 else 'ffffff'
+    stage = {
+        'fill': fill,
+        'ink': ink,
+        'card': {key: median(key, cards) for key in ('x', 'y', 'w', 'h')},
+        'avatar': {key: median(key, avatars) for key in ('x', 'y', 'd')} if avatars else None,
+        'kind': 'stage' if any(row['kind'] == 'stage' for row in designed) else 'plate',
+    }
+    return {'frames': frames, 'stage': stage}
+
 
 def picture_of(path, start, end):
     meta = media.probe(path)
@@ -2185,19 +2361,6 @@ def callout_at(path, start, end):
     if not isinstance(window, dict):
         return 0.0
     return float(window['in'])
-
-def _later_window(shot):
-    """A stored later range, when a caller still has one. Measurement does not use it."""
-    window = shot.get('picture_at') if isinstance(shot, dict) else None
-    if isinstance(window, (list, tuple)) and len(window) >= 2:
-        try:
-            start, end = float(window[0]), float(window[1])
-        except (TypeError, ValueError):
-            start = end = None
-        else:
-            if end > start:
-                return start, end
-    return float(shot['start']), float(shot['end'])
 
 def kept_shots(shots):
     """Every reference shot the edit keeps. Boundaries are not joined, and each picture stays on its own shot."""
