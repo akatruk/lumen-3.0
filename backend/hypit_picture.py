@@ -142,36 +142,45 @@ def _piece_vf(clip, width, height, length, room=None):
     return chain + fill, average
 
 
+def _span(clip, available):
+    """Source take and output length for one approved range. No file is written."""
+    start = max(0.0, float(clip['start']))
+    length = max(0.08, float(clip['end']) - float(clip['start']))
+    room = (available - start) / length if available > start else 1
+    _shaped, average = _pace(clip, length, room)
+    return start, length, length * average, average
+
+
 def _picture_cut(source, work, clips, width, height, picture_quality=False):
-    """One h264 picture joined end to end.
+    """One continuous picture. Separate scene files leave a gap when joined.
 
     A crossfade would shorten the picture while the voice stays at the full
     clip length, so the mouth drifts further from the words on every join.
     """
     available = _piece_duration(source)
-    pieces = []
+    chains = []
+    labels = []
     lengths = []
     for index, clip in enumerate(clips):
-        start = max(0.0, float(clip['start']))
-        length = max(0.08, float(clip['end']) - float(clip['start']))
-        room = (available - start) / length if available > start else 1
-        piece = work / f'piece-{index:03d}.mp4'
-        vf, average = _piece_vf(clip, width, height, length, room)
-        take = length * average
-        ffmpeg(
-            '-ss', f'{start:.3f}', '-t', f'{take:.3f}', '-i', str(source), '-an',
-            '-vf', vf, '-t', f'{length:.3f}', '-c:v', 'libx264', '-preset', 'fast',
-            '-crf', '18', '-pix_fmt', 'yuv420p', str(piece), timeout=180,
+        start, length, take, _average = _span(clip, available)
+        _chain, _rate = _piece_vf(clip, width, height, length, (available - start) / length if available > start else 1)
+        label = f'v{index}'
+        chains.append(
+            f'[0:v]trim=start={start:.3f}:duration={take:.3f},setpts=PTS-STARTPTS,{_chain}[{label}]'
         )
-        if picture_quality:
-            from .hypit_controls import apply_picture
-            apply_picture(piece, work, index)
-        pieces.append(piece)
+        labels.append(f'[{label}]')
         lengths.append(length)
+    graph = work / 'picture.txt'
+    graph.write_text(';\n'.join(chains) + f';\n{"".join(labels)}concat=n={len(labels)}:v=1:a=0[v]\n')
     out = work / 'cut.mp4'
-    listing = work / 'cut.txt'
-    listing.write_text(''.join(f"file '{path.name}'\n" for path in pieces))
-    ffmpeg('-f', 'concat', '-safe', '1', '-i', str(listing), '-c', 'copy', str(out), timeout=180)
+    ffmpeg(
+        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[v]', '-an',
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
+        str(out), timeout=600,
+    )
+    if picture_quality:
+        from .hypit_controls import apply_picture
+        apply_picture(out, work, 0)
     ranges = []
     cursor = 0.0
     for length in lengths:
@@ -516,31 +525,26 @@ def _piece_duration(path):
 
 
 def _host_audio(source, folder, clips):
-    """Voice pieces follow the picture pieces, so a join cannot pull the mouth ahead."""
-    pieces = []
+    """One speech stem for the whole picture. Scene files leave a gap at each join."""
     available = _piece_duration(source)
+    chains = []
+    labels = []
     for index, clip in enumerate(clips):
-        start = float(clip['start'])
-        picture = folder / f'piece-{index:03d}.mp4'
-        length = _piece_duration(picture)
-        if length < 0.04:
-            length = max(0.08, float(clip['end']) - start)
-        room = (available - start) / length if available > start else 1
-        _shaped, average = _pace(clip, length, room)
-        piece = folder / f'hypit-a-{index:03d}.wav'
-        take = length * average
-        args = ['-ss', f'{start:.3f}', '-t', f'{take:.3f}', '-i', source, '-vn', '-ac', '2', '-ar', '48000']
-        if abs(average - 1) > 0.04:
-            args += ['-af', f'atempo={average:.4f}']
-        args += ['-t', f'{length:.3f}', piece]
-        ffmpeg(*args, timeout=180)
-        pieces.append(piece)
-    if len(pieces) == 1:
-        return pieces[0]
-    listing = folder / 'hypit-audio.txt'
-    listing.write_text(''.join(f"file '{path.name}'\n" for path in pieces))
+        start, length, take, average = _span(clip, available)
+        tempo = f',atempo={average:.4f}' if abs(average - 1) > 0.04 else ''
+        label = f'a{index}'
+        chains.append(
+            f'[0:a]atrim=start={start:.3f}:duration={take:.3f},asetpts=PTS-STARTPTS{tempo},'
+            f'atrim=duration={length:.3f},aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo[{label}]'
+        )
+        labels.append(f'[{label}]')
+    graph = folder / 'speech.txt'
+    graph.write_text(';\n'.join(chains) + f';\n{"".join(labels)}concat=n={len(labels)}:v=0:a=1[a]\n')
     mixed = folder / 'hypit-audio.wav'
-    ffmpeg('-f', 'concat', '-safe', '1', '-i', listing, '-c', 'copy', mixed, timeout=180)
+    ffmpeg(
+        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[a]',
+        '-c:a', 'pcm_s16le', '-ar', '48000', '-ac', '2', str(mixed), timeout=600,
+    )
     return mixed
 
 

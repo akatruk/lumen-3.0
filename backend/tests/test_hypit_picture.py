@@ -102,6 +102,14 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
     assert (tmp_path / 'hypit' / 'host-cleaned.wav').is_file()
+    assert not list((tmp_path / 'hypit').glob('piece-*.mp4'))
+    picture = (tmp_path / 'hypit' / 'picture.txt').read_text()
+    assert 'concat=n=2:v=1:a=0' in picture and 'file ' not in picture
+    cut = float((json.loads(run(
+        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'json', str(tmp_path / 'hypit' / 'cut.mp4')],
+        30,
+    )[0])['format'] or {}).get('duration') or 0)
+    assert abs(cut - 2) < 0.08
     assert result['metadata']['has_audio']
     assert abs(result['metadata']['duration'] - 2) < 0.6
     streams = json.loads(run(
