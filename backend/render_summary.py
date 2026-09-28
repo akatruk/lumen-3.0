@@ -17,7 +17,7 @@ def summarize(edit, duration):
         removed.append([round(cursor,3), round(duration,3)])
     visual = any(set(row['operations']) - {'sound_effects'} for row in audit['clips'])
     # A small tail trim, normalization, or fake split is not a visible new edit.
-    near_original = not (visual or timeline['tracks']['captions'] or 'reorder' in audit['global_operations'] or 'picture_quality' in audit['global_operations'] or audit['removed_seconds'] > max(2, duration * .02))
+    near_original = not (visual or timeline['tracks']['captions'] or 'reorder' in audit['global_operations'] or 'picture_quality' in audit['global_operations'] or 'presentation' in audit['global_operations'] or audit['removed_seconds'] > max(2, duration * .02))
     return {
         'source_duration': duration, 'output_duration': timeline['duration'],
         'removed_ranges': removed, 'removed_seconds': audit['removed_seconds'],

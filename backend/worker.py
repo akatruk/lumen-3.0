@@ -111,7 +111,8 @@ def render_job(p,payload):
             manual=animate_for_render(manual)
             manual=present_for_render(manual)
             picture_engine=engine_for((current or {}).get('context'))
-    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
+    spoken=(delivery or {}).get('voice') or {}
+    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,presentation_language=spoken.get('language'),**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id
     if delivery and delivery['voice']:result['voiceover']={k:delivery['voice'][k] for k in ('language','voice')}
     if asset_paths:

@@ -100,6 +100,8 @@ export type Edit = {
   normalize: boolean;
   voice_cleanup?: boolean;
   picture_quality?: boolean;
+  presentation_share?: number;
+  presentation?: {kind:'window'|'mini';start:number;end:number;title:{en:string;zh:string;ru:string};body?:{en:string;zh:string;ru:string}|null;x:number;y:number}[];
   font_size: "small" | "medium" | "large";
   position: "top" | "bottom";
   color: "white" | "yellow";
@@ -276,6 +278,12 @@ export function ManualEditor({
                 "The plan changed. Reload saved edits before continuing.",
                 "计划已更新，请重新加载已保存的剪辑。",
               )
+            : d.detail === "presentation_needs_context"
+              ? w(
+                  "Сначала нужен текст речи или сцены. Скан не нашёл, о чём говорить в анимации.",
+                  "The scan needs speech or scene text before it can place animation.",
+                  "扫描需要语音或场景文字，才能安排动画。",
+                )
             : t(
                 "Check time ranges, subtitle text and whether another job is running.",
                 "请检查时间范围、字幕文字，以及是否有任务正在运行。",
@@ -295,6 +303,45 @@ export function ManualEditor({
     } catch (e) {
       setError((e as Error).message);
       return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function setPresentationShare(value: number) {
+    if (!edit) return;
+    const share = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
+    if (share === (edit.presentation_share || 0)) return;
+    if (share === 0) {
+      change({ presentation_share: 0, presentation: [] });
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch(base + "/presentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision, edit: { ...edit, presentation_share: share } }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.edit) {
+        throw Error(
+          data.detail === "presentation_needs_context"
+            ? w(
+                "Сначала нужен текст речи или сцены. Скан не нашёл, о чём говорить в анимации.",
+                "The scan needs speech or scene text before it can place animation.",
+                "扫描需要语音或场景文字，才能安排动画。",
+              )
+            : data.detail === "plan_changed"
+              ? t("The plan changed. Reload saved edits before continuing.", "计划已更新，请重新加载已保存的剪辑。")
+              : t("Check time ranges, subtitle text and whether another job is running.", "请检查时间范围、字幕文字，以及是否有任务正在运行。"),
+        );
+      }
+      setEdit(data.edit);
+      setDirty(true);
+      workspace?.showDraft();
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -389,6 +436,16 @@ export function ManualEditor({
       {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {(c.end-c.start).toFixed(1)} {w('сек','sec','秒')} · {c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}{c.locked?` · ${w('Тайминг заморожен','Timing frozen','时间已冻结')}`:''}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
+      {task==='effects'&&<section className="presentation-share" aria-label={w('Презентационная анимация','Presentation animation','演示动画')}>
+        <label className="inspector-slider">
+          {w('Доля презентационной анимации','Presentation animation share','演示动画占比')}
+          <input type="range" min={0} max={100} step={5} disabled={blocked} value={edit.presentation_share||0} aria-label={w('Доля презентационной анимации','Presentation animation share','演示动画占比')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={edit.presentation_share||0} aria-valuetext={`${edit.presentation_share||0}%`} onChange={e=>{void setPresentationShare(Number(e.target.value))}} />
+          <output>{edit.presentation_share||0}%</output>
+        </label>
+        <small>{w('Шаг 5%. Это доля готового ролика, которую занимают движущиеся 3D-окна и мини-презентации. Скан сначала читает речь и текст сцен и ставит их в эти моменты. Слова на экране идут на языке озвучки, а если её нет — на языке проекта: русском, английском или китайском.','Steps of 5%. This is the share of the finished video covered by moving 3D windows and mini presentations. The scan reads the speech and scene text first, then places them on those moments. On-screen words follow the voiceover language, or the project language when there is no voiceover: Russian, English, or Chinese.','步长为 5%。这是成片中移动 3D 窗口和迷你演示所占的比例。扫描先读取语音和场景文字，再把它们放在对应时刻。画面文字跟随配音语言；没有配音时使用项目语言：俄语、英语或中文。')}</small>
+        {(edit.presentation||[]).length>0&&<p role="status">{w('Скан поставил','The scan placed','扫描已放置')} {(edit.presentation||[]).filter(b=>b.kind==='window').length} {w('окон','windows','个窗口')} · {(edit.presentation||[]).filter(b=>b.kind==='mini').length} {w('мини-презентаций','mini presentations','个迷你演示')} · {(edit.presentation||[]).reduce((sum,b)=>sum+b.end-b.start,0).toFixed(1)} {w('с','s','秒')}</p>}
+        {(edit.presentation||[]).length>0&&<ol>{(edit.presentation||[]).map((beat,index)=>{const line=lang==='zh'?beat.title.zh:lang==='ru'?beat.title.ru:beat.title.en;return <li key={index}>{beat.kind==='mini'?w('Мини-презентация','Mini presentation','迷你演示'):w('3D-окно','3D window','3D 窗口')} · {beat.start.toFixed(1)}–{beat.end.toFixed(1)} {w('с','s','秒')} · {line}</li>})}</ol>}
+      </section>}
       {task==='effects'&&<div className="scene-choices">
         <label className="scene-choice">
           <input type="checkbox" checked={!!edit.picture_quality} disabled={blocked} onChange={e=>change({picture_quality:e.target.checked})} />

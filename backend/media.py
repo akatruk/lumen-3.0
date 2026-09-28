@@ -543,7 +543,7 @@ def _mask_axes(clip):
         return 0.38, 0.42
     return rx, ry
 
-def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None):
+def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None,presentation_language=None):
     def beat(stage, value):
         if on_progress:
             on_progress(stage, value)
@@ -807,6 +807,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
                    '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
             input_path=overlay
+    if manual and manual.get('presentation'):
+        from .presentation_graphics import burn, shown_language
+        input_path=burn(input_path, folder, manual['presentation'], shown_language(language, presentation_language), w, h)
     # A Hypit picture already cleaned the host stem inside that render.
     if picture_engine != 'hypit':
         from .voice_cleanup import prepare_track

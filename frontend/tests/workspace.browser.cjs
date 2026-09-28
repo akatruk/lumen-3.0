@@ -52,6 +52,17 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         if (request.method() !== "GET") {
           const body = request.postDataJSON();
           writes.push({ path, method: request.method(), body });
+          if (path.endsWith("/manual/presentation") && request.method() === "POST") {
+            const share = body.edit.presentation_share || 0;
+            const edit = {
+              ...body.edit,
+              presentation_share: share,
+              presentation: share
+                ? [{ kind: "window", start: 0.4, end: 0.4 + (12 * share) / 100, title: { en: "Hello", zh: "你好", ru: "Привет" }, body: null, x: 0.73, y: 0.28 }]
+                : [],
+            };
+            return route.fulfill({ json: { revision: body.revision, edit } });
+          }
           if (path.endsWith("/manual") && request.method() === "PUT") {
             data.manual.edit = body.edit;
             data.manual.revision++;
@@ -203,6 +214,13 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           .click();
         await page.keyboard.press("Escape");
         assert.equal(await page.locator("dialog[open]").count(), 0);
+        await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
+        await page.getByLabel("Доля презентационной анимации").fill("20");
+        await page.locator(".presentation-share").getByText("Привет").waitFor();
+        const scan = writes.find((row) => row.path.endsWith("/presentation"));
+        assert.equal(scan.body.edit.presentation_share, 20);
+        assert.match(await page.locator(".presentation-share").innerText(), /20%/);
+        assert.match(await page.locator(".presentation-share").innerText(), /3D-окно/);
       } else if (scenario === "legacy") {
         await page.locator(".ws-scenes button").first().click();
         assert.match(
