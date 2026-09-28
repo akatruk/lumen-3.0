@@ -257,16 +257,18 @@ def test_approve_renders_the_saved_edit_and_keeps_the_selected_delivery(client, 
     app.dependency_overrides[current_user] = lambda: {'id': 'v', 'email': 'other@example.com'}
     assert client.post(f'/api/studio/projects/{pid}/style-match/approve').status_code == 404
 
-def test_measured_shots_keep_short_beats_fast_and_match_color():
+def test_measured_shots_stay_one_take_and_match_color():
     grade = {'brightness': 0.02, 'contrast': 1.05, 'saturation': 1.08, 'gamma': 1, 'rs': 0.01, 'gs': 0, 'bs': -0.01}
     measured = {'shots': [{'start': 0, 'end': 0.4, 'motion': {'en': 'fast punch in', 'zh': '快推'}, 'transition': {'en': 'cut', 'zh': '切'}}, {'start': 0.4, 'end': 2.4, 'motion': {'en': 'blur and glow with shadows', 'zh': '模糊'}, 'transition': {'en': 'fade', 'zh': '淡入'}}], 'flat': True, 'grade': grade, 'silences': [{'start': 30, 'end': 36}]}
     edit, report = build([shot()], 40, [], False, measured=measured)
-    assert edit['clips'][0]['speed'] == 1.35
-    assert edit['clips'][1]['blur'] == 0 and edit['clips'][1]['glow'] is False and edit['clips'][1]['shadow'] is False
-    assert edit['clips'][0]['grade']['brightness'] == 0.02
-    assert edit['clips'][0]['enhance'] is False
-    assert 'speed' in report['applied'] and 'grade' in report['applied'] and 'blur' not in report['applied']
-    assert abs(sum(c['end'] - c['start'] for c in edit['clips']) - 40) < 1
+    assert len(edit['clips']) == 1
+    clip = edit['clips'][0]
+    assert clip['start'] == 0 and abs(clip['end'] - 40) < 0.05
+    assert clip['speed'] == 1
+    assert clip['blur'] == 0 and clip['glow'] is False and clip['shadow'] is False
+    assert clip['grade']['brightness'] == 0.02
+    assert clip['enhance'] is False
+    assert 'grade' in report['applied'] and 'blur' not in report['applied'] and 'speed' not in report['applied']
 
 def test_measured_lights_are_not_turned_on_by_words():
     from backend.timeline import motion_filter
@@ -1258,12 +1260,14 @@ def test_reference_fraction_lands_on_the_owned_timeline():
     assert 'SECRET REFERENCE LINE' not in json.dumps(edit)
     rows = [{**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4} for index in range(30)]
     many, _report = build([shot(**quiet)], 40, [], False, measured={'duration': 12, 'shots': rows})
-    assert len(many['clips']) == 30
+    assert len(many['clips']) == 1
+    assert many['clips'][0]['start'] == 0 and abs(many['clips'][0]['end'] - 40) < 0.05
+    assert many['clips'][0]['zoom'] == 1 and many['clips'][0]['speed'] == 1
     assert 'SECRET REFERENCE LINE' not in json.dumps(many)
     pictured = [{**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4, 'picture': {'zoom': 1 if index % 2 == 0 else 2, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False}} for index in range(45)]
     full, _report = build([shot(**quiet)], 40, [], False, measured={'duration': 18, 'shots': pictured})
-    assert len(full['clips']) == 45
-    assert [clip['zoom'] for clip in full['clips']] == [1 if index % 2 == 0 else 2 for index in range(45)]
+    assert len(full['clips']) == 1
+    assert full['clips'][0]['zoom'] == 1 and full['clips'][0]['transition'] == 'cut'
     frame = {'zoom': 1, 'x': 0.5, 'y': 0.5, 'split': False, 'graphic': False}
     owned_rows = []
     for index in range(45):
@@ -1272,20 +1276,10 @@ def test_reference_fraction_lands_on_the_owned_timeline():
             picture = {**frame, 'blur': 4, 'glow': 0.8, 'hold': 0.25, 'release': 0.5, 'join': 'wipe-down', 'join_seconds': 1.2}
         owned_rows.append({**quiet, 'start': index * 0.4, 'end': (index + 1) * 0.4, 'picture': picture})
     placed, _report = build([shot(**quiet)], 18, [], False, measured={'duration': 18, 'shots': owned_rows})
-    assert len(placed['clips']) == 45
-    late = placed['clips'][44]
-    assert late['start'] > 9
-    landed = late['start'] + late['effect_at'] * (late['end'] - late['start'])
-    assert late['start'] < landed < late['end']
-    assert abs(late['effect_at'] - 0.25) < 0.06
-    assert abs(late['effect_end'] - 0.5) < 0.06
-    assert late['transition'] == 'wipe-down'
-    assert late['transition_seconds'] == 1.2
-    assert placed['clips'][0]['transition'] == 'cut'
-    assert placed['clips'][0]['effect_at'] == 0
-    from backend.timeline import motion_filter
-    chain = motion_filter(late, 160, 240, late['end'] - late['start'])
-    assert "between(t\\" in chain
+    assert len(placed['clips']) == 1
+    whole = placed['clips'][0]
+    assert whole['start'] == 0 and abs(whole['end'] - 18) < 0.05
+    assert whole['transition'] == 'cut' and whole['zoom'] == 1 and whole['speed'] == 1
 
 def test_overlay_window_is_absent_outside_the_measured_span(tmp_path, monkeypatch):
     import subprocess
@@ -1701,11 +1695,11 @@ def test_reference_packaging_frame_is_copied_without_its_audio(tmp_path):
     assert len(vision['shots']) >= 2
     meta = media.probe(owned)
     edit, _report = build(vision['shots'], meta['duration'], [], True, measured=vision)
+    assert len(edit['clips']) == 1
+    assert edit['clips'][0]['start'] == 0 and abs(edit['clips'][0]['end'] - meta['duration']) < 0.05
     assert edit['subtitles'] is False
     assert all(not clip['text'].strip() for clip in edit['clips'])
-    copied = [clip for clip in edit['clips'] if clip.get('picture_insert')]
-    owned_only = [clip for clip in edit['clips'] if not clip.get('picture_insert')]
-    assert len(copied) == 1 and owned_only
+    assert all(clip.get('picture_insert') is None for clip in edit['clips'])
     assert 'reference_source' not in json.dumps(edit)
     folder = tmp_path / 'out'
     folder.mkdir()
@@ -1721,15 +1715,11 @@ def test_reference_packaging_frame_is_copied_without_its_audio(tmp_path):
         samples.frombytes(raw)
         return sum(value * value for value in samples) / len(samples) if samples else 0.0
 
-    presenter = owned_only[0]
-    package = copied[0]
-    presenter_at = presenter['start'] + min(0.6, (presenter['end'] - presenter['start']) * 0.5)
-    package_at = package['start'] + (package['picture_insert']['start'] + package['picture_insert']['end']) / 2
-    owned_pixel = pixel(result, presenter_at)
-    package_pixel = pixel(result, package_at)
-    assert owned_pixel[0] > 160 and owned_pixel[1] < 90
-    assert package_pixel[0] > 160 and package_pixel[1] > 140 and package_pixel[1] > owned_pixel[1] + 60
-    assert band(result, 440, package_at) > band(result, 880, package_at) * 3
+    early = pixel(result, 0.4)
+    late = pixel(result, 2.4)
+    assert early[0] > 160 and early[1] < 90
+    assert late[0] > 160 and late[1] < 90
+    assert band(result, 440, 2.4) > band(result, 880, 2.4) * 3
     head = tmp_path / 'head-only.mp4'
     media.ffmpeg(
         '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=4',
@@ -1740,6 +1730,7 @@ def test_reference_packaging_frame_is_copied_without_its_audio(tmp_path):
     )
     head_vision = measure(head)
     head_edit, _head_report = build(head_vision['shots'], meta['duration'], [], True, measured=head_vision)
+    assert len(head_edit['clips']) == 1
     assert all(clip.get('picture_insert') is None for clip in head_edit['clips'])
     (tmp_path / 'reference_source').write_bytes(head.read_bytes())
     head_folder = tmp_path / 'head-out'
@@ -1754,7 +1745,7 @@ def test_reference_packaging_frame_is_copied_without_its_audio(tmp_path):
     lonely_out = lonely / 'out'
     lonely_out.mkdir()
     media.render(lonely_source, lonely_out, meta, SimpleNamespace(transcript=[]), [], 'en', 'original', manual=edit)
-    missing = pixel(lonely_out / 'result.mp4', package_at)
+    missing = pixel(lonely_out / 'result.mp4', 2.4)
     assert missing[0] > 160 and missing[1] < 90
 
 

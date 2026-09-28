@@ -1662,20 +1662,8 @@ def _clip_fraction(fraction, duration, start, end):
     return max(0.0, min(1.0, (float(at) - float(start)) / span))
 
 def _scaled(shots, duration):
-    from .style_vision import kept_shots
-    merged = kept_shots(shots)
-    lengths = [max(0.28, float(shot['end']) - float(shot['start'])) for shot in merged]
-    total = sum(lengths) or 1
-    cursor = 0.0
-    cuts = []
-    for length in lengths:
-        end = min(float(duration), cursor + float(duration) * length / total)
-        if end - cursor >= 0.28:
-            cuts.append((round(cursor, 3), round(end, 3)))
-        cursor = end
-    if cuts:
-        cuts[-1] = (cuts[-1][0], round(float(duration), 3))
-    return merged, cuts or [(0.0, round(float(duration), 3))]
+    """The owned picture stays one take. Reference shots are measurements, not cuts."""
+    return list(shots or []), [(0.0, round(float(duration), 3))]
 
 def _look(measured):
     measured = measured or {}
@@ -1847,12 +1835,16 @@ def build(shots, duration, transcript, has_audio, script='', recommendations=Non
         for span in timed:
             span['ref_len'] = max(0.28, float(span['end']) - float(span['start']))
         timed, cuts = _scaled(timed, duration)
-        cuts = _structure(cuts, removes, extra, float(duration))
+        if len(timed) > 1:
+            # The first reference shot does not reframe the whole take.
+            cover = {key: value for key, value in timed[0].items() if key != 'picture'}
+            cover['ref_len'] = float(duration)
+            timed = [cover]
     else:
         count = beat_count(timed, duration)
         cuts = _structure(ranges(duration, count, transcript), removes, extra, float(duration))
-    cuts = _punch(cuts, measured.get('unusable'), transcript)
-    cuts = _best_takes(cuts, transcript, measured.get('unusable'))
+        cuts = _punch(cuts, measured.get('unusable'), transcript)
+        cuts = _best_takes(cuts, transcript, measured.get('unusable'))
     facts = _facts(script, transcript)
     look = _look(measured)
     graphic = next((i for i, (start, end) in enumerate(cuts) if end - start >= 1.2 and _has(_blob([timed[i % len(timed)] if timed else {}]), ('chart', 'number', 'statistic', 'progress'))), None)
