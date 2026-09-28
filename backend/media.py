@@ -543,7 +543,7 @@ def _mask_axes(clip):
         return 0.38, 0.42
     return rx, ry
 
-def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None):
+def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None):
     def beat(stage, value):
         if on_progress:
             on_progress(stage, value)
@@ -565,235 +565,245 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
     normalize=any(r.action=='normalize_audio' for r in recommendations)
     if manual:
         captions=manual['subtitles'];normalize=manual['normalize']
-    parts=[]
-    # Sequential clips keep memory bounded on the 4GB droplet.
-    beat('rendering_shots', 28)
-    for i,(a,b) in enumerate(timeline):
-        part=folder/f'part-{i:03}.mp4'; parts.append(part)
-        vf=f'scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x101614,setsar=1,fps=30'
-        cutaway=None;post='';reference=None
-        rate=1
-        if manual:
-            clip=manual['clips'][i]
-            letter_face, letter_heavy = clip_letter(clip)
-            cutaway=clip.get('external_broll') or clip.get('cutaway')
-            from .timeline import motion_filter, playback
-            speed,end_speed,rate=playback(clip,b-a,(metadata['duration']-a)/max(0.08,b-a))
-            clip['speed']=speed
-            clip['speed_end']=None if abs(end_speed-speed)<=0.04 else end_speed
-            vf=motion_filter(clip,w,h,b-a)+vf
-            base_vf=vf
-            vf=''
-            if clip['transition']=='fade':
-                fade=min(.25,(b-a)/4)
-                vf+=f',fade=t=in:st=0:d={fade},fade=t=out:st={b-a-fade}:d={fade}'
-            if clip['text'].strip():
-                title=folder/f'title-{i}.ass'
-                opened,closed=callout_bounds(clip,b-a)
-                marks=[item for item in (clip.get('kinetic_at') or []) if isinstance(item,(int,float))]
-                tw, th = _frame_frac(clip.get('title_w')), _frame_frac(clip.get('title_h'))
-                title_mark=(tw, th) if clip.get('title_w') is not None and clip.get('title_h') is not None and tw and th else None
-                origin=dest=None
-                if clip.get('title_x') is not None:
-                    title_y=clip.get('title_y') if clip.get('title_y') is not None else 0.2
-                    origin=(clip['title_x'], title_y)
-                    dest=(clip.get('title_x_end') if clip.get('title_x_end') is not None else clip['title_x'], clip.get('title_y_end') if clip.get('title_y_end') is not None else title_y)
-                if clip.get('kinetic') and len(marks)>=2:
-                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
-                elif clip.get('kinetic') and clip.get('title_x') is not None:
-                    span=b-a
-                    write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=origin,dest=dest,mark=title_mark,face=letter_face,heavy=letter_heavy)
-                elif clip.get('kinetic') and marks:
-                    write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
-                elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
-                else: write_subtitles(title,[Caption(start=opened,end=closed,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'},face=letter_face,heavy=letter_heavy)
-                title_path=str(title.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
-                vf+=f",ass='{title_path}'"
-            if clip.get('card'):
-                from .visuals import write_card
-                card_path=folder/f'card-{i}.ass'
-                placed=(clip.get('card_x'), clip.get('card_y')) if clip.get('card_x') is not None and clip.get('card_y') is not None else None
-                cw, ch = _frame_frac(clip.get('card_w')), _frame_frac(clip.get('card_h'))
-                card_size=(cw, ch) if clip.get('card_w') is not None and clip.get('card_h') is not None and cw and ch else None
-                write_card(card_path,clip['card'],language,w,h,placed,card_size,face=letter_face,heavy=letter_heavy)
-                escaped=str(card_path.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
-                vf+=f",ass='{escaped}'"
-            if clip.get('progress'):
-                frac=max(0.04,min(1,float(clip.get('progress') or 0)))
-                span=max(b-a,0.08)
-                start_frac=max(0.0,min(1.0,float(clip.get('progress_at') or 0)))
-                end_raw=clip.get('progress_end')
-                end_frac=1.0 if end_raw is None else max(start_frac,min(1.0,float(end_raw)))
-                opened=start_frac*span
-                closed=max(opened,end_frac*span)
-                windowed=start_frac>=0.02 or end_frac<0.999
-                if clip.get('progress_play'):
-                    denom=max(0.04,(closed-opened) if windowed else span)
-                    origin=opened if windowed else 0.0
-                    width=f"'iw*max(0.04\\,min(1\\,(t-{origin:.3f})/{denom:.3f}))'"
+    if picture_engine == 'hypit':
+        if not manual:
+            raise RuntimeError('hypit_unavailable')
+        from .hypit_picture import render_picture
+        beat('rendering_shots', 28)
+        input_path = render_picture(source, folder, manual, w, h, metadata, asset_paths, language)
+        captions = False
+        parts = []
+        base = input_path
+    else:
+        parts=[]
+        # Sequential clips keep memory bounded on the 4GB droplet.
+        beat('rendering_shots', 28)
+        for i,(a,b) in enumerate(timeline):
+            part=folder/f'part-{i:03}.mp4'; parts.append(part)
+            vf=f'scale={w}:{h}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x101614,setsar=1,fps=30'
+            cutaway=None;post='';reference=None
+            rate=1
+            if manual:
+                clip=manual['clips'][i]
+                letter_face, letter_heavy = clip_letter(clip)
+                cutaway=clip.get('external_broll') or clip.get('cutaway')
+                from .timeline import motion_filter, playback
+                speed,end_speed,rate=playback(clip,b-a,(metadata['duration']-a)/max(0.08,b-a))
+                clip['speed']=speed
+                clip['speed_end']=None if abs(end_speed-speed)<=0.04 else end_speed
+                vf=motion_filter(clip,w,h,b-a)+vf
+                base_vf=vf
+                vf=''
+                if clip['transition']=='fade':
+                    fade=min(.25,(b-a)/4)
+                    vf+=f',fade=t=in:st=0:d={fade},fade=t=out:st={b-a-fade}:d={fade}'
+                if clip['text'].strip():
+                    title=folder/f'title-{i}.ass'
+                    opened,closed=callout_bounds(clip,b-a)
+                    marks=[item for item in (clip.get('kinetic_at') or []) if isinstance(item,(int,float))]
+                    tw, th = _frame_frac(clip.get('title_w')), _frame_frac(clip.get('title_h'))
+                    title_mark=(tw, th) if clip.get('title_w') is not None and clip.get('title_h') is not None and tw and th else None
+                    origin=dest=None
+                    if clip.get('title_x') is not None:
+                        title_y=clip.get('title_y') if clip.get('title_y') is not None else 0.2
+                        origin=(clip['title_x'], title_y)
+                        dest=(clip.get('title_x_end') if clip.get('title_x_end') is not None else clip['title_x'], clip.get('title_y_end') if clip.get('title_y_end') is not None else title_y)
+                    if clip.get('kinetic') and len(marks)>=2:
+                        write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
+                    elif clip.get('kinetic') and clip.get('title_x') is not None:
+                        span=b-a
+                        write_kinetic(title,clip['text'],span,w,h,begin=float(clip.get('title_in') or 0)*span,end=float(clip.get('title_out') or 1)*span,origin=origin,dest=dest,mark=title_mark,face=letter_face,heavy=letter_heavy)
+                    elif clip.get('kinetic') and marks:
+                        write_kinetic(title,clip['text'],b-a,w,h,at=marks,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
+                    elif clip.get('kinetic'): write_kinetic(title,clip['text'],b-a,w,h,begin=opened,end=None if closed>=b-a-1e-3 else closed,mark=title_mark,origin=origin,dest=dest,face=letter_face,heavy=letter_heavy)
+                    else: write_subtitles(title,[Caption(start=opened,end=closed,original=clip['text'],en=clip['text'],zh=clip['text'])],[(0,b-a)],language,w,h,{'position':'top'},face=letter_face,heavy=letter_heavy)
+                    title_path=str(title.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
+                    vf+=f",ass='{title_path}'"
+                if clip.get('card'):
+                    from .visuals import write_card
+                    card_path=folder/f'card-{i}.ass'
+                    placed=(clip.get('card_x'), clip.get('card_y')) if clip.get('card_x') is not None and clip.get('card_y') is not None else None
+                    cw, ch = _frame_frac(clip.get('card_w')), _frame_frac(clip.get('card_h'))
+                    card_size=(cw, ch) if clip.get('card_w') is not None and clip.get('card_h') is not None and cw and ch else None
+                    write_card(card_path,clip['card'],language,w,h,placed,card_size,face=letter_face,heavy=letter_heavy)
+                    escaped=str(card_path.resolve()).replace('\\','/').replace(':','\\:').replace("'","'\\''")
+                    vf+=f",ass='{escaped}'"
+                if clip.get('progress'):
+                    frac=max(0.04,min(1,float(clip.get('progress') or 0)))
+                    span=max(b-a,0.08)
+                    start_frac=max(0.0,min(1.0,float(clip.get('progress_at') or 0)))
+                    end_raw=clip.get('progress_end')
+                    end_frac=1.0 if end_raw is None else max(start_frac,min(1.0,float(end_raw)))
+                    opened=start_frac*span
+                    closed=max(opened,end_frac*span)
+                    windowed=start_frac>=0.02 or end_frac<0.999
+                    if clip.get('progress_play'):
+                        denom=max(0.04,(closed-opened) if windowed else span)
+                        origin=opened if windowed else 0.0
+                        width=f"'iw*max(0.04\\,min(1\\,(t-{origin:.3f})/{denom:.3f}))'"
+                    else:
+                        width=f'iw*{frac:.3f}'
+                    if windowed:
+                        gate=f":enable='between(t\\,{opened:.3f}\\,{max(opened+0.04,closed):.3f})'"
+                    else:
+                        legacy=float(clip.get('effect_at') or 0)
+                        gate=f":enable='gte(t\\,{legacy:.3f})'" if legacy>=0.2 else ''
+                    base_vf+=f',drawbox=x=0:y=ih-12:w={width}:h=10:color=0x{_paint(clip)}@0.92:t=fill{gate}'
+                post=vf;vf=base_vf+post
+                reference=_reference_clip(source, clip.get('picture_insert'))
+            if manual and clip.get('art_frame') and _art_file(source, clip.get('art')) and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+                span=max(b-a,0.2); frames=int(span*30)+8
+                graph=f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f}{post}[v]"
+                inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_art_file(source, clip.get('art'))]
+                filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif cutaway and not (reference and 'asset_id' not in cutaway):
+                footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
+                if footage is None:raise ValueError('asset_not_found')
+                length=cutaway['end']-cutaway['start']
+                graph=f"[0:v]{base_vf}[base];[1:v]trim=duration={length},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,setpts=PTS-STARTPTS+{cutaway['start']}/TB[br];[base][br]overlay=enable='gte(t,{cutaway['start']})*lt(t,{cutaway['end']})':eof_action=pass:repeatlast=0{post}[v]"
+                inputs=['-ss',a,'-i',source,'-ss',cutaway['source_start'],'-i',footage]
+                filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif reference:
+                path, at, local_start, local_end, available = reference
+                length = local_end - local_start
+                graph=f"[0:v]{base_vf}[base];[1:v]trim=duration={available:.3f},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,tpad=stop_mode=clone:stop_duration={length:.3f},trim=duration={length:.3f},setpts=PTS-STARTPTS+{local_start}/TB[br];[base][br]overlay=enable='gte(t,{local_start})*lt(t,{local_end})':eof_action=pass:repeatlast=0{post}[v]"
+                inputs=['-ss',a,'-i',source,'-ss',f'{at:.3f}','-i',path]
+                filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('cutout'):
+                plate=str(clip.get('plate') or '1A1F1C')
+                box=_subject_box(clip)
+                if box:
+                    sx, sy, sw, sh = box
+                    bw = max(8, int(round(w * sw)))
+                    bh = max(8, int(round(h * sh)))
+                    left = max(1, min(int(round(w * sx - bw / 2)), w - bw - 1))
+                    top = max(1, min(int(round(h * sy - bh / 2)), h - bh - 1))
+                    bw = min(bw, w - left - 1)
+                    bh = min(bh, h - top - 1)
+                    right, bottom = left + bw, top + bh
+                    feather = max(4, int(min(bw, bh) * 0.08))
+                    span = max(b - a, 0.2)
+                    scene = _room_plate(folder, clip, asset_paths, w, h, i)
+                    graph = (
+                        f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,trim=duration={span:.3f},setpts=PTS-STARTPTS[plate];"
+                        f"[0:v]{base_vf.rstrip(',')},format=rgba,"
+                        f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
+                        f"a='clip(255*(1-hypot(max(max({left}-X,0),max(X-{right},0)),max(max({top}-Y,0),max(Y-{bottom},0)))/{feather}),0,255)'[key];"
+                        f"[plate][key]overlay=format=auto{post}[v]"
+                    )
+                    inputs=['-ss', a, '-i', source, '-loop', '1', '-i', scene]
                 else:
-                    width=f'iw*{frac:.3f}'
-                if windowed:
-                    gate=f":enable='between(t\\,{opened:.3f}\\,{max(opened+0.04,closed):.3f})'"
+                    graph=f"[1:v]scale={w}:{h},setsar=1,fps=30[plate];[0:v]{base_vf.rstrip(',')},backgroundkey=threshold=0.18:similarity=0.22:blend=0.08[key];[plate][key]overlay=format=auto{post}[v]"
+                    inputs=['-ss',a,'-i',source,'-f','lavfi','-i',f'color=c=0x{plate}:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}']
+                filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('mask'):
+                rx, ry = _mask_axes(clip)
+                graph=f"[0:v]{base_vf.rstrip(',')},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(pow((X-W/2)/(W*{rx:.3f}),2)+pow((Y-H/2)/(H*{ry:.3f}),2),1),255,0)'[key];color=c=0x101614:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}[plate];[plate][key]overlay=format=auto{post}[v]"
+                inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and _art_file(source, clip.get('art')) and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+                span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+                graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
+                inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_art_file(source, clip.get('art'))]
+                filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('graphic') and clip.get('bars') and not clip.get('card') and not clip.get('cutout') and not clip.get('split') and not clip.get('mask'):
+                origin=_bar_origin(clip)
+                if origin is None:
+                    boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
+                    span=max(b-a,0.2); fade_d=min(0.25,span/4)
+                    graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
                 else:
-                    legacy=float(clip.get('effect_at') or 0)
-                    gate=f":enable='gte(t\\,{legacy:.3f})'" if legacy>=0.2 else ''
-                base_vf+=f',drawbox=x=0:y=ih-12:w={width}:h=10:color=0x{_paint(clip)}@0.92:t=fill{gate}'
-            post=vf;vf=base_vf+post
-            reference=_reference_clip(source, clip.get('picture_insert'))
-        if manual and clip.get('art_frame') and _art_file(source, clip.get('art')) and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
-            span=max(b-a,0.2); frames=int(span*30)+8
-            graph=f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f}{post}[v]"
-            inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_art_file(source, clip.get('art'))]
-            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif cutaway and not (reference and 'asset_id' not in cutaway):
-            footage=(asset_paths or {}).get(cutaway['asset_id']) if 'asset_id' in cutaway else source
-            if footage is None:raise ValueError('asset_not_found')
-            length=cutaway['end']-cutaway['start']
-            graph=f"[0:v]{base_vf}[base];[1:v]trim=duration={length},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,setpts=PTS-STARTPTS+{cutaway['start']}/TB[br];[base][br]overlay=enable='gte(t,{cutaway['start']})*lt(t,{cutaway['end']})':eof_action=pass:repeatlast=0{post}[v]"
-            inputs=['-ss',a,'-i',source,'-ss',cutaway['source_start'],'-i',footage]
-            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif reference:
-            path, at, local_start, local_end, available = reference
-            length = local_end - local_start
-            graph=f"[0:v]{base_vf}[base];[1:v]trim=duration={available:.3f},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,tpad=stop_mode=clone:stop_duration={length:.3f},trim=duration={length:.3f},setpts=PTS-STARTPTS+{local_start}/TB[br];[base][br]overlay=enable='gte(t,{local_start})*lt(t,{local_end})':eof_action=pass:repeatlast=0{post}[v]"
-            inputs=['-ss',a,'-i',source,'-ss',f'{at:.3f}','-i',path]
-            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('cutout'):
-            plate=str(clip.get('plate') or '1A1F1C')
-            box=_subject_box(clip)
-            if box:
-                sx, sy, sw, sh = box
-                bw = max(8, int(round(w * sw)))
-                bh = max(8, int(round(h * sh)))
-                left = max(1, min(int(round(w * sx - bw / 2)), w - bw - 1))
-                top = max(1, min(int(round(h * sy - bh / 2)), h - bh - 1))
-                bw = min(bw, w - left - 1)
-                bh = min(bh, h - top - 1)
-                right, bottom = left + bw, top + bh
-                feather = max(4, int(min(bw, bh) * 0.08))
-                span = max(b - a, 0.2)
-                scene = _room_plate(folder, clip, asset_paths, w, h, i)
-                graph = (
-                    f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,trim=duration={span:.3f},setpts=PTS-STARTPTS[plate];"
-                    f"[0:v]{base_vf.rstrip(',')},format=rgba,"
-                    f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
-                    f"a='clip(255*(1-hypot(max(max({left}-X,0),max(X-{right},0)),max(max({top}-Y,0),max(Y-{bottom},0)))/{feather}),0,255)'[key];"
-                    f"[plate][key]overlay=format=auto{post}[v]"
-                )
-                inputs=['-ss', a, '-i', source, '-loop', '1', '-i', scene]
-            else:
-                graph=f"[1:v]scale={w}:{h},setsar=1,fps=30[plate];[0:v]{base_vf.rstrip(',')},backgroundkey=threshold=0.18:similarity=0.22:blend=0.08[key];[plate][key]overlay=format=auto{post}[v]"
-                inputs=['-ss',a,'-i',source,'-f','lavfi','-i',f'color=c=0x{plate}:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}']
-            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('mask'):
-            rx, ry = _mask_axes(clip)
-            graph=f"[0:v]{base_vf.rstrip(',')},format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(pow((X-W/2)/(W*{rx:.3f}),2)+pow((Y-H/2)/(H*{ry:.3f}),2),1),255,0)'[key];color=c=0x101614:s={w}x{h}:r=30:d={max(b-a,0.2):.3f}[plate];[plate][key]overlay=format=auto{post}[v]"
-            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and _art_file(source, clip.get('art')) and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
-            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
-            inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_art_file(source, clip.get('art'))]
-            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('graphic') and clip.get('bars') and not clip.get('card') and not clip.get('cutout') and not clip.get('split') and not clip.get('mask'):
-            origin=_bar_origin(clip)
-            if origin is None:
-                boxes=','.join(f"drawbox=x=iw*0.12:y=ih*{0.22+n*0.12:.3f}:w=iw*{max(0.08,min(1,float(val)))*0.76:.3f}:h=ih*0.06:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
+                    left,top,step,bar_h,span_w=origin
+                    boxes=','.join(f"drawbox=x=iw*{left:.3f}:y=ih*{top+n*step:.3f}:w=iw*{max(0.08,min(1,float(val)))*span_w:.3f}:h=ih*{bar_h:.3f}:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
+                    graph=f"[0:v]{base_vf.rstrip(',')},{boxes}{post}[v]"
+                inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('screen') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+                span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+                frac=max(0.06, min(0.28, float(clip.get('bezel') or 0.1)))
+                bezel_x=max(8, int(w*frac)//2*2); bezel_y=max(8, int(h*frac)//2*2)
+                inner_w, inner_h = w-2*bezel_x, h-2*bezel_y
+                graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={inner_w}:{inner_h}:force_original_aspect_ratio=increase,crop={inner_w}:{inner_h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f}[shot];color=c=0x10140F:s={w}x{h}:r=30:d={span:.3f}[plate];[plate][shot]overlay={bezel_x}:{bezel_y}:format=auto,format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[frame];[fg][frame]overlay=format=auto{post}[v]"
+                inputs=['-ss',a,'-i',source,'-ss',clip['screen'],'-t','0.12','-i',source]
+                filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and _licensed_still(clip, asset_paths) and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+                span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+                graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
+                inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_licensed_still(clip, asset_paths)]
+                filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('diagram') and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
                 span=max(b-a,0.2); fade_d=min(0.25,span/4)
-                graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
-            else:
-                left,top,step,bar_h,span_w=origin
-                boxes=','.join(f"drawbox=x=iw*{left:.3f}:y=ih*{top+n*step:.3f}:w=iw*{max(0.08,min(1,float(val)))*span_w:.3f}:h=ih*{bar_h:.3f}:color=0x{_paint(clip)}@0.95:t=fill" for n,val in enumerate(clip['bars'][:5]))
-                graph=f"[0:v]{base_vf.rstrip(',')},{boxes}{post}[v]"
-            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('screen') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
-            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
-            frac=max(0.06, min(0.28, float(clip.get('bezel') or 0.1)))
-            bezel_x=max(8, int(w*frac)//2*2); bezel_y=max(8, int(h*frac)//2*2)
-            inner_w, inner_h = w-2*bezel_x, h-2*bezel_y
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={inner_w}:{inner_h}:force_original_aspect_ratio=increase,crop={inner_w}:{inner_h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f}[shot];color=c=0x10140F:s={w}x{h}:r=30:d={span:.3f}[plate];[plate][shot]overlay={bezel_x}:{bezel_y}:format=auto,format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[frame];[fg][frame]overlay=format=auto{post}[v]"
-            inputs=['-ss',a,'-i',source,'-ss',clip['screen'],'-t','0.12','-i',source]
-            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and _licensed_still(clip, asset_paths) and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
-            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
-            inputs=['-ss',a,'-i',source,'-loop','1','-t','0.12','-i',_licensed_still(clip, asset_paths)]
-            filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('diagram') and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
-            span=max(b-a,0.2); fade_d=min(0.25,span/4)
-            spots=((0.18,0.32),(0.56,0.32),(0.18,0.58),(0.56,0.58))[:int(clip['diagram'])]
-            boxes=','.join(f"drawbox=x=iw*{x}:y=ih*{y}:w=iw*0.24:h=ih*0.16:color=0xE7C27A@0.95:t=fill" for x,y in spots)
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x1A2430:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
-            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('still') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
-            span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
-            inputs=['-ss',a,'-i',source,'-ss',clip['still'],'-t','0.12','-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('lower') and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
-            span=max(b-a,0.2); fade_d=min(0.25,span/4); band=max(24,(h//6)//2*2); chip=max(12,(band//2)//2*2)
-            mark=max(0,min(1,float(clip.get('mark') or 0)))
-            plate=max(chip, int((w-24)*mark)) if mark>0.02 else chip
-            band_top, chip_x = h-band, 12
-            cy, cx = _frame_frac(clip.get('lower_y')), _frame_frac(clip.get('lower_x'))
-            if clip.get('lower_y') is not None and cy is not None:
-                band_top=max(0, min(h-band, int(round(cy*h-band/2))))
-            if clip.get('lower_x') is not None and cx is not None:
-                chip_x=max(0, min(max(0, w-plate), int(round(cx*w-plate/2))))
-            opened,closed=callout_bounds(clip,span)
-            if float(clip.get('effect_at') or 0)<0.2 and float(clip.get('effect_end') if clip.get('effect_end') is not None else 1)>=0.999:
-                opened=0
-            limited=closed<span-0.02
-            show=f":enable='gte(t\\,{opened:.3f})*lt(t\\,{closed:.3f})'" if limited or opened else ''
-            fade_out=max(opened, closed-fade_d) if limited else max(opened, span-fade_d)
-            graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x={chip_x}:y={(band-chip)//2}:w={plate}:h={chip}:color=0x{_paint(clip)}@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={fade_out:.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={band_top}{show}:format=auto{post}[v]"
-            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('split') and clip.get('panel') is not None:
-            left_w, right_w = _split_widths(w, clip.get('split_at'))
-            graph=f"[0:v]{base_vf.rstrip(',')},crop={left_w}:{h}:0:0,scale={left_w}:{h},setsar=1[left];[1:v]scale={right_w}:{h}:force_original_aspect_ratio=increase,crop={right_w}:{h},setsar=1,fps=30[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
-            inputs=['-ss',a,'-i',source,'-ss',clip['panel'],'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        elif manual and clip.get('split'):
-            left_w, right_w = _split_widths(w, clip.get('split_at'))
-            graph=f"[0:v]{base_vf.rstrip(',')},split[leftsrc][rightsrc];[leftsrc]crop={left_w}:{h}:0:0[left];[rightsrc]crop={right_w}:{h}:{left_w}:0[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
-            inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
-        else:
-            if manual and clip.get('focus') in ('in', 'out'):
-                frames=max(1, int(round(max(b-a, 0.08)*30)))
-                weight=f'N/{frames}' if clip['focus']=='out' else f'(1-N/{frames})'
-                chain=vf.rstrip(',')
-                graph=f"[0:v]{chain},split[sharp][soft];[soft]gblur=sigma=8[blurred];[sharp][blurred]blend=all_expr='A*(1-{weight})+B*{weight}'[v]"
+                spots=((0.18,0.32),(0.56,0.32),(0.18,0.58),(0.56,0.58))[:int(clip['diagram'])]
+                boxes=','.join(f"drawbox=x=iw*{x}:y=ih*{y}:w=iw*0.24:h=ih*0.16:color=0xE7C27A@0.95:t=fill" for x,y in spots)
+                graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x1A2430:s={w}x{h}:r=30:d={span:.3f},{boxes},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[plate];[fg][plate]overlay=format=auto{post}[v]"
+                inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('still') is not None and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+                span=max(b-a,0.2); fade_d=min(0.25,span/4); frames=int(span*30)+8
+                graph=f"[0:v]{base_vf.rstrip(',')}[fg];[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,fps=30,loop=loop={frames}:size=1:start=0,trim=duration={span:.3f},format=rgba,fade=t=in:st=0:d={fade_d}:alpha=1,fade=t=out:st={max(0,span-fade_d):.3f}:d={fade_d}:alpha=1[shot];[fg][shot]overlay=format=auto{post}[v]"
+                inputs=['-ss',a,'-i',source,'-ss',clip['still'],'-t','0.12','-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('lower') and not clip.get('graphic') and not clip.get('split') and not clip.get('cutout') and not clip.get('mask'):
+                span=max(b-a,0.2); fade_d=min(0.25,span/4); band=max(24,(h//6)//2*2); chip=max(12,(band//2)//2*2)
+                mark=max(0,min(1,float(clip.get('mark') or 0)))
+                plate=max(chip, int((w-24)*mark)) if mark>0.02 else chip
+                band_top, chip_x = h-band, 12
+                cy, cx = _frame_frac(clip.get('lower_y')), _frame_frac(clip.get('lower_x'))
+                if clip.get('lower_y') is not None and cy is not None:
+                    band_top=max(0, min(h-band, int(round(cy*h-band/2))))
+                if clip.get('lower_x') is not None and cx is not None:
+                    chip_x=max(0, min(max(0, w-plate), int(round(cx*w-plate/2))))
+                opened,closed=callout_bounds(clip,span)
+                if float(clip.get('effect_at') or 0)<0.2 and float(clip.get('effect_end') if clip.get('effect_end') is not None else 1)>=0.999:
+                    opened=0
+                limited=closed<span-0.02
+                show=f":enable='gte(t\\,{opened:.3f})*lt(t\\,{closed:.3f})'" if limited or opened else ''
+                fade_out=max(opened, closed-fade_d) if limited else max(opened, span-fade_d)
+                graph=f"[0:v]{base_vf.rstrip(',')}[fg];color=c=0x141816:s={w}x{band}:r=30:d={span:.3f},format=rgba,drawbox=x={chip_x}:y={(band-chip)//2}:w={plate}:h={chip}:color=0x{_paint(clip)}@0.95:t=fill,fade=t=in:st={opened:.3f}:d={fade_d}:alpha=1,fade=t=out:st={fade_out:.3f}:d={fade_d}:alpha=1[band];[fg][band]overlay=x=0:y={band_top}{show}:format=auto{post}[v]"
+                inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('split') and clip.get('panel') is not None:
+                left_w, right_w = _split_widths(w, clip.get('split_at'))
+                graph=f"[0:v]{base_vf.rstrip(',')},crop={left_w}:{h}:0:0,scale={left_w}:{h},setsar=1[left];[1:v]scale={right_w}:{h}:force_original_aspect_ratio=increase,crop={right_w}:{h},setsar=1,fps=30[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
+                inputs=['-ss',a,'-i',source,'-ss',clip['panel'],'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+            elif manual and clip.get('split'):
+                left_w, right_w = _split_widths(w, clip.get('split_at'))
+                graph=f"[0:v]{base_vf.rstrip(',')},split[leftsrc][rightsrc];[leftsrc]crop={left_w}:{h}:0:0[left];[rightsrc]crop={right_w}:{h}:{left_w}:0[right];[left][right]hstack=inputs=2,scale={w}:{h}{post}[v]"
                 inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
             else:
-                inputs=['-ss',a,'-i',source];filters=['-vf',vf,'-map','0:v:0']
-        if manual and rate>1 and inputs[:2]==['-ss',a]:
-            inputs=['-ss',a,'-t',f'{(b-a)*rate:.4f}',*inputs[2:]]
-        audio=[]
-        if manual and abs(rate-1)>0.04: audio.append(f'atempo={max(0.5,min(2,rate)):.4f}')
-        if manual and metadata['has_audio'] and clip.get('audio_fade_ms',0):
-            edge=min(clip['audio_fade_ms']/1000,(b-a)/4)
-            audio.append(f'afade=t=in:st=0:d={edge},afade=t=out:st={b-a-edge}:d={edge}')
-        if audio: filters+=['-af',','.join(audio)]
-        args=[*inputs,'-t',b-a,*filters,'-map','0:a:0?',
-              '-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000',part]
-        ffmpeg(*args,timeout=900)
-        if manual and i>0:
-            from .transitions import KINDS,apply
-            if clip['transition'] in KINDS:apply(parts[i-1],part,clip['transition'],b-a,clip.get('transition_seconds'))
-        beat('rendering_shots', 28+int(40*(i+1)/max(1,len(timeline))))
-    beat('assembling', 72)
-    listing=folder/'concat.txt'
-    listing.write_text(''.join(f"file '{p.name}'\n" for p in parts))
-    base=folder/'assembled.mp4'
-    ffmpeg('-f','concat','-safe','1','-i',listing,'-c','copy',base)
-    input_path=base
-    # Overlay generated footage while retaining the source voice / audio track.
-    for i,item in enumerate(brolls or []):
-        mapped=remap_span(item['start'],item['end'],timeline)
-        if not mapped: continue
-        a,b=mapped[0]; overlay=folder/f'overlay-{i}.mp4'
-        vf=f'[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,setpts=PTS-STARTPTS+{a}/TB[br];[0:v][br]overlay=enable=\'between(t,{a},{b})\':eof_action=pass[v]'
-        ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
-               '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
-        input_path=overlay
+                if manual and clip.get('focus') in ('in', 'out'):
+                    frames=max(1, int(round(max(b-a, 0.08)*30)))
+                    weight=f'N/{frames}' if clip['focus']=='out' else f'(1-N/{frames})'
+                    chain=vf.rstrip(',')
+                    graph=f"[0:v]{chain},split[sharp][soft];[soft]gblur=sigma=8[blurred];[sharp][blurred]blend=all_expr='A*(1-{weight})+B*{weight}'[v]"
+                    inputs=['-ss',a,'-i',source];filters=['-filter_complex_threads','1','-filter_complex',graph,'-map','[v]']
+                else:
+                    inputs=['-ss',a,'-i',source];filters=['-vf',vf,'-map','0:v:0']
+            if manual and rate>1 and inputs[:2]==['-ss',a]:
+                inputs=['-ss',a,'-t',f'{(b-a)*rate:.4f}',*inputs[2:]]
+            audio=[]
+            if manual and abs(rate-1)>0.04: audio.append(f'atempo={max(0.5,min(2,rate)):.4f}')
+            if manual and metadata['has_audio'] and clip.get('audio_fade_ms',0):
+                edge=min(clip['audio_fade_ms']/1000,(b-a)/4)
+                audio.append(f'afade=t=in:st=0:d={edge},afade=t=out:st={b-a-edge}:d={edge}')
+            if audio: filters+=['-af',','.join(audio)]
+            args=[*inputs,'-t',b-a,*filters,'-map','0:a:0?',
+                  '-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000',part]
+            ffmpeg(*args,timeout=900)
+            if manual and i>0:
+                from .transitions import KINDS,apply
+                if clip['transition'] in KINDS:apply(parts[i-1],part,clip['transition'],b-a,clip.get('transition_seconds'))
+            beat('rendering_shots', 28+int(40*(i+1)/max(1,len(timeline))))
+        beat('assembling', 72)
+        listing=folder/'concat.txt'
+        listing.write_text(''.join(f"file '{p.name}'\n" for p in parts))
+        base=folder/'assembled.mp4'
+        ffmpeg('-f','concat','-safe','1','-i',listing,'-c','copy',base)
+        input_path=base
+        # Overlay generated footage while retaining the source voice / audio track.
+        for i,item in enumerate(brolls or []):
+            mapped=remap_span(item['start'],item['end'],timeline)
+            if not mapped: continue
+            a,b=mapped[0]; overlay=folder/f'overlay-{i}.mp4'
+            vf=f'[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,setpts=PTS-STARTPTS+{a}/TB[br];[0:v][br]overlay=enable=\'between(t,{a},{b})\':eof_action=pass[v]'
+            ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
+                   '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
+            input_path=overlay
     from .voice_cleanup import prepare_track
     input_path=prepare_track(input_path, folder, manual, metadata.get('has_audio'))
     original_audio_input=input_path

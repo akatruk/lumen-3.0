@@ -98,6 +98,7 @@ def render_job(p,payload):
         from .manual import Edit
         with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
     voice_audio=render_audio.prepare(pid,delivery['voice'],render_folder,timeline) if delivery and delivery['voice'] else None
+    picture_engine=None
     if manual:
         from .studio import state as studio_state
         from .style_match import board_for_render
@@ -106,11 +107,13 @@ def render_job(p,payload):
         if ((current or {}).get('context') or {}).get('style_match'):
             from .style_match import animate_for_render, present_for_render
             from .style_pictures import attach_shot_frames
+            from .hypit_picture import engine_for
             progress(pid,'drawing_graphics',22)
             manual=animate_for_render(manual)
             manual=attach_shot_frames(pid, manual)
             manual=present_for_render(manual)
-    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
+            picture_engine=engine_for((current or {}).get('context'))
+    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id
     if delivery and delivery['voice']:result['voiceover']={k:delivery['voice'][k] for k in ('language','voice')}
     if asset_paths:
@@ -149,7 +152,7 @@ def safe_error(exc):
     'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
-    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips'}
+    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable'}
     return str(exc) if str(exc) in allowed else 'processing_failed'
 
 def run_once():
