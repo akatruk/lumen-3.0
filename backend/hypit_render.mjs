@@ -41,13 +41,20 @@ async function chromePath() {
   for (const path of candidates) {
     if (await exists(path)) return path
   }
+  let managed
   try {
-    return browser.browserExecutablePath({})
+    managed = browser.browserExecutablePath({})
   } catch (error) {
     if (!process.argv.includes('--prepare')) throw error
-    await browser.installRenderBrowser(browser.browserCacheDirectory({}), browser.recommendedBrowserVersion)
-    return browser.browserExecutablePath({})
+    managed = undefined
   }
+  if (managed && await exists(managed)) return managed
+  if (!process.argv.includes('--prepare')) {
+    console.error('hypit_unavailable')
+    process.exit(2)
+  }
+  await browser.installRenderBrowser(browser.browserCacheDirectory({}), browser.recommendedBrowserVersion)
+  return browser.browserExecutablePath({})
 }
 
 if (process.argv.includes('--prepare')) {
