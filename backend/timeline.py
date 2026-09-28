@@ -57,7 +57,7 @@ def motion_filter(clip,width,height,length):
     oy=max(-0.35, min(0.35, _num(clip, 'orbit_y', 0)))
     bowing=abs(ox)>=0.08 or abs(oy)>=0.08
     rx=max(4, min(64, int(clip.get('shake_rx') or 16))) if clip.get('stabilize') else 0
-    pre=f'deshake=rx={rx}:ry={rx}:edge=0,' if rx else ''
+    pre=f'deshake=rx={rx}:ry={rx}:edge=3,' if rx else ''
     if (z0,x0,y0)==(z1,x1,y1) and not bowing:
         base=f"crop=trunc(iw/{z0}/2)*2:trunc(ih/{z0}/2)*2:(iw-ow)*{x0}:(ih-oh)*{y0},"
     else:

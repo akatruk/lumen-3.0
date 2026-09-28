@@ -327,28 +327,28 @@ def _apply_style(page, style):
     card = stage.get('card') if isinstance(stage.get('card'), dict) else None
     if not card:
         return page
-    left = max(4.0, min(30.0, (float(card['x']) - float(card['w']) / 2) * 100))
-    top = max(12.0, min(40.0, (float(card['y']) - float(card['h']) / 2) * 100))
-    width = max(52.0, min(92.0, float(card['w']) * 100))
-    height = max(36.0, min(78.0, float(card['h']) * 100))
+    width = max(64.0, min(86.0, float(card['w']) * 100))
+    height = max(46.0, min(68.0, float(card['h']) * 100))
+    left = (100.0 - width) / 2
+    top = (100.0 - height) / 2
     fill = str(stage.get('fill') or '10233f')
     ink = str(stage.get('ink') or 'ffffff')
     page = page.replace('left:7%;right:7%;top:22%;bottom:8%', f'left:{left:.1f}%;top:{top:.1f}%;width:{width:.1f}%;height:{height:.1f}%')
     page = page.replace('background:#10233f;color:#fff', f'background:#{fill};color:#{ink}')
+    avatar = stage.get('avatar') if isinstance(stage.get('avatar'), dict) else {}
+    try:
+        diameter = max(0.22, min(0.34, float((avatar or {}).get('d') or 0.28)))
+    except (TypeError, ValueError):
+        diameter = 0.28
+    # The measured reference parks the face in a corner. Keep the presenter in the middle of the card.
+    ax, ay = 0.5, top / 100 + diameter / 2 + 0.04
     page = page.replace(
         'data-composition-id="lumen"',
-        'data-composition-id="lumen" data-card-left="{left}" data-card-width="{width}"'.format(
-            left=f'{left / 100:.3f}', width=f'{width / 100:.3f}',
+        'data-composition-id="lumen" data-card-left="{left}" data-card-top="{top}" data-card-width="{width}" data-card-height="{height}" data-avatar-x="{x}" data-avatar-y="{y}" data-avatar-d="{d}"'.format(
+            left=f'{left / 100:.3f}', top=f'{top / 100:.3f}', width=f'{width / 100:.3f}', height=f'{height / 100:.3f}',
+            x=f'{ax:.3f}', y=f'{ay:.3f}', d=f'{diameter:.3f}',
         ),
     )
-    avatar = stage.get('avatar') if isinstance(stage.get('avatar'), dict) else {}
-    if avatar:
-        page = page.replace(
-            'data-composition-id="lumen"',
-            'data-composition-id="lumen" data-avatar-x="{x}" data-avatar-y="{y}" data-avatar-d="{d}"'.format(
-                x=f'{float(avatar["x"]):.3f}', y=f'{float(avatar["y"]):.3f}', d=f'{float(avatar["d"]):.3f}',
-            ),
-        )
     return page
 
 
@@ -544,12 +544,16 @@ def composition(source, work, manual, width, height, language, style=None):
       const ay = root ? Number(root.getAttribute('data-avatar-y') || 0.12) : 0.12;
       const ad = root ? Number(root.getAttribute('data-avatar-d') || 0.30) : 0.30;
         if (video && frameBox) {{
-          const cardLeft = Number(root.getAttribute('data-card-left') || 0.07);
-          const cardWidth = Number(root.getAttribute('data-card-width') || 0.86);
-          const copyInset = Math.max(0, Math.min(0.42, (ax + ad / 2) - cardLeft));
-          const pad = avatar && ax < 0.55 ? Math.round(copyInset / Math.max(0.2, cardWidth) * 100) : 6;
+          const cardTop = Number(root.getAttribute('data-card-top') || 0.22);
+          const cardHeight = Number(root.getAttribute('data-card-height') || 0.56);
+          const padTop = avatar ? Math.round(Math.max(0.12, (ay + ad / 2) - cardTop) / Math.max(0.2, cardHeight) * 100) : 8;
           for (const el of layers) {{
-            if (el.classList.contains('hf-card') || el.classList.contains('hf-plate')) el.style.paddingLeft = pad + '%';
+            if (el.classList.contains('hf-card') || el.classList.contains('hf-plate')) {{
+              el.style.paddingTop = padTop + '%';
+              el.style.paddingLeft = '8%';
+              el.style.textAlign = 'center';
+              el.style.alignItems = 'center';
+            }}
           }}
         if (avatar) {{
           const box = Math.round(frameBox.clientWidth * (ad > 0.12 ? ad : 0.30));
@@ -559,6 +563,8 @@ def composition(source, work, manual, width, height, language, style=None):
           video.style.top = Math.round(frameBox.clientHeight * ay - box / 2) + 'px';
           video.style.right = 'auto';
           video.style.bottom = 'auto';
+          video.style.objectFit = 'cover';
+          video.style.objectPosition = 'center 30%';
           video.style.borderRadius = '50%';
           video.style.zIndex = '6';
           video.style.boxShadow = '0 0 0 5px #fff';

@@ -230,3 +230,18 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
         30,
     )[0])['streams']
     assert {item['codec_type'] for item in streams} == {'video', 'audio'}
+
+
+def test_presenter_is_centered_on_the_card():
+    from backend.hypit_picture import _apply_style
+    page = '<style>.hf-card,.hf-plate{left:7%;right:7%;top:22%;bottom:8%;background:#10233f;color:#fff}</style><div data-composition-id="lumen">'
+    style = {'stage': {
+        'card': {'x': 0.28, 'y': 0.30, 'w': 0.84, 'h': 0.57},
+        'avatar': {'x': 0.28, 'y': 0.195, 'd': 0.273},
+        'fill': '282a44', 'ink': 'ffffff',
+    }}
+    out = _apply_style(page, style)
+    assert 'left:8.0%;top:21.5%;width:84.0%;height:57.0%' in out
+    assert 'data-avatar-x="0.500"' in out
+    assert 'data-avatar-y="0.392"' in out
+    assert 'data-card-left="0.080"' in out
