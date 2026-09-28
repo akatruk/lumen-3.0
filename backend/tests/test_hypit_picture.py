@@ -31,8 +31,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
         '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', src,
     )
     root = tmp_path / 'hypit-root'
-    (root / 'node_modules' / '.bin').mkdir(parents=True)
-    (root / 'node_modules' / '.bin' / 'tsx').write_text('')
+    cli = root / 'node_modules' / 'tsx' / 'dist'
+    cli.mkdir(parents=True)
+    (cli / 'cli.mjs').write_text('')
     monkeypatch.setenv('HYPIT_ROOT', str(root))
     seen = {}
 

@@ -34,14 +34,16 @@ def _root():
 
 
 def command(job_path):
+    """tsx's package bin is a shell shim. Node must run the JavaScript CLI."""
     root = _root()
-    tsx = root / 'node_modules' / '.bin' / 'tsx'
+    cli = root / 'node_modules' / 'tsx' / 'dist' / 'cli.mjs'
     node = os.environ.get('HYPIT_NODE') or 'node'
-    return [node, str(tsx), str(SCRIPT), str(job_path)], root, tsx
+    return [node, str(cli), str(SCRIPT), str(job_path)], root, cli
 
 
 def spawn(argv, env):
-    subprocess.run(argv, check=True, env=env, timeout=45 * 60)
+    work = str(Path(argv[-1]).resolve().parent)
+    subprocess.run(argv, check=True, env=env, timeout=45 * 60, cwd=work)
 
 
 def _fps(path):
