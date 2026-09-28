@@ -11,10 +11,10 @@ import {FinalMusic,type FinalMusicHandle} from './FinalMusic';
 import {BeatPreview} from './BeatPreview';
 import {StockLibrary} from './StockLibrary';
 import {MusicEditor,type Music} from './MusicEditor';
-import {SoundEffectEditor,type SoundEffect} from './SoundEffectEditor';
+import type {SoundEffect} from './SoundEffectEditor';
 import {MediaLibrary,AssetPlacement,type Asset,type ExternalBroll,type MediaLibraryHandle} from './MediaLibrary';
-import {CutawayEditor,type Cutaway} from './CutawayEditor';
-import {VisualCardEditor,type VisualCard} from './VisualCardEditor';
+import type {Cutaway} from './CutawayEditor';
+import type {VisualCard} from './VisualCardEditor';
 import {TimelineRegenerate} from './TimelineRegenerate';
 import {TimelineTracks} from './TimelineTracks';
 import {ClipLayerTracks} from './ClipLayerTracks';
@@ -231,20 +231,18 @@ export function ManualEditor({
         clips: edit.clips.map((c, j) => (i === j ? reviseDecision(c,p) : c)),
       });
   }
-  const framingField = (c: Clip, i: number, key: "start" | "end" | "zoom" | "x" | "y") => (
+  const framingField = (c: Clip, i: number, key: "start" | "end" | "zoom") => (
     <label key={key} className={key === "start" || key === "end" ? "inspector-time" : "inspector-slider"}>
       {{
         start: t("Source start (s)", "原片开始（秒）"),
         end: t("Source end (s)", "原片结束（秒）"),
         zoom: t("Zoom (1–3×)", "缩放（1–3 倍）"),
-        x: t("Crop horizontal (0–1)", "水平位置（0–1）"),
-        y: t("Crop vertical (0–1)", "垂直位置（0–1）"),
       }[key]}
       <input
         type={key === "start" || key === "end" ? "number" : "range"}
         step={key === "start" || key === "end" ? 0.1 : 0.05}
         min={key === "zoom" ? 1 : 0}
-        max={key === "zoom" ? 3 : key === "x" || key === "y" ? 1 : duration}
+        max={key === "zoom" ? 3 : duration}
         value={c[key]}
         onChange={(e) => clipChange(i, { [key]: Number(e.target.value) })}
       />
@@ -412,12 +410,7 @@ export function ManualEditor({
                 <p className="scene-timing-title">{w('Время и приближение этой сцены','Timing and zoom for this scene','此场景的时间与缩放')}</p>
                 <div className="manual-grid ws-framing-grid">{(["start","end","zoom"] as const).map(key=>framingField(c,i,key))}</div>
               </div>
-              <details className="inspector-framing"><summary>{w('Положение в кадре','Position in the frame','画面位置')}</summary><div className="manual-grid ws-framing-grid">{(["x","y"] as const).map(key=>framingField(c,i,key))}</div></details>
-              <details className="inspector-motion" open={task==='effects'}><summary>{t('Camera motion: end framing','镜头运动：结束构图')}</summary><p>{t('The camera moves smoothly from the initial framing above to these end values. Matching values keep the camera still.','镜头从上方初始构图平滑移动至下方结束构图。数值相同则保持静止。')}</p><div className="manual-grid">{(['zoom_end','x_end','y_end'] as const).map((key,j)=><label key={key}>{[t('End zoom','结束缩放'),t('End horizontal position','结束水平位置'),t('End vertical position','结束垂直位置')][j]}<input type="range" min={j===0?1:0} max={j===0?3:1} step="0.05" value={c[key]??[c.zoom,c.x,c.y][j]} onChange={e=>clipChange(i,{[key]:Number(e.target.value)})}/><output>{(c[key]??[c.zoom,c.x,c.y][j]).toFixed(2)}</output></label>)}</div></details>
-              <label>{w('Длительность движения камеры, сек','Camera movement duration, seconds','镜头运动时长（秒）')}<input type="number" min="0.08" max={c.end-c.start} step="0.1" value={Math.min(c.end-c.start,c.motion_seconds||c.end-c.start)} onChange={e=>clipChange(i,{motion_seconds:Number(e.target.value)})}/></label>
-              <p>{w('После движения кадр удерживается до конца сцены.','After the move, the framing holds until the scene ends.','运动完成后，构图保持到场景结束。')}</p>
-              {Math.min(c.end-c.start,c.motion_seconds||c.end-c.start)>12&&(c.zoom_end??c.zoom)!==c.zoom&&<p className="ws-delivery-warning">{w('Движение растянуто на длинную сцену и может быть едва заметно.','The move spans a long scene and may be barely noticeable.','运动跨越较长场景，可能难以察觉。')} <button onClick={()=>clipChange(i,{motion_seconds:Math.min(4,c.end-c.start)})}>{w('Приближение за 4 секунды','Zoom over 4 seconds','4 秒内缩放')}</button></p>}
-              <section className="inspector-transition"><label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade" disabled={i===0}>{t('Cross dissolve','叠化')}</option><option value="zoom" disabled={i===0}>{t('Zoom transition','缩放转场')}</option><option value="wipe" disabled={i===0}>{t('Wipe left','向左擦除')}</option><option value="wipe-up" disabled={i===0}>{t('Wipe up','从下方出现')}</option><option value="wipe-down" disabled={i===0}>{t('Wipe down','从上方出现')}</option><option value="circle" disabled={i===0}>{t('Circle mask','圆形遮罩')}</option><option value="diagtl" disabled={i===0}>{t('Wipe from the top left','从左上角擦除')}</option><option value="diagtr" disabled={i===0}>{t('Wipe from the top right','从右上角擦除')}</option><option value="diagbl" disabled={i===0}>{t('Wipe from the bottom left','从左下角擦除')}</option><option value="diagbr" disabled={i===0}>{t('Wipe from the bottom right','从右下角擦除')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>{i===0&&<small>{w('У первой сцены нет входящего перехода. Можно использовать затухание через чёрный.','The first scene has no incoming transition. You can use a fade through black.','第一个镜头没有入场转场，可以使用黑场淡入淡出。')}</small>}</section>
+              <section className="inspector-transition"><label>{t('Transition','转场')}<select value={c.transition||'cut'} onChange={e=>clipChange(i,{transition:e.target.value as Clip['transition']})}><option value="cut">{t('Straight cut','直接切换')}</option><option value="crossfade" disabled={i===0}>{t('Cross dissolve','叠化')}</option><option value="fade">{t('Fade through black','淡入淡出至黑场')}</option></select></label>{i===0&&<small>{w('У первой сцены нет входящего перехода. Можно использовать затухание через чёрный.','The first scene has no incoming transition. You can use a fade through black.','第一个镜头没有入场转场，可以使用黑场淡入淡出。')}</small>}{c.transition&&!['cut','crossfade','fade'].includes(c.transition)&&<small>{w('Этот переход уже выбран AI и останется в ролике.','This transition was chosen by AI and stays in the video.','此转场由 AI 选择，会保留在成片中。')}</small>}</section>
               <ClipLayerTracks clip={c} lang={lang} playhead={selected===i?time-c.start:null}/>
               <details className="inspector-text"><summary>{w('Текст на сцене','Scene text','镜头文字')}{c.text&&<span className="inspector-dot"/>}</summary><label>
                 {t("Text overlay for this clip", "此片段的叠加文字")}
@@ -430,14 +423,8 @@ export function ManualEditor({
               </details>
               <div className="inspector-inserts">
               <AssetPlacement value={c.external_broll||null} assets={assets.filter(a=>a.metadata.kind!=='music')} duration={c.end-c.start} lang={lang} onChange={external_broll=>clipChange(i,{external_broll,...(external_broll?{cutaway:null}:{})})}/>
-              <CutawayEditor value={c.cutaway||null} duration={c.end-c.start} sourceDuration={duration} pid={pid} lang={lang} onChange={cutaway=>clipChange(i,{cutaway,...(cutaway?{external_broll:null}:{})})}/>
-              <SoundEffectEditor effects={c.sound_effects||[]} duration={c.end-c.start} lang={lang} onChange={sound_effects=>clipChange(i,{sound_effects})}/>
-              <VisualCardEditor card={c.card||null} duration={c.end-c.start} lang={lang} onChange={card=>clipChange(i,{card})}/>
+              {(!!c.sound_effects?.length||!!c.card||!!c.cutaway)&&<p>{w('Карточки, звуковые акценты и перебивки из своего ролика задаёт AI.','Cards, sound accents and cutaways from this video are chosen by AI.','卡片、音效和原片切出由 AI 决定。')}{!!c.sound_effects?.length&&<button type="button" onClick={()=>clipChange(i,{sound_effects:[]})}>{w('Убрать звуковые акценты','Remove sound accents','移除音效')}</button>}{!!c.card&&<button type="button" onClick={()=>clipChange(i,{card:null})}>{w('Убрать карточку','Remove visual insert','移除视觉插入')}</button>}{!!c.cutaway&&<button type="button" onClick={()=>clipChange(i,{cutaway:null})}>{w('Убрать перебивку','Remove cutaway','移除补充镜头')}</button>}</p>}
               </div>
-              <details><summary>{w('Роль сцены и края звука','Scene role and audio edges','场景用途与声音边缘')}</summary><label>{t('Shot role','镜头用途')}<select value={c.shot_type||'presenter'} onChange={e=>clipChange(i,{shot_type:e.target.value as Clip['shot_type']})}>{[['presenter',t('Presenter','人物讲解')],['close_up',t('Close-up','特写')],['medium',t('Medium shot','中景')],['broll',t('B-roll / cutaway','补充镜头')],['document',t('Document','文档')],['archive',t('Archival footage','档案影像')],['news',t('News clip','新闻片段')]].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-              <label>{t('Source audio edge smoothing','原声边缘平滑')}<select value={c.audio_fade_ms||0} onChange={e=>clipChange(i,{audio_fade_ms:Number(e.target.value)})}>{[0,10,30,60,100].map(ms=><option key={ms} value={ms}>{ms?`${ms} ms`:t('Off — preserve original audio','关闭 — 保留原声')}</option>)}</select></label>
-              <small>{t('Short fades at both clip edges reduce clicks. They affect the whole source mix, including speech; they do not restore a broken musical phrase. Timing is unchanged.','片段首尾短淡化可减少爆音。它影响包括人声在内的全部原声，不能修复被截断的音乐乐句。时间轴不变。')}</small>
-              </details>
 
               </fieldset>
               <details className="ws-scene-options"><summary>{w('Порядок и удаление сцены','Reorder or remove scene','调整顺序或删除场景')} · {i+1}</summary><div className="manual-actions">
@@ -495,28 +482,6 @@ export function ManualEditor({
               </details>
             </article>
           ))}
-          <button
-            disabled={edit.clips.length >= 40}
-            onClick={() => {
-              change({
-                clips: [
-                  ...edit.clips,
-                  {
-                    id: crypto.randomUUID(), approved:false,locked:false,
-                    start: 0,
-                    end: duration,
-                    zoom: 1,
-                    x: 0.5,
-                    y: 0.5,
-                    text: "",
-                  },
-                ],
-              });
-              setSelected(edit.clips.length);
-            }}
-          >
-            {t("Add clip from source", "添加原片片段")}
-          </button>
         </fieldset>
         <p>
           {t(
@@ -652,18 +617,6 @@ export function ManualEditor({
                 <option value="top">{t("Top", "顶部")}</option>
               </select>
             </label>
-            <label>
-              {t("Color", "颜色")}
-              <select
-                value={edit.color}
-                onChange={(e) =>
-                  change({ color: e.target.value as Edit["color"] })
-                }
-              >
-                <option value="white">{t("White", "白色")}</option>
-                <option value="yellow">{t("Yellow", "黄色")}</option>
-              </select>
-            </label>
           </div>
           {edit.captions.map((c, i) => (
             <div className="manual-caption" key={i}>
@@ -712,7 +665,6 @@ export function ManualEditor({
                   onChange={(e) => captionChange(i, { zh: e.target.value })}
                 />
               </label>
-              {(['en','zh'] as const).map(l=><label key={l}>{t('Highlight words (comma-separated, up to 8)','强调词（逗号分隔，最多 8 个）')} · {l}<input maxLength={391} value={(c[`emphasis_${l}`]||[]).join(',')} onChange={e=>captionChange(i,{[`emphasis_${l}`]:e.target.value.split(/[,，]/)})} onBlur={e=>captionChange(i,{[`emphasis_${l}`]:e.target.value.split(/[,，]/).map(x=>x.trim()).filter(Boolean)})}/></label>)}
               <button
                 onClick={() =>
                   change({ captions: edit.captions.filter((_, j) => j !== i) })
@@ -766,8 +718,8 @@ export function ManualEditor({
       <details className="ws-editor-help"><summary>{w("Как работает редактор","How editing works","编辑器说明")}</summary>
       <p>
         {t(
-          "Build a separate manual cut from your footage. Its clip order and settings replace the AI edits for this render; the AI plan remains available. Saving is free. Rendering uses no AI calls and requires your visual review.",
-          "使用自有素材制作手动版本。本次制作使用下方片段顺序和设置，替代 AI 改动；AI 计划仍然保留。保存免费，制作不调用 AI，需要您亲自检查成片。",
+          "Timing, zoom, subtitles and scene order here override the AI plan for this render. Crop, wipes, charts, sound accents and extra clips stay with AI. Saving is free.",
+          "这里的时间、缩放、字幕和场景顺序会覆盖本次 AI 计划。裁剪、擦除、图表、音效和额外片段仍由 AI 决定。保存免费。",
         )}
       </p>
       <div hidden={task!=="edit"}>

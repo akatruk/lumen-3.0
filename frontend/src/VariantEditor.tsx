@@ -144,7 +144,6 @@ export function VariantEditor({
             {draft.caption_mode==='custom'&&<>
               <label>{t('Size','大小')}<select value={draft.caption_size||'medium'} onChange={e=>setDraft({...draft,caption_size:e.target.value as EditableVariant['caption_size']})}>{[['small',t('Small','小')],['medium',t('Medium','中')],['large',t('Large','大')]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
               <label>{t('Position','位置')}<select value={draft.caption_position||'bottom'} onChange={e=>setDraft({...draft,caption_position:e.target.value as EditableVariant['caption_position']})}><option value="bottom">{t('Bottom','底部')}</option><option value="top">{t('Top','顶部')}</option></select></label>
-              <label>{t('Color','颜色')}<select value={draft.caption_color||'white'} onChange={e=>setDraft({...draft,caption_color:e.target.value as EditableVariant['caption_color']})}><option value="white">{t('White','白色')}</option><option value="yellow">{t('Yellow','黄色')}</option></select></label>
             </>}
             <p>{t('Changes affect Lumen captions only. Text already in the source video stays visible. Check for overlap with your title.','仅修改 Lumen 字幕，原视频自带文字仍会保留。请检查字幕是否与标题重叠。')}</p>
           </fieldset>:<p>{t('To customize captions, render a new master and create a new platform package. This older master has embedded captions.','如需自定义字幕，请重新制作主版本并创建平台版本包。旧主版本的字幕已嵌入画面。')}</p>}
@@ -163,8 +162,6 @@ export function VariantEditor({
             />
           </label>
           <div className="manual-grid">
-            <label>{t('Title style','标题样式')}<select value={draft.title_style||'clean'} onChange={e=>setDraft({...draft,title_style:e.target.value as EditableVariant['title_style']})}>{[['clean',t('Clean','简洁')],['bold',t('Bold','粗体')],['panel',t('Background panel','背景框')]].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-            <label>{t('Title position','标题位置')}<select value={draft.title_position||'top'} onChange={e=>setDraft({...draft,title_position:e.target.value as EditableVariant['title_position']})}><option value="top">{t('Top','顶部')}</option><option value="center">{t('Center','居中')}</option></select></label>
             <label>{t('Opening title (seconds; 0 = off)','开场标题（秒；0 为关闭）')}<input type="number" min={0} max={8} step={.5} value={draft.hook_seconds??3} onChange={e=>setDraft({...draft,hook_seconds:Number(e.target.value)})}/></label>
             <label>{t('Closing CTA (seconds; 0 = off)','结尾行动提示（秒；0 为关闭）')}<input type="number" min={0} max={8} step={.5} value={draft.cta_seconds??0} onChange={e=>setDraft({...draft,cta_seconds:Number(e.target.value)})}/></label>
           </div>

@@ -125,7 +125,7 @@ export const ru: Record<string, string> = {
   "Bottom": "Снизу",
   "Brand rules & claims to avoid": "Правила бренда и недопустимые утверждения",
   "Budget": "Бюджет",
-  "Build a separate manual cut from your footage. Its clip order and settings replace the AI edits for this render; the AI plan remains available. Saving is free. Rendering uses no AI calls and requires your visual review.": "Создайте отдельный ручной монтаж из своего материала. Порядок клипов и настройки заменят AI-правки в этом рендере; план AI останется доступен. Сохранение бесплатно. Рендер не вызывает AI и требует вашей визуальной проверки.",
+  "Timing, zoom, subtitles and scene order here override the AI plan for this render. Crop, wipes, charts, sound accents and extra clips stay with AI. Saving is free.": "Время, масштаб, субтитры и порядок сцен здесь заменяют план AI для этого рендера. Кадрирование, шторки, карточки, звуковые акценты и лишние клипы остаются за AI. Сохранение бесплатно.",
   "Build timeline from approved AI edits": "Создать таймлайн из утверждённых AI-правок",
   "Building the edit…": "Подготовка монтажа…",
   "Building your Director Timeline": "Создание монтажного таймлайна",
