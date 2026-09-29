@@ -14,6 +14,14 @@ from backend.worker import render_job
 T = {'en': 'Synthetic fixture, not AI analysis', 'zh': '合成测试素材，非 AI 分析'}
 
 
+def test_chrome_path_uses_the_explicit_browser(monkeypatch, tmp_path):
+    browser = tmp_path / 'chrome'
+    browser.write_text('')
+    monkeypatch.setenv('HYPIT_CHROME', str(browser))
+    from backend.hypit_picture import _chrome
+    assert _chrome() == str(browser)
+
+
 def test_style_match_selects_the_hypit_engine():
     assert engine_for({'style_match': True}) == 'hypit'
     assert engine_for({'style_match': False}) is None

@@ -81,7 +81,7 @@ def capture_note(exc):
 
 def _chrome():
     chosen = os.environ.get('HYPIT_CHROME')
-    if chosen:
+    if chosen and Path(chosen).is_file():
         return chosen
     for path in (
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -92,6 +92,16 @@ def _chrome():
     ):
         if Path(path).is_file():
             return path
+    roots = (
+        Path('/opt/lumen-rebuild/.cache/hyperframes/chrome'),
+        Path.home() / '.cache' / 'hyperframes' / 'chrome',
+    )
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in sorted(root.glob('**/chrome-headless-shell')):
+            if path.is_file() and os.access(path, os.X_OK):
+                return str(path)
     return ''
 
 
