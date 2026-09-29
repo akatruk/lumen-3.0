@@ -289,10 +289,14 @@ def _piece_vf(clip, width, height, length, room=None):
     """Measured move, grade, light, and pace, then a full frame for the capture.
 
     The filter is the one the assembler already trusts. A second speed change
-    here would pull the mouth off the words.
+    here would pull the mouth off the words. The invented 1.00→1.26 push is
+    dropped here so a saved effect pick cannot resample the face.
     """
+    from .style_match import _undo_staged_push
     from .timeline import motion_filter
 
+    if isinstance(clip, dict):
+        _undo_staged_push(clip)
     shaped, average = _pace(clip, length, room)
     chain = motion_filter(shaped, int(width), int(height), length)
     fill = (
@@ -625,7 +629,11 @@ def _even_indexes(count, total):
 
 
 def _soften_layer(layer, share):
-    """100% keeps the short entrance. A lower percentage stretches the fade across the card."""
+    """100% keeps the short entrance. Below that, the entrance is slow enough to see.
+
+    80% is about a second and a half. 50% is about three seconds. The fade never
+    takes more than half the card, and it does not blur the footage.
+    """
     if share >= 100 or not _graphic_layer(layer):
         return layer
     found = re.search(r'data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', layer)
@@ -634,20 +642,22 @@ def _soften_layer(layer, share):
     span = int(found.group(2)) - int(found.group(1))
     if span <= 1:
         return layer
-    extra = int(round(span * (100 - share) / 100 * 0.45))
+    designed = 6
+    current = re.search(r'data-hf-fade-in="(\d+)"', layer)
+    if current:
+        designed = int(current.group(1))
+    seconds = 0.25 + (100 - share) / 100 * 6.0
+    frames = min(max(1, span // 2), max(designed + 1, int(round(seconds * FPS))))
 
     def stretch(match):
-        base = int(match.group(2))
-        value = min(span // 2, base + extra)
-        return f'{match.group(1)}="{max(base, value)}"'
+        return f'{match.group(1)}="{frames}"'
 
     if 'data-hf-fade-in="' in layer:
         layer = re.sub(r'(data-hf-fade-in)="(\d+)"', stretch, layer, count=1)
         return re.sub(r'(data-hf-fade-out)="(\d+)"', stretch, layer, count=1)
-    fade = min(span // 2, max(1, extra))
     return re.sub(
         r'(data-hypit-end-frame="\d+")',
-        rf'\1 data-hf-fade-in="{fade}" data-hf-fade-out="{fade}"',
+        rf'\1 data-hf-fade-in="{frames}" data-hf-fade-out="{frames}"',
         layer,
         count=1,
     )
@@ -659,8 +669,29 @@ def _present(layers, share):
     return [_soften_layer(layer, share) for layer in layers]
 
 
+def _keep_graphics(parsed, keep):
+    """Fewer cards, spread through the video. A data plate stays when it fits."""
+    count = len(parsed)
+    keep = max(1, min(count, int(keep)))
+    if keep >= count:
+        return list(parsed)
+    must = {0, count - 1}
+    for index, (_start, _end, layer) in enumerate(parsed):
+        if re.search(r'class="[^"]*\bhf-plate\b', layer):
+            must.add(index)
+    if len(must) > keep:
+        return [parsed[index] for index in _even_indexes(keep, count)]
+    rest = [index for index in range(count) if index not in must]
+    need = keep - len(must)
+    if need <= 0:
+        return [parsed[index] for index in sorted(must)]
+    extra = _even_indexes(need, len(rest))
+    chosen = sorted(must | {rest[index] for index in extra})
+    return [parsed[index] for index in chosen]
+
+
 def _limit_graphics(layers, total_frames, share):
-    """Keep animated plates on about `share` percent of the picture, spread through it."""
+    """100% keeps every designed plate. A lower share keeps fewer, shorter plates."""
     share = max(0, min(100, int(share)))
     graphic = [layer for layer in layers if _graphic_layer(layer)]
     rest = [layer for layer in layers if layer not in graphic]
@@ -679,21 +710,22 @@ def _limit_graphics(layers, total_frames, share):
     if not parsed:
         return rest
     parsed.sort()
+    target = max(1, int(round(len(parsed) * share / 100)))
+    if target >= len(parsed) and len(parsed) > 1:
+        target -= 1
     budget = total_frames * share / 100
-    full = sum(end - start for start, end, _layer in parsed)
-    if budget >= full:
-        return _present(rest + [layer for _start, _end, layer in parsed], share)
     minimum = max(1, int(round(0.8 * FPS)))
     chosen = parsed
-    for count in range(len(parsed), 0, -1):
-        indexes = _even_indexes(count, len(parsed))
-        picked = [parsed[index] for index in indexes]
+    for count in range(target, 0, -1):
+        picked = _keep_graphics(parsed, count)
         covered = sum(end - start for start, end, _layer in picked)
         scale = budget / covered if covered else 0
         if count == 1 or all((end - start) * scale >= minimum for start, end, _layer in picked):
             chosen = picked
             break
     covered = sum(end - start for start, end, _layer in chosen)
+    if budget >= covered:
+        return _present(rest + [layer for _start, _end, layer in chosen], share)
     scale = min(1.0, budget / covered) if covered else 0
     kept = []
     for start, end, layer in chosen:

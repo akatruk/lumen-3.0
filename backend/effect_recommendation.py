@@ -1,9 +1,8 @@
 """One visual treatment for the next picture render.
 
-The choice is local. It reads the saved cut (timing, grade, zoom, cards, and
-captions already on the edit) and writes only fields the picture path already
-honors: zoom through ``motion_filter``, a grade, a vignette, a clarity lift,
-or card motion. It does not call a model and does not invent a property fact.
+The choice is local. A push, a grade, a vignette, or a glow softens a small
+frame, so this does not apply them. Card motion is the slider the editor
+already saves. It does not call a model and does not invent a property fact.
 """
 import copy
 
@@ -130,25 +129,17 @@ def _same(clips, patch):
 
 
 def recommend(edit):
-    """Pick one treatment the next render will execute. Raises when none will change the picture."""
+    """Pick one treatment the next render will execute. Raises when none will change the picture.
+
+    A centered push, a grade, a vignette, and a glow are not offered. Accepting
+    the first suggestion used to write zoom 1.00→1.26, and the picture path
+    resampled the footage.
+    """
     if not isinstance(edit, dict):
         raise ValueError('effect_unavailable')
     clips = _open(edit)
     if not clips:
         raise ValueError('no_open_picture')
-    if _share(clips, _moving) < 0.5:
-        still = [clip for clip in clips if not _moving(clip)]
-        if still:
-            return _push(still)
-    plain = [clip for clip in clips if not _grade_of(clip)]
-    if plain and _share(clips, _grade_of) < 0.5:
-        return _same(plain, {'grade': _measured_grade(edit) or dict(GRADE)})
-    bare = [clip for clip in clips if not _vignette(clip)]
-    if bare and _share(clips, _vignette) < 0.5:
-        return _same(bare, {'shadow': True, 'shade': VIGNETTE})
-    soft = [clip for clip in clips if not _glow(clip)]
-    if soft and _share(clips, _glow) < 0.5:
-        return _same(soft, {'glow': True, 'glow_amount': GLOW})
     motion = edit.get('card_motion')
     motion = 100 if motion is None else _num(motion, 100)
     if _graphics(edit) and motion >= 95:

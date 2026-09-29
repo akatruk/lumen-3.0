@@ -66,20 +66,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
             return route.fulfill({ json: { revision: body.revision, edit } });
           }
           if (path.endsWith("/manual/effect") && request.method() === "POST") {
-            const clips = {};
-            for (const clip of body.edit.clips) {
-              if (clip.approved === false || clip.locked) continue;
-              clips[clip.id] = {
-                zoom: 1,
-                zoom_end: 1.26,
-                x: 0.5,
-                y: 0.5,
-                x_end: 0.5,
-                y_end: 0.5,
-                motion_seconds: Number((clip.end - clip.start).toFixed(3)),
-              };
-            }
-            return route.fulfill({ json: { id: "punch", clips, edit: {} } });
+            return route.fulfill({ status: 422, json: { detail: "effect_unavailable" } });
           }
           if (path.endsWith("/manual") && request.method() === "PUT") {
             data.manual.edit = body.edit;
@@ -105,25 +92,14 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
       assert.equal(await page.locator(".project-workspace").count(), 1);
       if (scenario === "presentation") {
         await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
-        const slider = page.getByLabel("Промпт Hypit, %");
-        assert.equal(await slider.isDisabled(), false);
-        await slider.fill("40");
-        await page.locator(".presentation-share output").getByText("40%").waitFor();
-        assert.match(await page.locator(".presentation-prompt").innerText(), /Hypit/);
-        assert.match(await page.locator(".presentation-prompt").innerText(), /40%/);
-        await page.locator(".presentation-share").getByText("Привет").waitFor();
-        await page.locator(".presentation-share").getByText("Доля сохранена в проект").waitFor();
-        const saved = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual"));
-        assert.equal(saved.at(-1).body.edit.presentation_share, 40);
-        assert.equal(saved.at(-1).body.edit.presentation[0].title.ru, "Привет");
+        assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
         const cards = page.getByLabel("Анимация карточек, %");
         assert.equal(await cards.inputValue(), "100");
         await cards.fill("50");
         await page.getByRole("region", { name: "Анимация карточек" }).getByText("Уровень сохранён").waitFor();
         const cardSave = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual")).at(-1);
         assert.equal(cardSave.body.edit.card_motion, 50);
-        assert.equal(cardSave.body.edit.presentation_share, 40);
-        assert.equal(writes.filter((row) => row.path.endsWith("/presentation")).length, 1);
+        assert.equal(writes.filter((row) => row.path.endsWith("/presentation")).length, 0);
       } else if (scenario === "studio" || scenario === "other-project") {
         await page.getByRole("button", { name: "Сохранить ручные правки", exact: true }).waitFor();
         assert.equal(await page.locator(".scene-picker").count(), 0);
@@ -167,17 +143,11 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           .getByRole("button", { name: "Эффекты", exact: true })
           .click();
         const pick = page.getByRole("region", { name: "Подбор эффекта" });
-        await pick.getByText("Плавный наезд на всю картинку").waitFor();
+        await pick.getByText("Наезд, свечение и виньетка сами не включаются").waitFor();
+        assert.equal(await pick.getByText("Плавный наезд на всю картинку").count(), 0);
         assert.equal(await page.getByRole("button", { name: "Плавное приближение" }).count(), 0);
         assert.equal(await page.getByLabel("Анимация карточек, %").inputValue(), "100");
-        await pick.getByRole("button", { name: "Применить к ролику", exact: true }).click();
-        await pick.getByText("Образ сохранён").waitFor();
-        const effectSave = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual")).at(-1);
-        assert.equal(effectSave.body.edit.clips[0].zoom, 1);
-        assert.equal(effectSave.body.edit.clips[0].zoom_end, 1.26);
-        assert.equal(effectSave.body.edit.clips[0].approved, true);
-        assert.equal(effectSave.body.edit.clips[0].transition, "cut");
-        assert.equal(effectSave.body.edit.card_motion ?? 100, 100);
+        assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
         await page
           .locator(".ws-tools")
           .getByRole("button", { name: "Субтитры", exact: true })
@@ -215,7 +185,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         assert.match(await page.locator('.render-summary').innerText(), /Неприменённые предложения AI: 3/);
         assert.match(await page.locator('.render-summary').innerText(), /Движение камеры/);
         const manualSaves = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual"));
-        assert.equal(manualSaves[0].body.edit.clips[0].zoom_end, 1.26);
+        assert.equal(manualSaves[0].body.edit.clips[0].zoom_end, 1);
         assert.equal(manualSaves.at(-1).body.edit.subtitles, false);
         assert.notEqual(manualSaves[0].body.edit.picture_quality, true);
         assert.match(await page.locator('.render-summary').innerText(), /Качество изображения/);
@@ -223,7 +193,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         await page
           .getByRole("button", { name: "Создать видео с этими изменениями", exact: true })
           .click();
-        assert.equal(writes.at(-1).body.revision, 3);
+        assert.equal(writes.at(-1).body.revision, 2);
         assert.equal(
           writes.at(-1).path,
           `/api/studio/projects/${pid}/manual/render`,
@@ -261,13 +231,8 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         await page.keyboard.press("Escape");
         assert.equal(await page.locator("dialog[open]").count(), 0);
         await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
-        await page.getByLabel("Промпт Hypit, %").fill("20");
-        await page.locator(".presentation-share").getByText("Привет").waitFor();
-        const scan = writes.find((row) => row.path.endsWith("/presentation"));
-        assert.equal(scan.body.edit.presentation_share, 20);
-        const hypitShare = page.getByRole("region", { name: "Промпт Hypit" });
-        assert.match(await hypitShare.innerText(), /20%/);
-        assert.match(await hypitShare.innerText(), /3D-окно/);
+        assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
+        assert.equal(await page.getByLabel("Анимация карточек, %").count(), 1);
       } else if (scenario === "legacy") {
         await page.locator(".ws-scenes button").first().click();
         assert.match(

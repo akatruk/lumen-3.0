@@ -2100,11 +2100,13 @@ def apply_effect_board(edit, board):
     return shaped
 
 # Pushes previously invented for a still. A measured move does not use these exact ends.
+# 1.00 → 1.26 is the effect pick's centered push. zoompan resamples a 720p frame and softens it.
 _STAGED_PUSHES = (
     (1.02, 1.18, 0.50, 0.50, 0.56, 0.42),
     (1.16, 1.04, 0.38, 0.58, 0.48, 0.50),
     (1.04, 1.20, 0.58, 0.42, 0.50, 0.50),
     (1.12, 1.02, 0.50, 0.50, 0.40, 0.58),
+    (1.00, 1.26, 0.50, 0.50, 0.50, 0.50),
 )
 
 def _near(left, right):
@@ -2348,8 +2350,7 @@ def animate_for_render(edit):
         if not isinstance(clip, dict) or clip.get('locked'):
             continue
         clip['sweep'] = False
-        if clip.get('split'):
-            continue
+        # A split layout still must not keep the invented push. That push upscales the face.
         _undo_staged_push(clip)
     return shaped
 

@@ -197,6 +197,10 @@ def test_a_host_moment_keeps_a_corner_title():
     assert "geq=lum='lum(X,Y)+" in look
     plain, _plain_rate = _piece_vf({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1}, 1080, 1920, 1)
     assert 'eq=' not in plain and 'vignette=' not in plain and 'zoompan=' not in plain
+    pushed, _pushed_rate = _piece_vf({
+        'zoom': 1, 'zoom_end': 1.26, 'x': 0.5, 'y': 0.5, 'x_end': 0.5, 'y_end': 0.5, 'speed': 1,
+    }, 720, 1280, 63)
+    assert 'zoompan=' not in pushed and 'scale=iw*2' not in pushed
 
 
 def test_hypit_controls_name_cleanup_quality_and_leave_generation_closed():
@@ -310,6 +314,11 @@ def test_the_slider_changes_how_long_the_plates_stay_on_screen():
     full_fade = max(int(value) for value in re.findall(r'data-hf-fade-in="(\d+)"', ''.join(_limit_graphics(layers, 900, 100))))
     half_fade = max(int(value) for value in re.findall(r'data-hf-fade-in="(\d+)"', ''.join(half)))
     assert full_fade == 6 and half_fade > full_fade
+    eighty = _limit_graphics(layers, 900, 80)
+    assert len(eighty) < len(layers)
+    eighty_fade = max(int(value) for value in re.findall(r'data-hf-fade-in="(\d+)"', ''.join(eighty)))
+    assert eighty_fade >= 30
+    assert 'hf-plate' in eighty[0] and 'data-hypit-start-frame="0"' in eighty[0]
     thin = _limit_graphics(layers, 900, 5)
     assert covered(thin) == pytest.approx(45, abs=2)
     assert len(thin) == 1

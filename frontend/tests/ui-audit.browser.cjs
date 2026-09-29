@@ -18,11 +18,12 @@ await test('draft preview before after play pause',async({page,button,tool,draft
 });
 await test('effect recommendation applies a render look',async({page,button,tool,writes})=>{
  await tool('Effects');const pick=page.getByRole('region',{name:'Effect pick'});
- await pick.getByText('A slow push across the whole picture').waitFor();
+ await pick.getByText('A push, glow, and vignette are not added on their own').waitFor();
+ assert.equal(await pick.getByText('A slow push across the whole picture').count(),0);
  assert.equal(await button('Gentle zoom').count(),0);assert.equal(await button('Cross dissolve').count(),0);assert.equal(await button('No motion').count(),0);
- await button('Use this look',pick).click();await pick.getByText('Look saved').waitFor();
- const save=writes.filter(w=>w.method==='PUT'&&w.path.endsWith('/manual')).at(-1);
- assert.equal(save.body.edit.clips[0].zoom_end,1.26);assert.equal(save.body.edit.clips[0].approved,true);assert.equal(save.body.edit.clips[0].transition,'cut');
+ assert.equal(await page.getByLabel('Card animation, %').inputValue(),'100');
+ assert.equal(await page.getByLabel('Hypit prompt, %').count(),0);
+ assert.equal(writes.filter(w=>w.method==='PUT'&&w.path.endsWith('/manual')).length,0);
 });
 await test('effects panel recommends a look instead of static presets',async({page,tool})=>{await tool('Effects');await page.getByRole('region',{name:'Effect pick'}).waitFor();assert.equal(await page.locator('.ws-effect-presets').count(),0);});
 await test('save discard reload and approval',async({page,button,tool,save,data})=>{

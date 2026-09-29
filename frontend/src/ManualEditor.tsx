@@ -421,6 +421,16 @@ export function ManualEditor({
       });
       const data = await response.json().catch(() => ({}));
       if (ticket !== effectTicket.current) return;
+      if (response.status === 422 && data?.detail === "effect_unavailable") {
+        setEffectPick(null);
+        setEffectError("");
+        setEffectNote(w(
+          "Наезд, свечение и виньетка сами не включаются. Анимацию карточек задаёт ползунок выше.",
+          "A push, glow, and vignette are not added on their own. The card slider above sets the animation.",
+          "不会自动加上推近、发光和暗角。卡片动画由上面的滑块决定。",
+        ));
+        return;
+      }
       if (!response.ok || !data?.id) throw Error(effectMessage(data?.detail));
       setEffectPick(data);
       setEffectNote("");
@@ -633,25 +643,9 @@ export function ManualEditor({
           <output>{edit.card_motion??100}%</output>
         </label>
         {cardNote&&<p role="status">{cardNote}</p>}
-        <small>{w('0% убирает карточки. 100% оставляет их на всю длину и с полным появлением. Промежуточное значение укорачивает карточки и смягчает движение. Соберите ролик заново.','0% removes the cards. 100% keeps them for their full length, with the full entrance. A value between shortens the cards and softens the motion. Create the video again.','0% 会去掉卡片。100% 会保留完整时长和完整入场。中间值会缩短卡片并减弱动作。请重新生成视频。')}</small>
+        <small>{w('0% убирает карточки. 100% оставляет их на всю длину, с коротким появлением. Промежуточное значение оставляет меньше карточек, короче, и с медленным появлением. Соберите ролик заново.','0% removes the cards. 100% keeps them for their full length, with a short entrance. A value between keeps fewer, shorter cards and a slow entrance. Create the video again.','0% 会去掉卡片。100% 会保留完整时长和短入场。中间值会留下更少、更短的卡片，并且入场更慢。请重新生成视频。')}</small>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
-      {task==='effects'&&<section className="presentation-share" aria-label={w('Промпт Hypit','Hypit prompt','Hypit 提示')}>
-        <label className="inspector-slider">
-          {w('Промпт Hypit, %','Hypit prompt, %','Hypit 提示比例')}
-          <input type="range" min={0} max={100} step={5} value={edit.presentation_share||0} aria-label={w('Промпт Hypit, %','Hypit prompt, %','Hypit 提示比例')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={edit.presentation_share||0} aria-valuetext={`${edit.presentation_share||0}%`} onChange={e=>setPresentationShare(Number(e.target.value))} />
-          <output>{edit.presentation_share||0}%</output>
-        </label>
-        {shareNote&&<p role="status">{shareNote}</p>}
-        {(edit.presentation_share||0)>0&&<p className="presentation-prompt">{w(
-          `Промпт Hypit: использовать фреймворк Hypit на ${edit.presentation_share}% готового видео. Движущиеся 3D-окна и мини-презентации ставятся на отсканированную речь.`,
-          `Hypit prompt: use the Hypit framework on ${edit.presentation_share}% of the finished video. Moving 3D windows and mini presentations sit on the scanned speech.`,
-          `Hypit 提示：在成片的 ${edit.presentation_share}% 上使用 Hypit 框架。移动的 3D 窗口和迷你演示落在扫描到的讲话上。`,
-        )}</p>}
-        <small>{w('Шаг 5%. Число становится процентом в промпте Hypit: фреймворк занимает графикой именно эту долю ролика. Скан сначала читает речь. Слова на экране идут на языке озвучки, а если её нет — на языке проекта.','Steps of 5%. The number becomes the percentage in the Hypit prompt: the framework covers exactly that share of the video with graphics. The scan reads the speech first. On-screen words follow the voiceover language, or the project language when there is no voiceover.','步长为 5%。这个数字会写入 Hypit 提示的百分比：框架只用图形覆盖成片的这一比例。扫描会先读取语音。画面文字跟随配音语言；没有配音时使用项目语言。')}</small>
-        {(edit.presentation||[]).length>0&&<p role="status">{w('Скан поставил','The scan placed','扫描已放置')} {(edit.presentation||[]).filter(b=>b.kind==='window').length} {w('окон','windows','个窗口')} · {(edit.presentation||[]).filter(b=>b.kind==='mini').length} {w('мини-презентаций','mini presentations','个迷你演示')} · {(edit.presentation||[]).reduce((sum,b)=>sum+b.end-b.start,0).toFixed(1)} {w('с','s','秒')}</p>}
-        {(edit.presentation||[]).length>0&&<ol>{(edit.presentation||[]).map((beat,index)=>{const line=lang==='zh'?beat.title.zh:lang==='ru'?beat.title.ru:beat.title.en;return <li key={index}>{beat.kind==='mini'?w('Мини-презентация','Mini presentation','迷你演示'):w('3D-окно','3D window','3D 窗口')} · {beat.start.toFixed(1)}–{beat.end.toFixed(1)} {w('с','s','秒')} · {line}</li>})}</ol>}
-      </section>}
       <section className="inspector-scene-controls">
         <fieldset disabled={blocked} className="director-fieldset">
           {edit.clips.map((c, i) => (
