@@ -38,6 +38,12 @@ def _owned(pid, relative):
 
 def _sniff(path: Path):
     head = path.read_bytes()[:16]
+    if head.startswith(b'\x89PNG'):
+        return 'image/png'
+    if head.startswith(b'\xff\xd8\xff'):
+        return 'image/jpeg'
+    if head[:4] == b'RIFF' and path.read_bytes()[8:12] == b'WEBP':
+        return 'image/webp'
     if head[4:8] == b'ftyp' or head[:4] == b'\x1a\x45\xdf\xa3':
         return 'video/mp4'
     if head[:4] == b'RIFF':
@@ -72,7 +78,7 @@ def _revision(root: Path):
         return ''
 
 
-def programme(work, width, height, frames, scenes, brand, show_location):
+def programme(work, width, height, frames, scenes, brand, show_location, logo=False, photo_span=None):
     """HyperFrames HTML. Only supplied captions are drawn on the owned picture."""
     seconds = f'{frames / FPS:.3f}'
     layers = []
@@ -94,6 +100,15 @@ def programme(work, width, height, frames, scenes, brand, show_location):
                 f'data-hypit-end-frame="{end}">{html.escape(scene["location"])}</aside>'
             )
     body = '\n    '.join(layers)
+    logo_tag = '<img class="hf-brand hf-logo" src="logo.png" alt="">' if logo else ''
+    photo = ''
+    if photo_span:
+        start = max(0, int(round(float(photo_span[0]) * FPS)))
+        end = max(start + 1, min(frames, int(round(float(photo_span[1]) * FPS))))
+        photo = (
+            f'<img class="hf-photo" src="photo.png" alt="" data-hypit-kind="photo" '
+            f'data-hypit-start-frame="{start}" data-hypit-end-frame="{end}">'
+        )
     page = f'''<!doctype html>
 <html>
 <head>
@@ -103,6 +118,8 @@ def programme(work, width, height, frames, scenes, brand, show_location):
     [data-composition-id]{{position:relative;width:{width}px;height:{height}px;overflow:hidden;background:#111}}
     video{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}}
     .hf-brand{{position:absolute;z-index:5;top:4%;left:5%;color:#fff;font:700 {max(18, height // 28)}px/1.1 sans-serif;letter-spacing:.04em;text-shadow:0 2px 10px #000}}
+    .hf-logo{{position:absolute;z-index:6;top:4%;right:5%;left:auto;height:12%;width:auto;object-fit:contain}}
+    .hf-photo{{position:absolute;z-index:3;inset:0;width:100%;height:100%;object-fit:cover;opacity:0}}
     .hf-caption{{position:absolute;z-index:4;left:6%;right:6%;bottom:8%;padding:14px 16px;border-radius:16px;background:rgba(8,12,16,.78);color:#fff;font:700 {max(22, height // 22)}px/1.25 sans-serif;opacity:0}}
     .hf-location{{position:absolute;z-index:4;left:6%;top:12%;color:#fff;font:600 {max(16, height // 32)}px/1.2 sans-serif;text-shadow:0 2px 8px #000;opacity:0}}
   </style>
@@ -110,6 +127,8 @@ def programme(work, width, height, frames, scenes, brand, show_location):
 <body>
   <div data-composition-id="lumen" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{frames}">
     <video id="picture" src="cut.mp4" muted playsinline preload="none" data-has-audio="false" data-start="0.000" data-end="{seconds}" data-media-start="0.000" data-hypit-start-frame="0" data-hypit-end-frame="{frames}" data-hypit-source-frame="0/1" data-hypit-source-rate="1/1" data-hypit-source-fps="{FPS}/1"></video>
+    {photo}
+    {logo_tag}
     {body}
   </div>
   <script>
@@ -193,12 +212,25 @@ def render_package(p, prop, folder: Path):
     work.mkdir(parents=True)
     ffmpeg('-i', source, '-an', '-vf', f'scale={width}:{height}', '-r', str(FPS), '-frames:v', str(frames),
            '-c:v', 'libx264', '-pix_fmt', 'yuv420p', work / 'cut.mp4', timeout=600)
-    page = programme(work, width, height, frames, plan['scenes'], plan.get('brand') or '', plan.get('show_location'))
+    logo_id = plan.get('logo_asset_id') or ''
+    photo_ids = list(plan.get('photo_asset_ids') or [])
+    if logo_id:
+        shutil.copyfile(_owned(pid, f'assets/{logo_id}'), work / 'logo.png')
+    photo_span = None
+    if photo_ids:
+        shutil.copyfile(_owned(pid, f'assets/{photo_ids[0]}'), work / 'photo.png')
+        shown = next((scene for scene in plan['scenes'] if scene['role'] == 'highlight'), plan['scenes'][0])
+        photo_span = (shown['start'], shown['end'])
+    page = programme(work, width, height, frames, plan['scenes'], plan.get('brand') or '', plan.get('show_location'), bool(logo_id), photo_span)
     from .db import connect
     with connect() as db:
         music = _music(pid, plan.get('music_asset_id') or '', db)
         held = _held_illustrations(pid, plan.get('illustrative_asset_ids') or [], db)
     inputs = [_describe(pid, 'source', 'owned_footage')]
+    if logo_id:
+        inputs.append(_describe(pid, f'assets/{logo_id}', 'logo'))
+    if photo_ids:
+        inputs.append(_describe(pid, f'assets/{photo_ids[0]}', 'owned_photo'))
     if music:
         inputs.append(music)
     if any(item['path'].endswith('reference_source') or '/references/' in item['path'] for item in inputs):

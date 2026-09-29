@@ -197,6 +197,77 @@ def test_property_render_keeps_the_selected_file(client, monkeypatch):
     assert (settings.data_dir / pid / 'renders' / render_id / 'result.mp4').read_bytes() == kept
 
 
+def _png(path):
+    subprocess.run(
+        ['ffmpeg', '-hide_banner', '-nostdin', '-y', '-f', 'lavfi', '-i', 'color=c=white:s=32x32', '-frames:v', '1', '-f', 'image2', '-c:v', 'png', str(path)],
+        check=True, capture_output=True,
+    )
+
+
+def _wav(path):
+    subprocess.run(
+        ['ffmpeg', '-hide_banner', '-nostdin', '-y', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=2', '-f', 'wav', str(path)],
+        check=True, capture_output=True,
+    )
+
+
+def _library(pid, ident, title, meta, writer):
+    folder = settings.data_dir / pid / 'assets'
+    folder.mkdir(parents=True, exist_ok=True)
+    writer(folder / ident)
+    with connect() as db:
+        db.execute(
+            'INSERT INTO studio_assets VALUES(?,?,?,?,?,?,?)',
+            (ident, pid, uuid.uuid4().hex, title, 'Owner', json.dumps(meta), time.time()),
+        )
+
+
+def test_owned_music_logo_and_photo_reach_the_picture_and_an_illustration_does_not(client, monkeypatch):
+    from backend.tests.test_studio import create
+    pid = create(client, creator={'topic': 'real_estate', 'audience': 'Buyers', 'tone': 'Calm', 'rules': 'No invented facts'}).json()['id']
+    _ready(client, pid)
+    music, logo, photo, drawing = (uuid.uuid4().hex for _ in range(4))
+    _library(pid, music, 'Bed track', {'kind': 'music', 'duration': 2, 'mime': 'audio/wav'}, _wav)
+    _library(pid, logo, 'North Line mark', {'kind': 'image', 'role': 'logo', 'mime': 'image/png', 'width': 32, 'height': 32}, _png)
+    _library(pid, photo, 'Living room', {'kind': 'image', 'role': 'photo', 'mime': 'image/png', 'width': 32, 'height': 32}, _png)
+    _library(pid, drawing, 'Sketch', {'kind': 'image', 'role': 'illustration', 'mime': 'image/png', 'width': 32, 'height': 32}, _png)
+    rejected = client.put(f'/api/studio/projects/{pid}/property', json=_brief(music_asset_id=logo))
+    assert rejected.status_code == 422 and rejected.json()['detail'] == 'invalid_media_path'
+    saved = client.put(f'/api/studio/projects/{pid}/property', json=_brief(
+        music_asset_id=music, logo_asset_id=logo, photo_asset_ids=[photo], illustrative_asset_ids=[drawing],
+    ))
+    assert saved.status_code == 200, saved.text
+    planned = client.post(f'/api/studio/projects/{pid}/property/plan')
+    assert planned.status_code == 200, planned.text
+    plan = planned.json()['plan']
+    assert plan['illustrative_in_picture'] is False
+    assert plan['music_asset_id'] == music and plan['logo_asset_id'] == logo and plan['photo_asset_ids'] == [photo]
+    revision = planned.json()['plan_revision']
+    assert client.post(f'/api/studio/projects/{pid}/property/approve', json={'revision': revision}).status_code == 200
+
+    def fake_invoke(work, job):
+        page = (work / 'index.html').read_text()
+        assert 'logo.png' in page and 'photo.png' in page
+        assert drawing not in page and 'Sketch' not in page
+        assert (work / 'logo.png').is_file() and (work / 'photo.png').is_file()
+        assert not (work / drawing).exists()
+        ffmpeg('-i', work / 'cut.mp4', '-c', 'copy', work / 'visual.mp4')
+
+    monkeypatch.setattr('backend.hypit_package.invoke', fake_invoke)
+    queued = client.post(f'/api/studio/projects/{pid}/property/render', json={'revision': revision, 'request_id': uuid.uuid4().hex})
+    assert queued.status_code == 200, queued.text
+    render_id = queued.json()['render_id']
+    assert run_once() is True
+    package = json.loads((settings.data_dir / pid / 'renders' / render_id / 'package.json').read_text())
+    assert [item['role'] for item in package['inputs']] == ['owned_footage', 'logo', 'owned_photo', 'music']
+    assert package['illustrative'] == [{
+        'asset_id': drawing, 'title': 'Sketch', 'in_picture': False, 'label': 'illustration_not_the_property',
+    }]
+    assert package['illustrative'][0]['in_picture'] is False
+    media = probe(settings.data_dir / pid / 'renders' / render_id / 'result.mp4')
+    assert media['has_audio'] is True
+
+
 def test_capture_failure_note_omits_the_command_and_secrets(monkeypatch):
     from backend.hypit_picture import spawn
     from backend.worker import failure_detail
