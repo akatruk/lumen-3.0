@@ -597,12 +597,12 @@ def presentation_layers(beats, language, total_frames):
     return layers
 
 
-def _animation_share(manual):
-    """Missing share keeps the designed graphics. A saved slider value is the coverage."""
-    if not isinstance(manual, dict) or 'presentation_share' not in manual:
+def _card_motion(manual):
+    """How far the cards animate. A missing value keeps the full designed motion."""
+    if not isinstance(manual, dict) or 'card_motion' not in manual:
         return 100
     try:
-        return max(0, min(100, int(manual.get('presentation_share') or 0)))
+        return max(0, min(100, int(manual.get('card_motion') or 0)))
     except (TypeError, ValueError):
         return 100
 
@@ -699,8 +699,8 @@ def composition(source, work, manual, width, height, language, style=None):
     occupied = _spans(plates)
     graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied)
     graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
-    share = _animation_share(manual)
-    layers.extend(_limit_graphics(graphics, total, share))
+    motion = _card_motion(manual)
+    layers.extend(_limit_graphics(graphics, total, motion))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
     page = f'''<!doctype html>
@@ -742,7 +742,7 @@ def composition(source, work, manual, width, height, language, style=None):
   </style>
 </head>
 <body>
-  <div data-composition-id="lumen" data-animation-share="{share}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
+  <div data-composition-id="lumen" data-card-motion="{motion}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
     {body}
   </div>
   <script>
@@ -750,23 +750,32 @@ def composition(source, work, manual, width, height, language, style=None):
     const layers = [...document.querySelectorAll('[data-hypit-start-frame]')];
     const apply = (time) => {{
       const frame = Math.max(0, Math.round(Number(time || 0) * fps));
+      const stage = document.querySelector('[data-composition-id]');
+      const motion = Math.max(0, Math.min(100, Number((stage && stage.getAttribute('data-card-motion')) || 100))) / 100;
       for (const el of layers) {{
         const start = Number(el.getAttribute('data-hypit-start-frame'));
         const end = Number(el.getAttribute('data-hypit-end-frame'));
         const fadeIn = Number(el.getAttribute('data-hf-fade-in') || 0);
         const fadeOut = Number(el.getAttribute('data-hf-fade-out') || 0);
         let opacity = 0;
+        const card = el.classList.contains('hf-board') || el.classList.contains('hf-lower') || el.classList.contains('hf-card') || el.classList.contains('hf-plate') || el.classList.contains('hf-window') || el.classList.contains('hf-mini') || el.classList.contains('hf-chip');
         if (frame >= start && frame < end) {{
-          const inn = fadeIn ? Math.min(1, (frame - start + 1) / fadeIn) : 1;
-          const out = fadeOut ? Math.min(1, (end - frame) / fadeOut) : 1;
-          opacity = Math.min(inn, out);
+          if (card && motion <= 0) opacity = 1;
+          else {{
+            const amount = card ? motion : 1;
+            const innFrames = fadeIn * amount;
+            const outFrames = fadeOut * amount;
+            const inn = innFrames > 0 ? Math.min(1, (frame - start + 1) / innFrames) : 1;
+            const out = outFrames > 0 ? Math.min(1, (end - frame) / outFrames) : 1;
+            opacity = Math.min(inn, out);
+          }}
         }}
         el.style.opacity = String(opacity);
-        if (el.classList.contains('hf-board') || el.classList.contains('hf-lower') || el.classList.contains('hf-card') || el.classList.contains('hf-plate') || el.classList.contains('hf-window') || el.classList.contains('hf-mini')) {{
-          const lift = el.classList.contains('hf-board') ? 28 : 16;
+        if (card) {{
+          const lift = Math.round((el.classList.contains('hf-board') ? 28 : 16) * motion);
           el.style.transform = 'translateY(' + Math.round((1 - opacity) * lift) + 'px)';
           const figure = el.querySelector('.hf-board-figure');
-          if (figure) figure.style.transform = 'scale(' + (0.9 + 0.1 * opacity).toFixed(3) + ')';
+          if (figure) figure.style.transform = 'scale(' + (1 - 0.1 * motion * (1 - opacity)).toFixed(3) + ')';
         }}
       }}
       const video = document.getElementById('picture');
@@ -933,8 +942,8 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     except Exception:
         style = None
     frame_count = composition(source, work, manual, width, height, language, style)
-    if 'presentation_share' in manual:
-        (Path(folder) / 'animation-share.txt').write_text(str(_animation_share(manual)))
+    if 'card_motion' in manual:
+        (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
     job = {
         'directory': str(work),
         'width': int(width),

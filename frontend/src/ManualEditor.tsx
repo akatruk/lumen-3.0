@@ -103,6 +103,7 @@ export type Edit = {
   presentation_share?: number;
   presentation_prompt?: string;
   presentation?: {kind:'window'|'mini';start:number;end:number;title:{en:string;zh:string;ru:string};body?:{en:string;zh:string;ru:string}|null;x:number;y:number}[];
+  card_motion?: number;
   font_size: "small" | "medium" | "large";
   position: "top" | "bottom";
   color: "white" | "yellow";
@@ -169,8 +170,10 @@ export function ManualEditor({
     editRef = useRef<Edit | null>(null),
     revisionRef = useRef(0),
     shareTicket = useRef(0),
-    shareTimer = useRef<number | undefined>(undefined);
+    shareTimer = useRef<number | undefined>(undefined),
+    motionTimer = useRef<number | undefined>(undefined);
   const [shareNote, setShareNote] = useState("");
+  const [cardNote, setCardNote] = useState("");
   const base = `/api/studio/projects/${pid}/manual`;
   const [assets,setAssets]=useState<Asset[]>([]);
   async function loadAssets(){const r=await fetch(`/api/studio/projects/${pid}/assets`);if(r.ok)setAssets(await r.json())}
@@ -348,6 +351,48 @@ export function ManualEditor({
       setBusy(false);
     }
   }
+  function setCardMotion(value: number) {
+    const motion = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
+    const current = editRef.current;
+    if (!current || (current.card_motion ?? 100) === motion) return;
+    const next = { ...current, card_motion: motion };
+    editRef.current = next;
+    setEdit(next);
+    setDirty(true);
+    setCardNote("");
+    window.clearTimeout(motionTimer.current);
+    motionTimer.current = window.setTimeout(() => { void saveCardMotion(motion); }, 250);
+  }
+  async function saveCardMotion(motion: number) {
+    const current = editRef.current;
+    if (!current || (current.card_motion ?? 100) !== motion) return;
+    setCardNote(w("Сохраняю уровень карточек…", "Saving the card level…", "正在保存卡片动画…"));
+    try {
+      const save = await fetch(base, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: revisionRef.current, edit: current }),
+      });
+      const stored = await save.json().catch(() => ({}));
+      if ((editRef.current?.card_motion ?? 100) !== motion) return;
+      if (!save.ok || !stored.edit) throw Error(presentationMessage(stored.detail));
+      editRef.current = stored.edit;
+      revisionRef.current = stored.revision;
+      setEdit(stored.edit);
+      setRevision(stored.revision);
+      setDirty(false);
+      sessionStorage.removeItem(draftKey);
+      setCardNote(w(
+        "Уровень сохранён. Соберите видео заново, чтобы увидеть его в ролике.",
+        "Saved. Create the video again to see it in the picture.",
+        "已保存。请重新生成视频后在画面中查看。",
+      ));
+      await onSaved();
+    } catch (e) {
+      if ((editRef.current?.card_motion ?? 100) !== motion) return;
+      setCardNote((e as Error).message);
+    }
+  }
   function setPresentationShare(value: number) {
     const share = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
     const current = editRef.current;
@@ -497,6 +542,15 @@ export function ManualEditor({
       {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {(c.end-c.start).toFixed(1)} {w('сек','sec','秒')} · {c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}{c.locked?` · ${w('Тайминг заморожен','Timing frozen','时间已冻结')}`:''}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
+      {task==='effects'&&<section className="presentation-share" aria-label={w('Анимация карточек','Card animation','卡片动画')}>
+        <label className="inspector-slider">
+          {w('Анимация карточек, %','Card animation, %','卡片动画，%')}
+          <input type="range" min={0} max={100} step={5} value={edit.card_motion??100} aria-label={w('Анимация карточек, %','Card animation, %','卡片动画，%')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={edit.card_motion??100} aria-valuetext={`${edit.card_motion??100}%`} onChange={e=>setCardMotion(Number(e.target.value))} />
+          <output>{edit.card_motion??100}%</output>
+        </label>
+        {cardNote&&<p role="status">{cardNote}</p>}
+        <small>{w('0% убирает карточки. 100% оставляет их на всю длину и с полным появлением. Промежуточное значение укорачивает карточки и смягчает движение. Соберите ролик заново.','0% removes the cards. 100% keeps them for their full length, with the full entrance. A value between shortens the cards and softens the motion. Create the video again.','0% 会去掉卡片。100% 会保留完整时长和完整入场。中间值会缩短卡片并减弱动作。请重新生成视频。')}</small>
+      </section>}
       {task==='effects'&&<section className="presentation-share" aria-label={w('Промпт Hypit','Hypit prompt','Hypit 提示')}>
         <label className="inspector-slider">
           {w('Промпт Hypit, %','Hypit prompt, %','Hypit 提示比例')}

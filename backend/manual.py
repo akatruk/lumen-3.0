@@ -150,6 +150,7 @@ class Edit(Strict):
     presentation_share: int=Field(default=0, ge=0, le=100)
     presentation_prompt: str=Field(default='', max_length=800)
     presentation: list[PresentationBeat]=Field(default_factory=list, max_length=16)
+    card_motion: int=Field(default=100, ge=0, le=100)
     font_size: Literal['small','medium','large']='medium'
     position: Literal['bottom','top']='bottom'
     color: Literal['white','yellow']='white'
@@ -158,6 +159,8 @@ class Edit(Strict):
     def presentation_steps(self):
         if self.presentation_share % 5:
             raise ValueError('presentation_share_step')
+        if self.card_motion % 5:
+            raise ValueError('card_motion_step')
         return self
 class Save(Strict):
     revision: int=Field(ge=1)

@@ -99,7 +99,15 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert '股东结构' not in html and '董事权限' not in html
     assert 'hf-board' in html and '外资比例' in html and '49%' in html
     assert 'class="hf-plate"' in html and 'hf-board hf-plate' not in html
-    assert 'data-animation-share="100"' in html
+    assert 'data-card-motion="100"' in html
+    assert '(el.classList.contains(\'hf-board\') ? 28 : 16) * motion' in html
+    assert (tmp_path / 'animation-share.txt').read_text() == '100'
+    from backend.hypit_picture import composition
+    quiet = tmp_path / 'motion-zero'
+    quiet.mkdir()
+    composition(src, quiet, {**edit, 'card_motion': 0}, 160, 240, 'zh')
+    gone = (quiet / 'index.html').read_text()
+    assert 'data-card-motion="0"' in gone and '外资比例' not in gone and '三名股东开会' in gone
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
@@ -251,16 +259,17 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
 
 def test_the_slider_changes_how_long_the_plates_stay_on_screen():
     import re
-    from backend.hypit_picture import _animation_share, _limit_graphics
+    from backend.hypit_picture import _card_motion, _limit_graphics
 
     def plate(start, end, name):
         return f'<aside class="hf-plate" data-hypit-start-frame="{start}" data-hypit-end-frame="{end}">{name}</aside>'
 
     layers = [plate(0, 300, 'a'), plate(300, 600, 'b'), plate(600, 900, 'c')]
     caption = '<div class="hf-caption" data-hypit-start-frame="0" data-hypit-end-frame="90">Hello</div>'
-    assert _animation_share({}) == 100
-    assert _animation_share({'presentation_share': 0}) == 0
-    assert _animation_share({'presentation_share': 40}) == 40
+    assert _card_motion({}) == 100
+    assert _card_motion({'presentation_share': 0}) == 100
+    assert _card_motion({'card_motion': 0}) == 0
+    assert _card_motion({'card_motion': 40}) == 40
     assert _limit_graphics(layers, 900, 0) == []
     assert _limit_graphics([caption, *layers], 900, 0) == [caption]
     assert _limit_graphics(layers, 900, 100) == layers

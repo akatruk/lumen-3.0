@@ -100,6 +100,14 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         const saved = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual"));
         assert.equal(saved.at(-1).body.edit.presentation_share, 40);
         assert.equal(saved.at(-1).body.edit.presentation[0].title.ru, "Привет");
+        const cards = page.getByLabel("Анимация карточек, %");
+        assert.equal(await cards.inputValue(), "100");
+        await cards.fill("50");
+        await page.getByRole("region", { name: "Анимация карточек" }).getByText("Уровень сохранён").waitFor();
+        const cardSave = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual")).at(-1);
+        assert.equal(cardSave.body.edit.card_motion, 50);
+        assert.equal(cardSave.body.edit.presentation_share, 40);
+        assert.equal(writes.filter((row) => row.path.endsWith("/presentation")).length, 1);
       } else if (scenario === "studio" || scenario === "other-project") {
         await page.locator(".ws-scenes button").first().waitFor();
         assert.equal(await page.locator(".manual-clip:visible").count(), 1);
@@ -233,8 +241,9 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         await page.locator(".presentation-share").getByText("Привет").waitFor();
         const scan = writes.find((row) => row.path.endsWith("/presentation"));
         assert.equal(scan.body.edit.presentation_share, 20);
-        assert.match(await page.locator(".presentation-share").innerText(), /20%/);
-        assert.match(await page.locator(".presentation-share").innerText(), /3D-окно/);
+        const hypitShare = page.getByRole("region", { name: "Промпт Hypit" });
+        assert.match(await hypitShare.innerText(), /20%/);
+        assert.match(await hypitShare.innerText(), /3D-окно/);
       } else if (scenario === "legacy") {
         await page.locator(".ws-scenes button").first().click();
         assert.match(
