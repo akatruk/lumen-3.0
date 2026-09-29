@@ -195,37 +195,54 @@ def _short_line(caption, language, limit=26):
     return cut or text[:limit].strip()
 
 
-def _chapter_html(index, title):
-    if not index or not title:
-        return ''
-    return f'<div class="hf-chapter"><b>{index:02d}</b><span>{html.escape(title)}</span></div>'
+def _support_line(title, kicker, spoken):
+    """One extra line. The title is never repeated under itself."""
+    for line in (kicker, spoken):
+        text = ' '.join(str(line or '').split())
+        if text and text != title:
+            return text
+    return ''
 
 
 def _lower_html(title, kicker, spoken, chapter, a, b):
-    kicker_html = f'<div class="hf-lower-kicker">{html.escape(kicker)}</div>' if kicker and kicker != title else ''
-    spoken_html = f'<div class="hf-spoken">{html.escape(spoken)}</div>' if spoken and spoken != title else ''
+    support = _support_line(title, kicker, spoken)
+    support_html = f'<div class="hf-lower-kicker">{html.escape(support)}</div>' if support else ''
+    number = f'<b>{int(chapter):02d}</b>' if chapter else ''
     return (
         f'<aside class="hf-lower" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
         f'data-hf-fade-in="6" data-hf-fade-out="6">'
-        f'{_chapter_html(chapter, title)}'
-        f'<div class="hf-lower-title">{html.escape(title)}</div>'
-        f'<i class="hf-lower-bar"></i>{kicker_html}{spoken_html}</aside>'
+        f'<div class="hf-lower-head">{number}<span>{html.escape(title)}</span></div>'
+        f'<i class="hf-lower-bar"></i>{support_html}</aside>'
     )
 
 
 def _board_html(title, figure, unit, note, chapter, a, b):
     unit_html = f'<div class="hf-board-unit">{html.escape(unit)}</div>' if unit else ''
-    note_html = f'<div class="hf-board-note">{html.escape(note)}</div>' if note and note != title else ''
-    label = title or note or ''
+    label = title or _support_line('', note, '') or ''
+    note_html = f'<div class="hf-board-note">{html.escape(note)}</div>' if note and note not in {title, label, ''} else ''
+    number = f'<div class="hf-board-index">{int(chapter):02d}</div>' if chapter else ''
     return (
         f'<aside class="hf-board" data-hf-avatar="1" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
         f'data-hf-fade-in="6" data-hf-fade-out="6">'
-        f'{_chapter_html(chapter, label)}'
+        f'{number}'
         f'<div class="hf-board-label">{html.escape(label)}</div>'
         f'<i class="hf-board-rule"></i>'
         f'<div class="hf-board-figure">{html.escape(figure)}</div>'
         f'{unit_html}{note_html}</aside>'
     )
+
+
+def _occupied(a, b, taken):
+    return any(a < end and start < b for start, end in taken)
+
+
+def _spans(layers):
+    spans = []
+    for layer in layers or []:
+        found = re.search(r'data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', layer)
+        if found:
+            spans.append((int(found.group(1)), int(found.group(2))))
+    return spans
 
 
 def _clause(caption, language):
@@ -393,7 +410,7 @@ def _plates(clips, ranges, language, total):
         b = max(a + 1, min(total, int(round(end * FPS))))
         fill = f'{value:.1f}'
         layers.append(
-            f'<aside class="hf-board hf-plate" data-hf-avatar="1" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" data-hf-fade-in="5" data-hf-fade-out="5">'
+            f'<aside class="hf-plate" data-hf-avatar="1" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" data-hf-fade-in="5" data-hf-fade-out="5">'
             f'<div class="hf-board-label">{html.escape(title)}</div>'
             f'<i class="hf-board-rule"></i>'
             f'<div class="hf-board-figure">{html.escape(figure)}</div>'
@@ -424,7 +441,7 @@ def _apply_style(page, style):
     top = (100.0 - height) / 2
     fill = str(stage.get('fill') or '10233f')
     ink = str(stage.get('ink') or 'ffffff')
-    page = page.replace('left:7%;right:7%;top:22%;bottom:8%', f'left:{left:.1f}%;top:{top:.1f}%;width:{width:.1f}%;height:{height:.1f}%')
+    page = page.replace('left:7%;width:86%;top:15%;height:70%', f'left:{left:.1f}%;width:{width:.1f}%;top:{top:.1f}%;height:{height:.1f}%')
     page = page.replace('background:#10233f;color:#fff', f'background:#{fill};color:#{ink}')
     avatar = stage.get('avatar') if isinstance(stage.get('avatar'), dict) else {}
     try:
@@ -433,17 +450,22 @@ def _apply_style(page, style):
         diameter = 0.28
     # The measured reference parks the face in a corner. Keep the presenter in the middle of the card.
     ax, ay = 0.5, top / 100 + diameter / 2 + 0.04
-    page = page.replace(
-        'data-composition-id="lumen"',
-        'data-composition-id="lumen" data-card-left="{left}" data-card-top="{top}" data-card-width="{width}" data-card-height="{height}" data-avatar-x="{x}" data-avatar-y="{y}" data-avatar-d="{d}"'.format(
-            left=f'{left / 100:.3f}', top=f'{top / 100:.3f}', width=f'{width / 100:.3f}', height=f'{height / 100:.3f}',
-            x=f'{ax:.3f}', y=f'{ay:.3f}', d=f'{diameter:.3f}',
-        ),
+    measured = (
+        'data-card-left="{left}" data-card-top="{top}" data-card-width="{width}" data-card-height="{height}" '
+        'data-avatar-x="{x}" data-avatar-y="{y}" data-avatar-d="{d}"'
+    ).format(
+        left=f'{left / 100:.3f}', top=f'{top / 100:.3f}', width=f'{width / 100:.3f}', height=f'{height / 100:.3f}',
+        x=f'{ax:.3f}', y=f'{ay:.3f}', d=f'{diameter:.3f}',
     )
+    defaults = 'data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280"'
+    if defaults in page:
+        page = page.replace(defaults, measured)
+    else:
+        page = page.replace('data-composition-id="lumen"', 'data-composition-id="lumen" ' + measured)
     return page
 
 
-def _side_cards(clips, ranges, captions, language, total, style=None):
+def _side_cards(clips, ranges, captions, language, total, style=None, occupied=None):
     """Reference card language, filled with this video's facts. Not the reference picture."""
     layers = []
     seen = set()
@@ -472,6 +494,8 @@ def _side_cards(clips, ranges, captions, language, total, style=None):
         seen.add(key)
         a = max(0, int(round(start * FPS)))
         b = max(a + 1, min(total, int(round(end * FPS))))
+        if occupied is not None and _occupied(a, b, occupied):
+            continue
         chapter = len(seen)
         if figure:
             shown, unit, label = figure
@@ -479,10 +503,12 @@ def _side_cards(clips, ranges, captions, language, total, style=None):
         else:
             spoken = _short_line(caption, language)
             layers.append(_lower_html(title, sub, spoken, chapter, a, b))
+        if occupied is not None:
+            occupied.append((a, b))
     return layers
 
 
-def _host_chips(clips, ranges, captions, language, total, style):
+def _host_chips(clips, ranges, captions, language, total, style, occupied=None):
     """A reference host frame keeps the presenter and a small corner title."""
     layers = []
     seen = set()
@@ -511,6 +537,8 @@ def _host_chips(clips, ranges, captions, language, total, style):
         seen.add(key)
         a = max(0, int(round(start * FPS)))
         b = max(a + 1, min(total, int(round(end * FPS))))
+        if occupied is not None and _occupied(a, b, occupied):
+            continue
         chapter = len(seen)
         if figure:
             shown, unit, label = figure
@@ -518,6 +546,8 @@ def _host_chips(clips, ranges, captions, language, total, style):
         else:
             spoken = _short_line(caption, language)
             layers.append(_lower_html(title, sub, spoken, chapter, a, b))
+        if occupied is not None:
+            occupied.append((a, b))
     return layers
 
 
@@ -592,9 +622,11 @@ def composition(source, work, manual, width, height, language, style=None):
                 )
                 if span_index > 8:
                     break
-    layers.extend(_plates(clips, ranges, language, total))
-    layers.extend(_side_cards(clips, ranges, manual.get('captions') or [], language, total, style))
-    layers.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style))
+    plates = _plates(clips, ranges, language, total)
+    occupied = _spans(plates)
+    layers.extend(plates)
+    layers.extend(_side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
+    layers.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
     page = f'''<!doctype html>
@@ -606,15 +638,15 @@ def composition(source, work, manual, width, height, language, style=None):
     [data-composition-id]{{position:relative;width:{width}px;height:{height}px;overflow:hidden;background:#101614}}
     video,img.hf-still{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0}}
     .hf-caption{{position:absolute;left:8%;right:8%;bottom:3.5%;z-index:7;text-align:center;color:#fff;font:600 {max(16, height // 48)}px/1.2 sans-serif;text-shadow:0 1px 6px #000;opacity:0;max-height:2.5em;overflow:hidden}}
-    .hf-card,.hf-plate{{position:absolute;left:7%;right:7%;top:22%;bottom:8%;z-index:4;box-sizing:border-box;padding:22px 18px 26px;border-radius:28px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 18px 48px rgba(0,0,0,.45);display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:14px;overflow:hidden}}
+    .hf-card,.hf-plate{{position:absolute;left:7%;width:86%;top:15%;height:70%;z-index:4;box-sizing:border-box;padding:22px 8% 26px;border-radius:28px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 18px 48px rgba(0,0,0,.45);display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:14px;overflow:hidden}}
     .hf-chip{{position:absolute;left:5%;top:7%;width:46%;z-index:5;padding:12px 14px;border-radius:16px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 10px 24px rgba(0,0,0,.35)}}
-    .hf-chapter{{position:absolute;left:6%;top:5.5%;display:flex;align-items:center;gap:8px;color:#fff;font:700 {max(14, height // 52)}px/1 "Noto Sans CJK SC",sans-serif}}
-    .hf-chapter b{{padding:7px 8px;border-left:3px solid #7eb6ff;background:#12315c}}
-    .hf-chapter span{{padding:7px 10px;background:#12315c}}
-    .hf-lower{{position:absolute;left:7%;right:8%;bottom:13%;z-index:5;color:#fff;text-align:left;opacity:0;text-shadow:0 2px 10px rgba(0,0,0,.45)}}
-    .hf-lower-title{{font:800 {max(28, height // 28)}px/1.15 "Noto Sans CJK SC",sans-serif}}
-    .hf-lower-bar{{display:block;width:72px;height:4px;margin:10px 0 8px;background:#7eb6ff}}
-    .hf-lower-kicker,.hf-spoken{{font:600 {max(16, height // 48)}px/1.3 "Noto Sans CJK SC",sans-serif;opacity:.92}}
+    .hf-lower{{position:absolute;left:6%;right:24%;bottom:16%;z-index:5;color:#fff;text-align:left;opacity:0;text-shadow:0 2px 10px rgba(0,0,0,.55)}}
+    .hf-lower-head{{display:flex;align-items:center;gap:10px;font:800 {max(22, height // 36)}px/1.2 "Noto Sans CJK SC",sans-serif}}
+    .hf-lower-head b{{flex:none;padding:6px 8px;background:#12315c;border-left:3px solid #7eb6ff;font:700 {max(15, height // 52)}px/1 "Noto Sans CJK SC",sans-serif}}
+    .hf-lower-head span{{min-width:0}}
+    .hf-lower-bar{{display:block;width:64px;height:4px;margin:8px 0 6px;background:#7eb6ff}}
+    .hf-lower-kicker{{font:600 {max(16, height // 48)}px/1.3 "Noto Sans CJK SC",sans-serif;opacity:.92}}
+    .hf-board-index{{margin-bottom:10px;padding:6px 8px;background:#12315c;border-left:3px solid #7eb6ff;font:700 {max(15, height // 52)}px/1 "Noto Sans CJK SC",sans-serif}}
     .hf-board{{position:absolute;inset:0;z-index:4;box-sizing:border-box;padding:22% 8% 12% 8%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;color:#fff;text-align:left;opacity:0;background:radial-gradient(120% 80% at 82% 16%, #16325c 0%, #0b1830 58%, #08101f 100%)}}
     .hf-board-label{{font:600 {max(22, height // 36)}px/1.2 "Noto Sans CJK SC",sans-serif}}
     .hf-board-rule{{display:block;width:68%;height:3px;margin:16px 0 18px;background:rgba(255,255,255,.4)}}
@@ -636,7 +668,7 @@ def composition(source, work, manual, width, height, language, style=None):
   </style>
 </head>
 <body>
-  <div data-composition-id="lumen" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
+  <div data-composition-id="lumen" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
     {body}
   </div>
   <script>
@@ -665,30 +697,51 @@ def composition(source, work, manual, width, height, language, style=None):
       }}
       const video = document.getElementById('picture');
       const frameBox = video && video.parentElement;
-      const boardOn = layers.some((el) => el.classList.contains('hf-board') && Number(el.style.opacity) > 0.45);
-      const avatar = boardOn || layers.some((el) => el.hasAttribute('data-hf-avatar') && !el.classList.contains('hf-board') && Number(el.style.opacity) > 0.45);
+      const covers = (el) => frame >= Number(el.getAttribute('data-hypit-start-frame')) && frame < Number(el.getAttribute('data-hypit-end-frame'));
+      const plateOn = layers.some((el) => el.classList.contains('hf-plate') && covers(el));
+      const boardOn = !plateOn && layers.some((el) => el.classList.contains('hf-board') && covers(el));
+      const avatar = plateOn || boardOn;
       const root = video && video.parentElement;
-      const ax = boardOn ? 0.78 : (root ? Number(root.getAttribute('data-avatar-x') || 0.78) : 0.78);
-      const ay = boardOn ? 0.155 : (root ? Number(root.getAttribute('data-avatar-y') || 0.12) : 0.12);
-      const ad = boardOn ? 0.22 : (root ? Number(root.getAttribute('data-avatar-d') || 0.30) : 0.30);
         if (video && frameBox) {{
-          const cardTop = Number(root.getAttribute('data-card-top') || 0.22);
-          const cardHeight = Number(root.getAttribute('data-card-height') || 0.56);
-          const padTop = avatar ? Math.round(Math.max(0.12, (ay + ad / 2) - cardTop) / Math.max(0.2, cardHeight) * 100) : 8;
+          const frameW = frameBox.clientWidth;
+          const frameH = frameBox.clientHeight;
+          const cardLeft = Number(root.getAttribute('data-card-left') || 0.07);
+          const cardTop = Number(root.getAttribute('data-card-top') || 0.15);
+          const cardWidth = Number(root.getAttribute('data-card-width') || 0.86);
+          const cardHeight = Number(root.getAttribute('data-card-height') || 0.70);
+          const ad = Number(root.getAttribute('data-avatar-d') || (boardOn ? 0.22 : 0.28));
+          const box = Math.round(frameW * (ad > 0.12 ? ad : 0.28));
+          const half = box / 2;
+          const marginX = Math.round(frameW * 0.04);
+          const marginY = Math.round(frameH * 0.04);
+          let cx = frameW * (cardLeft + cardWidth / 2);
+          let cy = frameH * cardTop + box * 0.42;
+          if (boardOn && !plateOn) {{
+            cx = frameW * 0.78;
+            cy = frameH * 0.18;
+          }}
+          cx = Math.max(marginX + half, Math.min(frameW - marginX - half, cx));
+          cy = Math.max(marginY + half, Math.min(frameH - marginY - half, cy));
           for (const el of layers) {{
-            if (el.hasAttribute('data-hf-avatar') && !el.classList.contains('hf-board')) {{
-              el.style.paddingTop = padTop + '%';
-              el.style.paddingLeft = '8%';
-              el.style.textAlign = 'center';
-              el.style.alignItems = 'center';
-            }}
+            if (!el.classList.contains('hf-plate')) continue;
+            el.style.inset = 'auto';
+            el.style.left = (cardLeft * 100) + '%';
+            el.style.top = (cardTop * 100) + '%';
+            el.style.width = (cardWidth * 100) + '%';
+            el.style.height = (cardHeight * 100) + '%';
+            el.style.right = 'auto';
+            el.style.bottom = 'auto';
+            el.style.paddingTop = Math.max(18, Math.round(cy + half - frameH * cardTop + 18)) + 'px';
+            el.style.paddingLeft = '8%';
+            el.style.paddingRight = '8%';
+            el.style.alignItems = 'stretch';
+            el.style.textAlign = 'left';
           }}
         if (avatar) {{
-          const box = Math.round(frameBox.clientWidth * (ad > 0.12 ? ad : 0.30));
           video.style.width = box + 'px';
           video.style.height = box + 'px';
-          video.style.left = Math.round(frameBox.clientWidth * ax - box / 2) + 'px';
-          video.style.top = Math.round(frameBox.clientHeight * ay - box / 2) + 'px';
+          video.style.left = Math.round(cx - half) + 'px';
+          video.style.top = Math.round(cy - half) + 'px';
           video.style.right = 'auto';
           video.style.bottom = 'auto';
           video.style.objectFit = 'cover';

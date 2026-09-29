@@ -95,8 +95,10 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert '三名股东开会' in html
     assert '口播' not in html and 'Shareholders' not in html and '>3<' not in html
     assert 'Governance logic also differs' not in html
-    assert 'hf-lower' in html and '股东结构' in html and '董事权限' in html
+    assert '股东结构' not in html and '董事权限' not in html
     assert 'hf-board' in html and '外资比例' in html and '49%' in html
+    assert 'class="hf-plate"' in html and 'hf-board hf-plate' not in html
+    assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
@@ -121,6 +123,18 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert abs(video - audio) < 0.2
 
 
+def test_a_lower_third_shows_its_title_once_and_yields_when_a_plate_is_up():
+    from backend.hypit_picture import _lower_html, _side_cards
+
+    block = _lower_html('注册公司', 'Company setup', 'Many business owners', 1, 10, 40)
+    assert block.count('注册公司') == 1
+    assert 'Company setup' in block and 'Many business owners' not in block
+    assert 'hf-chapter' not in block and 'hf-lower-title' not in block
+    captions = [{'start': 0.2, 'end': 2.0, 'zh': '外资比例 49%', 'en': 'Foreign share 49%', 'original': '外资比例 49%'}]
+    blocked = _side_cards([{'start': 0, 'end': 3}], [(0.0, 3.0)], captions, 'zh', 90, None, [(0, 90)])
+    assert blocked == []
+
+
 def test_a_host_moment_keeps_a_corner_title():
     from backend.hypit_picture import _host_chips, _piece_vf, _side_cards
 
@@ -135,7 +149,8 @@ def test_a_host_moment_keeps_a_corner_title():
     chips = _host_chips(clips, ranges, captions, 'en', 60, style)
     assert cards == []
     assert len(chips) == 1
-    assert 'hf-lower' in chips[0] and '股东结构' in chips[0]
+    assert 'hf-lower' in chips[0] and chips[0].count('股东结构') == 1
+    assert 'hf-chapter' not in chips[0] and 'hf-lower-title' not in chips[0]
     assert 'data-hf-avatar' not in chips[0]
     look, rate = _piece_vf({
         'zoom': 1, 'zoom_end': 1.35, 'x': 0.5, 'y': 0.62, 'speed': 1,
@@ -234,14 +249,14 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
 
 def test_presenter_is_centered_on_the_card():
     from backend.hypit_picture import _apply_style
-    page = '<style>.hf-card,.hf-plate{left:7%;right:7%;top:22%;bottom:8%;background:#10233f;color:#fff}</style><div data-composition-id="lumen">'
+    page = '<style>.hf-card,.hf-plate{left:7%;width:86%;top:15%;height:70%;background:#10233f;color:#fff}</style><div data-composition-id="lumen">'
     style = {'stage': {
         'card': {'x': 0.28, 'y': 0.30, 'w': 0.84, 'h': 0.57},
         'avatar': {'x': 0.28, 'y': 0.195, 'd': 0.273},
         'fill': '282a44', 'ink': 'ffffff',
     }}
     out = _apply_style(page, style)
-    assert 'left:8.0%;top:21.5%;width:84.0%;height:57.0%' in out
+    assert 'left:8.0%;width:84.0%;top:21.5%;height:57.0%' in out
     assert 'data-avatar-x="0.500"' in out
     assert 'data-avatar-y="0.392"' in out
     assert 'data-card-left="0.080"' in out
