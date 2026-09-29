@@ -93,10 +93,10 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
       if (scenario === "presentation") {
         await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
         assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
-        const cards = page.getByLabel("Анимация карточек, %");
+        const cards = page.getByRole("slider", { name: "Процент добавляемой анимации" });
         assert.equal(await cards.inputValue(), "100");
         await cards.fill("50");
-        await page.getByRole("region", { name: "Анимация карточек" }).getByText("Уровень сохранён").waitFor();
+        await page.getByRole("region", { name: "Процент добавляемой анимации" }).getByText("Уровень сохранён").waitFor();
         const cardSave = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual")).at(-1);
         assert.equal(cardSave.body.edit.card_motion, 50);
         assert.equal(writes.filter((row) => row.path.endsWith("/presentation")).length, 0);
@@ -146,7 +146,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         await pick.getByText("Наезд, свечение и виньетка сами не включаются").waitFor();
         assert.equal(await pick.getByText("Плавный наезд на всю картинку").count(), 0);
         assert.equal(await page.getByRole("button", { name: "Плавное приближение" }).count(), 0);
-        assert.equal(await page.getByLabel("Анимация карточек, %").inputValue(), "100");
+        assert.equal(await page.getByRole("slider", { name: "Процент добавляемой анимации" }).inputValue(), "100");
         assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
         await page
           .locator(".ws-tools")
@@ -232,7 +232,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         assert.equal(await page.locator("dialog[open]").count(), 0);
         await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
         assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
-        assert.equal(await page.getByLabel("Анимация карточек, %").count(), 1);
+        assert.equal(await page.getByRole("slider", { name: "Процент добавляемой анимации" }).count(), 1);
       } else if (scenario === "legacy") {
         await page.locator(".ws-scenes button").first().click();
         assert.match(

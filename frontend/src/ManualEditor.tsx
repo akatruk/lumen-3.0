@@ -392,12 +392,12 @@ export function ManualEditor({
         ? await startApprovedPicture(pid, stored.revision, qualityReview)
         : "unapproved";
       setCardNote(started === "queued"
-        ? w("Уровень сохранён. Собирается новое видео.", "Saved. A new video is being created.", "已保存。正在生成新视频。")
+        ? w(`Уровень сохранён. Собирается видео: анимация на ${motion}% длины.`, `Saved. Creating a video with animation on ${motion}% of the length.`, `已保存。正在生成动画占全片 ${motion}% 的视频。`)
         : started === "busy"
-          ? w("Промпт сохранён. Дождитесь завершения текущей задачи. Готовый ролик остаётся.", "Prompt saved. Wait for the current task to finish. The finished video stays.", "提示已保存。请等待当前任务完成。已完成的视频会保留。")
+          ? w("Уровень сохранён. Дождитесь завершения текущей задачи. Готовый ролик остаётся.", "Saved. Wait for the current task to finish. The finished video stays.", "已保存。请等待当前任务完成。已完成的视频会保留。")
           : started === "unapproved"
-            ? w("Промпт сохранён. Подтвердите все сцены, чтобы собрать видео.", "Prompt saved. Approve every scene to create the video.", "提示已保存。请批准所有场景后再生成视频。")
-            : w("Промпт сохранён. Новое видео не запущено.", "Prompt saved. The new video did not start.", "提示已保存。新视频没有开始生成。"));
+            ? w("Уровень сохранён. Подтвердите все сцены, чтобы собрать видео.", "Saved. Approve every scene to create the video.", "已保存。请批准所有场景后再生成视频。")
+            : w("Уровень сохранён. Новое видео не запущено.", "Saved. The new video did not start.", "已保存。新视频没有开始生成。"));
       await onSaved();
     } catch (e) {
       if ((editRef.current?.card_motion ?? 100) !== motion) return;
@@ -642,14 +642,14 @@ export function ManualEditor({
       {portal(<section className="ws-scene-list"><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
-      {task==='effects'&&<section className="presentation-share" aria-label={w('Анимация карточек','Card animation','卡片动画')}>
+      {task==='effects'&&<section className="presentation-share" aria-label={w('Процент добавляемой анимации','Added animation percent','添加动画的百分比')}>
         <label className="inspector-slider">
-          {w('Анимация карточек, %','Card animation, %','卡片动画，%')}
-          <input type="range" min={0} max={100} step={5} value={edit.card_motion??100} aria-label={w('Анимация карточек, %','Card animation, %','卡片动画，%')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={edit.card_motion??100} aria-valuetext={`${edit.card_motion??100}%`} onChange={e=>setCardMotion(Number(e.target.value))} />
+          {w('Процент добавляемой анимации','Added animation, %','添加动画的百分比')}
+          <input type="range" min={0} max={100} step={5} value={edit.card_motion??100} aria-label={w('Процент добавляемой анимации','Added animation, %','添加动画的百分比')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={edit.card_motion??100} aria-valuetext={`${edit.card_motion??100}%`} onChange={e=>setCardMotion(Number(e.target.value))} />
           <output>{edit.card_motion??100}%</output>
         </label>
         {cardNote&&<p role="status">{cardNote}</p>}
-        <small>{w('0% оставляет только исходную картинку. Чем выше процент, тем сильнее промпт Hypit: титр, цвет и виньетка. После сохранения собирается новое видео.','0% keeps the footage alone. A higher percent builds a stronger Hypit prompt: type, color, and vignette. Saving creates a new video.','0% 只保留原画面。百分比越高，Hypit 提示越强：字幕、色彩和暗角。保存后会生成新视频。')}</small>
+        <small>{w('0% — без добавленной анимации. 100% — анимация на всей длине, как в текущем ролике. 40% — анимация занимает 40% длины. Сдвиг собирает новую версию.','0% adds no animation. 100% keeps animation for the whole length, as in the current video. 40% puts animation on 40% of the length. Moving the slider creates a new version.','0% 不添加动画。100% 在全片保留动画，与当前视频一致。40% 让动画占全片 40%。拖动滑块会生成新版本。')}</small>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       <section className="inspector-scene-controls">

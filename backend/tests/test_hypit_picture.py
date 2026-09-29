@@ -122,9 +122,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'data-card-motion="0"' in gone and '外资比例' not in gone and '三名股东开会' in gone
     mid_dir = tmp_path / 'motion-mid'
     mid_dir.mkdir()
-    composition(src, mid_dir, {**edit, 'card_motion': 40}, 160, 240, 'zh')
+    composition(src, mid_dir, {**edit, 'card_motion': 10}, 160, 240, 'zh')
     mid = (mid_dir / 'index.html').read_text()
-    assert 'data-card-motion="40"' in mid and 'data-card-motion="100"' not in mid
+    assert 'data-card-motion="10"' in mid and 'data-card-motion="100"' not in mid
 
     import re
 
@@ -137,12 +137,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
             )
         )
 
-    def plate_fade(page):
-        found = re.findall(r'class="hf-plate"[^>]*data-hf-fade-in="(\d+)"', page)
-        return int(found[0]) if found else 0
-
-    assert covered(mid) < covered(html) or plate_fade(mid) > plate_fade(html)
-    assert plate_fade(mid) > plate_fade(html)
+    total = int(re.search(r'data-hypit-frame-count="(\d+)"', html).group(1))
+    assert covered(html) > total * 0.1
+    assert covered(mid) == pytest.approx(total * 0.1, abs=3)
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
@@ -321,19 +318,14 @@ def test_the_slider_changes_how_long_the_plates_stay_on_screen():
 
     half = _limit_graphics(layers, 900, 50)
     assert covered(half) == pytest.approx(450, abs=3)
+    assert len(half) == 3
     assert 'data-hypit-start-frame="0"' in half[0]
     assert 'data-hypit-start-frame="600"' in half[-1]
-    full_fade = max(int(value) for value in re.findall(r'data-hf-fade-in="(\d+)"', ''.join(_limit_graphics(layers, 900, 100))))
-    half_fade = max(int(value) for value in re.findall(r'data-hf-fade-in="(\d+)"', ''.join(half)))
-    assert full_fade == 6 and half_fade > full_fade
     eighty = _limit_graphics(layers, 900, 80)
-    assert len(eighty) < len(layers)
-    eighty_fade = max(int(value) for value in re.findall(r'data-hf-fade-in="(\d+)"', ''.join(eighty)))
-    assert eighty_fade >= 30
-    assert 'hf-plate' in eighty[0] and 'data-hypit-start-frame="0"' in eighty[0]
+    assert covered(eighty) == pytest.approx(720, abs=3)
+    assert len(eighty) == 3
     thin = _limit_graphics(layers, 900, 5)
-    assert covered(thin) == pytest.approx(45, abs=2)
-    assert len(thin) == 1
+    assert covered(thin) == pytest.approx(45, abs=3)
 
 
 def test_presenter_is_centered_on_the_card():
