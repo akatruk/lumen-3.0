@@ -36,7 +36,9 @@ def test_hypit_page_uses_that_prompt_percentage():
     page = _presentation_page(320, 240, '20.000', 600, layers, planned.presentation_prompt)
     assert 'data-hypit-prompt="' in page and '10%' in page and 'github.com/hypit-ai/hypit' in page
     assert 'data-hypit-source-fps="30/1"' in page and 'data-hypit-source-rate="1/1"' in page
-    assert 'rotateY' in page and 'hf-window' in page
+    assert 'rotateY' not in page and 'hf-window' in page
+    boxes = [tuple(map(float, item)) for item in __import__('re').findall(r'left:([\d.]+)%;top:([\d.]+)%;right:auto;bottom:auto;width:([\d.]+)%', ''.join(layers))]
+    assert boxes and all(left >= 4 and top >= 6 and left + width <= 96 for left, top, width in boxes)
     spans = [(int(a), int(b)) for a, b in __import__('re').findall(r'<aside[^>]*data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', page)]
     assert sum(b - a for a, b in spans) / 30 == pytest.approx(2, abs=0.05)
 
@@ -112,8 +114,10 @@ def test_windows_are_burned_in_the_requested_language(tmp_path):
     import subprocess
     beat = planned.presentation[0]
     mid = (beat.start + beat.end) / 2
-    # Sample inside the rounded card. The corner itself stays transparent.
-    x, y = min(312, int(320 * beat.x) + 36), min(232, int(240 * beat.y) + 36)
+    # Sample the middle of the fitted window, not the old anchor that sat outside the frame.
+    box = __import__('re').search(r'left:([\d.]+)%;top:([\d.]+)%;right:auto;bottom:auto;width:([\d.]+)%', page)
+    left, top, width = (float(item) for item in box.groups())
+    x, y = int(320 * (left + width / 2) / 100), min(232, int(240 * top / 100) + 20)
     def pixel(t):
         frame = int(round(t * 30))
         return subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(tmp_path / 'result.mp4'),

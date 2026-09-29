@@ -151,6 +151,95 @@ def _graphic_copy(caption, _language):
     return title, kicker
 
 
+def _spoken_figure(caption):
+    """A number the speaker actually says. Years and lone headcounts stay off the board."""
+    blob = ' '.join(str(caption.get(key) or '') for key in ('zh', 'original', 'en'))
+    blob = ' '.join(blob.split())
+    if not blob or '口播' in blob:
+        return None
+    percent = re.search(r'(\d+(?:\.\d+)?)\s*[%％]', blob)
+    if percent:
+        return percent.group(1) + '%', '', _figure_label(blob, percent.group(0))
+    found = re.search(r'(\d+(?:\.\d+)?(?:\s*[-–~至到]\s*\d+(?:\.\d+)?)?)\s*(万|千|亿)?', blob)
+    if not found:
+        return None
+    figure = re.sub(r'\s+', '', found.group(0))
+    if re.fullmatch(r'\d{4}', figure) or (figure.isdigit() and len(figure) <= 2):
+        return None
+    unit = next((token for token in ('泰铢', '人民币', '美元', '元', '每月', '每天', '月', '天') if token in blob), '')
+    return figure, unit, _figure_label(blob, found.group(0))
+
+
+def _figure_label(blob, figure):
+    label = blob.replace(figure, ' ')
+    label = re.sub(r'[%％]|泰铢|人民币|美元|大约|左右|约', ' ', label)
+    label = ' '.join(label.split())
+    if re.search(r'[\u4e00-\u9fff]', label):
+        label = re.sub(r'[A-Za-z].*', '', label).strip(' ，,。.')
+        return label[:12]
+    words = label.split()
+    return ' '.join(words[:4])[:28]
+
+
+def _short_line(caption, language, limit=26):
+    if str(language).startswith('zh'):
+        text = caption.get('zh') or caption.get('original') or caption.get('en') or ''
+    else:
+        text = caption.get('en') or caption.get('original') or caption.get('zh') or ''
+    text = ' '.join(str(text).split())
+    if not text or text == '口播' or text.isdigit() or len(text) <= 1:
+        return ''
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(' ', 1)[0].strip(' ，,。.')
+    return cut or text[:limit].strip()
+
+
+def _chapter_html(index, title):
+    if not index or not title:
+        return ''
+    return f'<div class="hf-chapter"><b>{index:02d}</b><span>{html.escape(title)}</span></div>'
+
+
+def _lower_html(title, kicker, spoken, chapter, a, b):
+    kicker_html = f'<div class="hf-lower-kicker">{html.escape(kicker)}</div>' if kicker and kicker != title else ''
+    spoken_html = f'<div class="hf-spoken">{html.escape(spoken)}</div>' if spoken and spoken != title else ''
+    return (
+        f'<aside class="hf-lower" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
+        f'data-hf-fade-in="6" data-hf-fade-out="6">'
+        f'{_chapter_html(chapter, title)}'
+        f'<div class="hf-lower-title">{html.escape(title)}</div>'
+        f'<i class="hf-lower-bar"></i>{kicker_html}{spoken_html}</aside>'
+    )
+
+
+def _board_html(title, figure, unit, note, chapter, a, b):
+    unit_html = f'<div class="hf-board-unit">{html.escape(unit)}</div>' if unit else ''
+    note_html = f'<div class="hf-board-note">{html.escape(note)}</div>' if note and note != title else ''
+    label = title or note or ''
+    return (
+        f'<aside class="hf-board" data-hf-avatar="1" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
+        f'data-hf-fade-in="6" data-hf-fade-out="6">'
+        f'{_chapter_html(chapter, label)}'
+        f'<div class="hf-board-label">{html.escape(label)}</div>'
+        f'<i class="hf-board-rule"></i>'
+        f'<div class="hf-board-figure">{html.escape(figure)}</div>'
+        f'{unit_html}{note_html}</aside>'
+    )
+
+
+def _clause(caption, language):
+    """The first spoken phrase, short enough for a lower third. Nothing is added."""
+    text = _short_line(caption, language, 22)
+    for sep in ('，', ',', '。', '？', '?', '！', '!'):
+        if sep in text:
+            text = text.split(sep)[0].strip()
+            break
+    if re.search(r'[\u4e00-\u9fff]', text):
+        return text[:12]
+    return ' '.join(text.split()[:5])[:28]
+
+
 def _caption_spans(caption, clips, ranges):
     spans = []
     for clip, (out_a, out_b) in zip(clips, ranges):
@@ -304,9 +393,10 @@ def _plates(clips, ranges, language, total):
         b = max(a + 1, min(total, int(round(end * FPS))))
         fill = f'{value:.1f}'
         layers.append(
-            f'<aside class="hf-plate" data-hf-avatar="1" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" data-hf-fade-in="5" data-hf-fade-out="5">'
-            f'<div class="hf-plate-label">{html.escape(title)}</div>'
-            f'<div class="hf-plate-value">{html.escape(figure)}</div>'
+            f'<aside class="hf-board hf-plate" data-hf-avatar="1" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" data-hf-fade-in="5" data-hf-fade-out="5">'
+            f'<div class="hf-board-label">{html.escape(title)}</div>'
+            f'<i class="hf-board-rule"></i>'
+            f'<div class="hf-board-figure">{html.escape(figure)}</div>'
             f'<div class="hf-plate-track"><div class="hf-plate-fill" style="width:{fill}%"></div></div>'
             f'</aside>'
         )
@@ -361,9 +451,11 @@ def _side_cards(clips, ranges, captions, language, total, style=None):
         if not isinstance(caption, dict):
             continue
         copied = _graphic_copy(caption, language)
-        if not copied:
+        figure = _spoken_figure(caption)
+        clause = '' if copied or figure else _clause(caption, language)
+        if not copied and not figure and len(clause) < 2:
             continue
-        title, sub = copied
+        title, sub = copied if copied else (clause, '')
         spans = _caption_spans(caption, clips, ranges)
         if not spans:
             continue
@@ -380,15 +472,13 @@ def _side_cards(clips, ranges, captions, language, total, style=None):
         seen.add(key)
         a = max(0, int(round(start * FPS)))
         b = max(a + 1, min(total, int(round(end * FPS))))
-        sub_html = f'<div class="hf-card-sub">{html.escape(sub)}</div>' if sub else ''
-        layers.append(
-            f'<aside class="hf-card" data-hf-avatar="1" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
-            f'data-hf-fade-in="6" data-hf-fade-out="6">'
-            f'<div class="hf-card-bar"></div>'
-            f'<div class="hf-card-title">{html.escape(title)}</div>'
-            f'{sub_html}'
-            f'</aside>'
-        )
+        chapter = len(seen)
+        if figure:
+            shown, unit, label = figure
+            layers.append(_board_html(title or label, shown, unit, sub, chapter, a, b))
+        else:
+            spoken = _short_line(caption, language)
+            layers.append(_lower_html(title, sub, spoken, chapter, a, b))
     return layers
 
 
@@ -400,7 +490,9 @@ def _host_chips(clips, ranges, captions, language, total, style):
         if not isinstance(caption, dict):
             continue
         copied = _graphic_copy(caption, language)
-        if not copied:
+        figure = _spoken_figure(caption)
+        clause = '' if copied or figure else _clause(caption, language)
+        if not copied and not figure and len(clause) < 2:
             continue
         spans = _caption_spans(caption, clips, ranges)
         if not spans:
@@ -412,20 +504,40 @@ def _host_chips(clips, ranges, captions, language, total, style):
             end = min(total / FPS, start + 2.2)
         if end - start < 0.6:
             continue
-        title, sub = copied
+        title, sub = copied if copied else (clause, '')
         key = (title, int(start))
         if key in seen:
             continue
         seen.add(key)
         a = max(0, int(round(start * FPS)))
         b = max(a + 1, min(total, int(round(end * FPS))))
-        sub_html = f'<div class="hf-card-sub">{html.escape(sub)}</div>' if sub else ''
-        layers.append(
-            f'<aside class="hf-chip" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
-            f'data-hf-fade-in="5" data-hf-fade-out="5">'
-            f'<div class="hf-card-title">{html.escape(title)}</div>{sub_html}</aside>'
-        )
+        chapter = len(seen)
+        if figure:
+            shown, unit, label = figure
+            layers.append(_board_html(title or label, shown, unit, '', chapter, a, b))
+        else:
+            spoken = _short_line(caption, language)
+            layers.append(_lower_html(title, sub, spoken, chapter, a, b))
     return layers
+
+
+def _window_box(x, y, title, body):
+    """A rectangle that stays inside the frame and is wide enough for the words."""
+    title, body = title or '', body or ''
+    longest = max(len(title), len(body), 4)
+    cjk = bool(re.search(r'[\u4e00-\u9fff]', title + body))
+    unit = 5.4 if cjk else 2.5
+    line = max(4, (longest + 1) // 2)
+    width = min(46.0, max(32.0, line * unit + 10))
+    left = min(max(4.0, float(x) * 100 - width / 2), 100 - 4 - width)
+    per_line = max(1, int((width - 10) / unit))
+    rows = max(1, -(-len(title) // per_line))
+    if body:
+        rows += max(1, -(-len(body) // per_line))
+    height = rows * 4.4 + 8
+    top = 7.0 if float(y) < 0.5 else 100 - 6 - height
+    top = min(max(6.0, top), 100 - 6 - height)
+    return left, top, width
 
 
 def presentation_layers(beats, language, total_frames):
@@ -441,18 +553,16 @@ def presentation_layers(beats, language, total_frames):
         title = _words(beat.get('title') or {}, language)
         body = _words(beat.get('body') or {}, language) if beat.get('kind') == 'mini' and beat.get('body') else ''
         kind = 'mini' if body else 'window'
-        x = float(beat.get('x') or 0.72) * 100
-        y = float(beat.get('y') or 0.28) * 100
-        width = 46 if kind == 'mini' else 62
-        cls = 'hf-chip hf-mini' if kind == 'mini' else 'hf-card hf-window'
+        left, top, width = _window_box(beat.get('x') or 0.72, beat.get('y') or 0.28, title, body)
+        cls = 'hf-mini' if kind == 'mini' else 'hf-window'
         inner = (
             f'<div class="hf-card-title">{html.escape(title)}</div>'
-            + (f'<div class="hf-card-sub">{html.escape(body)}</div>' if body else '<div class="hf-card-bar"></div>')
+            + (f'<div class="hf-card-sub">{html.escape(body)}</div>' if body else '')
         )
         layers.append(
             f'<aside class="{cls}" data-hypit-kind="{kind}" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
             f'data-hf-fade-in="6" data-hf-fade-out="6" '
-            f'style="left:{x:.1f}%;top:{y:.1f}%;right:auto;bottom:auto;width:{width}%">{inner}</aside>'
+            f'style="left:{left:.1f}%;top:{top:.1f}%;right:auto;bottom:auto;width:{width:.1f}%">{inner}</aside>'
         )
     return layers
 
@@ -485,8 +595,6 @@ def composition(source, work, manual, width, height, language, style=None):
     layers.extend(_plates(clips, ranges, language, total))
     layers.extend(_side_cards(clips, ranges, manual.get('captions') or [], language, total, style))
     layers.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style))
-    if int(manual.get('presentation_share') or 0) > 0 and manual.get('presentation'):
-        layers.extend(presentation_layers(manual['presentation'], language, total))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
     page = f'''<!doctype html>
@@ -500,11 +608,27 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-caption{{position:absolute;left:8%;right:8%;bottom:3.5%;z-index:7;text-align:center;color:#fff;font:600 {max(16, height // 48)}px/1.2 sans-serif;text-shadow:0 1px 6px #000;opacity:0;max-height:2.5em;overflow:hidden}}
     .hf-card,.hf-plate{{position:absolute;left:7%;right:7%;top:22%;bottom:8%;z-index:4;box-sizing:border-box;padding:22px 18px 26px;border-radius:28px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 18px 48px rgba(0,0,0,.45);display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:14px;overflow:hidden}}
     .hf-chip{{position:absolute;left:5%;top:7%;width:46%;z-index:5;padding:12px 14px;border-radius:16px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 10px 24px rgba(0,0,0,.35)}}
+    .hf-chapter{{position:absolute;left:6%;top:5.5%;display:flex;align-items:center;gap:8px;color:#fff;font:700 {max(14, height // 52)}px/1 "Noto Sans CJK SC",sans-serif}}
+    .hf-chapter b{{padding:7px 8px;border-left:3px solid #7eb6ff;background:#12315c}}
+    .hf-chapter span{{padding:7px 10px;background:#12315c}}
+    .hf-lower{{position:absolute;left:7%;right:8%;bottom:13%;z-index:5;color:#fff;text-align:left;opacity:0;text-shadow:0 2px 10px rgba(0,0,0,.45)}}
+    .hf-lower-title{{font:800 {max(28, height // 28)}px/1.15 "Noto Sans CJK SC",sans-serif}}
+    .hf-lower-bar{{display:block;width:72px;height:4px;margin:10px 0 8px;background:#7eb6ff}}
+    .hf-lower-kicker,.hf-spoken{{font:600 {max(16, height // 48)}px/1.3 "Noto Sans CJK SC",sans-serif;opacity:.92}}
+    .hf-board{{position:absolute;inset:0;z-index:4;box-sizing:border-box;padding:22% 8% 12% 8%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;color:#fff;text-align:left;opacity:0;background:radial-gradient(120% 80% at 82% 16%, #16325c 0%, #0b1830 58%, #08101f 100%)}}
+    .hf-board-label{{font:600 {max(22, height // 36)}px/1.2 "Noto Sans CJK SC",sans-serif}}
+    .hf-board-rule{{display:block;width:68%;height:3px;margin:16px 0 18px;background:rgba(255,255,255,.4)}}
+    .hf-board-figure{{font:800 {max(56, height // 12)}px/1 "Noto Sans CJK SC",sans-serif;color:#f2c14b;letter-spacing:-.03em}}
+    .hf-board-unit{{margin-top:8px;font:600 {max(16, height // 46)}px/1.2 "Noto Sans CJK SC",sans-serif;opacity:.82}}
+    .hf-board-note{{margin-top:16px;max-width:78%;padding:10px 14px;border-radius:8px;background:rgba(255,255,255,.08);font:600 {max(16, height // 48)}px/1.3 "Noto Sans CJK SC",sans-serif}}
     .hf-card-bar{{width:48px;height:6px;border-radius:6px;background:#7eb6ff;margin:8% 0 4px}}
     .hf-card-title{{box-sizing:border-box;width:100%;padding:14px 12px;border-radius:16px;background:rgba(255,255,255,.1);font:700 {max(22, height // 22)}px/1.12 sans-serif}}
     .hf-card-sub{{box-sizing:border-box;width:100%;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);font:600 {max(13, height // 48)}px/1.2 sans-serif;letter-spacing:.04em;opacity:.86}}
     .hf-chip .hf-card-title{{padding:0;background:none;font:700 {max(18, height // 32)}px/1.15 sans-serif}}
     .hf-chip .hf-card-sub{{padding:0;margin-top:4px;background:none;font:600 {max(12, height // 52)}px/1.2 sans-serif}}
+    .hf-window,.hf-mini{{position:absolute;z-index:6;box-sizing:border-box;width:auto;max-width:46%;padding:14px 16px;border-radius:18px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 14px 32px rgba(0,0,0,.4);display:flex;flex-direction:column;justify-content:center;gap:6px;overflow:visible}}
+    .hf-window .hf-card-title,.hf-mini .hf-card-title{{width:auto;padding:0;border-radius:0;background:none;font:700 {max(15, min(22, height // 52))}px/1.28 sans-serif;overflow-wrap:break-word}}
+    .hf-window .hf-card-sub,.hf-mini .hf-card-sub{{width:auto;padding:0;border-radius:0;background:none;letter-spacing:0;font:600 {max(13, min(16, height // 64))}px/1.3 sans-serif;overflow-wrap:break-word;opacity:.9}}
     .hf-plate-label{{font:600 {max(14, height // 46)}px/1.2 sans-serif;letter-spacing:.06em;opacity:.78}}
     .hf-plate-value{{font:700 {max(36, height // 12)}px/1 sans-serif;margin-top:8px}}
     .hf-plate-track{{width:72%;height:10px;margin-top:18px;border-radius:10px;background:rgba(255,255,255,.22);overflow:hidden}}
@@ -532,24 +656,27 @@ def composition(source, work, manual, width, height, language, style=None):
           opacity = Math.min(inn, out);
         }}
         el.style.opacity = String(opacity);
-        if (el.classList.contains('hf-card') || el.classList.contains('hf-plate')) {{
-          const yaw = el.classList.contains('hf-window') ? 22 : 8;
-        el.style.transform = 'translateY(' + Math.round((1 - opacity) * 36) + 'px) rotateY(' + Math.round((1 - opacity) * yaw) + 'deg)';
+        if (el.classList.contains('hf-board') || el.classList.contains('hf-lower') || el.classList.contains('hf-card') || el.classList.contains('hf-plate') || el.classList.contains('hf-window') || el.classList.contains('hf-mini')) {{
+          const lift = el.classList.contains('hf-board') ? 28 : 16;
+          el.style.transform = 'translateY(' + Math.round((1 - opacity) * lift) + 'px)';
+          const figure = el.querySelector('.hf-board-figure');
+          if (figure) figure.style.transform = 'scale(' + (0.9 + 0.1 * opacity).toFixed(3) + ')';
         }}
       }}
       const video = document.getElementById('picture');
       const frameBox = video && video.parentElement;
-      const avatar = layers.some((el) => el.hasAttribute('data-hf-avatar') && Number(el.style.opacity) > 0.45);
+      const boardOn = layers.some((el) => el.classList.contains('hf-board') && Number(el.style.opacity) > 0.45);
+      const avatar = boardOn || layers.some((el) => el.hasAttribute('data-hf-avatar') && !el.classList.contains('hf-board') && Number(el.style.opacity) > 0.45);
       const root = video && video.parentElement;
-      const ax = root ? Number(root.getAttribute('data-avatar-x') || 0.78) : 0.78;
-      const ay = root ? Number(root.getAttribute('data-avatar-y') || 0.12) : 0.12;
-      const ad = root ? Number(root.getAttribute('data-avatar-d') || 0.30) : 0.30;
+      const ax = boardOn ? 0.78 : (root ? Number(root.getAttribute('data-avatar-x') || 0.78) : 0.78);
+      const ay = boardOn ? 0.155 : (root ? Number(root.getAttribute('data-avatar-y') || 0.12) : 0.12);
+      const ad = boardOn ? 0.22 : (root ? Number(root.getAttribute('data-avatar-d') || 0.30) : 0.30);
         if (video && frameBox) {{
           const cardTop = Number(root.getAttribute('data-card-top') || 0.22);
           const cardHeight = Number(root.getAttribute('data-card-height') || 0.56);
           const padTop = avatar ? Math.round(Math.max(0.12, (ay + ad / 2) - cardTop) / Math.max(0.2, cardHeight) * 100) : 8;
           for (const el of layers) {{
-            if (el.classList.contains('hf-card') || el.classList.contains('hf-plate')) {{
+            if (el.hasAttribute('data-hf-avatar') && !el.classList.contains('hf-board')) {{
               el.style.paddingTop = padTop + '%';
               el.style.paddingLeft = '8%';
               el.style.textAlign = 'center';
@@ -725,11 +852,9 @@ def _presentation_page(width, height, seconds, frames, layers, prompt):
     html,body{{margin:0;overflow:hidden;background:#101614}}
     [data-composition-id]{{position:relative;width:{width}px;height:{height}px;overflow:hidden;background:#101614;perspective:900px}}
     video{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}}
-    .hf-window,.hf-mini{{position:absolute;z-index:4;box-sizing:border-box;padding:16px 14px;border-radius:22px;background:#10233f;color:#fff;opacity:0;box-shadow:0 18px 48px rgba(0,0,0,.45);transform-style:preserve-3d}}
-    .hf-mini{{width:46%;padding:12px 14px;border-radius:16px}}
-    .hf-card-title{{font:700 {max(22, int(height) // 22)}px/1.12 sans-serif}}
-    .hf-card-sub{{margin-top:6px;font:600 {max(13, int(height) // 48)}px/1.2 sans-serif;opacity:.86}}
-    .hf-card-bar{{width:48px;height:6px;border-radius:6px;background:#7eb6ff;margin-bottom:10px}}
+    .hf-window,.hf-mini{{position:absolute;z-index:4;box-sizing:border-box;max-width:46%;padding:14px 16px;border-radius:18px;background:#10233f;color:#fff;opacity:0;box-shadow:0 14px 32px rgba(0,0,0,.4);overflow:visible}}
+    .hf-card-title{{font:700 {max(15, min(22, int(height) // 52))}px/1.28 sans-serif;overflow-wrap:break-word}}
+    .hf-card-sub{{margin-top:6px;font:600 {max(13, min(16, int(height) // 64))}px/1.3 sans-serif;opacity:.9;overflow-wrap:break-word}}
   </style>
 </head>
 <body>
@@ -754,8 +879,7 @@ def _presentation_page(width, height, seconds, frames, layers, prompt):
           opacity = Math.min(inn, out);
         }}
         el.style.opacity = String(opacity);
-        const yaw = el.classList.contains('hf-window') ? 22 : 8;
-        el.style.transform = 'translateY(' + Math.round((1 - opacity) * 36) + 'px) rotateY(' + Math.round((1 - opacity) * yaw) + 'deg)';
+        el.style.transform = 'translateY(' + Math.round((1 - opacity) * 16) + 'px)';
       }}
     }};
     apply(0);

@@ -95,9 +95,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert '三名股东开会' in html
     assert '口播' not in html and 'Shareholders' not in html and '>3<' not in html
     assert 'Governance logic also differs' not in html
-    assert 'hf-card' in html and '股东结构' in html and '董事权限' in html
-    assert 'hf-plate' in html and '外资比例' in html and '49%' in html
-    assert 'data-hf-avatar="1"' in html and 'top:22%' in html
+    assert 'hf-lower' in html and '股东结构' in html and '董事权限' in html
+    assert 'hf-board' in html and '外资比例' in html and '49%' in html
+    assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
@@ -135,7 +135,7 @@ def test_a_host_moment_keeps_a_corner_title():
     chips = _host_chips(clips, ranges, captions, 'en', 60, style)
     assert cards == []
     assert len(chips) == 1
-    assert 'hf-chip' in chips[0] and '股东结构' in chips[0]
+    assert 'hf-lower' in chips[0] and '股东结构' in chips[0]
     assert 'data-hf-avatar' not in chips[0]
     look, rate = _piece_vf({
         'zoom': 1, 'zoom_end': 1.35, 'x': 0.5, 'y': 0.62, 'speed': 1,
