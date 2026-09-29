@@ -108,6 +108,29 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     composition(src, quiet, {**edit, 'card_motion': 0}, 160, 240, 'zh')
     gone = (quiet / 'index.html').read_text()
     assert 'data-card-motion="0"' in gone and '外资比例' not in gone and '三名股东开会' in gone
+    mid_dir = tmp_path / 'motion-mid'
+    mid_dir.mkdir()
+    composition(src, mid_dir, {**edit, 'card_motion': 40}, 160, 240, 'zh')
+    mid = (mid_dir / 'index.html').read_text()
+    assert 'data-card-motion="40"' in mid and 'data-card-motion="100"' not in mid
+
+    import re
+
+    def covered(page):
+        return sum(
+            int(end) - int(start)
+            for start, end in re.findall(
+                r'class="hf-(?:plate|board|lower|window|mini|chip)\b[^"]*"[^>]*data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"',
+                page,
+            )
+        )
+
+    def plate_fade(page):
+        found = re.findall(r'class="hf-plate"[^>]*data-hf-fade-in="(\d+)"', page)
+        return int(found[0]) if found else 0
+
+    assert covered(mid) < covered(html) or plate_fade(mid) > plate_fade(html)
+    assert plate_fade(mid) > plate_fade(html)
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
@@ -262,7 +285,10 @@ def test_the_slider_changes_how_long_the_plates_stay_on_screen():
     from backend.hypit_picture import _card_motion, _limit_graphics
 
     def plate(start, end, name):
-        return f'<aside class="hf-plate" data-hypit-start-frame="{start}" data-hypit-end-frame="{end}">{name}</aside>'
+        return (
+            f'<aside class="hf-plate" data-hypit-start-frame="{start}" data-hypit-end-frame="{end}" '
+            f'data-hf-fade-in="6" data-hf-fade-out="6">{name}</aside>'
+        )
 
     layers = [plate(0, 300, 'a'), plate(300, 600, 'b'), plate(600, 900, 'c')]
     caption = '<div class="hf-caption" data-hypit-start-frame="0" data-hypit-end-frame="90">Hello</div>'
@@ -281,6 +307,9 @@ def test_the_slider_changes_how_long_the_plates_stay_on_screen():
     assert covered(half) == pytest.approx(450, abs=3)
     assert 'data-hypit-start-frame="0"' in half[0]
     assert 'data-hypit-start-frame="600"' in half[-1]
+    full_fade = max(int(value) for value in re.findall(r'data-hf-fade-in="(\d+)"', ''.join(_limit_graphics(layers, 900, 100))))
+    half_fade = max(int(value) for value in re.findall(r'data-hf-fade-in="(\d+)"', ''.join(half)))
+    assert full_fade == 6 and half_fade > full_fade
     thin = _limit_graphics(layers, 900, 5)
     assert covered(thin) == pytest.approx(45, abs=2)
     assert len(thin) == 1

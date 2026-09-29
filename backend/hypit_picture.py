@@ -624,6 +624,41 @@ def _even_indexes(count, total):
     return [round(i * (total - 1) / (count - 1)) for i in range(count)]
 
 
+def _soften_layer(layer, share):
+    """100% keeps the short entrance. A lower percentage stretches the fade across the card."""
+    if share >= 100 or not _graphic_layer(layer):
+        return layer
+    found = re.search(r'data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', layer)
+    if not found:
+        return layer
+    span = int(found.group(2)) - int(found.group(1))
+    if span <= 1:
+        return layer
+    extra = int(round(span * (100 - share) / 100 * 0.45))
+
+    def stretch(match):
+        base = int(match.group(2))
+        value = min(span // 2, base + extra)
+        return f'{match.group(1)}="{max(base, value)}"'
+
+    if 'data-hf-fade-in="' in layer:
+        layer = re.sub(r'(data-hf-fade-in)="(\d+)"', stretch, layer, count=1)
+        return re.sub(r'(data-hf-fade-out)="(\d+)"', stretch, layer, count=1)
+    fade = min(span // 2, max(1, extra))
+    return re.sub(
+        r'(data-hypit-end-frame="\d+")',
+        rf'\1 data-hf-fade-in="{fade}" data-hf-fade-out="{fade}"',
+        layer,
+        count=1,
+    )
+
+
+def _present(layers, share):
+    if share >= 100:
+        return layers
+    return [_soften_layer(layer, share) for layer in layers]
+
+
 def _limit_graphics(layers, total_frames, share):
     """Keep animated plates on about `share` percent of the picture, spread through it."""
     share = max(0, min(100, int(share)))
@@ -647,7 +682,7 @@ def _limit_graphics(layers, total_frames, share):
     budget = total_frames * share / 100
     full = sum(end - start for start, end, _layer in parsed)
     if budget >= full:
-        return rest + [layer for _start, _end, layer in parsed]
+        return _present(rest + [layer for _start, _end, layer in parsed], share)
     minimum = max(1, int(round(0.8 * FPS)))
     chosen = parsed
     for count in range(len(parsed), 0, -1):
@@ -667,7 +702,7 @@ def _limit_graphics(layers, total_frames, share):
         if stop <= start:
             stop = start + 1
         kept.append(layer if stop == end else _retimed(layer, start, stop))
-    return rest + kept
+    return _present(rest + kept, share)
 
 
 def composition(source, work, manual, width, height, language, style=None):
@@ -759,16 +794,12 @@ def composition(source, work, manual, width, height, language, style=None):
         const fadeOut = Number(el.getAttribute('data-hf-fade-out') || 0);
         let opacity = 0;
         const card = el.classList.contains('hf-board') || el.classList.contains('hf-lower') || el.classList.contains('hf-card') || el.classList.contains('hf-plate') || el.classList.contains('hf-window') || el.classList.contains('hf-mini') || el.classList.contains('hf-chip');
-        if (frame >= start && frame < end) {{
-          if (card && motion <= 0) opacity = 1;
-          else {{
-            const amount = card ? motion : 1;
-            const innFrames = fadeIn * amount;
-            const outFrames = fadeOut * amount;
-            const inn = innFrames > 0 ? Math.min(1, (frame - start + 1) / innFrames) : 1;
-            const out = outFrames > 0 ? Math.min(1, (end - frame) / outFrames) : 1;
-            opacity = Math.min(inn, out);
-          }}
+        if (frame >= start && frame < end && !(card && motion <= 0)) {{
+          const innFrames = fadeIn;
+          const outFrames = fadeOut;
+          const inn = innFrames > 0 ? Math.min(1, (frame - start + 1) / innFrames) : 1;
+          const out = outFrames > 0 ? Math.min(1, (end - frame) / outFrames) : 1;
+          opacity = Math.min(inn, out);
         }}
         el.style.opacity = String(opacity);
         if (card) {{

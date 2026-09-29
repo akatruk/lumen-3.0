@@ -626,7 +626,6 @@ export function ManualEditor({
       {portal(<section className="ws-scene-list"><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
-      {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       {task==='effects'&&<section className="presentation-share" aria-label={w('Анимация карточек','Card animation','卡片动画')}>
         <label className="inspector-slider">
           {w('Анимация карточек, %','Card animation, %','卡片动画，%')}
@@ -636,6 +635,7 @@ export function ManualEditor({
         {cardNote&&<p role="status">{cardNote}</p>}
         <small>{w('0% убирает карточки. 100% оставляет их на всю длину и с полным появлением. Промежуточное значение укорачивает карточки и смягчает движение. Соберите ролик заново.','0% removes the cards. 100% keeps them for their full length, with the full entrance. A value between shortens the cards and softens the motion. Create the video again.','0% 会去掉卡片。100% 会保留完整时长和完整入场。中间值会缩短卡片并减弱动作。请重新生成视频。')}</small>
       </section>}
+      {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       {task==='effects'&&<section className="presentation-share" aria-label={w('Промпт Hypit','Hypit prompt','Hypit 提示')}>
         <label className="inspector-slider">
           {w('Промпт Hypit, %','Hypit prompt, %','Hypit 提示比例')}
