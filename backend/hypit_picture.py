@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 from fractions import Fraction
 from pathlib import Path
@@ -21,6 +22,10 @@ log = logging.getLogger('lumen.hypit')
 FPS = 30
 FADE = 6
 SCRIPT = Path(__file__).resolve().parent / 'hypit_render.mjs'
+_LEAK = re.compile(
+    r'(?i)(api[_-]?key|secret|token|password|authorization|bearer)\s*[:=]\s*\S+'
+    r'|sk-[A-Za-z0-9]{8,}|BEGIN [A-Z ]*PRIVATE KEY'
+)
 
 
 def engine_for(context):
@@ -42,9 +47,58 @@ def command(job_path):
     return [node, str(cli), str(SCRIPT), str(job_path)], root, cli
 
 
+def redact_capture(text):
+    """Keep a short capture note. Drop credentials; the command line is never included."""
+    if not text:
+        return ''
+    cleaned = _LEAK.sub('[redacted]', str(text)[-4000:])
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+    return '\n'.join(lines[-30:])[:2000]
+
+
+def _note_failure(exc, detail):
+    exc.hypit_detail = redact_capture(detail) or type(exc).__name__
+    return exc
+
+
+def capture_note(exc):
+    """Text for the worker log. Browser responses stay on the stable error code."""
+    parts = []
+    seen = set()
+    current = exc
+    while current is not None and id(current) not in seen and len(parts) < 5:
+        seen.add(id(current))
+        detail = getattr(current, 'hypit_detail', '')
+        if detail:
+            parts.append(detail)
+        elif not isinstance(current, (subprocess.CalledProcessError, subprocess.TimeoutExpired)):
+            text = str(current)
+            if text and text != 'hypit_unavailable':
+                parts.append(redact_capture(f'{type(current).__name__}: {text}')[:500])
+        current = current.__cause__
+    return ' | '.join(dict.fromkeys(parts))[:2000]
+
+
 def spawn(argv, env):
+    """Run capture with its own pipes so a worker terminal cannot drop or kill it.
+
+    Node writes the diagnosable cause to those pipes. The parent's stdout stays
+    blocking, and the command line is not kept on the exception.
+    """
     work = str(Path(argv[-1]).resolve().parent)
-    subprocess.run(argv, check=True, env=env, timeout=45 * 60, cwd=work)
+    try:
+        subprocess.run(
+            argv, check=True, env=env, timeout=45 * 60, cwd=work,
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, errors='replace',
+        )
+    except subprocess.CalledProcessError as exc:
+        output = (exc.stderr or '').strip() or (exc.stdout or '').strip()
+        raise _note_failure(exc, f'exit {exc.returncode}: {output}' if output else f'exit {exc.returncode}') from None
+    except subprocess.TimeoutExpired as exc:
+        raise _note_failure(exc, 'capture timed out') from None
+    except OSError as exc:
+        raise _note_failure(exc, f'{type(exc).__name__}: {exc.strerror or "capture could not start"}') from None
 
 
 def _caption_line(caption, language):
@@ -142,36 +196,42 @@ def _piece_vf(clip, width, height, length, room=None):
     return chain + fill, average
 
 
-def _picture_cut(source, work, clips, width, height, picture_quality=False):
-    """One h264 picture joined end to end.
+def _span(clip, available):
+    """Source take and output length for one approved range. No file is written."""
+    start = max(0.0, float(clip['start']))
+    length = max(0.08, float(clip['end']) - float(clip['start']))
+    room = (available - start) / length if available > start else 1
+    _shaped, average = _pace(clip, length, room)
+    return start, length, length * average, average
+
+
+def _picture_cut(source, work, clips, width, height):
+    """One continuous picture. Separate scene files leave a gap when joined.
 
     A crossfade would shorten the picture while the voice stays at the full
     clip length, so the mouth drifts further from the words on every join.
     """
     available = _piece_duration(source)
-    pieces = []
+    chains = []
+    labels = []
     lengths = []
     for index, clip in enumerate(clips):
-        start = max(0.0, float(clip['start']))
-        length = max(0.08, float(clip['end']) - float(clip['start']))
-        room = (available - start) / length if available > start else 1
-        piece = work / f'piece-{index:03d}.mp4'
-        vf, average = _piece_vf(clip, width, height, length, room)
-        take = length * average
-        ffmpeg(
-            '-ss', f'{start:.3f}', '-t', f'{take:.3f}', '-i', str(source), '-an',
-            '-vf', vf, '-t', f'{length:.3f}', '-c:v', 'libx264', '-preset', 'fast',
-            '-crf', '18', '-pix_fmt', 'yuv420p', str(piece), timeout=180,
+        start, length, take, _average = _span(clip, available)
+        _chain, _rate = _piece_vf(clip, width, height, length, (available - start) / length if available > start else 1)
+        label = f'v{index}'
+        chains.append(
+            f'[0:v]trim=start={start:.3f}:duration={take:.3f},setpts=PTS-STARTPTS,{_chain}[{label}]'
         )
-        if picture_quality:
-            from .hypit_controls import apply_picture
-            apply_picture(piece, work, index)
-        pieces.append(piece)
+        labels.append(f'[{label}]')
         lengths.append(length)
+    graph = work / 'picture.txt'
+    graph.write_text(';\n'.join(chains) + f';\n{"".join(labels)}concat=n={len(labels)}:v=1:a=0[v]\n')
     out = work / 'cut.mp4'
-    listing = work / 'cut.txt'
-    listing.write_text(''.join(f"file '{path.name}'\n" for path in pieces))
-    ffmpeg('-f', 'concat', '-safe', '1', '-i', str(listing), '-c', 'copy', str(out), timeout=180)
+    ffmpeg(
+        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[v]', '-an',
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
+        str(out), timeout=600,
+    )
     ranges = []
     cursor = 0.0
     for length in lengths:
@@ -268,28 +328,28 @@ def _apply_style(page, style):
     card = stage.get('card') if isinstance(stage.get('card'), dict) else None
     if not card:
         return page
-    left = max(4.0, min(30.0, (float(card['x']) - float(card['w']) / 2) * 100))
-    top = max(12.0, min(40.0, (float(card['y']) - float(card['h']) / 2) * 100))
-    width = max(52.0, min(92.0, float(card['w']) * 100))
-    height = max(36.0, min(78.0, float(card['h']) * 100))
+    width = max(64.0, min(86.0, float(card['w']) * 100))
+    height = max(46.0, min(68.0, float(card['h']) * 100))
+    left = (100.0 - width) / 2
+    top = (100.0 - height) / 2
     fill = str(stage.get('fill') or '10233f')
     ink = str(stage.get('ink') or 'ffffff')
     page = page.replace('left:7%;right:7%;top:22%;bottom:8%', f'left:{left:.1f}%;top:{top:.1f}%;width:{width:.1f}%;height:{height:.1f}%')
     page = page.replace('background:#10233f;color:#fff', f'background:#{fill};color:#{ink}')
+    avatar = stage.get('avatar') if isinstance(stage.get('avatar'), dict) else {}
+    try:
+        diameter = max(0.22, min(0.34, float((avatar or {}).get('d') or 0.28)))
+    except (TypeError, ValueError):
+        diameter = 0.28
+    # The measured reference parks the face in a corner. Keep the presenter in the middle of the card.
+    ax, ay = 0.5, top / 100 + diameter / 2 + 0.04
     page = page.replace(
         'data-composition-id="lumen"',
-        'data-composition-id="lumen" data-card-left="{left}" data-card-width="{width}"'.format(
-            left=f'{left / 100:.3f}', width=f'{width / 100:.3f}',
+        'data-composition-id="lumen" data-card-left="{left}" data-card-top="{top}" data-card-width="{width}" data-card-height="{height}" data-avatar-x="{x}" data-avatar-y="{y}" data-avatar-d="{d}"'.format(
+            left=f'{left / 100:.3f}', top=f'{top / 100:.3f}', width=f'{width / 100:.3f}', height=f'{height / 100:.3f}',
+            x=f'{ax:.3f}', y=f'{ay:.3f}', d=f'{diameter:.3f}',
         ),
     )
-    avatar = stage.get('avatar') if isinstance(stage.get('avatar'), dict) else {}
-    if avatar:
-        page = page.replace(
-            'data-composition-id="lumen"',
-            'data-composition-id="lumen" data-avatar-x="{x}" data-avatar-y="{y}" data-avatar-d="{d}"'.format(
-                x=f'{float(avatar["x"]):.3f}', y=f'{float(avatar["y"]):.3f}', d=f'{float(avatar["d"]):.3f}',
-            ),
-        )
     return page
 
 
@@ -368,6 +428,35 @@ def _host_chips(clips, ranges, captions, language, total, style):
     return layers
 
 
+def presentation_layers(beats, language, total_frames):
+    """Hypit layers whose on-screen time is the prompt percentage."""
+    from .presentation_graphics import _words
+    layers = []
+    for beat in beats or []:
+        if not isinstance(beat, dict):
+            beat = beat.model_dump()
+        start, end = float(beat['start']), float(beat['end'])
+        a = max(0, int(round(start * FPS)))
+        b = max(a + 1, min(int(total_frames), int(round(end * FPS))))
+        title = _words(beat.get('title') or {}, language)
+        body = _words(beat.get('body') or {}, language) if beat.get('kind') == 'mini' and beat.get('body') else ''
+        kind = 'mini' if body else 'window'
+        x = float(beat.get('x') or 0.72) * 100
+        y = float(beat.get('y') or 0.28) * 100
+        width = 46 if kind == 'mini' else 62
+        cls = 'hf-chip hf-mini' if kind == 'mini' else 'hf-card hf-window'
+        inner = (
+            f'<div class="hf-card-title">{html.escape(title)}</div>'
+            + (f'<div class="hf-card-sub">{html.escape(body)}</div>' if body else '<div class="hf-card-bar"></div>')
+        )
+        layers.append(
+            f'<aside class="{cls}" data-hypit-kind="{kind}" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
+            f'data-hf-fade-in="6" data-hf-fade-out="6" '
+            f'style="left:{x:.1f}%;top:{y:.1f}%;right:auto;bottom:auto;width:{width}%">{inner}</aside>'
+        )
+    return layers
+
+
 def composition(source, work, manual, width, height, language, style=None):
     """HyperFrames HTML. A paragraph, 口播, and a lone headcount digit are not drawn.
 
@@ -375,7 +464,7 @@ def composition(source, work, manual, width, height, language, style=None):
     piece at once and the capture never finishes.
     """
     clips = [clip for clip in manual['clips'] if clip.get('approved', True)]
-    total, ranges = _picture_cut(source, work, clips, width, height, bool(manual.get('picture_quality')))
+    total, ranges = _picture_cut(source, work, clips, width, height)
     layers = [_video(
         'picture', 'cut.mp4', 0, total, 0, 0.0, Fraction(1, 1), FPS, 1, 0, 0,
     )]
@@ -396,6 +485,8 @@ def composition(source, work, manual, width, height, language, style=None):
     layers.extend(_plates(clips, ranges, language, total))
     layers.extend(_side_cards(clips, ranges, manual.get('captions') or [], language, total, style))
     layers.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style))
+    if int(manual.get('presentation_share') or 0) > 0 and manual.get('presentation'):
+        layers.extend(presentation_layers(manual['presentation'], language, total))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
     page = f'''<!doctype html>
@@ -442,7 +533,8 @@ def composition(source, work, manual, width, height, language, style=None):
         }}
         el.style.opacity = String(opacity);
         if (el.classList.contains('hf-card') || el.classList.contains('hf-plate')) {{
-          el.style.transform = 'translateY(' + Math.round((1 - opacity) * 36) + 'px)';
+          const yaw = el.classList.contains('hf-window') ? 22 : 8;
+        el.style.transform = 'translateY(' + Math.round((1 - opacity) * 36) + 'px) rotateY(' + Math.round((1 - opacity) * yaw) + 'deg)';
         }}
       }}
       const video = document.getElementById('picture');
@@ -453,12 +545,16 @@ def composition(source, work, manual, width, height, language, style=None):
       const ay = root ? Number(root.getAttribute('data-avatar-y') || 0.12) : 0.12;
       const ad = root ? Number(root.getAttribute('data-avatar-d') || 0.30) : 0.30;
         if (video && frameBox) {{
-          const cardLeft = Number(root.getAttribute('data-card-left') || 0.07);
-          const cardWidth = Number(root.getAttribute('data-card-width') || 0.86);
-          const copyInset = Math.max(0, Math.min(0.42, (ax + ad / 2) - cardLeft));
-          const pad = avatar && ax < 0.55 ? Math.round(copyInset / Math.max(0.2, cardWidth) * 100) : 6;
+          const cardTop = Number(root.getAttribute('data-card-top') || 0.22);
+          const cardHeight = Number(root.getAttribute('data-card-height') || 0.56);
+          const padTop = avatar ? Math.round(Math.max(0.12, (ay + ad / 2) - cardTop) / Math.max(0.2, cardHeight) * 100) : 8;
           for (const el of layers) {{
-            if (el.classList.contains('hf-card') || el.classList.contains('hf-plate')) el.style.paddingLeft = pad + '%';
+            if (el.classList.contains('hf-card') || el.classList.contains('hf-plate')) {{
+              el.style.paddingTop = padTop + '%';
+              el.style.paddingLeft = '8%';
+              el.style.textAlign = 'center';
+              el.style.alignItems = 'center';
+            }}
           }}
         if (avatar) {{
           const box = Math.round(frameBox.clientWidth * (ad > 0.12 ? ad : 0.30));
@@ -468,6 +564,8 @@ def composition(source, work, manual, width, height, language, style=None):
           video.style.top = Math.round(frameBox.clientHeight * ay - box / 2) + 'px';
           video.style.right = 'auto';
           video.style.bottom = 'auto';
+          video.style.objectFit = 'cover';
+          video.style.objectPosition = 'center 30%';
           video.style.borderRadius = '50%';
           video.style.zIndex = '6';
           video.style.boxShadow = '0 0 0 5px #fff';
@@ -490,7 +588,15 @@ def composition(source, work, manual, width, height, language, style=None):
 </body>
 </html>
 '''
-    (work / 'index.html').write_text(_apply_style(page, style))
+    page = _apply_style(page, style)
+    prompt = manual.get('presentation_prompt') or ''
+    if prompt:
+        page = page.replace(
+            'data-composition-id="lumen"',
+            'data-composition-id="lumen" data-hypit-prompt="' + html.escape(prompt, quote=True) + '"',
+            1,
+        )
+    (work / 'index.html').write_text(page)
     return total
 
 
@@ -516,31 +622,26 @@ def _piece_duration(path):
 
 
 def _host_audio(source, folder, clips):
-    """Voice pieces follow the picture pieces, so a join cannot pull the mouth ahead."""
-    pieces = []
+    """One speech stem for the whole picture. Scene files leave a gap at each join."""
     available = _piece_duration(source)
+    chains = []
+    labels = []
     for index, clip in enumerate(clips):
-        start = float(clip['start'])
-        picture = folder / f'piece-{index:03d}.mp4'
-        length = _piece_duration(picture)
-        if length < 0.04:
-            length = max(0.08, float(clip['end']) - start)
-        room = (available - start) / length if available > start else 1
-        _shaped, average = _pace(clip, length, room)
-        piece = folder / f'hypit-a-{index:03d}.wav'
-        take = length * average
-        args = ['-ss', f'{start:.3f}', '-t', f'{take:.3f}', '-i', source, '-vn', '-ac', '2', '-ar', '48000']
-        if abs(average - 1) > 0.04:
-            args += ['-af', f'atempo={average:.4f}']
-        args += ['-t', f'{length:.3f}', piece]
-        ffmpeg(*args, timeout=180)
-        pieces.append(piece)
-    if len(pieces) == 1:
-        return pieces[0]
-    listing = folder / 'hypit-audio.txt'
-    listing.write_text(''.join(f"file '{path.name}'\n" for path in pieces))
+        start, length, take, average = _span(clip, available)
+        tempo = f',atempo={average:.4f}' if abs(average - 1) > 0.04 else ''
+        label = f'a{index}'
+        chains.append(
+            f'[0:a]atrim=start={start:.3f}:duration={take:.3f},asetpts=PTS-STARTPTS{tempo},'
+            f'atrim=duration={length:.3f},aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo[{label}]'
+        )
+        labels.append(f'[{label}]')
+    graph = folder / 'speech.txt'
+    graph.write_text(';\n'.join(chains) + f';\n{"".join(labels)}concat=n={len(labels)}:v=0:a=1[a]\n')
     mixed = folder / 'hypit-audio.wav'
-    ffmpeg('-f', 'concat', '-safe', '1', '-i', listing, '-c', 'copy', mixed, timeout=180)
+    ffmpeg(
+        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[a]',
+        '-c:a', 'pcm_s16le', '-ar', '48000', '-ac', '2', str(mixed), timeout=600,
+    )
     return mixed
 
 
@@ -596,7 +697,7 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     try:
         spawn(argv, env)
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        log.warning('hypit capture failed: %s', exc)
+        log.warning('hypit capture failed: %s', capture_note(exc) or type(exc).__name__)
         raise RuntimeError('hypit_unavailable') from exc
     visual = work / 'visual.mp4'
     if not visual.is_file() or visual.stat().st_size < 32:
@@ -611,3 +712,105 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     else:
         ffmpeg('-i', visual, '-c', 'copy', '-movflags', '+faststart', assembled, timeout=600)
     return assembled
+
+
+def _presentation_page(width, height, seconds, frames, layers, prompt):
+    body = '\n    '.join(layers)
+    escaped = html.escape(prompt or '', quote=True)
+    return f'''<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    html,body{{margin:0;overflow:hidden;background:#101614}}
+    [data-composition-id]{{position:relative;width:{width}px;height:{height}px;overflow:hidden;background:#101614;perspective:900px}}
+    video{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}}
+    .hf-window,.hf-mini{{position:absolute;z-index:4;box-sizing:border-box;padding:16px 14px;border-radius:22px;background:#10233f;color:#fff;opacity:0;box-shadow:0 18px 48px rgba(0,0,0,.45);transform-style:preserve-3d}}
+    .hf-mini{{width:46%;padding:12px 14px;border-radius:16px}}
+    .hf-card-title{{font:700 {max(22, int(height) // 22)}px/1.12 sans-serif}}
+    .hf-card-sub{{margin-top:6px;font:600 {max(13, int(height) // 48)}px/1.2 sans-serif;opacity:.86}}
+    .hf-card-bar{{width:48px;height:6px;border-radius:6px;background:#7eb6ff;margin-bottom:10px}}
+  </style>
+</head>
+<body>
+  <div data-composition-id="lumen" data-hypit-prompt="{escaped}" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{frames}">
+    <video id="picture" src="cut.mp4" muted playsinline data-has-audio="false" data-start="0.000" data-end="{seconds}" data-media-start="0.000" data-hypit-start-frame="0" data-hypit-end-frame="{frames}" data-hypit-source-frame="0/1" data-hypit-source-rate="1/1" data-hypit-source-fps="{FPS}/1"></video>
+    {body}
+  </div>
+  <script>
+    const fps = {FPS};
+    const layers = [...document.querySelectorAll('[data-hypit-kind]')];
+    const apply = (time) => {{
+      const frame = Math.max(0, Math.round(Number(time || 0) * fps));
+      for (const el of layers) {{
+        const start = Number(el.getAttribute('data-hypit-start-frame'));
+        const end = Number(el.getAttribute('data-hypit-end-frame'));
+        const fadeIn = Number(el.getAttribute('data-hf-fade-in') || 0);
+        const fadeOut = Number(el.getAttribute('data-hf-fade-out') || 0);
+        let opacity = 0;
+        if (frame >= start && frame < end) {{
+          const inn = fadeIn ? Math.min(1, (frame - start + 1) / fadeIn) : 1;
+          const out = fadeOut ? Math.min(1, (end - frame) / fadeOut) : 1;
+          opacity = Math.min(inn, out);
+        }}
+        el.style.opacity = String(opacity);
+        const yaw = el.classList.contains('hf-window') ? 22 : 8;
+        el.style.transform = 'translateY(' + Math.round((1 - opacity) * 36) + 'px) rotateY(' + Math.round((1 - opacity) * yaw) + 'deg)';
+      }}
+    }};
+    apply(0);
+    window.addEventListener('hf-seek', (event) => apply(event.detail && event.detail.time));
+  </script>
+</body>
+</html>
+'''
+
+
+def apply_presentation(video, folder, manual, width, height, language):
+    """Run the slider prompt through Hypit. The share is the graphics coverage."""
+    beats = manual.get('presentation') or []
+    prompt = manual.get('presentation_prompt') or ''
+    if int(manual.get('presentation_share') or 0) <= 0 or not beats:
+        return video
+    work = Path(folder) / 'hypit-presentation'
+    # A second capture in this folder must not die on Hypit's worker-0 mkdir.
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True)
+    cut = work / 'cut.mp4'
+    ffmpeg('-y', '-i', str(video), '-an', '-c:v', 'copy', str(cut), timeout=600)
+    duration = _piece_duration(cut) or _piece_duration(video)
+    frames = max(1, int(round(duration * FPS)))
+    seconds = f'{frames / FPS:.3f}'
+    page = _presentation_page(width, height, seconds, frames, presentation_layers(beats, language, frames), prompt)
+    (work / 'index.html').write_text(page)
+    job = {
+        'directory': str(work),
+        'width': int(width),
+        'height': int(height),
+        'fpsNum': FPS,
+        'fpsDen': 1,
+        'frameCount': frames,
+    }
+    job_path = work / 'job.json'
+    job_path.write_text(json.dumps(job))
+    argv, root, tsx = command(job_path)
+    if not tsx.is_file() or not SCRIPT.is_file():
+        raise RuntimeError('hypit_unavailable')
+    env = os.environ.copy()
+    env['HYPIT_ROOT'] = str(root)
+    try:
+        spawn(argv, env)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        log.warning('hypit presentation capture failed: %s', capture_note(exc) or type(exc).__name__)
+        raise RuntimeError('hypit_unavailable') from exc
+    visual = work / 'visual.mp4'
+    if not visual.is_file() or visual.stat().st_size < 32:
+        raise RuntimeError('hypit_unavailable')
+    presented = Path(folder) / 'presented.mp4'
+    ffmpeg(
+        '-y', '-i', str(visual), '-i', str(video), '-map', '0:v:0', '-map', '1:a:0?',
+        '-c:v', 'copy', '-c:a', 'copy', '-shortest', '-movflags', '+faststart', str(presented),
+        timeout=600,
+    )
+    return presented

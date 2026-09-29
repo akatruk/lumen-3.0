@@ -358,6 +358,110 @@ Transfer general techniques with semantic fit to the owned script and creator pr
         if not db.execute('SELECT 1 FROM creative_plans WHERE project_id=? AND revision=?',(pid,current['revision'])).fetchone():
             queue_plan(db,pid,current)
 
+def _property_http(exc):
+    code = str(exc)
+    if code == 'not_found':
+        raise HTTPException(404, code) from None
+    if code in ('property_plan_changed', 'job_already_running', 'property_not_approved', 'property_workflow', 'property_delivery_missing'):
+        raise HTTPException(409, code) from None
+    if code in ('unverified_claim', 'property_too_short', 'invalid_settings', 'asset_not_found', 'invalid_media_path', 'reference_media_blocked'):
+        raise HTTPException(422, code) from None
+    raise HTTPException(422, 'invalid_settings') from None
+
+
+@router.get('/projects/{pid}/property')
+def property_detail(pid: str, user=Depends(current_user)):
+    owned(pid, user)
+    from .property_video import load
+    return load(pid) or {}
+
+
+@router.put('/projects/{pid}/property')
+def property_save(pid: str, body: dict, user=Depends(current_user)):
+    owned(pid, user)
+    from .property_video import PropertyBrief, save_brief
+    try:
+        brief = PropertyBrief.model_validate(body)
+        return save_brief(pid, brief)
+    except ValidationError:
+        raise HTTPException(422, 'invalid_settings') from None
+    except ValueError as exc:
+        _property_http(exc)
+
+
+@router.post('/projects/{pid}/property/plan')
+def property_plan(pid: str, user=Depends(current_user)):
+    owned(pid, user)
+    from .property_video import build_plan
+    try:
+        return build_plan(pid)
+    except ValueError as exc:
+        _property_http(exc)
+
+
+@router.put('/projects/{pid}/property/plan')
+def property_plan_edit(pid: str, body: dict, user=Depends(current_user)):
+    owned(pid, user)
+    from .property_video import PlanEdit, edit_plan
+    try:
+        return edit_plan(pid, PlanEdit.model_validate(body))
+    except ValidationError:
+        raise HTTPException(422, 'invalid_settings') from None
+    except ValueError as exc:
+        _property_http(exc)
+
+
+@router.post('/projects/{pid}/property/approve')
+def property_approve(pid: str, body: dict, user=Depends(current_user)):
+    owned(pid, user)
+    from .property_video import PlanApproval, approve_plan
+    try:
+        return approve_plan(pid, PlanApproval.model_validate(body).revision)
+    except ValidationError:
+        raise HTTPException(422, 'invalid_settings') from None
+    except ValueError as exc:
+        _property_http(exc)
+
+
+@router.post('/projects/{pid}/property/render')
+def property_render(pid: str, body: dict, request: Request, user=Depends(current_user)):
+    from .app import rate_limit
+    from .property_video import RenderRequest, queue_render
+    rate_limit(request, 'render', 12, 3600)
+    owned(pid, user)
+    try:
+        parsed = RenderRequest.model_validate(body)
+    except ValidationError:
+        raise HTTPException(422, 'invalid_settings') from None
+    with connect() as db:
+        db.lock()
+        try:
+            result = queue_render(db, pid, parsed)
+        except ValueError as exc:
+            _property_http(exc)
+        if not result['duplicate']:
+            db.execute("UPDATE projects SET status='queued',stage='property_render_queued',progress=0,error=NULL,updated=? WHERE id=?", (time.time(), pid))
+    return result
+
+
+@router.post('/projects/{pid}/property/delivery')
+def property_delivery(pid: str, body: dict, user=Depends(current_user)):
+    owned(pid, user)
+    from .property_video import DeliveryApproval, approve_delivery
+    try:
+        parsed = DeliveryApproval.model_validate(body)
+    except ValidationError:
+        raise HTTPException(422, 'invalid_settings') from None
+    with connect() as db:
+        db.lock()
+        if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
+            raise HTTPException(409, 'job_already_running')
+    try:
+        return approve_delivery(pid, parsed.render_id)
+    except ValueError as exc:
+        _property_http(exc)
+
+
 def validate_director(result,dna):
     refs={d['reference_id']:d['duration'] for d in dna}
     ids={r.id for r in result.recommendations}

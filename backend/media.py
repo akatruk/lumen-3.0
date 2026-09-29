@@ -543,7 +543,7 @@ def _mask_axes(clip):
         return 0.38, 0.42
     return rx, ry
 
-def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None):
+def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None,presentation_language=None):
     def beat(stage, value):
         if on_progress:
             on_progress(stage, value)
@@ -556,7 +556,12 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         if not manual['clips']:raise ValueError('no_approved_changes')
         timeline_override=[(c['start'],c['end']) for c in manual['clips']]
     timeline=timeline_override if timeline_override is not None else build_timeline(metadata['duration'],recommendations)
-    if not timeline or any(not 0<=a<b<=metadata['duration'] for a,b in timeline): raise ValueError('analysis_timestamps_invalid')
+    from .manual import ranges_fit, snap_ranges
+    if not ranges_fit(timeline, metadata['duration']): raise ValueError('analysis_timestamps_invalid')
+    timeline=snap_ranges(timeline, metadata['duration'])
+    if manual:
+        for clip, (_start, end) in zip(manual['clips'], timeline):
+            clip['end']=end
     if aspect=='original':
         scale=min(1,1920/max(metadata['width'],metadata['height']),1080/min(metadata['width'],metadata['height']))
         w=int(metadata['width']*scale)//2*2; h=int(metadata['height']*scale)//2*2
@@ -785,9 +790,6 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             args=[*inputs,'-t',b-a,*filters,'-map','0:a:0?',
                   '-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000',part]
             ffmpeg(*args,timeout=900)
-            if manual and manual.get('picture_quality'):
-                from .hypit_controls import apply_picture
-                apply_picture(part, folder, i)
             if manual and i>0:
                 from .transitions import KINDS,apply
                 if clip['transition'] in KINDS:apply(parts[i-1],part,clip['transition'],b-a,clip.get('transition_seconds'))
@@ -807,6 +809,10 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
                    '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
             input_path=overlay
+    if manual and manual.get('presentation') and picture_engine != 'hypit':
+        from .hypit_picture import apply_presentation
+        from .presentation_graphics import shown_language
+        input_path=apply_presentation(input_path, folder, manual, w, h, shown_language(language, presentation_language))
     # A Hypit picture already cleaned the host stem inside that render.
     if picture_engine != 'hypit':
         from .voice_cleanup import prepare_track

@@ -102,6 +102,14 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
     assert (tmp_path / 'hypit' / 'host-cleaned.wav').is_file()
+    assert not list((tmp_path / 'hypit').glob('piece-*.mp4'))
+    picture = (tmp_path / 'hypit' / 'picture.txt').read_text()
+    assert 'concat=n=2:v=1:a=0' in picture and 'file ' not in picture
+    cut = float((json.loads(run(
+        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'json', str(tmp_path / 'hypit' / 'cut.mp4')],
+        30,
+    )[0])['format'] or {}).get('duration') or 0)
+    assert abs(cut - 2) < 0.08
     assert result['metadata']['has_audio']
     assert abs(result['metadata']['duration'] - 2) < 0.6
     streams = json.loads(run(
@@ -158,7 +166,7 @@ def test_hypit_controls_name_cleanup_quality_and_leave_generation_closed():
 
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'), reason='FFmpeg required')
-def test_picture_quality_runs_the_hypit_frame_program(tmp_path, monkeypatch):
+def test_picture_quality_is_not_part_of_the_render(tmp_path, monkeypatch):
     src = tmp_path / 'source.mp4'
     ffmpeg(
         '-f', 'lavfi', '-i', 'color=c=red:s=160x240:d=1:r=30',
@@ -196,10 +204,8 @@ def test_picture_quality_runs_the_hypit_frame_program(tmp_path, monkeypatch):
     edit = {'clips': [{'start': 0, 'end': 1}], 'captions': [], 'picture_quality': True, 'voice_cleanup': False}
     before = probe(src)['duration']
     result = render(src, tmp_path, probe(src), analysis, [], 'en', 'original', manual=edit, picture_engine='hypit')
-    assert seen['frames'] >= 1
-    assert seen['operations'][0]['kind'] == 'denoise'
-    note = json.loads((tmp_path / 'hypit' / 'quality-000.json').read_text())
-    assert note['control'] == 'picture_quality'
+    assert seen['frames'] == 0
+    assert not (tmp_path / 'hypit' / 'quality-000.json').exists()
     assert abs(result['metadata']['duration'] - before) < 0.35
     assert not (tmp_path / 'hypit' / 'voice-cleanup.json').exists()
 
@@ -224,3 +230,18 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
         30,
     )[0])['streams']
     assert {item['codec_type'] for item in streams} == {'video', 'audio'}
+
+
+def test_presenter_is_centered_on_the_card():
+    from backend.hypit_picture import _apply_style
+    page = '<style>.hf-card,.hf-plate{left:7%;right:7%;top:22%;bottom:8%;background:#10233f;color:#fff}</style><div data-composition-id="lumen">'
+    style = {'stage': {
+        'card': {'x': 0.28, 'y': 0.30, 'w': 0.84, 'h': 0.57},
+        'avatar': {'x': 0.28, 'y': 0.195, 'd': 0.273},
+        'fill': '282a44', 'ink': 'ffffff',
+    }}
+    out = _apply_style(page, style)
+    assert 'left:8.0%;top:21.5%;width:84.0%;height:57.0%' in out
+    assert 'data-avatar-x="0.500"' in out
+    assert 'data-avatar-y="0.392"' in out
+    assert 'data-card-left="0.080"' in out

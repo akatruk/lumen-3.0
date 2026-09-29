@@ -413,6 +413,11 @@ export function ProjectWorkspace({
             )}
           </div>
         </header>
+        {working && (
+          <div className="ws-top-status">
+            <AnalysisActivity project={p} lang={lang} />
+          </div>
+        )}
         <div className="ws-grid">
           <MenuSlide
             className="ws-tools"
@@ -440,18 +445,20 @@ export function ProjectWorkspace({
                   : selected.label}
                 <History size={14} />
               </button>
-              <button
-                className="text-button"
-                onClick={compare}
-                aria-label={w(
-                  "Сравнить с исходником",
-                  "Compare with original",
-                  "对比原片",
-                )}
-              >
-                <Layers size={16} />
-                <span>{w("Сравнить", "Compare", "对比")}</span>
-              </button>
+              <div className="ws-preview-heading-actions">
+                <button
+                  className="text-button"
+                  onClick={compare}
+                  aria-label={w(
+                    "Сравнить с исходником",
+                    "Compare with original",
+                    "对比原片",
+                  )}
+                >
+                  <Layers size={16} />
+                  <span>{w("Сравнить", "Compare", "对比")}</span>
+                </button>
+              </div>
             </div>
             <div ref={setDeliveryTarget} className="ws-delivery-status"/>
             <div hidden={draftActive} className="ws-ready-player">
@@ -514,12 +521,6 @@ export function ProjectWorkspace({
                     )
                   : selected.detail}
               </span>
-              {!draftActive && selected.id !== "source" && (
-                <a href={selected.download} download>
-                  <Download size={15} />
-                  {w("Скачать видео", "Download video", "下载视频")}
-                </a>
-              )}
               {p.studio && p.analysis && !draftActive && (
                 <button
                   className="text-button"
@@ -548,13 +549,12 @@ export function ProjectWorkspace({
                 ))}
               </div>
             )}
-            {working && <AnalysisActivity project={p} lang={lang} />}
             {p.error && (
               <div className="ws-analysis-alert">
                 <p role="alert" className="error-box">
                   {jobError(lang, p.error)}
                 </p>
-                {!p.analysis && (
+                {!p.analysis && p.topic !== "real_estate" && p.error !== "hypit_unavailable" && !p.error?.startsWith("property_") && (
                   <button
                     type="button"
                     className="secondary"

@@ -100,6 +100,9 @@ export type Edit = {
   normalize: boolean;
   voice_cleanup?: boolean;
   picture_quality?: boolean;
+  presentation_share?: number;
+  presentation_prompt?: string;
+  presentation?: {kind:'window'|'mini';start:number;end:number;title:{en:string;zh:string;ru:string};body?:{en:string;zh:string;ru:string}|null;x:number;y:number}[];
   font_size: "small" | "medium" | "large";
   position: "top" | "bottom";
   color: "white" | "yellow";
@@ -162,7 +165,12 @@ export function ManualEditor({
   const [matchRequest,setMatchRequest]=useState<{clipId:string;assetIds:string[];instruction:string;nonce:number}|null>(null);
   const [qualityReview,setQualityReview]=useState(true);
   const video = useRef<HTMLVideoElement>(null),
-    pending = useRef<number | null>(null);
+    pending = useRef<number | null>(null),
+    editRef = useRef<Edit | null>(null),
+    revisionRef = useRef(0),
+    shareTicket = useRef(0),
+    shareTimer = useRef<number | undefined>(undefined);
+  const [shareNote, setShareNote] = useState("");
   const base = `/api/studio/projects/${pid}/manual`;
   const [assets,setAssets]=useState<Asset[]>([]);
   async function loadAssets(){const r=await fetch(`/api/studio/projects/${pid}/assets`);if(r.ok)setAssets(await r.json())}
@@ -180,7 +188,8 @@ export function ManualEditor({
       } catch {}
       setDelivery(data.delivery||null);
       setEdit(draft?.edit || data.edit);
-      setRevision(draft?.revision || data.revision);
+      revisionRef.current = data.revision;
+      setRevision(data.revision);
       setDirty(!!draft || !data.saved);
       setSelected(0);
     } catch {
@@ -219,8 +228,28 @@ export function ManualEditor({
   useEffect(()=>{if(workspace&&!workspace.draftActive)video.current?.pause()},[workspace?.draftActive]);
   useEffect(()=>{onDirtyChange?.(dirty)},[dirty,onDirtyChange]);
   useEffect(()=>{let live=true;fetch(base).then(r=>r.ok?r.json():null).then(data=>{if(live)setDelivery(data?.delivery||null)}).catch(()=>{if(live)setDelivery(null)});return()=>{live=false}},[pid,revision,workspace?.renderId,workspace?.finalAudioId]);
-  useEffect(()=>{if(edit&&!dirty&&serverRevision!==undefined&&serverRevision!==revision)void load()},[serverRevision]);
+  useEffect(()=>{
+    if (!edit || serverRevision===undefined || serverRevision===revision) return;
+    if (!dirty) { void load(); return; }
+    revisionRef.current = serverRevision;
+    setRevision(serverRevision);
+  },[serverRevision, dirty, edit, revision]);
   const blocked = disabled || busy;
+  editRef.current = edit;
+  revisionRef.current = revision;
+  function presentationMessage(detail: unknown) {
+    return detail === "presentation_needs_context"
+      ? w(
+          "Сначала нужен текст речи или сцены. Скан не нашёл, о чём говорить в анимации.",
+          "The scan needs speech or scene text before it can place animation.",
+          "扫描需要语音或场景文字，才能安排动画。",
+        )
+      : detail === "plan_changed"
+        ? t("The plan changed. Reload saved edits before continuing.", "计划已更新，请重新加载已保存的剪辑。")
+        : detail === "job_already_running"
+          ? w("Дождитесь завершения текущей задачи.", "Wait for the current task to finish.", "请等待当前任务完成。")
+          : t("Check time ranges, subtitle text and whether another job is running.", "请检查时间范围、字幕文字，以及是否有任务正在运行。");
+  }
   function change(p: Partial<Edit>, preview = true) {
     setEdit((e) => (e ? { ...e, ...p } : e));
     setDirty(true);
@@ -259,23 +288,43 @@ export function ManualEditor({
   const finalMusic = useRef<FinalMusicHandle>(null);
   async function act(render = false) {
     if (!edit) return null;
-    let savedRevision=revision;
+    let savedRevision=revisionRef.current || revision;
     setBusy(true);
     setError("");
     try {
-      const r = await fetch(base + (render ? "/render" : ""), {
-        method: render ? "POST" : "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(render ? { revision,quality_review:qualityReview } : { revision, edit }),
-      });
-      if (!r.ok) {
-        const d = await r.json();
+      let rev = savedRevision;
+      let r: Response | null = null;
+      let detail: unknown;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        r = await fetch(base + (render ? "/render" : ""), {
+          method: render ? "POST" : "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(render ? { revision: rev, quality_review: qualityReview } : { revision: rev, edit }),
+        });
+        if (r.ok) break;
+        const d = await r.json().catch(() => ({}));
+        detail = d.detail;
+        if (detail !== "plan_changed" || render || attempt > 0) break;
+        const fresh = await fetch(base);
+        if (!fresh.ok) break;
+        const current = await fresh.json();
+        rev = current.revision;
+        revisionRef.current = current.revision;
+        setRevision(current.revision);
+      }
+      if (!r || !r.ok) {
         throw Error(
-          d.detail === "plan_changed"
+          detail === "plan_changed"
             ? t(
                 "The plan changed. Reload saved edits before continuing.",
                 "计划已更新，请重新加载已保存的剪辑。",
               )
+            : detail === "presentation_needs_context"
+              ? w(
+                  "Сначала нужен текст речи или сцены. Скан не нашёл, о чём говорить в анимации.",
+                  "The scan needs speech or scene text before it can place animation.",
+                  "扫描需要语音或场景文字，才能安排动画。",
+                )
             : t(
                 "Check time ranges, subtitle text and whether another job is running.",
                 "请检查时间范围、字幕文字，以及是否有任务正在运行。",
@@ -297,6 +346,65 @@ export function ManualEditor({
       return null;
     } finally {
       setBusy(false);
+    }
+  }
+  function setPresentationShare(value: number) {
+    const share = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
+    const current = editRef.current;
+    if (!current || share === (current.presentation_share || 0)) return;
+    const next = { ...current, presentation_share: share, ...(share === 0 ? { presentation: [] } : {}) };
+    editRef.current = next;
+    setEdit(next);
+    setDirty(true);
+    setShareNote("");
+    const ticket = ++shareTicket.current;
+    window.clearTimeout(shareTimer.current);
+    shareTimer.current = window.setTimeout(() => { void commitPresentationShare(share, ticket); }, 200);
+  }
+  async function commitPresentationShare(share: number, ticket: number) {
+    const current = editRef.current;
+    if (!current || ticket !== shareTicket.current || (current.presentation_share || 0) !== share) return;
+    setShareNote(w("Сохраняю долю в проект…", "Saving this share to the project…", "正在把比例保存到项目…"));
+    try {
+      let planned: Edit = { ...current, presentation_share: share, ...(share === 0 ? { presentation: [] } : {}) };
+      if (share > 0) {
+        const scanned = await fetch(base + "/presentation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ revision: revisionRef.current, edit: planned }),
+        });
+        const data = await scanned.json().catch(() => ({}));
+        if (ticket !== shareTicket.current) return;
+        if (!scanned.ok || !data.edit) throw Error(presentationMessage(data.detail));
+        const latest = editRef.current;
+        planned = !latest || (latest.presentation_share || 0) !== share
+          ? data.edit
+          : { ...data.edit, ...latest, presentation: data.edit.presentation, presentation_share: share };
+      }
+      const save = await fetch(base, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: revisionRef.current, edit: planned }),
+      });
+      const stored = await save.json().catch(() => ({}));
+      if (ticket !== shareTicket.current) return;
+      if (!save.ok || !stored.edit) throw Error(presentationMessage(stored.detail));
+      editRef.current = stored.edit;
+      revisionRef.current = stored.revision;
+      setEdit(stored.edit);
+      setRevision(stored.revision);
+      setDirty(false);
+      sessionStorage.removeItem(draftKey);
+      setShareNote(w(
+        "Доля сохранена в проект. Соберите видео заново, чтобы увидеть её в ролике.",
+        "Saved to this project. Create the video again to see it in the picture.",
+        "比例已保存到项目。请重新生成视频后在画面中查看。",
+      ));
+      workspace?.showDraft();
+      await onSaved();
+    } catch (e) {
+      if (ticket !== shareTicket.current) return;
+      setShareNote((e as Error).message);
     }
   }
   function preview() {
@@ -348,7 +456,7 @@ export function ManualEditor({
         !Number.isFinite(c.start) ||
         !Number.isFinite(c.end) ||
         c.start < 0 ||
-        c.end > duration ||
+        c.end > duration + 0.05 ||
         c.end - c.start < 0.08 ||
         (c.motion_seconds!=null&&(!Number.isFinite(c.motion_seconds)||c.motion_seconds<.08||c.motion_seconds>840)) ||
         !Number.isFinite(c.zoom) || c.zoom < 1 || c.zoom > 3 ||
@@ -356,7 +464,7 @@ export function ManualEditor({
         !Number.isFinite(c.y) || c.y < 0 || c.y > 1,
     ) ||
     edit.captions.some(
-      (c) => c.start < 0 || c.end > duration || c.end <= c.start,
+      (c) => c.start < 0 || c.end > duration + 0.05 || c.end <= c.start,
     ) ||
     (edit.subtitles && (!edit.captions.length || edit.captions.some(c=>![c.en,c.zh,c.original].some(text=>text.trim()))));
   return (
@@ -389,15 +497,22 @@ export function ManualEditor({
       {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {(c.end-c.start).toFixed(1)} {w('сек','sec','秒')} · {c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}{c.locked?` · ${w('Тайминг заморожен','Timing frozen','时间已冻结')}`:''}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
-      {task==='effects'&&<div className="scene-choices">
-        <label className="scene-choice">
-          <input type="checkbox" checked={!!edit.picture_quality} disabled={blocked} onChange={e=>change({picture_quality:e.target.checked})} />
-          <span>
-            <strong>{w('Повысить качество изображения','Improve picture quality','提高画面质量')}</strong>
-            <small>{w('Прогон убирает шум кадра и возвращает резкость. Длина ролика не меняется.','A pass removes frame noise and restores sharpness. The video length stays the same.','处理会去除画面噪点并恢复清晰度。视频时长不变。')}</small>
-          </span>
+      {task==='effects'&&<section className="presentation-share" aria-label={w('Промпт Hypit','Hypit prompt','Hypit 提示')}>
+        <label className="inspector-slider">
+          {w('Промпт Hypit, %','Hypit prompt, %','Hypit 提示比例')}
+          <input type="range" min={0} max={100} step={5} value={edit.presentation_share||0} aria-label={w('Промпт Hypit, %','Hypit prompt, %','Hypit 提示比例')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={edit.presentation_share||0} aria-valuetext={`${edit.presentation_share||0}%`} onChange={e=>setPresentationShare(Number(e.target.value))} />
+          <output>{edit.presentation_share||0}%</output>
         </label>
-      </div>}
+        {shareNote&&<p role="status">{shareNote}</p>}
+        {(edit.presentation_share||0)>0&&<p className="presentation-prompt">{w(
+          `Промпт Hypit: использовать фреймворк Hypit на ${edit.presentation_share}% готового видео. Движущиеся 3D-окна и мини-презентации ставятся на отсканированную речь.`,
+          `Hypit prompt: use the Hypit framework on ${edit.presentation_share}% of the finished video. Moving 3D windows and mini presentations sit on the scanned speech.`,
+          `Hypit 提示：在成片的 ${edit.presentation_share}% 上使用 Hypit 框架。移动的 3D 窗口和迷你演示落在扫描到的讲话上。`,
+        )}</p>}
+        <small>{w('Шаг 5%. Число становится процентом в промпте Hypit: фреймворк занимает графикой именно эту долю ролика. Скан сначала читает речь. Слова на экране идут на языке озвучки, а если её нет — на языке проекта.','Steps of 5%. The number becomes the percentage in the Hypit prompt: the framework covers exactly that share of the video with graphics. The scan reads the speech first. On-screen words follow the voiceover language, or the project language when there is no voiceover.','步长为 5%。这个数字会写入 Hypit 提示的百分比：框架只用图形覆盖成片的这一比例。扫描会先读取语音。画面文字跟随配音语言；没有配音时使用项目语言。')}</small>
+        {(edit.presentation||[]).length>0&&<p role="status">{w('Скан поставил','The scan placed','扫描已放置')} {(edit.presentation||[]).filter(b=>b.kind==='window').length} {w('окон','windows','个窗口')} · {(edit.presentation||[]).filter(b=>b.kind==='mini').length} {w('мини-презентаций','mini presentations','个迷你演示')} · {(edit.presentation||[]).reduce((sum,b)=>sum+b.end-b.start,0).toFixed(1)} {w('с','s','秒')}</p>}
+        {(edit.presentation||[]).length>0&&<ol>{(edit.presentation||[]).map((beat,index)=>{const line=lang==='zh'?beat.title.zh:lang==='ru'?beat.title.ru:beat.title.en;return <li key={index}>{beat.kind==='mini'?w('Мини-презентация','Mini presentation','迷你演示'):w('3D-окно','3D window','3D 窗口')} · {beat.start.toFixed(1)}–{beat.end.toFixed(1)} {w('с','s','秒')} · {line}</li>})}</ol>}
+      </section>}
       <section className="inspector-scene-controls">
         <SceneInspector clips={edit.clips} selected={selected} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}}/>
         <fieldset disabled={blocked} className="director-fieldset">

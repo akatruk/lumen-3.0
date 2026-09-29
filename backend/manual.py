@@ -3,11 +3,12 @@ import json
 import uuid
 from typing import Annotated, Literal
 from fastapi import APIRouter,Depends,HTTPException,Request
-from pydantic import Field
+from pydantic import Field, model_validator
 from .schemas import Strict,Span,Caption
 from .auth import current_user
 from .db import connect,enqueue
 from .visuals import VisualCard
+from .presentation_graphics import PresentationBeat, plan as plan_presentation
 from .sound_effects import SoundEffect,DURATIONS
 from .music import Music
 
@@ -146,9 +147,18 @@ class Edit(Strict):
     normalize: bool=False
     voice_cleanup: bool=False
     picture_quality: bool=False
+    presentation_share: int=Field(default=0, ge=0, le=100)
+    presentation_prompt: str=Field(default='', max_length=800)
+    presentation: list[PresentationBeat]=Field(default_factory=list, max_length=16)
     font_size: Literal['small','medium','large']='medium'
     position: Literal['bottom','top']='bottom'
     color: Literal['white','yellow']='white'
+
+    @model_validator(mode='after')
+    def presentation_steps(self):
+        if self.presentation_share % 5:
+            raise ValueError('presentation_share_step')
+        return self
 class Save(Strict):
     revision: int=Field(ge=1)
     edit: Edit
@@ -173,6 +183,21 @@ def read(pid,db):
     for i,c in enumerate(config['clips']):c.setdefault('id',f'legacy_{i}')
     return Edit.model_validate(config).model_dump()
 
+# Probe duration and the last clip end can disagree by a fraction of a frame.
+RANGE_SLACK = 0.05
+
+def _inside(end, duration):
+    return end <= duration + RANGE_SLACK
+
+def ranges_fit(timeline, duration):
+    limit = float(duration) + RANGE_SLACK
+    return bool(timeline) and all(0 <= a < b <= limit for a, b in timeline)
+
+def snap_ranges(timeline, duration):
+    """Pull a frame-rounding overrun back onto the measured duration."""
+    duration = float(duration)
+    return [(a, b if b <= duration else duration) for a, b in timeline]
+
 def check(edit,duration):
     for c in edit.clips:
         if any(e.at+DURATIONS[e.kind]>c.end-c.start for e in c.sound_effects):raise HTTPException(422,'invalid_sound_range')
@@ -184,9 +209,9 @@ def check(edit,duration):
     ids=[c.id for c in edit.clips]
     if len(ids)!=len(set(ids)):raise HTTPException(422,'duplicate_decision')
     if any(c.locked and not c.approved for c in edit.clips):raise HTTPException(422,'lock_requires_approval')
-    if any(c.end>duration or c.end-c.start<.08 for c in edit.clips):raise HTTPException(422,'invalid_clip_range')
-    if sum(c.end-c.start for c in edit.clips)>duration*2:raise HTTPException(422,'manual_cut_too_long')
-    if any(c.end>duration for c in edit.captions):raise HTTPException(422,'invalid_caption_range')
+    if any(not _inside(c.end, duration) or c.end-c.start<.08 for c in edit.clips):raise HTTPException(422,'invalid_clip_range')
+    if sum(c.end-c.start for c in edit.clips)>duration*2+RANGE_SLACK:raise HTTPException(422,'manual_cut_too_long')
+    if any(not _inside(c.end, duration) for c in edit.captions):raise HTTPException(422,'invalid_caption_range')
     if edit.subtitles and (not edit.captions or any(not (c.en.strip() or c.zh.strip() or c.original.strip()) for c in edit.captions)):raise HTTPException(422,'captions_required')
 
 def locked_state(pid,revision,db):
@@ -263,20 +288,46 @@ def save(pid:str,body:Save,user=Depends(current_user)):
         from .assets import validate as validate_assets
         validate_assets(body.edit,pid,db)
         old=read(pid,db)
+        try:
+            edit=plan_presentation(body.edit)
+        except ValueError as exc:
+            if exc.args and exc.args[0]=='presentation_needs_context':
+                raise HTTPException(422,'presentation_needs_context') from exc
+            raise
         if old:
             previous_music=old.get('music')
             if previous_music and previous_music.get('locked'):
-                incoming_music=body.edit.music.model_dump() if body.edit.music else None
+                incoming_music=edit.music.model_dump() if edit.music else None
                 if incoming_music not in (previous_music,previous_music|{'locked':False}):raise HTTPException(409,'locked_decision')
-            incoming={c.id:(i,c.model_dump()) for i,c in enumerate(body.edit.clips)}
+            incoming={c.id:(i,c.model_dump()) for i,c in enumerate(edit.clips)}
             for i,c in enumerate(old['clips']):
                 if not c['locked']:continue
                 match=incoming.get(c['id'])
                 if not match or match[0]!=i or any(match[1][k]!=v for k,v in c.items() if k!='locked'):
                     raise HTTPException(409,'locked_decision')
-        db.execute('INSERT INTO studio_manual(project_id,config) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET config=excluded.config',(pid,body.edit.model_dump_json()))
+        db.execute('INSERT INTO studio_manual(project_id,config) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET config=excluded.config',(pid,edit.model_dump_json()))
         db.execute('UPDATE studio_projects SET revision=revision+1 WHERE project_id=?',(pid,))
-    return {'revision':body.revision+1,'edit':body.edit.model_dump()}
+    return {'revision':body.revision+1,'edit':edit.model_dump()}
+
+class PresentationRequest(Strict):
+    revision:int=Field(ge=1)
+    edit:Edit
+
+@router.post('/projects/{pid}/manual/presentation')
+def presentation(pid:str,body:PresentationRequest,user=Depends(current_user)):
+    """Scan speech already on this cut and place 3D windows for the requested share."""
+    from .studio import owned
+    p=owned(pid,user)
+    with connect() as db:
+        db.lock();locked_state(pid,body.revision,db)
+    try:
+        edit=plan_presentation(body.edit)
+    except ValueError as exc:
+        if exc.args and exc.args[0]=='presentation_needs_context':
+            raise HTTPException(422,'presentation_needs_context') from exc
+        raise
+    check(edit,p['metadata']['duration'])
+    return {'revision':body.revision,'edit':edit.model_dump()}
 
 class BeatPreview(Strict):
     revision:int=Field(ge=1)

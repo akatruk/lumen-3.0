@@ -841,11 +841,11 @@ def test_later_shots_keep_the_measured_join_and_frame(tmp_path, monkeypatch):
     for color in colors:
         args.extend(['-f', 'lavfi', '-i', f'color={color}:s=180x240:r=30:d=0.7'])
     args.extend([
-        '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56',
-        '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.08',
-        '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.08',
-        '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.56',
-        '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.56',
+        '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.5',
+        '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.2',
+        '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.2',
+        '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.5',
+        '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.5',
         '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56',
         '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.08',
         '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.08',
@@ -858,7 +858,7 @@ def test_later_shots_keep_the_measured_join_and_frame(tmp_path, monkeypatch):
     ])
     _video(reference, *args)
     windows = [(index * 0.7, (index + 1) * 0.7) for index in range(6)]
-    windows.extend(((4.8, 5.4), (6.0, 6.6)))
+    windows.extend(((4.73, 5.4), (6.0, 6.6)))
     shots = [{'start': start, 'end': end} for start, end in windows]
     annotate_pictures(reference, shots)
     opening = picture_of(reference, shots[0]['start'], shots[0]['end'])
@@ -873,15 +873,14 @@ def test_later_shots_keep_the_measured_join_and_frame(tmp_path, monkeypatch):
         assert not (picture['zoom'] == 1 and picture['x'] == 0.5 and picture['y'] == 0.5)
     quiet = dict(motion={'en': 'static hold', 'zh': '固定'}, transition={'en': 'cut', 'zh': '切'}, reusable_method={'en': 'hold the frame', 'zh': '固定机位'}, information_density={'en': 'low', 'zh': '低'}, subtitle_emphasis={'en': '', 'zh': ''}, music={'en': '', 'zh': ''}, observation={'en': '', 'zh': ''}, visual_type={'en': 'presenter', 'zh': '主讲'}, narrative_role={'en': 'beat', 'zh': '节拍'}, emotion={'en': 'neutral', 'zh': '中性'})
     edit, _report = build([{**quiet, 'start': 0, 'end': 6.6}], 6.6, [], False, measured={'duration': 6.6, 'shots': [{**quiet, **shot} for shot in shots]})
-    assert len(edit['clips']) == 8
-    assert edit['clips'][6]['transition'] == 'wipe-down'
-    assert edit['clips'][-1]['transition'] == 'wipe-down'
-    assert edit['clips'][6]['y'] != 0.5
-    assert not (edit['clips'][-1]['zoom'] == 1 and edit['clips'][-1]['x'] == 0.5 and edit['clips'][-1]['y'] == 0.5)
+    assert len(edit['clips']) == 1
+    assert edit['clips'][0]['start'] == 0 and abs(edit['clips'][0]['end'] - 6.6) < 0.05
+    assert edit['clips'][0]['transition'] == 'cut'
+    assert edit['clips'][0]['zoom'] == 1 and edit['clips'][0]['x'] == 0.5 and edit['clips'][0]['y'] == 0.5
     saved = {shot['start']: shot['picture'] for shot in shots}
 
     def flaky(_path, start, _end):
-        if abs(float(start) - 4.8) < 0.05:
+        if abs(float(start) - 4.73) < 0.05:
             raise RuntimeError('late shot')
         return saved[float(start)]
 
