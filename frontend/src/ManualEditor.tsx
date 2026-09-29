@@ -1,4 +1,4 @@
-import {SceneInspector,EffectPresets} from './SceneInspector';
+import {EffectPick,type EffectPickData} from './SceneInspector';
 import {RenderSummary,type RenderSummaryData} from './RenderSummary';
 import {createPortal} from 'react-dom';
 import {useWorkspace, workspaceText} from './ProjectWorkspace';
@@ -174,6 +174,11 @@ export function ManualEditor({
     motionTimer = useRef<number | undefined>(undefined);
   const [shareNote, setShareNote] = useState("");
   const [cardNote, setCardNote] = useState("");
+  const [effectPick, setEffectPick] = useState<EffectPickData | null>(null);
+  const [effectError, setEffectError] = useState("");
+  const [effectNote, setEffectNote] = useState("");
+  const [effectBusy, setEffectBusy] = useState(false);
+  const effectTicket = useRef(0);
   const base = `/api/studio/projects/${pid}/manual`;
   const [assets,setAssets]=useState<Asset[]>([]);
   async function loadAssets(){const r=await fetch(`/api/studio/projects/${pid}/assets`);if(r.ok)setAssets(await r.json())}
@@ -393,6 +398,85 @@ export function ManualEditor({
       setCardNote((e as Error).message);
     }
   }
+  function effectMessage(detail: unknown) {
+    return detail === "no_open_picture"
+      ? w("Нет открытого фрагмента, который попадёт в ролик.", "There is no open piece the render will use.", "没有会进入成片的开放片段。")
+      : detail === "effect_unavailable"
+        ? w("Для этой картинки уже включены эффекты, которые меняют ролик.", "This picture already has effects the render will use.", "这个画面已经有会改变成片的效果。")
+        : detail === "plan_changed"
+          ? t("The plan changed. Reload saved edits before continuing.", "计划已更新，请重新加载已保存的剪辑。")
+          : w("Не удалось подобрать эффект. Повторите.", "Could not pick an effect. Try again.", "无法建议效果，请重试。");
+  }
+  async function loadEffect() {
+    const current = editRef.current;
+    if (!current) return;
+    const ticket = ++effectTicket.current;
+    setEffectBusy(true);
+    setEffectError("");
+    try {
+      const response = await fetch(`${base}/effect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: revisionRef.current, edit: current }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (ticket !== effectTicket.current) return;
+      if (!response.ok || !data?.id) throw Error(effectMessage(data?.detail));
+      setEffectPick(data);
+      setEffectNote("");
+    } catch (e) {
+      if (ticket !== effectTicket.current) return;
+      setEffectPick(null);
+      setEffectError((e as Error).message);
+    } finally {
+      if (ticket === effectTicket.current) setEffectBusy(false);
+    }
+  }
+  async function acceptEffect() {
+    const current = editRef.current;
+    const pick = effectPick;
+    if (!current || !pick) return;
+    const clips = current.clips.map((clip) => {
+      const patch = pick.clips?.[clip.id || ""] as Partial<Clip> | undefined;
+      return patch ? { ...clip, ...patch } : clip;
+    });
+    const next = { ...current, clips, ...(pick.edit?.card_motion != null ? { card_motion: pick.edit.card_motion } : {}) };
+    editRef.current = next;
+    setEdit(next);
+    setEffectBusy(true);
+    setEffectError("");
+    setEffectNote(w("Сохраняю эффект…", "Saving the look…", "正在保存效果…"));
+    try {
+      const save = await fetch(base, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: revisionRef.current, edit: next }),
+      });
+      const stored = await save.json().catch(() => ({}));
+      if (!save.ok || !stored.edit) throw Error(effectMessage(stored.detail));
+      editRef.current = stored.edit;
+      revisionRef.current = stored.revision;
+      setEdit(stored.edit);
+      setRevision(stored.revision);
+      setDirty(false);
+      sessionStorage.removeItem(draftKey);
+      setEffectNote(w(
+        "Образ сохранён. Соберите видео заново, чтобы увидеть его в ролике.",
+        "Look saved. Create the video again to see it.",
+        "效果已保存。请重新生成视频后在画面中查看。",
+      ));
+      await onSaved();
+    } catch (e) {
+      setEffectError((e as Error).message);
+      setEffectNote("");
+    } finally {
+      setEffectBusy(false);
+    }
+  }
+  useEffect(() => {
+    if (task !== "effects" || !edit) return;
+    void loadEffect();
+  }, [task, pid, Boolean(edit)]);
   function setPresentationShare(value: number) {
     const share = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
     const current = editRef.current;
@@ -539,9 +623,10 @@ export function ManualEditor({
       <div hidden={task!=="materials"}>
       <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;workspace?.setTask('effects');setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[contentLanguage(lang)]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
       </div>
-      {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {(c.end-c.start).toFixed(1)} {w('сек','sec','秒')} · {c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}{c.locked?` · ${w('Тайминг заморожен','Timing frozen','时间已冻结')}`:''}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
+      {portal(<section className="ws-scene-list"><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
+      {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       {task==='effects'&&<section className="presentation-share" aria-label={w('Анимация карточек','Card animation','卡片动画')}>
         <label className="inspector-slider">
           {w('Анимация карточек, %','Card animation, %','卡片动画，%')}
@@ -568,7 +653,6 @@ export function ManualEditor({
         {(edit.presentation||[]).length>0&&<ol>{(edit.presentation||[]).map((beat,index)=>{const line=lang==='zh'?beat.title.zh:lang==='ru'?beat.title.ru:beat.title.en;return <li key={index}>{beat.kind==='mini'?w('Мини-презентация','Mini presentation','迷你演示'):w('3D-окно','3D window','3D 窗口')} · {beat.start.toFixed(1)}–{beat.end.toFixed(1)} {w('с','s','秒')} · {line}</li>})}</ol>}
       </section>}
       <section className="inspector-scene-controls">
-        <SceneInspector clips={edit.clips} selected={selected} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}}/>
         <fieldset disabled={blocked} className="director-fieldset">
           {edit.clips.map((c, i) => (
             <article className="manual-clip" hidden={!!workspace&&selected!==i} key={c.id||i}>
@@ -584,7 +668,6 @@ export function ManualEditor({
                 </label>
               </div>
               <fieldset className="director-fieldset" disabled={c.locked}>
-              {task==='effects'&&<EffectPresets lang={lang} duration={c.end-c.start} motionSeconds={c.motion_seconds} first={i===0} zoom={c.zoom} zoomEnd={c.zoom_end} x={c.x} y={c.y} xEnd={c.x_end} yEnd={c.y_end} transition={c.transition} onChange={patch=>clipChange(i,patch)}/>}
               <div className="scene-timing">
                 <p className="scene-timing-title">{w('Время и приближение этой сцены','Timing and zoom for this scene','此场景的时间与缩放')}</p>
                 <div className="manual-grid ws-framing-grid">{(["start","end","zoom"] as const).map(key=>framingField(c,i,key))}</div>

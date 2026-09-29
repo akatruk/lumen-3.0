@@ -332,6 +332,26 @@ def presentation(pid:str,body:PresentationRequest,user=Depends(current_user)):
     check(edit,p['metadata']['duration'])
     return {'revision':body.revision,'edit':edit.model_dump()}
 
+class EffectRequest(Strict):
+    revision:int=Field(ge=1)
+    edit:Edit
+
+@router.post('/projects/{pid}/manual/effect')
+def effect_recommendation(pid:str,body:EffectRequest,user=Depends(current_user)):
+    """Recommend one treatment the next picture render already knows how to apply."""
+    from .studio import owned
+    from .effect_recommendation import proposal
+    owned(pid,user)
+    with connect() as db:
+        db.lock();locked_state(pid,body.revision,db)
+    try:
+        return proposal(body.edit.model_dump())
+    except ValueError as exc:
+        code=exc.args[0] if exc.args else 'effect_unavailable'
+        if code not in ('effect_unavailable','no_open_picture'):
+            code='effect_unavailable'
+        raise HTTPException(422,code) from exc
+
 class BeatPreview(Strict):
     revision:int=Field(ge=1)
 

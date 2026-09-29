@@ -65,6 +65,22 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
             };
             return route.fulfill({ json: { revision: body.revision, edit } });
           }
+          if (path.endsWith("/manual/effect") && request.method() === "POST") {
+            const clips = {};
+            for (const clip of body.edit.clips) {
+              if (clip.approved === false || clip.locked) continue;
+              clips[clip.id] = {
+                zoom: 1,
+                zoom_end: 1.26,
+                x: 0.5,
+                y: 0.5,
+                x_end: 0.5,
+                y_end: 0.5,
+                motion_seconds: Number((clip.end - clip.start).toFixed(3)),
+              };
+            }
+            return route.fulfill({ json: { id: "punch", clips, edit: {} } });
+          }
           if (path.endsWith("/manual") && request.method() === "PUT") {
             data.manual.edit = body.edit;
             data.manual.revision++;
@@ -109,7 +125,10 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         assert.equal(cardSave.body.edit.presentation_share, 40);
         assert.equal(writes.filter((row) => row.path.endsWith("/presentation")).length, 1);
       } else if (scenario === "studio" || scenario === "other-project") {
-        await page.locator(".ws-scenes button").first().waitFor();
+        await page.getByRole("button", { name: "Сохранить ручные правки", exact: true }).waitFor();
+        assert.equal(await page.locator(".scene-picker").count(), 0);
+        assert.equal(await page.locator(".ws-scenes button").count(), 0);
+        assert.equal(await page.getByText(/Сцена \d+ из/).count(), 0);
         assert.equal(await page.locator(".manual-clip:visible").count(), 1);
         await page
           .locator(".ws-heading")
@@ -124,7 +143,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           download,
         );
         assert.equal(
-          await page.locator(".ws-preview-meta a").getAttribute("href"),
+          await page.locator(".ws-footer a.primary").getAttribute("href"),
           download,
         );
         assert.equal(await page.locator("video:visible").count(), 1);
@@ -147,14 +166,18 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           .locator(".ws-tools")
           .getByRole("button", { name: "Эффекты", exact: true })
           .click();
-        await page
-          .getByRole("button", { name: "Плавное приближение", exact: true })
-          .click();
-        assert.equal(await page.locator(".ws-draft-slot").isVisible(), true);
-        assert.match(
-          await page.locator(".ws-footer").innerText(),
-          /Сцен для проверки: 1/,
-        );
+        const pick = page.getByRole("region", { name: "Подбор эффекта" });
+        await pick.getByText("Плавный наезд на всю картинку").waitFor();
+        assert.equal(await page.getByRole("button", { name: "Плавное приближение" }).count(), 0);
+        assert.equal(await page.getByLabel("Анимация карточек, %").inputValue(), "100");
+        await pick.getByRole("button", { name: "Применить к ролику", exact: true }).click();
+        await pick.getByText("Образ сохранён").waitFor();
+        const effectSave = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual")).at(-1);
+        assert.equal(effectSave.body.edit.clips[0].zoom, 1);
+        assert.equal(effectSave.body.edit.clips[0].zoom_end, 1.26);
+        assert.equal(effectSave.body.edit.clips[0].approved, true);
+        assert.equal(effectSave.body.edit.clips[0].transition, "cut");
+        assert.equal(effectSave.body.edit.card_motion ?? 100, 100);
         await page
           .locator(".ws-tools")
           .getByRole("button", { name: "Субтитры", exact: true })
@@ -191,15 +214,16 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         await page.locator('.render-summary').waitFor();
         assert.match(await page.locator('.render-summary').innerText(), /Неприменённые предложения AI: 3/);
         assert.match(await page.locator('.render-summary').innerText(), /Движение камеры/);
-        assert.equal(writes[0].body.edit.clips[0].zoom_end, 1.2);
-        assert.equal(writes[0].body.edit.subtitles, false);
-        assert.notEqual(writes[0].body.edit.picture_quality, true);
+        const manualSaves = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual"));
+        assert.equal(manualSaves[0].body.edit.clips[0].zoom_end, 1.26);
+        assert.equal(manualSaves.at(-1).body.edit.subtitles, false);
+        assert.notEqual(manualSaves[0].body.edit.picture_quality, true);
         assert.match(await page.locator('.render-summary').innerText(), /Качество изображения/);
-        assert.equal(writes[0].path, `/api/studio/projects/${pid}/manual`);
+        assert.equal(manualSaves[0].path, `/api/studio/projects/${pid}/manual`);
         await page
           .getByRole("button", { name: "Создать видео с этими изменениями", exact: true })
           .click();
-        assert.equal(writes.at(-1).body.revision, 2);
+        assert.equal(writes.at(-1).body.revision, 3);
         assert.equal(
           writes.at(-1).path,
           `/api/studio/projects/${pid}/manual/render`,

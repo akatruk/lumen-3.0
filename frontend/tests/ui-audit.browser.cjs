@@ -4,29 +4,29 @@ const assert=require('node:assert/strict');const setup=require('./ui-audit-helpe
 async function test(name,fn){if(process.env.UI_AUDIT_MATCH&&!name.includes(process.env.UI_AUDIT_MATCH))return;const x=await setup(browser);try{await x.goto();await fn(x);assert.deepEqual(x.errors,[]);results.push({name,pass:true});console.log('PASS',name)}catch(e){results.push({name,pass:false,error:e.message.split('Call log:')[0]});console.log('FAIL',name,e.message.split('Call log:')[0]);await x.page.screenshot({path:'/tmp/lumen-qa-'+name.replaceAll(/[^a-z0-9]/gi,'-')+'.png'})}finally{await x.page.close()}}
 try{
 await test('scene selection and inspect seeks source',async({page,button,expand})=>{
- await page.locator('.ws-scenes button').nth(1).click();await expand();const v=page.locator('.manual-screen video');await v.evaluate(el=>{let at=9;Object.defineProperty(el,'currentTime',{configurable:true,get:()=>at,set:v=>{at=v}})});
- await button('Inspect',page.locator('.manual-clip:visible').first()).click();assert.equal(await v.evaluate(el=>Math.round(el.currentTime)),6);
+ await expand();assert.equal(await page.locator('.scene-picker').count(),0);assert.equal(await page.getByRole('listbox',{name:'Scenes'}).count(),0);const v=page.locator('.manual-screen video');await v.evaluate(el=>{let at=9;Object.defineProperty(el,'currentTime',{configurable:true,get:()=>at,set:v=>{at=v}})});
+ await button('Inspect',page.locator('.manual-clip:visible').first()).click();assert.equal(await v.evaluate(el=>Math.round(el.currentTime)),0);
 });
 await test('scene reorder remove and locked controls',async({page,button,expand,draft})=>{
  await expand();const clip=page.locator('.manual-clip:visible').first();await button('Move down',clip).click();assert.equal((await draft()).clips[1].id,'one');await button('Move up',page.locator('.manual-clip:visible').first()).click();assert.equal((await draft()).clips[0].id,'one');
  await page.locator('.manual-clip:visible').first().getByLabel('Freeze timing',{exact:true}).check();assert(await page.getByLabel('Source end (s)',{exact:true}).first().isDisabled());await page.locator('.manual-clip:visible').first().getByLabel('Freeze timing',{exact:true}).uncheck();
- await button('Remove clip',page.locator('.manual-clip:visible').first()).click();assert.equal(await page.locator('.ws-scenes button').count(),1);
+ await button('Remove clip',page.locator('.manual-clip:visible').first()).click();assert.equal((await draft()).clips.length,1);
 });
 await test('draft preview before after play pause',async({page,button,tool,draft})=>{
- await tool('Effects');await button('Gentle zoom').click();assert.equal((await draft()).clips[0].zoom_end,1.2);assert.equal((await draft()).clips[0].approved,false);
- await button('Before').click();assert.equal(await page.locator('.manual-screen video').evaluate(e=>e.style.transform),'none');await button('After').click();await button('Play selected range').click();await page.waitForFunction(()=>document.querySelector('.manual-screen video').currentTime>.1);await button('Pause').click();assert(await page.locator('.manual-screen video').evaluate(e=>e.paused));await button('No motion').click();assert.equal((await draft()).clips[0].zoom_end,1);
+ await tool('Effects');const zoom=page.locator('.manual-clip:visible').getByRole('slider',{name:'Zoom (1–3×)'});await zoom.fill('1.4');assert.equal((await draft()).clips[0].zoom,1.4);assert.equal((await draft()).clips[0].approved,false);
+ await button('Before').click();assert.equal(await page.locator('.manual-screen video').evaluate(e=>e.style.transform),'none');await button('After').click();await button('Play selected range').click();await page.waitForFunction(()=>document.querySelector('.manual-screen video').currentTime>.1);await button('Pause').click();assert(await page.locator('.manual-screen video').evaluate(e=>e.paused));await zoom.fill('1');assert.equal((await draft()).clips[0].zoom,1);
 });
-await test('inspector scene navigation presets and lock',async({page,button,tool,draft})=>{
- await tool('Effects');const scene=page.getByRole('listbox',{name:'Scenes'});
- assert(await button('Previous scene').isDisabled());await button('Next scene').click();assert.equal(await scene.getByRole('option',{selected:true}).getAttribute('data-scene'),'1');assert(await button('Next scene').isDisabled());
- await button('Cross dissolve',page.locator('.manual-clip:visible')).click();assert.equal((await draft()).clips[1].transition,'crossfade');
- await scene.getByRole('option').nth(0).click();const clip=page.locator('.manual-clip:visible');await button('No motion',clip).click();const c=(await draft()).clips[0];assert.equal(c.x_end,c.x);assert.equal(c.zoom_end,1);
- await clip.getByLabel('Include in the cut',{exact:true}).check();await clip.getByLabel('Freeze timing',{exact:true}).check();assert(await button('Gentle zoom').isDisabled());
- await button('Next scene').click();assert.equal(await scene.getByRole('option',{selected:true}).getAttribute('data-scene'),'1');await button('Previous scene').click();assert.equal(await scene.getByRole('option',{selected:true}).getAttribute('data-scene'),'0');
+await test('effect recommendation applies a render look',async({page,button,tool,writes})=>{
+ await tool('Effects');const pick=page.getByRole('region',{name:'Effect pick'});
+ await pick.getByText('A slow push across the whole picture').waitFor();
+ assert.equal(await button('Gentle zoom').count(),0);assert.equal(await button('Cross dissolve').count(),0);assert.equal(await button('No motion').count(),0);
+ await button('Use this look',pick).click();await pick.getByText('Look saved').waitFor();
+ const save=writes.filter(w=>w.method==='PUT'&&w.path.endsWith('/manual')).at(-1);
+ assert.equal(save.body.edit.clips[0].zoom_end,1.26);assert.equal(save.body.edit.clips[0].approved,true);assert.equal(save.body.edit.clips[0].transition,'cut');
 });
-await test('first scene cannot use incoming dissolve',async({page,button,tool})=>{await tool('Effects');assert(await button('Cross dissolve',page.locator('.ws-effect-presets').first()).isDisabled());});
+await test('effects panel recommends a look instead of static presets',async({page,tool})=>{await tool('Effects');await page.getByRole('region',{name:'Effect pick'}).waitFor();assert.equal(await page.locator('.ws-effect-presets').count(),0);});
 await test('save discard reload and approval',async({page,button,tool,save,data})=>{
- await tool('Effects');await button('Gentle zoom').click();await page.locator('.manual-clip:visible').first().getByLabel('Include in the cut',{exact:true}).check();await save();assert.equal(data.manual.edit.clips[0].zoom_end,1.2);await page.locator('.manual-clip:visible .inspector-text > summary').click();await page.getByLabel('Text overlay for this clip',{exact:true}).first().fill('QA draft');await button('Discard edits').click();await page.waitForFunction(()=>document.querySelector('.ws-footer')?.textContent.includes('Saved'));assert.equal(await page.getByLabel('Text overlay for this clip',{exact:true}).first().inputValue(),'');
+ await tool('Effects');await page.locator('.manual-clip:visible').getByRole('slider',{name:'Zoom (1–3×)'}).fill('1.4');await page.locator('.manual-clip:visible').first().getByLabel('Include in the cut',{exact:true}).check();await save();assert.equal(data.manual.edit.clips[0].zoom,1.4);await page.locator('.manual-clip:visible .inspector-text > summary').click();await page.getByLabel('Text overlay for this clip',{exact:true}).first().fill('QA draft');await button('Discard edits').click();await page.waitForFunction(()=>document.querySelector('.ws-footer')?.textContent.includes('Saved'));assert.equal(await page.getByLabel('Text overlay for this clip',{exact:true}).first().inputValue(),'');
 });
 await test('captions styles add remove and empty validation',async({page,button,tool,draft})=>{
  await tool('Subtitles');await page.getByRole('combobox',{name:/^Size/}).selectOption('large');await page.getByRole('combobox',{name:/^Position/}).selectOption('top');assert.equal(await page.getByRole('combobox',{name:/^Color/}).count(),0);assert.equal((await draft()).font_size,'large');assert.equal((await draft()).position,'top');
@@ -95,7 +95,7 @@ await test('timeline view switches and scene activation',async({page,button})=>{
  await page.locator('.ws-scene-list > details > summary').click();await button('Approved output').click();assert.equal(await button('Approved output').getAttribute('aria-pressed'),'true');await button('Proposed timeline').click();assert.equal(await button('Proposed timeline').getAttribute('aria-pressed'),'true');
 });
 await test('save failure preserves draft and exposes retry',async({page,button,tool,draft,writes})=>{
- await tool('Effects');await button('Gentle zoom').click();await page.route('**/manual',async r=>r.request().method()==='PUT'?r.fulfill({status:409,json:{detail:'plan_changed'}}):r.fallback());await button('Save manual edits').click();await page.getByRole('alert').filter({hasText:'The plan changed. Reload saved edits before continuing.'}).waitFor();assert.equal((await draft()).clips[0].zoom_end,1.2);assert(await button('Save manual edits').isEnabled());
+ await tool('Effects');await page.locator('.manual-clip:visible').getByRole('slider',{name:'Zoom (1–3×)'}).fill('1.4');await page.route('**/manual',async r=>r.request().method()==='PUT'?r.fulfill({status:409,json:{detail:'plan_changed'}}):r.fallback());await button('Save manual edits').click();await page.getByRole('alert').filter({hasText:'The plan changed. Reload saved edits before continuing.'}).waitFor();assert.equal((await draft()).clips[0].zoom,1.4);assert(await button('Save manual edits').isEnabled());
 });
 await test('platform create submits reviewed duration and story choices',async({page,button,tool,data,writes})=>{
  data.pack=null;await tool('Review');await button('Platform versions',page.locator('.director-tabs')).click();assert(await button('Create 5 versions').isDisabled());await page.getByLabel('I reviewed this master and approve creating platform previews.').check();await button('Create 5 versions').click();await page.waitForTimeout(100);const action=writes.find(w=>w.path.endsWith('/variants'));assert(action.body.reviewed);assert.equal(action.body.max_seconds.youtube_shorts,60);

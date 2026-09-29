@@ -434,6 +434,15 @@
   margin-top: 8px;
   color: #778399;
 }
+.ws-scene-list > details:not([open]) > :not(summary) {
+  display: none !important;
+}
+.ws-scene-slot,
+.ws-scene-list,
+.timeline-scroll {
+  min-width: 0;
+  max-width: 100%;
+}
 .ws-inspector {
   grid-area: inspector;
   min-width: 0;
@@ -811,6 +820,7 @@
     position: static;
     order: 1;
     width: 100%;
+    min-width: 0;
     border: 0;
     border-bottom: 1px solid var(--ws-line);
     padding: 0 12px 14px;
