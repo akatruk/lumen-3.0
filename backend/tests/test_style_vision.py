@@ -841,11 +841,11 @@ def test_later_shots_keep_the_measured_join_and_frame(tmp_path, monkeypatch):
     for color in colors:
         args.extend(['-f', 'lavfi', '-i', f'color={color}:s=180x240:r=30:d=0.7'])
     args.extend([
-        '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56',
-        '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.08',
-        '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.08',
-        '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.56',
-        '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.56',
+        '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.5',
+        '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.2',
+        '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.2',
+        '-f', 'lavfi', '-i', 'color=0x111111:s=180x240:r=30:d=0.5',
+        '-f', 'lavfi', '-i', 'color=white:s=40x50:r=30:d=0.5',
         '-f', 'lavfi', '-i', 'color=red:s=180x240:r=30:d=0.56',
         '-f', 'lavfi', '-i', 'color=blue:s=180x120:r=30:d=0.08',
         '-f', 'lavfi', '-i', 'color=red:s=180x120:r=30:d=0.08',
@@ -858,7 +858,7 @@ def test_later_shots_keep_the_measured_join_and_frame(tmp_path, monkeypatch):
     ])
     _video(reference, *args)
     windows = [(index * 0.7, (index + 1) * 0.7) for index in range(6)]
-    windows.extend(((4.8, 5.4), (6.0, 6.6)))
+    windows.extend(((4.73, 5.4), (6.0, 6.6)))
     shots = [{'start': start, 'end': end} for start, end in windows]
     annotate_pictures(reference, shots)
     opening = picture_of(reference, shots[0]['start'], shots[0]['end'])
@@ -880,7 +880,7 @@ def test_later_shots_keep_the_measured_join_and_frame(tmp_path, monkeypatch):
     saved = {shot['start']: shot['picture'] for shot in shots}
 
     def flaky(_path, start, _end):
-        if abs(float(start) - 4.8) < 0.05:
+        if abs(float(start) - 4.73) < 0.05:
             raise RuntimeError('late shot')
         return saved[float(start)]
 

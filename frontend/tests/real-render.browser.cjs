@@ -66,7 +66,7 @@ const safeError=e=>String(e.stack||e).replaceAll(seed.token,'[redacted]');
    assert(await button('Gentle zoom').isDisabled());
    await page.locator('.manual-clip:visible').first().getByLabel('Freeze timing',{exact:true}).uncheck();
    await save();await render();const first=await verifyDelivery('first manual render preserves voice and music');
-   await tool('Effects');await page.getByRole('spinbutton',{name:'Camera movement duration, seconds',exact:true}).fill('2');
+   await tool('Effects');await button('No motion').click();
    await page.locator('.manual-clip:visible').first().getByLabel('Include in the cut',{exact:true}).check();
    await tool('Subtitles');await page.getByLabel('Burn edited subtitles into the video',{exact:true}).check();
    await save();await render();const second=await verifyDelivery('second manual render preserves voice and music');
