@@ -108,7 +108,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'hf-board' in html and '外资比例' in html and '49%' in html
     assert 'class="hf-plate"' in html and 'hf-board hf-plate' not in html
     assert '<text' not in html and 'render:Video' not in html and '<?svml' not in html
-    assert not (tmp_path / 'hypit' / 'main.svml').exists()
+    svml = (tmp_path / 'hypit' / 'main.svml').read_text()
+    assert 'during="program"' in svml and '三名股东开会' in svml and '<render:Video id="final"' in svml
+    assert (tmp_path / 'hypit' / 'recipes.svs').is_file() and (tmp_path / 'hypit' / 'build.svrun').is_file()
     assert 'data-card-motion="100"' in html
     assert '(el.classList.contains(\'hf-board\') ? 28 : 16) * motion' in html
     assert (tmp_path / 'animation-share.txt').read_text() == '100'

@@ -219,7 +219,24 @@ def save_effect_board(pid:str,body:EffectBoard,user=Depends(current_user)):
             context['effect_board_in_edit']=json.loads(json.dumps(context.get('effect_board')))
         context['effect_board']=body.model_dump()
         db.execute('UPDATE studio_projects SET context=? WHERE project_id=?',(json.dumps(context,ensure_ascii=False),pid))
+        _refresh_picture_prompt(pid, db, context['effect_board'])
     return {'effect_board':context['effect_board']}
+
+def _refresh_picture_prompt(pid, db, board):
+    """Rewrite the stored Hypit prompt when the effect recipe changes. The revision stays."""
+    from .manual import Edit, read
+    from .presentation_graphics import plan
+    raw = read(pid, db)
+    if not raw:
+        return
+    try:
+        planned = plan(Edit.model_validate(raw), board)
+    except ValueError:
+        return
+    db.execute(
+        'UPDATE studio_manual SET config=? WHERE project_id=?',
+        (planned.model_dump_json(), pid),
+    )
 
 @router.get('/projects/{pid}/references/{reference_id}')
 def reference_media(pid:str,reference_id:str,user=Depends(current_user)):

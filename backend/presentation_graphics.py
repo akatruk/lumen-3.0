@@ -130,23 +130,34 @@ def build(edit):
         ))
     return beats
 
-def presentation_prompt(share):
-    """The slider percentage is the Hypit prompt, not a sentence burned on the face."""
-    share = int(share or 0)
-    if share <= 0:
-        return ''
-    return (
-        'Use the Hypit framework (https://github.com/hypit-ai/hypit) for presentation graphics on '
-        f'{share}% of this finished video. Place moving 3D pop-out windows and mini presentations '
-        'on the scanned speech. Do not invent facts. On-screen words follow the voiceover language, '
-        'or the project language when there is no voiceover.'
-    )
+def _footage_seconds(edit):
+    clips = edit.get('clips') if isinstance(edit, dict) else edit.clips
+    total = 0.0
+    for clip in clips:
+        approved = clip.get('approved', True) if isinstance(clip, dict) else getattr(clip, 'approved', True)
+        if not approved:
+            continue
+        start = clip.get('start') if isinstance(clip, dict) else clip.start
+        end = clip.get('end') if isinstance(clip, dict) else clip.end
+        total += max(0.0, float(end) - float(start))
+    return total or 0.1
 
-def plan(edit):
-    share = int(edit.presentation_share or 0)
+def presentation_prompt(edit, board=None):
+    """The card-animation percent is the SVML Hypit builds. Words stay on the edit."""
+    from .hypit_prompt import author_source, treatment_line
+
+    manual = edit if isinstance(edit, dict) else edit.model_dump()
+    share = manual.get('card_motion', 100)
+    try:
+        share = int(0 if share is None else share)
+    except (TypeError, ValueError):
+        share = 100
+    return author_source(share, _footage_seconds(edit), 720, 1280, treatment_line(manual), board)
+
+def plan(edit, board=None):
     return edit.model_copy(update={
         'presentation': build(edit),
-        'presentation_prompt': presentation_prompt(share),
+        'presentation_prompt': presentation_prompt(edit, board),
     })
 
 def _fit(text, size, width):

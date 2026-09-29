@@ -291,8 +291,10 @@ def save(pid:str,body:Save,user=Depends(current_user)):
         from .assets import validate as validate_assets
         validate_assets(body.edit,pid,db)
         old=read(pid,db)
+        from .studio import state as studio_state
+        board=((studio_state(pid, db) or {}).get('context') or {}).get('effect_board')
         try:
-            edit=plan_presentation(body.edit)
+            edit=plan_presentation(body.edit, board)
         except ValueError as exc:
             if exc.args and exc.args[0]=='presentation_needs_context':
                 raise HTTPException(422,'presentation_needs_context') from exc
@@ -321,10 +323,12 @@ def presentation(pid:str,body:PresentationRequest,user=Depends(current_user)):
     """Scan speech already on this cut and place 3D windows for the requested share."""
     from .studio import owned
     p=owned(pid,user)
+    from .studio import state as studio_state
     with connect() as db:
         db.lock();locked_state(pid,body.revision,db)
+        board=((studio_state(pid, db) or {}).get('context') or {}).get('effect_board')
     try:
-        edit=plan_presentation(body.edit)
+        edit=plan_presentation(body.edit, board)
     except ValueError as exc:
         if exc.args and exc.args[0]=='presentation_needs_context':
             raise HTTPException(422,'presentation_needs_context') from exc

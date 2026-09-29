@@ -18,6 +18,7 @@ import type {VisualCard} from './VisualCardEditor';
 import {TimelineRegenerate} from './TimelineRegenerate';
 import {TimelineTracks} from './TimelineTracks';
 import {ClipLayerTracks} from './ClipLayerTracks';
+import { scenesApproved, startApprovedPicture } from "./pictureRender";
 import { useEffect, useRef, useState } from "react";
 import type { Lang, ContentLang } from "./types";
 type Clip = {
@@ -387,11 +388,16 @@ export function ManualEditor({
       setRevision(stored.revision);
       setDirty(false);
       sessionStorage.removeItem(draftKey);
-      setCardNote(w(
-        "Уровень сохранён. Соберите видео заново, чтобы увидеть его в ролике.",
-        "Saved. Create the video again to see it in the picture.",
-        "已保存。请重新生成视频后在画面中查看。",
-      ));
+      const started = scenesApproved(stored.edit.clips)
+        ? await startApprovedPicture(pid, stored.revision, qualityReview)
+        : "unapproved";
+      setCardNote(started === "queued"
+        ? w("Уровень сохранён. Собирается новое видео.", "Saved. A new video is being created.", "已保存。正在生成新视频。")
+        : started === "busy"
+          ? w("Промпт сохранён. Дождитесь завершения текущей задачи. Готовый ролик остаётся.", "Prompt saved. Wait for the current task to finish. The finished video stays.", "提示已保存。请等待当前任务完成。已完成的视频会保留。")
+          : started === "unapproved"
+            ? w("Промпт сохранён. Подтвердите все сцены, чтобы собрать видео.", "Prompt saved. Approve every scene to create the video.", "提示已保存。请批准所有场景后再生成视频。")
+            : w("Промпт сохранён. Новое видео не запущено.", "Prompt saved. The new video did not start.", "提示已保存。新视频没有开始生成。"));
       await onSaved();
     } catch (e) {
       if ((editRef.current?.card_motion ?? 100) !== motion) return;
@@ -643,7 +649,7 @@ export function ManualEditor({
           <output>{edit.card_motion??100}%</output>
         </label>
         {cardNote&&<p role="status">{cardNote}</p>}
-        <small>{w('0% убирает карточки. 100% оставляет их на всю длину, с коротким появлением. Промежуточное значение оставляет меньше карточек, короче, и с медленным появлением. Соберите ролик заново.','0% removes the cards. 100% keeps them for their full length, with a short entrance. A value between keeps fewer, shorter cards and a slow entrance. Create the video again.','0% 会去掉卡片。100% 会保留完整时长和短入场。中间值会留下更少、更短的卡片，并且入场更慢。请重新生成视频。')}</small>
+        <small>{w('0% оставляет только исходную картинку. Чем выше процент, тем сильнее промпт Hypit: титр, цвет и виньетка. После сохранения собирается новое видео.','0% keeps the footage alone. A higher percent builds a stronger Hypit prompt: type, color, and vignette. Saving creates a new video.','0% 只保留原画面。百分比越高，Hypit 提示越强：字幕、色彩和暗角。保存后会生成新视频。')}</small>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       <section className="inspector-scene-controls">

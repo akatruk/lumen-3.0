@@ -14,6 +14,7 @@ import {
   type EffectKey,
   type LookName,
 } from "./look";
+import { scenesApproved, startApprovedPicture } from "./pictureRender";
 
 const NAMES: LookName[] = ["clean", "punch", "soft", "kinetic", "split"];
 
@@ -33,6 +34,7 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
   const [persisted, setPersisted] = useState(() => (projectId ? false : readBoard() !== null));
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [pictureNote, setPictureNote] = useState("");
   const touched = useRef(false);
   const dirty = !sameBoard(board, savedBoard);
   const percent = strengthPercent(board.amount);
@@ -59,6 +61,7 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
 
   function toggle(key: EffectKey) {
     touched.current = true;
+    setPictureNote("");
     setBoard({ ...board, effects: { ...board.effects, [key]: !board.effects[key] } });
   }
   function label(key: EffectKey) {
@@ -128,6 +131,20 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
       setBoard(next);
       setSavedBoard(cloneBoard(next));
       setPersisted(true);
+      const manual = await fetch("/api/studio/projects/" + projectId + "/manual", { credentials: "same-origin" });
+      const body = manual.ok ? await manual.json().catch(() => null) : null;
+      if (!body?.saved) {
+        setPictureNote(t("Saved on this project. The next picture render uses this recipe.", "已保存在此项目。下一次画面渲染会使用这个配方。"));
+      } else if (!scenesApproved(body.edit?.clips)) {
+        setPictureNote(t("Prompt saved. Approve every scene to create the video.", "提示已保存。请批准所有场景后再生成视频。"));
+      } else {
+        const started = await startApprovedPicture(projectId, body.revision, true);
+        setPictureNote(started === "queued"
+          ? t("Saved. A new video is being created.", "已保存。正在生成新视频。")
+          : started === "busy"
+            ? t("Prompt saved. Wait for the current task to finish. The finished video stays.", "提示已保存。请等待当前任务完成。已完成的视频会保留。")
+            : t("Prompt saved. The new video did not start.", "提示已保存。新视频没有开始生成。"));
+      }
     } catch {
       setSaveError(t("Could not save this recipe on the project. Try again.", "未能把这个配方保存到项目。请再试一次。"));
     } finally {
@@ -181,6 +198,7 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
               aria-valuetext={String(percent)}
               onChange={(e) => {
                 touched.current = true;
+                setPictureNote("");
                 setBoard({ ...board, amount: strengthAmount(Number(e.target.value)) });
               }}
             />
@@ -195,6 +213,7 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
                     value={board.name}
                     onChange={(e) => {
                       touched.current = true;
+                      setPictureNote("");
                       setBoard(cloneBoard(LOOKS[e.target.value as LookName]));
                     }}
                   >
@@ -228,7 +247,9 @@ export function LookBoard({ lang, onBack }: { lang: Lang; onBack: () => void }) 
           <p role={saveError ? "alert" : "status"} className="look-status">
             {saveError
               ? saveError
-              : dirty
+              : pictureNote
+                ? pictureNote
+                : dirty
                 ? t("Unsaved changes", "尚未保存")
                 : persisted
                   ? projectId

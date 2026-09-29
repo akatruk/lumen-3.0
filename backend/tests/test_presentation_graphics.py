@@ -23,15 +23,35 @@ def edit(**extra):
     return Edit.model_validate(body)
 
 def test_slider_percentage_is_the_hypit_prompt():
-    planned = plan(edit(presentation_share=10))
-    assert 'https://github.com/hypit-ai/hypit' in planned.presentation_prompt
-    assert '10%' in planned.presentation_prompt
-    assert '3D pop-out windows' in planned.presentation_prompt
-    assert '<?svml' not in planned.presentation_prompt and '<text:' not in planned.presentation_prompt
-    covered = sum(beat.end - beat.start for beat in planned.presentation)
+    low = plan(edit(card_motion=10))
+    mid = plan(edit(card_motion=40))
+    full = plan(edit(card_motion=100))
+    bare = plan(edit(card_motion=0))
+    assert low.presentation_prompt.startswith('<?svml using="@hypit/svs@1"?>')
+    assert '<render:Video id="final" composition={main.composition}' in low.presentation_prompt
+    assert 'end="2.000s"' in low.presentation_prompt
+    assert 'contrast: 1.040' in low.presentation_prompt
+    assert 'film.vignette' not in low.presentation_prompt
+    assert 'end="8.000s"' in mid.presentation_prompt
+    assert 'style={title-style} during="program"' not in mid.presentation_prompt
+    assert 'style={title-style} during="program"' in full.presentation_prompt
+    assert 'contrast: 1.220' in full.presentation_prompt and 'film.vignette { amount: 0.550; }' in full.presentation_prompt
+    assert 'size: 72' in full.presentation_prompt
+    assert '<text:Track' not in bare.presentation_prompt and 'film.grade' not in bare.presentation_prompt
+    assert '<performance:Track' in bare.presentation_prompt
+    assert low.presentation_prompt != mid.presentation_prompt != full.presentation_prompt != bare.presentation_prompt
+    assert len(full.presentation_prompt) < 12000
+    covered = sum(beat.end - beat.start for beat in plan(edit(presentation_share=10)).presentation)
     assert covered == pytest.approx(2, abs=0.05)
-    assert plan(edit(presentation_share=0)).presentation_prompt == ''
-    assert '<text:' not in plan(edit(card_motion=80)).presentation_prompt
+    quiet = {'name': 'clean', 'amount': 1.6, 'effects': {
+        'blur': False, 'glow': False, 'shadow': False, 'color': False, 'speed': False,
+        'stabilize': False, 'kinetic': True, 'progress': False, 'split': False, 'screen': False,
+    }}
+    scaled = plan(edit(card_motion=100), quiet)
+    assert 'film.grade' not in scaled.presentation_prompt and 'film.vignette' not in scaled.presentation_prompt
+    assert 'text.kinetic' in scaled.presentation_prompt and 'style={title-style} during="program"' in scaled.presentation_prompt
+    colored = plan(edit(card_motion=100), {**quiet, 'effects': {**quiet['effects'], 'color': True, 'kinetic': False}})
+    assert 'contrast: 1.352' in colored.presentation_prompt and 'text.kinetic' not in colored.presentation_prompt
 
 def test_hypit_page_uses_that_prompt_percentage():
     from backend.hypit_picture import _presentation_page, presentation_layers
@@ -39,8 +59,8 @@ def test_hypit_page_uses_that_prompt_percentage():
     beats = [beat.model_dump() for beat in planned.presentation]
     layers = presentation_layers(beats, 'en', 20 * 30)
     page = _presentation_page(320, 240, '20.000', 600, layers, planned.presentation_prompt)
-    assert 'data-hypit-prompt="' in page and '10%' in page and 'github.com/hypit-ai/hypit' in page
-    assert 'render:Video' not in page and 'Many business' not in page
+    assert 'data-hypit-prompt="' in page
+    assert 'render:Video' not in page and '<?svml' not in page and 'Many business' not in page
     assert 'data-hypit-source-fps="30/1"' in page and 'data-hypit-source-rate="1/1"' in page
     assert 'rotateY' not in page and 'hf-window' in page
     boxes = [tuple(map(float, item)) for item in __import__('re').findall(r'left:([\d.]+)%;top:([\d.]+)%;right:auto;bottom:auto;width:([\d.]+)%', ''.join(layers))]
@@ -138,3 +158,51 @@ def test_windows_are_burned_in_the_requested_language(tmp_path):
     quiet = tmp_path / 'quiet.ass'
     write_presentation(quiet, [], 'ru', 320, 240)
     assert 'Dialogue' not in quiet.read_text()
+
+def _speech():
+    return [{'start': 1, 'end': 3, 'original': 'Привет', 'en': 'Hello', 'zh': '你好'}]
+
+def test_saved_percent_queues_a_render_only_when_every_scene_is_approved(client):
+    from backend.db import connect
+    pid = create(client).json()['id']
+    seed_plan(pid)
+    url = f'/api/studio/projects/{pid}/manual'
+    approved = edit(card_motion=40, presentation_share=0, clips=[{'start': 0, 'end': 10, 'approved': True}], captions=_speech()).model_dump()
+    saved = client.put(url, json={'revision': 1, 'edit': approved})
+    assert saved.status_code == 200
+    assert 'end="4.000s"' in saved.json()['edit']['presentation_prompt']
+    revision = saved.json()['revision']
+    assert client.post(url + '/render', json={'revision': revision}).status_code == 200
+    with connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='studio_render'", (pid,)).fetchone()[0] == 1
+    other = create(client).json()['id']
+    seed_plan(other)
+    held = edit(card_motion=80, presentation_share=0, clips=[
+        {'start': 0, 'end': 5, 'approved': True},
+        {'start': 5, 'end': 10, 'approved': False},
+    ], captions=_speech()).model_dump()
+    stored = client.put(f'/api/studio/projects/{other}/manual', json={'revision': 1, 'edit': held})
+    assert stored.status_code == 200
+    assert 'during="program"' in stored.json()['edit']['presentation_prompt']
+    refused = client.post(f'/api/studio/projects/{other}/manual/render', json={'revision': stored.json()['revision']})
+    assert refused.status_code == 422 and refused.json()['detail'] == 'approve_shots_first'
+    with connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='studio_render'", (other,)).fetchone()[0] == 0
+
+def test_effect_board_scales_the_stored_prompt_without_a_new_revision(client):
+    import json
+    from backend.db import connect
+    pid = create(client).json()['id']
+    seed_plan(pid)
+    saved = client.put(f'/api/studio/projects/{pid}/manual', json={'revision': 1, 'edit': edit(card_motion=100, presentation_share=0).model_dump()})
+    assert saved.status_code == 200
+    revision = saved.json()['revision']
+    effects = {key: False for key in ('blur', 'glow', 'shadow', 'color', 'speed', 'stabilize', 'kinetic', 'progress', 'split', 'screen')}
+    effects['color'] = True
+    board = client.put(f'/api/studio/projects/{pid}/effect-board', json={'name': 'punch', 'amount': 1.6, 'effects': effects})
+    assert board.status_code == 200
+    assert client.get(f'/api/studio/projects/{pid}').json()['revision'] == revision
+    with connect() as db:
+        stored = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
+    assert 'contrast: 1.352' in stored['presentation_prompt']
+    assert 'film.vignette' not in stored['presentation_prompt']

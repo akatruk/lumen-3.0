@@ -1034,6 +1034,13 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     frame_count = composition(source, work, manual, width, height, language, style)
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
+    from .hypit_prompt import author_source, treatment_line, write_author
+    stored = manual.get('presentation_prompt') or ''
+    if '<?svml using="@hypit/markup@1"?>' not in stored:
+        stored = author_source(
+            _card_motion(manual), frame_count / FPS, width, height, treatment_line(manual, language),
+        )
+    write_author(work, stored)
     job = {
         'directory': str(work),
         'width': int(width),
@@ -1071,6 +1078,8 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
 
 def _presentation_page(width, height, seconds, frames, layers, prompt):
     body = '\n    '.join(layers)
+    if '<?svml' in (prompt or '') or '<text:' in (prompt or ''):
+        prompt = ''
     escaped = html.escape(prompt or '', quote=True)
     return f'''<!doctype html>
 <html>
