@@ -181,6 +181,12 @@ def projects(user=Depends(current_user)):
     with connect() as db:
         return [dict(r) for r in db.execute('SELECT id,title,status,stage,progress,language,created,metadata FROM projects WHERE user_id=? ORDER BY created DESC',(user['id'],))]
 
+def _animation_share(folder:Path):
+    text=(folder/'animation-share.txt').read_text().strip() if (folder/'animation-share.txt').is_file() else ''
+    if text.isdigit() and 0<=int(text)<=100:
+        return {'animation_share':int(text)}
+    return {}
+
 def finished_pictures(pid:str,current:str):
     """Finished renders that are still on disk, newest first."""
     root=settings.data_dir/pid/'renders'
@@ -190,7 +196,7 @@ def finished_pictures(pid:str,current:str):
             if not re.fullmatch(r'[a-f0-9]{32}',folder.name): continue
             video=folder/'result.mp4'
             if not video.is_file() or video.stat().st_size<=0: continue
-            found.append({'id':folder.name,'created':video.stat().st_mtime,'current':folder.name==current})
+            found.append({'id':folder.name,'created':video.stat().st_mtime,'current':folder.name==current,**_animation_share(folder)})
     found.sort(key=lambda row:row['created'],reverse=True)
     return found
 

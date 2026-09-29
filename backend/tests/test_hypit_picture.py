@@ -82,6 +82,7 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
         ],
         'subtitles': True,
         'voice_cleanup': True,
+        'presentation_share': 100,
     }
     result = render(src, tmp_path, probe(src), analysis, [], 'zh', 'original', manual=edit, picture_engine='hypit')
     assert seen['argv'][2].endswith('hypit_render.mjs')
@@ -98,6 +99,7 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert '股东结构' not in html and '董事权限' not in html
     assert 'hf-board' in html and '外资比例' in html and '49%' in html
     assert 'class="hf-plate"' in html and 'hf-board hf-plate' not in html
+    assert 'data-animation-share="100"' in html
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
@@ -245,6 +247,34 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
         30,
     )[0])['streams']
     assert {item['codec_type'] for item in streams} == {'video', 'audio'}
+
+
+def test_the_slider_changes_how_long_the_plates_stay_on_screen():
+    import re
+    from backend.hypit_picture import _animation_share, _limit_graphics
+
+    def plate(start, end, name):
+        return f'<aside class="hf-plate" data-hypit-start-frame="{start}" data-hypit-end-frame="{end}">{name}</aside>'
+
+    layers = [plate(0, 300, 'a'), plate(300, 600, 'b'), plate(600, 900, 'c')]
+    caption = '<div class="hf-caption" data-hypit-start-frame="0" data-hypit-end-frame="90">Hello</div>'
+    assert _animation_share({}) == 100
+    assert _animation_share({'presentation_share': 0}) == 0
+    assert _animation_share({'presentation_share': 40}) == 40
+    assert _limit_graphics(layers, 900, 0) == []
+    assert _limit_graphics([caption, *layers], 900, 0) == [caption]
+    assert _limit_graphics(layers, 900, 100) == layers
+
+    def covered(rows):
+        return sum(int(b) - int(a) for a, b in re.findall(r'data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', ''.join(rows)))
+
+    half = _limit_graphics(layers, 900, 50)
+    assert covered(half) == pytest.approx(450, abs=3)
+    assert 'data-hypit-start-frame="0"' in half[0]
+    assert 'data-hypit-start-frame="600"' in half[-1]
+    thin = _limit_graphics(layers, 900, 5)
+    assert covered(thin) == pytest.approx(45, abs=2)
+    assert len(thin) == 1
 
 
 def test_presenter_is_centered_on_the_card():

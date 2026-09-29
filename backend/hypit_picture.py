@@ -597,6 +597,79 @@ def presentation_layers(beats, language, total_frames):
     return layers
 
 
+def _animation_share(manual):
+    """Missing share keeps the designed graphics. A saved slider value is the coverage."""
+    if not isinstance(manual, dict) or 'presentation_share' not in manual:
+        return 100
+    try:
+        return max(0, min(100, int(manual.get('presentation_share') or 0)))
+    except (TypeError, ValueError):
+        return 100
+
+
+def _graphic_layer(layer):
+    return bool(re.search(r'class="(?:hf-plate|hf-board|hf-lower|hf-window|hf-mini|hf-chip)\b', layer))
+
+
+def _retimed(layer, start, end):
+    layer = re.sub(r'data-hypit-start-frame="\d+"', f'data-hypit-start-frame="{start}"', layer, count=1)
+    return re.sub(r'data-hypit-end-frame="\d+"', f'data-hypit-end-frame="{end}"', layer, count=1)
+
+
+def _even_indexes(count, total):
+    if count >= total:
+        return list(range(total))
+    if count <= 1:
+        return [total // 2]
+    return [round(i * (total - 1) / (count - 1)) for i in range(count)]
+
+
+def _limit_graphics(layers, total_frames, share):
+    """Keep animated plates on about `share` percent of the picture, spread through it."""
+    share = max(0, min(100, int(share)))
+    graphic = [layer for layer in layers if _graphic_layer(layer)]
+    rest = [layer for layer in layers if layer not in graphic]
+    if share >= 100 or not graphic:
+        return rest + graphic
+    if share <= 0 or total_frames <= 0:
+        return rest
+    parsed = []
+    for layer in graphic:
+        found = re.search(r'data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', layer)
+        if not found:
+            continue
+        start, end = int(found.group(1)), int(found.group(2))
+        if end > start:
+            parsed.append((start, end, layer))
+    if not parsed:
+        return rest
+    parsed.sort()
+    budget = total_frames * share / 100
+    full = sum(end - start for start, end, _layer in parsed)
+    if budget >= full:
+        return rest + [layer for _start, _end, layer in parsed]
+    minimum = max(1, int(round(0.8 * FPS)))
+    chosen = parsed
+    for count in range(len(parsed), 0, -1):
+        indexes = _even_indexes(count, len(parsed))
+        picked = [parsed[index] for index in indexes]
+        covered = sum(end - start for start, end, _layer in picked)
+        scale = budget / covered if covered else 0
+        if count == 1 or all((end - start) * scale >= minimum for start, end, _layer in picked):
+            chosen = picked
+            break
+    covered = sum(end - start for start, end, _layer in chosen)
+    scale = min(1.0, budget / covered) if covered else 0
+    kept = []
+    for start, end, layer in chosen:
+        length = max(1, int(round((end - start) * scale)))
+        stop = min(end, start + length)
+        if stop <= start:
+            stop = start + 1
+        kept.append(layer if stop == end else _retimed(layer, start, stop))
+    return rest + kept
+
+
 def composition(source, work, manual, width, height, language, style=None):
     """HyperFrames HTML. A paragraph, 口播, and a lone headcount digit are not drawn.
 
@@ -624,9 +697,10 @@ def composition(source, work, manual, width, height, language, style=None):
                     break
     plates = _plates(clips, ranges, language, total)
     occupied = _spans(plates)
-    layers.extend(plates)
-    layers.extend(_side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
-    layers.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
+    graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied)
+    graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
+    share = _animation_share(manual)
+    layers.extend(_limit_graphics(graphics, total, share))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
     page = f'''<!doctype html>
@@ -668,7 +742,7 @@ def composition(source, work, manual, width, height, language, style=None):
   </style>
 </head>
 <body>
-  <div data-composition-id="lumen" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
+  <div data-composition-id="lumen" data-animation-share="{share}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
     {body}
   </div>
   <script>
@@ -859,6 +933,8 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     except Exception:
         style = None
     frame_count = composition(source, work, manual, width, height, language, style)
+    if 'presentation_share' in manual:
+        (Path(folder) / 'animation-share.txt').write_text(str(_animation_share(manual)))
     job = {
         'directory': str(work),
         'width': int(width),

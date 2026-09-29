@@ -171,7 +171,7 @@ export function ProjectWorkspace({
       ? [
           {
             id: "result",
-            label: w("Готовый ролик", "Finished video", "已完成视频") + (finalVoice ? ` · ${finalVoice.label}` : ''),
+            label: w("Готовый ролик", "Finished video", "已完成视频") + (finalVoice ? ` · ${finalVoice.label}` : '') + (currentPicture?.animation_share != null ? ` · ${currentPicture.animation_share}%` : ''),
             url: finalVoice ? finalVoice.url : base + "result?v=" + (p.result.render_id || ''),
             download: base + "result",
             detail: [currentPicture ? stamp(currentPicture.created) : "", `${fmt(p.result.metadata.duration)} · ${p.result.metadata.width} × ${p.result.metadata.height}`].filter(Boolean).join(" · "),
@@ -182,7 +182,7 @@ export function ProjectWorkspace({
       .filter((picture) => !picture.current)
       .map((picture) => ({
         id: `picture-${picture.id}`,
-        label: w("Предыдущий ролик", "Earlier video", "较早成片"),
+        label: w("Предыдущий ролик", "Earlier video", "较早成片") + (picture.animation_share != null ? ` · ${picture.animation_share}%` : ''),
         url: `${base}result?render=${picture.id}`,
         download: `${base}result?render=${picture.id}`,
         detail: stamp(picture.created),
