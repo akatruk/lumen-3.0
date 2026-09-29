@@ -39,21 +39,24 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
         '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', src,
     )
     root = tmp_path / 'hypit-root'
-    (root / 'bin').mkdir(parents=True)
-    (root / 'bin' / 'hypit.mjs').write_text('')
+    cli = root / 'node_modules' / 'tsx' / 'dist'
+    cli.mkdir(parents=True)
+    (cli / 'cli.mjs').write_text('')
     monkeypatch.setenv('HYPIT_ROOT', str(root))
     seen = {}
 
-    def fake_prompt(work, env):
-        seen['work'] = Path(work)
-        seen['prompt'] = (Path(work) / 'main.svml').read_text()
+    def fake_spawn(argv, env):
+        job = json.loads(Path(argv[-1]).read_text())
+        seen['argv'] = argv
+        seen['html'] = (Path(job['directory']) / 'index.html').read_text()
         seen['root'] = env['HYPIT_ROOT']
+        frames = job['frameCount']
         ffmpeg(
-            '-f', 'lavfi', '-i', 'color=c=blue:s=160x240:d=2:r=30',
-            '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', Path(work) / 'visual.mp4',
+            '-f', 'lavfi', '-i', f'color=c=blue:s={job["width"]}x{job["height"]}:d={frames / 30:.3f}:r=30',
+            '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', Path(job['directory']) / 'visual.mp4',
         )
 
-    monkeypatch.setattr('backend.hypit_picture.run_prompt', fake_prompt)
+    monkeypatch.setattr('backend.hypit_picture.spawn', fake_spawn)
     analysis = Analysis(
         summary=T, strongest_moment=T, audience=T,
         scores=[{'category': 'clarity', 'value': 50, 'reason': T}],
@@ -90,22 +93,56 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
         'presentation_share': 100,
     }
     result = render(src, tmp_path, probe(src), analysis, [], 'zh', 'original', manual=edit, picture_engine='hypit')
+    assert seen['argv'][2].endswith('hypit_render.mjs')
     assert seen['root'] == str(root)
-    prompt = seen['prompt']
-    assert '<render:Video id="final"' in prompt and 'composition={main.composition}' in prompt
-    assert '三名股东开会' in prompt
-    assert '口播' not in prompt and 'Shareholders' not in prompt
-    assert 'during="program"' in prompt
-    from backend.hypit_prompt import author_source, treatment_line
-    assert prompt == author_source(100, 2, 160, 240, treatment_line(edit, 'zh'))
-    assert (tmp_path / 'hypit' / 'build.svrun').read_text().count('final.video') == 1
-    bare = author_source(0, 2, 160, 240, '三名股东开会')
-    mid = author_source(40, 2, 160, 240, '三名股东开会')
-    assert '<text:Track' not in bare and '<performance:Track' in bare
-    assert 'start="0s" end="0.800s"' in mid
-    assert 'style={title-style} during="program"' in prompt
-    assert 'style={title-style} during="program"' not in mid
-    assert bare != mid != prompt
+    html = seen['html']
+    assert 'data-composition-id="lumen"' in html
+    assert 'data-hypit-start-frame=' in html
+    assert 'data-hypit-source-fps=' in html
+    assert 'data-start="0.000"' in html and 'data-end="' in html and 'data-media-start="0.000"' in html
+    assert 'data-has-audio="false"' in html
+    assert '三名股东开会' in html
+    assert '口播' not in html and 'Shareholders' not in html and '>3<' not in html
+    assert 'Governance logic also differs' not in html
+    assert '股东结构' not in html and '董事权限' not in html
+    assert 'hf-board' in html and '外资比例' in html and '49%' in html
+    assert 'class="hf-plate"' in html and 'hf-board hf-plate' not in html
+    assert '<text' not in html and 'render:Video' not in html and '<?svml' not in html
+    assert not (tmp_path / 'hypit' / 'main.svml').exists()
+    assert 'data-card-motion="100"' in html
+    assert '(el.classList.contains(\'hf-board\') ? 28 : 16) * motion' in html
+    assert (tmp_path / 'animation-share.txt').read_text() == '100'
+    from backend.hypit_picture import composition
+    quiet = tmp_path / 'motion-zero'
+    quiet.mkdir()
+    composition(src, quiet, {**edit, 'card_motion': 0}, 160, 240, 'zh')
+    gone = (quiet / 'index.html').read_text()
+    assert 'data-card-motion="0"' in gone and '外资比例' not in gone and '三名股东开会' in gone
+    mid_dir = tmp_path / 'motion-mid'
+    mid_dir.mkdir()
+    composition(src, mid_dir, {**edit, 'card_motion': 40}, 160, 240, 'zh')
+    mid = (mid_dir / 'index.html').read_text()
+    assert 'data-card-motion="40"' in mid and 'data-card-motion="100"' not in mid
+
+    import re
+
+    def covered(page):
+        return sum(
+            int(end) - int(start)
+            for start, end in re.findall(
+                r'class="hf-(?:plate|board|lower|window|mini|chip)\b[^"]*"[^>]*data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"',
+                page,
+            )
+        )
+
+    def plate_fade(page):
+        found = re.findall(r'class="hf-plate"[^>]*data-hf-fade-in="(\d+)"', page)
+        return int(found[0]) if found else 0
+
+    assert covered(mid) < covered(html) or plate_fade(mid) > plate_fade(html)
+    assert plate_fade(mid) > plate_fade(html)
+    assert 'boardOn ? 0.78' not in html and 'marginY' in html
+    assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
@@ -199,15 +236,18 @@ def test_picture_quality_is_not_part_of_the_render(tmp_path, monkeypatch):
         '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', src,
     )
     root = tmp_path / 'hypit-root'
-    (root / 'bin').mkdir(parents=True)
-    (root / 'bin' / 'hypit.mjs').write_text('')
+    cli = root / 'node_modules' / 'tsx' / 'dist'
+    cli.mkdir(parents=True)
+    (cli / 'cli.mjs').write_text('')
     monkeypatch.setenv('HYPIT_ROOT', str(root))
     seen = {'frames': 0, 'operations': None}
 
-    def fake_prompt(work, env):
+    def fake_spawn(argv, env):
+        job = json.loads(Path(argv[-1]).read_text())
+        frames = job['frameCount']
         ffmpeg(
-            '-f', 'lavfi', '-i', 'color=c=blue:s=160x240:d=1:r=30',
-            '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', Path(work) / 'visual.mp4',
+            '-f', 'lavfi', '-i', f'color=c=blue:s={job["width"]}x{job["height"]}:d={frames / 30:.3f}:r=30',
+            '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', Path(job['directory']) / 'visual.mp4',
         )
 
     def fake_raster(source, dest, operations):
@@ -215,7 +255,7 @@ def test_picture_quality_is_not_part_of_the_render(tmp_path, monkeypatch):
         seen['operations'] = operations
         shutil.copyfile(source, dest)
 
-    monkeypatch.setattr('backend.hypit_picture.run_prompt', fake_prompt)
+    monkeypatch.setattr('backend.hypit_picture.spawn', fake_spawn)
     monkeypatch.setattr('backend.hypit_controls.invoke_raster', fake_raster)
     analysis = Analysis(
         summary=T, strongest_moment=T, audience=T,

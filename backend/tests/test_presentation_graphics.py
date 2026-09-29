@@ -1,4 +1,7 @@
+import os
 import shutil
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 from backend.manual import Edit
@@ -20,25 +23,24 @@ def edit(**extra):
     return Edit.model_validate(body)
 
 def test_slider_percentage_is_the_hypit_prompt():
-    low = plan(edit(card_motion=10))
-    full = plan(edit(card_motion=100))
-    bare = plan(edit(card_motion=0))
-    assert low.presentation_prompt.startswith('<?svml using="@hypit/markup@1"?>')
-    assert '<render:Video id="final" composition={main.composition}' in low.presentation_prompt
-    assert 'end="2.000s"' in low.presentation_prompt
-    assert 'during="program"' in full.presentation_prompt
-    assert '<text:Track' not in bare.presentation_prompt
-    assert low.presentation_prompt != full.presentation_prompt != bare.presentation_prompt
-    covered = sum(beat.end - beat.start for beat in plan(edit(presentation_share=10)).presentation)
+    planned = plan(edit(presentation_share=10))
+    assert 'https://github.com/hypit-ai/hypit' in planned.presentation_prompt
+    assert '10%' in planned.presentation_prompt
+    assert '3D pop-out windows' in planned.presentation_prompt
+    assert '<?svml' not in planned.presentation_prompt and '<text:' not in planned.presentation_prompt
+    covered = sum(beat.end - beat.start for beat in planned.presentation)
     assert covered == pytest.approx(2, abs=0.05)
+    assert plan(edit(presentation_share=0)).presentation_prompt == ''
+    assert '<text:' not in plan(edit(card_motion=80)).presentation_prompt
 
 def test_hypit_page_uses_that_prompt_percentage():
     from backend.hypit_picture import _presentation_page, presentation_layers
-    planned = plan(edit(card_motion=10, presentation_share=10))
+    planned = plan(edit(presentation_share=10))
     beats = [beat.model_dump() for beat in planned.presentation]
     layers = presentation_layers(beats, 'en', 20 * 30)
     page = _presentation_page(320, 240, '20.000', 600, layers, planned.presentation_prompt)
-    assert 'data-hypit-prompt="' in page and 'render:Video' in page and 'end=&quot;2.000s&quot;' in page
+    assert 'data-hypit-prompt="' in page and '10%' in page and 'github.com/hypit-ai/hypit' in page
+    assert 'render:Video' not in page and 'Many business' not in page
     assert 'data-hypit-source-fps="30/1"' in page and 'data-hypit-source-rate="1/1"' in page
     assert 'rotateY' not in page and 'hf-window' in page
     boxes = [tuple(map(float, item)) for item in __import__('re').findall(r'left:([\d.]+)%;top:([\d.]+)%;right:auto;bottom:auto;width:([\d.]+)%', ''.join(layers))]
@@ -101,6 +103,10 @@ def test_languages_follow_voiceover_then_project(tmp_path):
     assert 'Карточка' in russian and 'Style: Ru,Noto Sans' in russian
 
 @pytest.mark.skipif(not shutil.which('ffmpeg'), reason='FFmpeg required')
+@pytest.mark.skipif(
+    not (Path(os.environ.get('HYPIT_ROOT') or '/opt/hypit') / 'node_modules' / 'tsx' / 'dist' / 'cli.mjs').is_file(),
+    reason='Hypit capture required',
+)
 def test_windows_are_burned_in_the_requested_language(tmp_path):
     src = tmp_path / 'source.mp4'
     ffmpeg('-f', 'lavfi', '-i', 'color=red:s=320x240:d=4:r=30', '-c:v', 'libx264', src)
