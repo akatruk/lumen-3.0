@@ -293,7 +293,24 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
     assert {item['codec_type'] for item in streams} == {'video', 'audio'}
 
 
-def test_the_slider_changes_how_long_the_plates_stay_on_screen():
+def test_the_sliders_write_one_animation_prompt():
+    from backend.manual import Edit
+    from backend.presentation_graphics import animation_brief, plan
+
+    edit = Edit.model_validate({
+        'clips': [{'start': 0, 'end': 20}],
+        'card_motion': 40,
+        'animation_depth': 80,
+        'animation_motion': 20,
+        'animation_density': 60,
+    })
+    brief = animation_brief(edit)
+    assert 'Охват 40%' in brief and 'Глубина 80%' in brief
+    assert 'Движение 20%' in brief and 'Плотность 60%' in brief
+    assert 'виньетки' in brief and 'титра' in brief
+    assert plan(edit).animation_prompt == brief
+    with pytest.raises(Exception):
+        Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_depth': 7})
     import re
     from backend.hypit_picture import _card_motion, _limit_graphics
 
@@ -326,6 +343,9 @@ def test_the_slider_changes_how_long_the_plates_stay_on_screen():
     assert len(eighty) == 3
     thin = _limit_graphics(layers, 900, 5)
     assert covered(thin) == pytest.approx(45, abs=3)
+    sparse = _limit_graphics(layers, 900, 100, 50)
+    assert len(sparse) == 2
+    assert _limit_graphics(layers, 900, 100, 0) == []
 
 
 def test_presenter_is_centered_on_the_card():

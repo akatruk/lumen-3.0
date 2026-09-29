@@ -646,14 +646,15 @@ def _retimed(layer, start, end):
     return re.sub(r'data-hypit-end-frame="\d+"', f'data-hypit-end-frame="{end}"', layer, count=1)
 
 
-def _limit_graphics(layers, total_frames, share):
-    """100% keeps the designed animation. A lower share is that fraction of the whole video."""
+def _limit_graphics(layers, total_frames, share, density=100):
+    """Coverage is a fraction of the video. Density chooses how many of those layers stay."""
     share = max(0, min(100, int(share)))
+    density = max(0, min(100, int(density)))
     graphic = [layer for layer in layers if _graphic_layer(layer)]
     rest = [layer for layer in layers if layer not in graphic]
-    if share >= 100 or not graphic:
+    if share >= 100 and density >= 100 or not graphic:
         return rest + graphic
-    if share <= 0 or total_frames <= 0:
+    if share <= 0 or density <= 0 or total_frames <= 0:
         return rest
     parsed = []
     for layer in graphic:
@@ -665,9 +666,17 @@ def _limit_graphics(layers, total_frames, share):
             parsed.append((start, end, layer))
     if not parsed:
         return rest
+    if density < 100 and len(parsed) > 1:
+        keep = max(1, int(round(len(parsed) * density / 100)))
+        if keep < len(parsed):
+            if keep == 1:
+                picks = [len(parsed) // 2]
+            else:
+                picks = [round(i * (len(parsed) - 1) / (keep - 1)) for i in range(keep)]
+            parsed = [parsed[index] for index in picks]
     covered = sum(end - start for start, end, _layer in parsed)
     budget = total_frames * share / 100
-    if covered <= budget:
+    if share >= 100 or covered <= budget:
         return rest + [layer for _start, _end, layer in parsed]
     scale = budget / covered if covered else 0
     kept = []
@@ -709,8 +718,9 @@ def composition(source, work, manual, width, height, language, style=None):
     occupied = _spans(plates)
     graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied)
     graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
-    motion = _card_motion(manual)
-    layers.extend(_limit_graphics(graphics, total, motion))
+    from .presentation_graphics import animation_brief, animation_levels
+    levels = animation_levels(manual)
+    layers.extend(_limit_graphics(graphics, total, levels['coverage'], levels['density']))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
     page = f'''<!doctype html>
@@ -752,7 +762,7 @@ def composition(source, work, manual, width, height, language, style=None):
   </style>
 </head>
 <body>
-  <div data-composition-id="lumen" data-card-motion="{motion}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
+  <div data-composition-id="lumen" data-card-motion="{levels['coverage']}" data-animation-depth="{levels['depth']}" data-animation-motion="{levels['motion']}" data-animation-density="{levels['density']}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
     {body}
   </div>
   <script>
@@ -761,7 +771,9 @@ def composition(source, work, manual, width, height, language, style=None):
     const apply = (time) => {{
       const frame = Math.max(0, Math.round(Number(time || 0) * fps));
       const stage = document.querySelector('[data-composition-id]');
-      const motion = Math.max(0, Math.min(100, Number((stage && stage.getAttribute('data-card-motion')) || 100))) / 100;
+      const motion = Math.max(0, Math.min(100, Number((stage && stage.getAttribute('data-animation-motion')) || 100))) / 100;
+      const depth = Math.max(0, Math.min(100, Number((stage && stage.getAttribute('data-animation-depth')) || 100))) / 100;
+      const cardScale = (0.62 + 0.38 * depth).toFixed(3);
       for (const el of layers) {{
         const start = Number(el.getAttribute('data-hypit-start-frame'));
         const end = Number(el.getAttribute('data-hypit-end-frame'));
@@ -769,17 +781,23 @@ def composition(source, work, manual, width, height, language, style=None):
         const fadeOut = Number(el.getAttribute('data-hf-fade-out') || 0);
         let opacity = 0;
         const card = el.classList.contains('hf-board') || el.classList.contains('hf-lower') || el.classList.contains('hf-card') || el.classList.contains('hf-plate') || el.classList.contains('hf-window') || el.classList.contains('hf-mini') || el.classList.contains('hf-chip');
-        if (frame >= start && frame < end && !(card && motion <= 0)) {{
-          const innFrames = fadeIn;
-          const outFrames = fadeOut;
-          const inn = innFrames > 0 ? Math.min(1, (frame - start + 1) / innFrames) : 1;
-          const out = outFrames > 0 ? Math.min(1, (end - frame) / outFrames) : 1;
-          opacity = Math.min(inn, out);
+        if (frame >= start && frame < end) {{
+          if (card && motion <= 0) opacity = 1;
+          else {{
+            const innFrames = card ? fadeIn * motion : fadeIn;
+            const outFrames = card ? fadeOut * motion : fadeOut;
+            const inn = innFrames > 0 ? Math.min(1, (frame - start + 1) / innFrames) : 1;
+            const out = outFrames > 0 ? Math.min(1, (end - frame) / outFrames) : 1;
+            opacity = Math.min(inn, out);
+          }}
         }}
         el.style.opacity = String(opacity);
         if (card) {{
           const lift = Math.round((el.classList.contains('hf-board') ? 28 : 16) * motion);
-          el.style.transform = 'translateY(' + Math.round((1 - opacity) * lift) + 'px)';
+          const shift = Math.round((1 - opacity) * lift);
+          const sized = el.classList.contains('hf-plate') || el.classList.contains('hf-board');
+          el.style.transformOrigin = '50% 40%';
+          el.style.transform = 'translateY(' + shift + 'px)' + (sized ? ' scale(' + cardScale + ')' : '');
           const figure = el.querySelector('.hf-board-figure');
           if (figure) figure.style.transform = 'scale(' + (1 - 0.1 * motion * (1 - opacity)).toFixed(3) + ')';
         }}
@@ -858,14 +876,12 @@ def composition(source, work, manual, width, height, language, style=None):
 </html>
 '''
     page = _apply_style(page, style)
-    prompt = manual.get('presentation_prompt') or ''
-    # A saved Effects percent must not come back as one wrapping sentence.
-    if prompt and '<?svml' not in prompt and '<text:' not in prompt:
-        page = page.replace(
-            'data-composition-id="lumen"',
-            'data-composition-id="lumen" data-hypit-prompt="' + html.escape(prompt, quote=True) + '"',
-            1,
-        )
+    prompt = animation_brief(manual)
+    page = page.replace(
+        'data-composition-id="lumen"',
+        'data-composition-id="lumen" data-hypit-prompt="' + html.escape(prompt, quote=True) + '"',
+        1,
+    )
     (work / 'index.html').write_text(page)
     return total
 

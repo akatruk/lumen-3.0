@@ -18,7 +18,6 @@ import type {VisualCard} from './VisualCardEditor';
 import {TimelineRegenerate} from './TimelineRegenerate';
 import {TimelineTracks} from './TimelineTracks';
 import {ClipLayerTracks} from './ClipLayerTracks';
-import { scenesApproved, startApprovedPicture } from "./pictureRender";
 import { useEffect, useRef, useState } from "react";
 import type { Lang, ContentLang } from "./types";
 type Clip = {
@@ -105,6 +104,10 @@ export type Edit = {
   presentation_prompt?: string;
   presentation?: {kind:'window'|'mini';start:number;end:number;title:{en:string;zh:string;ru:string};body?:{en:string;zh:string;ru:string}|null;x:number;y:number}[];
   card_motion?: number;
+  animation_depth?: number;
+  animation_motion?: number;
+  animation_density?: number;
+  animation_prompt?: string;
   font_size: "small" | "medium" | "large";
   position: "top" | "bottom";
   color: "white" | "yellow";
@@ -172,7 +175,8 @@ export function ManualEditor({
     revisionRef = useRef(0),
     shareTicket = useRef(0),
     shareTimer = useRef<number | undefined>(undefined),
-    motionTimer = useRef<number | undefined>(undefined);
+    motionTimer = useRef<number | undefined>(undefined),
+    mixTicket = useRef(0);
   const [shareNote, setShareNote] = useState("");
   const [cardNote, setCardNote] = useState("");
   const [effectPick, setEffectPick] = useState<EffectPickData | null>(null);
@@ -357,22 +361,23 @@ export function ManualEditor({
       setBusy(false);
     }
   }
-  function setCardMotion(value: number) {
-    const motion = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
+  function setAnimation(key: "card_motion" | "animation_depth" | "animation_motion" | "animation_density", value: number) {
+    const level = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
     const current = editRef.current;
-    if (!current || (current.card_motion ?? 100) === motion) return;
-    const next = { ...current, card_motion: motion };
+    if (!current || (current[key] ?? 100) === level) return;
+    const next = { ...current, [key]: level };
     editRef.current = next;
     setEdit(next);
     setDirty(true);
     setCardNote("");
+    const ticket = ++mixTicket.current;
     window.clearTimeout(motionTimer.current);
-    motionTimer.current = window.setTimeout(() => { void saveCardMotion(motion); }, 250);
+    motionTimer.current = window.setTimeout(() => { void saveAnimation(ticket); }, 250);
   }
-  async function saveCardMotion(motion: number) {
+  async function saveAnimation(ticket: number) {
     const current = editRef.current;
-    if (!current || (current.card_motion ?? 100) !== motion) return;
-    setCardNote(w("Сохраняю уровень карточек…", "Saving the card level…", "正在保存卡片动画…"));
+    if (!current || ticket !== mixTicket.current) return;
+    setCardNote(w("Сохраняю промпт анимации…", "Saving the animation prompt…", "正在保存动画提示…"));
     try {
       const save = await fetch(base, {
         method: "PUT",
@@ -380,7 +385,7 @@ export function ManualEditor({
         body: JSON.stringify({ revision: revisionRef.current, edit: current }),
       });
       const stored = await save.json().catch(() => ({}));
-      if ((editRef.current?.card_motion ?? 100) !== motion) return;
+      if (ticket !== mixTicket.current) return;
       if (!save.ok || !stored.edit) throw Error(presentationMessage(stored.detail));
       editRef.current = stored.edit;
       revisionRef.current = stored.revision;
@@ -388,19 +393,14 @@ export function ManualEditor({
       setRevision(stored.revision);
       setDirty(false);
       sessionStorage.removeItem(draftKey);
-      const started = scenesApproved(stored.edit.clips)
-        ? await startApprovedPicture(pid, stored.revision, qualityReview)
-        : "unapproved";
-      setCardNote(started === "queued"
-        ? w(`Уровень сохранён. Собирается видео: анимация на ${motion}% длины.`, `Saved. Creating a video with animation on ${motion}% of the length.`, `已保存。正在生成动画占全片 ${motion}% 的视频。`)
-        : started === "busy"
-          ? w("Уровень сохранён. Дождитесь завершения текущей задачи. Готовый ролик остаётся.", "Saved. Wait for the current task to finish. The finished video stays.", "已保存。请等待当前任务完成。已完成的视频会保留。")
-          : started === "unapproved"
-            ? w("Уровень сохранён. Подтвердите все сцены, чтобы собрать видео.", "Saved. Approve every scene to create the video.", "已保存。请批准所有场景后再生成视频。")
-            : w("Уровень сохранён. Новое видео не запущено.", "Saved. The new video did not start.", "已保存。新视频没有开始生成。"));
+      setCardNote(w(
+        "Уровень сохранён. Промпт записан. Соберите видео, чтобы увидеть эту анимацию.",
+        "Saved. The prompt is stored. Create the video to see this animation.",
+        "已保存。提示已写入。请生成视频后查看这组动画。",
+      ));
       await onSaved();
     } catch (e) {
-      if ((editRef.current?.card_motion ?? 100) !== motion) return;
+      if (ticket !== mixTicket.current) return;
       setCardNote((e as Error).message);
     }
   }
@@ -643,13 +643,25 @@ export function ManualEditor({
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
       {task==='effects'&&<section className="presentation-share" aria-label={w('Процент добавляемой анимации','Added animation percent','添加动画的百分比')}>
-        <label className="inspector-slider">
-          {w('Процент добавляемой анимации','Added animation, %','添加动画的百分比')}
-          <input type="range" min={0} max={100} step={5} value={edit.card_motion??100} aria-label={w('Процент добавляемой анимации','Added animation, %','添加动画的百分比')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={edit.card_motion??100} aria-valuetext={`${edit.card_motion??100}%`} onChange={e=>setCardMotion(Number(e.target.value))} />
-          <output>{edit.card_motion??100}%</output>
-        </label>
+        {([
+          ['card_motion', w('Охват, %','Coverage, %','覆盖，%'), w('Процент добавляемой анимации','Added animation, %','添加动画的百分比'), edit.card_motion],
+          ['animation_depth', w('Глубина, %','Depth, %','深度，%'), w('Глубина анимации','Animation depth','动画深度'), edit.animation_depth],
+          ['animation_motion', w('Движение, %','Motion, %','运动，%'), w('Движение анимации','Animation motion','动画运动'), edit.animation_motion],
+          ['animation_density', w('Плотность, %','Density, %','密度，%'), w('Плотность анимации','Animation density','动画密度'), edit.animation_density],
+        ] as const).map(([key, label, name, value]) => (
+          <label className="inspector-slider" key={key}>
+            {label}
+            <input type="range" min={0} max={100} step={5} value={value??100} aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value??100} aria-valuetext={`${value??100}%`} onChange={e=>setAnimation(key, Number(e.target.value))} />
+            <output>{value??100}%</output>
+          </label>
+        ))}
         {cardNote&&<p role="status">{cardNote}</p>}
-        <small>{w('0% — без добавленной анимации. 100% — анимация на всей длине, как в текущем ролике. 40% — анимация занимает 40% длины. Сдвиг собирает новую версию.','0% adds no animation. 100% keeps animation for the whole length, as in the current video. 40% puts animation on 40% of the length. Moving the slider creates a new version.','0% 不添加动画。100% 在全片保留动画，与当前视频一致。40% 让动画占全片 40%。拖动滑块会生成新版本。')}</small>
+        <p className="animation-prompt">{edit.animation_prompt || w(
+          `Промпт: охват ${edit.card_motion??100}%, глубина ${edit.animation_depth??100}%, движение ${edit.animation_motion??100}%, плотность ${edit.animation_density??100}%. Исходный кадр остаётся резким.`,
+          `Prompt: coverage ${edit.card_motion??100}%, depth ${edit.animation_depth??100}%, motion ${edit.animation_motion??100}%, density ${edit.animation_density??100}%. The footage stays sharp.`,
+          `提示：覆盖 ${edit.card_motion??100}%，深度 ${edit.animation_depth??100}%，运动 ${edit.animation_motion??100}%，密度 ${edit.animation_density??100}%。原画面保持清晰。`,
+        )}</p>
+        <small>{w('Шаг 5%. Четыре значения записываются в промпт создания видео. 100% оставляет текущую картинку. Соберите видео, чтобы применить промпт.','Steps of 5%. The four values become the video prompt. 100% keeps the current picture. Create the video to apply the prompt.','步进 5%。四个数值会写入视频提示。100% 保持当前画面。生成视频后应用提示。')}</small>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       <section className="inspector-scene-controls">

@@ -154,10 +154,43 @@ def presentation_prompt(edit, board=None):
         share = 100
     return author_source(share, _footage_seconds(edit), 720, 1280, treatment_line(manual), board)
 
+def _step(value, default=100):
+    try:
+        number = int(default if value is None else value)
+    except (TypeError, ValueError):
+        number = default
+    return max(0, min(100, number // 5 * 5))
+
+
+def animation_levels(edit):
+    """Coverage, depth, entrance, and density. Missing values keep the full picture."""
+    manual = edit if isinstance(edit, dict) else edit.model_dump()
+    return {
+        'coverage': _step(manual.get('card_motion'), 100),
+        'depth': _step(manual.get('animation_depth'), 100),
+        'motion': _step(manual.get('animation_motion'), 100),
+        'density': _step(manual.get('animation_density'), 100),
+    }
+
+
+def animation_brief(edit):
+    """The video prompt the sliders write. It does not add a title or a grade."""
+    levels = animation_levels(edit)
+    return (
+        'Создай анимацию поверх исходного кадра и не меняй его резкость. '
+        f"Охват {levels['coverage']}%: графика занимает {levels['coverage']}% длины ролика. "
+        f"Глубина {levels['depth']}%: карточки {levels['depth']}% полного размера. "
+        f"Движение {levels['motion']}%: вход карточек {levels['motion']}% полного появления. "
+        f"Плотность {levels['density']}%: оставить {levels['density']}% графических слоёв. "
+        'Без крупного титра на лицо, без виньетки и без затемнения кадра.'
+    )
+
+
 def plan(edit, board=None):
     return edit.model_copy(update={
         'presentation': build(edit),
         'presentation_prompt': presentation_prompt(edit, board),
+        'animation_prompt': animation_brief(edit),
     })
 
 def _fit(text, size, width):
