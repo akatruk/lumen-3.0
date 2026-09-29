@@ -79,6 +79,85 @@ def capture_note(exc):
     return ' | '.join(dict.fromkeys(parts))[:2000]
 
 
+def _chrome():
+    chosen = os.environ.get('HYPIT_CHROME')
+    if chosen:
+        return chosen
+    for path in (
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+    ):
+        if Path(path).is_file():
+            return path
+    return ''
+
+
+def _runtime_profile():
+    chrome = _chrome()
+    browser = ''
+    if chrome:
+        browser = f',\n        "chromePath": {json.dumps(chrome)},\n        "browserGpu": "software"'
+    return f'''{{
+  "format": "hypit.runtime-local@1",
+  "dataRoot": ".hypit/runtimes/local",
+  "credentials": {{
+    "env": {{ "use": "@hypit/credential-store-env" }}
+  }},
+  "endpoints": {{
+    "media.local": {{
+      "use": "@hypit/provider-media-local",
+      "config": {{ "defaultConcurrency": 1 }}
+    }},
+    "hyperframes.local": {{
+      "use": "@hypit/provider-hyperframes-local",
+      "config": {{
+        "workers": 1,
+        "quality": "draft",
+        "defaultConcurrency": 1{browser}
+      }}
+    }}
+  }}
+}}
+'''
+
+
+def run_prompt(work, env):
+    """Build the author source with Hypit. The CLI text stays in this process."""
+    root = Path(env.get('HYPIT_ROOT') or _root())
+    hypit = root / 'bin' / 'hypit.mjs'
+    if not hypit.is_file():
+        raise RuntimeError('hypit_unavailable')
+    node = os.environ.get('HYPIT_NODE') or 'node'
+    work = Path(work)
+
+    def call(args):
+        try:
+            return subprocess.run(
+                [node, str(hypit), *args],
+                check=True, env=env, cwd=work, timeout=45 * 60,
+                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, errors='replace',
+            )
+        except subprocess.CalledProcessError as exc:
+            output = (exc.stderr or '').strip() or (exc.stdout or '').strip()
+            raise _note_failure(exc, f'exit {exc.returncode}: {output}' if output else f'exit {exc.returncode}') from None
+        except subprocess.TimeoutExpired as exc:
+            raise _note_failure(exc, 'capture timed out') from None
+        except OSError as exc:
+            raise _note_failure(exc, f'{type(exc).__name__}: {exc.strerror or "capture could not start"}') from None
+
+    call(['runtime', 'use', 'hypit.runtime.json'])
+    built = call(['build', 'build.svrun', '--follow', '--workspace', str(work)])
+    found = re.search(r'bld_[0-9]{8}T[0-9]+Z_[A-Z0-9]+', f'{built.stdout}\n{built.stderr}')
+    if not found:
+        raise RuntimeError('hypit_unavailable')
+    dest = work / 'visual.mp4'
+    call(['get', found.group(0), '--output', 'final.video', '--workspace', str(work), '--to', str(dest)])
+
+
 def spawn(argv, env):
     """Run capture with its own pipes so a worker terminal cannot drop or kill it.
 
@@ -997,33 +1076,22 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
         shaped.append(item)
     manual = dict(manual)
     manual['clips'] = shaped
-    from .style_match import reference_video
-    from .style_vision import read_style
-    reference = reference_video(Path(source).resolve().parent)
-    try:
-        style = read_style(reference) if reference else None
-    except Exception:
-        style = None
-    frame_count = composition(source, work, manual, width, height, language, style)
+    frame_count, _ranges = _picture_cut(source, work, manual['clips'], width, height)
+    share = _card_motion(manual)
     if 'card_motion' in manual:
-        (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
-    job = {
-        'directory': str(work),
-        'width': int(width),
-        'height': int(height),
-        'fpsNum': FPS,
-        'fpsDen': 1,
-        'frameCount': frame_count,
-    }
-    job_path = work / 'job.json'
-    job_path.write_text(json.dumps(job))
-    argv, root, tsx = command(job_path)
-    if not tsx.is_file() or not SCRIPT.is_file():
-        raise RuntimeError('hypit_unavailable')
+        (Path(folder) / 'animation-share.txt').write_text(str(share))
+    from .hypit_prompt import RECIPES, RUN, author_source, treatment_line
+    prompt = author_source(share, frame_count / FPS, width, height, treatment_line(manual, language))
+    (work / 'main.svml').write_text(prompt)
+    (work / 'recipes.svs').write_text(RECIPES)
+    (work / 'build.svrun').write_text(RUN)
+    (work / 'package.json').write_text('{"name":"lumen-picture","version":"0.0.0","private":true,"type":"module"}\n')
+    (work / 'hypit.runtime.json').write_text(_runtime_profile())
+    root = _root()
     env = os.environ.copy()
     env['HYPIT_ROOT'] = str(root)
     try:
-        spawn(argv, env)
+        run_prompt(work, env)
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         log.warning('hypit capture failed: %s', capture_note(exc) or type(exc).__name__)
         raise RuntimeError('hypit_unavailable') from exc
