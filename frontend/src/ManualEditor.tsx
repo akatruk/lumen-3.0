@@ -1,3 +1,4 @@
+import {registerAnimationFlush} from './pictureRender';
 import {EffectPick,type EffectPickData} from './SceneInspector';
 import {RenderSummary,type RenderSummaryData} from './RenderSummary';
 import {createPortal} from 'react-dom';
@@ -176,7 +177,8 @@ export function ManualEditor({
     shareTicket = useRef(0),
     shareTimer = useRef<number | undefined>(undefined),
     motionTimer = useRef<number | undefined>(undefined),
-    mixTicket = useRef(0);
+    mixTicket = useRef(0),
+    animationDirty = useRef(false);
   const [shareNote, setShareNote] = useState("");
   const [cardNote, setCardNote] = useState("");
   const [effectPick, setEffectPick] = useState<EffectPickData | null>(null);
@@ -301,11 +303,29 @@ export function ManualEditor({
   const finalMusic = useRef<FinalMusicHandle>(null);
   async function act(render = false) {
     if (!edit) return null;
+    window.clearTimeout(motionTimer.current);
     let savedRevision=revisionRef.current || revision;
     setBusy(true);
     setError("");
     try {
       let rev = savedRevision;
+      const pending = editRef.current;
+      if (render && pending) {
+        const saved = await fetch(base, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ revision: rev, edit: pending }),
+        });
+        const stored = await saved.json().catch(() => ({}));
+        if (!saved.ok || !stored.edit) throw Error(presentationMessage(stored.detail));
+        editRef.current = stored.edit;
+        rev = stored.revision;
+        revisionRef.current = stored.revision;
+        animationDirty.current = false;
+        setEdit(stored.edit);
+        setRevision(stored.revision);
+        setDirty(false);
+      }
       let r: Response | null = null;
       let detail: unknown;
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -367,6 +387,7 @@ export function ManualEditor({
     if (!current || (current[key] ?? 100) === level) return;
     const next = { ...current, [key]: level };
     editRef.current = next;
+    animationDirty.current = true;
     setEdit(next);
     setDirty(true);
     setCardNote("");
@@ -389,14 +410,15 @@ export function ManualEditor({
       if (!save.ok || !stored.edit) throw Error(presentationMessage(stored.detail));
       editRef.current = stored.edit;
       revisionRef.current = stored.revision;
+      animationDirty.current = false;
       setEdit(stored.edit);
       setRevision(stored.revision);
       setDirty(false);
       sessionStorage.removeItem(draftKey);
       setCardNote(w(
-        "Уровень сохранён. Промпт записан. Соберите видео, чтобы увидеть эту анимацию.",
-        "Saved. The prompt is stored. Create the video to see this animation.",
-        "已保存。提示已写入。请生成视频后查看这组动画。",
+        "Уровень сохранён. «Собрать видео заново» возьмёт эти проценты: карточки есть только до процента охвата.",
+        "Saved. Regenerate video uses these percents: cards appear only until the coverage percent.",
+        "已保存。重新生成会使用这些百分比：卡片只出现到覆盖百分比为止。",
       ));
       await onSaved();
     } catch (e) {
@@ -404,6 +426,24 @@ export function ManualEditor({
       setCardNote((e as Error).message);
     }
   }
+  const saveAnimationRef = useRef(saveAnimation);
+  saveAnimationRef.current = saveAnimation;
+  useEffect(() => {
+    registerAnimationFlush(async () => {
+      window.clearTimeout(motionTimer.current);
+      if (!animationDirty.current) return revisionRef.current;
+      await saveAnimationRef.current(mixTicket.current);
+      if (animationDirty.current) {
+        throw Error(w(
+          "Не удалось сохранить ползунки. Сборка не начата.",
+          "The sliders could not be saved. The video was not started.",
+          "无法保存滑块。视频没有开始生成。",
+        ));
+      }
+      return revisionRef.current;
+    });
+    return () => registerAnimationFlush(null);
+  }, [pid]);
   function effectMessage(detail: unknown) {
     return detail === "no_open_picture"
       ? w("Нет открытого фрагмента, который попадёт в ролик.", "There is no open piece the render will use.", "没有会进入成片的开放片段。")
@@ -661,7 +701,7 @@ export function ManualEditor({
           `Prompt: coverage ${edit.card_motion??100}%, depth ${edit.animation_depth??100}%, motion ${edit.animation_motion??100}%, density ${edit.animation_density??100}%. The footage stays sharp.`,
           `提示：覆盖 ${edit.card_motion??100}%，深度 ${edit.animation_depth??100}%，运动 ${edit.animation_motion??100}%，密度 ${edit.animation_density??100}%。原画面保持清晰。`,
         )}</p>
-        <small>{w('Шаг 5%. Четыре значения записываются в промпт создания видео. 100% оставляет текущую картинку. Соберите видео, чтобы применить промпт.','Steps of 5%. The four values become the video prompt. 100% keeps the current picture. Create the video to apply the prompt.','步进 5%。四个数值会写入视频提示。100% 保持当前画面。生成视频后应用提示。')}</small>
+        <small>{w('Шаг 5%. Охват обрезает графику: после этого процента длины карточек нет. 100% оставляет текущую картинку на всю длину. Соберите видео ещё раз — в сборку уходят числа с этих ползунков.','Steps of 5%. Coverage cuts the graphics: after that percent of the length there are no cards. 100% keeps the current picture for the whole length. Create the video again; the render uses the numbers on these sliders.','步进 5%。覆盖会截断图形：超过该时长百分比后不再出现卡片。100% 会在全片保留当前画面。请重新生成视频，渲染会使用这些滑块上的数值。')}</small>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       <section className="inspector-scene-controls">

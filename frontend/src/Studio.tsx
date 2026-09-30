@@ -8,6 +8,7 @@ import {CreativePlan} from './CreativePlan';
 import {holdUpload, uploadVideo} from './resumableUpload';
 import {readBoard} from './look';
 import {createPrompt} from './studioCreate';
+import {flushAnimationEdit} from './pictureRender';
 import {ManualEditor} from './ManualEditor';
 import {PropertyVideo} from './PropertyVideo';
 import { DirectorAlternatives } from "./DirectorAlternatives";
@@ -591,6 +592,7 @@ function StyleMatch({
     setError("");
     setBusy(true);
     try {
+      await flushAnimationEdit();
       await request(path, { method: "POST" });
       await onDone();
     } catch (e) {

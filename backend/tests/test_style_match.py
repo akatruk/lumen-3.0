@@ -697,6 +697,28 @@ def _write_context(pid, context):
     with connect() as db:
         db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context), pid))
 
+def test_regenerate_keeps_the_animation_sliders(client, monkeypatch):
+    pid = create(client, style_match=True).json()['id']
+    analyze(pid, monkeypatch)
+    with connect() as db:
+        db.execute("UPDATE jobs SET status='complete' WHERE project_id=?", (pid,))
+        config = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
+        config['card_motion'] = 40
+        config['animation_depth'] = 20
+        config['animation_motion'] = 60
+        config['animation_density'] = 80
+        db.execute('UPDATE studio_manual SET config=? WHERE project_id=?', (json.dumps(config), pid))
+    assert client.post(f'/api/studio/projects/{pid}/style-match/regenerate').status_code == 200
+    with connect() as db:
+        payload = json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'", (pid,)).fetchone()[0])
+        stored = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
+    assert payload['manual']['card_motion'] == 40
+    assert payload['manual']['animation_depth'] == 20
+    assert payload['manual']['animation_motion'] == 60
+    assert payload['manual']['animation_density'] == 80
+    assert stored['card_motion'] == 40 and stored['animation_density'] == 80
+
+
 def test_style_match_stays_off_until_requested(client):
     empty = client.post('/api/studio/projects', data={'config': json.dumps(dict(request_id='1' * 32, references=[], title='Owned project', script='My original script', creator=dict(topic='travel', audience='Families', tone='Calm', rules='No invented claims'), owned_rights_confirmed=True, language='zh', budget=5, style_match=False))}, files={'file': ('owned.mp4', b'owned-source-only', 'video/mp4')})
     assert empty.status_code == 422

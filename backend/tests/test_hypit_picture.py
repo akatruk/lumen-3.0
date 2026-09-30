@@ -138,8 +138,17 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
         )
 
     total = int(re.search(r'data-hypit-frame-count="(\d+)"', html).group(1))
-    assert covered(html) > total * 0.1
-    assert covered(mid) == pytest.approx(total * 0.1, abs=3)
+    horizon = max(1, int(round(total * 0.1)))
+    graphic_ends = [
+        int(end)
+        for _start, end in re.findall(
+            r'class="hf-(?:plate|board|lower|window|mini|chip)\b[^"]*"[^>]*data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"',
+            mid,
+        )
+    ]
+    assert covered(html) > covered(mid)
+    assert graphic_ends and max(graphic_ends) <= horizon + 1
+    assert 0 < covered(mid) <= horizon + 3
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
@@ -335,14 +344,16 @@ def test_the_sliders_write_one_animation_prompt():
 
     half = _limit_graphics(layers, 900, 50)
     assert covered(half) == pytest.approx(450, abs=3)
-    assert len(half) == 3
+    assert len(half) == 2
     assert 'data-hypit-start-frame="0"' in half[0]
-    assert 'data-hypit-start-frame="600"' in half[-1]
+    assert 'data-hypit-start-frame="600"' not in ''.join(half)
+    assert all(int(end) <= 450 for end in re.findall(r'data-hypit-end-frame="(\d+)"', ''.join(half)))
     eighty = _limit_graphics(layers, 900, 80)
     assert covered(eighty) == pytest.approx(720, abs=3)
-    assert len(eighty) == 3
+    assert 'data-hypit-start-frame="600"' in eighty[-1]
     thin = _limit_graphics(layers, 900, 5)
     assert covered(thin) == pytest.approx(45, abs=3)
+    assert len(thin) == 1
     sparse = _limit_graphics(layers, 900, 100, 50)
     assert len(sparse) == 2
     assert _limit_graphics(layers, 900, 100, 0) == []

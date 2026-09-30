@@ -647,7 +647,7 @@ def _retimed(layer, start, end):
 
 
 def _limit_graphics(layers, total_frames, share, density=100):
-    """Coverage is a fraction of the video. Density chooses how many of those layers stay."""
+    """Coverage keeps graphics only through that fraction of the timeline. 100% leaves them unchanged."""
     share = max(0, min(100, int(share)))
     density = max(0, min(100, int(density)))
     graphic = [layer for layer in layers if _graphic_layer(layer)]
@@ -674,18 +674,19 @@ def _limit_graphics(layers, total_frames, share, density=100):
             else:
                 picks = [round(i * (len(parsed) - 1) / (keep - 1)) for i in range(keep)]
             parsed = [parsed[index] for index in picks]
-    covered = sum(end - start for start, end, _layer in parsed)
-    budget = total_frames * share / 100
-    if share >= 100 or covered <= budget:
-        return rest + [layer for _start, _end, layer in parsed]
-    scale = budget / covered if covered else 0
+    horizon = total_frames if share >= 100 else max(1, int(round(total_frames * share / 100)))
     kept = []
     for start, end, layer in parsed:
-        length = max(1, int(round((end - start) * scale)))
-        stop = min(end, start + length)
+        if start >= horizon:
+            continue
+        stop = min(end, horizon)
         if stop <= start:
-            stop = start + 1
+            continue
         kept.append(layer if stop == end else _retimed(layer, start, stop))
+    if not kept and parsed and share > 0:
+        start, end, layer = parsed[0]
+        length = max(1, min(end - start, horizon))
+        kept.append(layer if start == 0 and length == end - start else _retimed(layer, 0, length))
     return rest + kept
 
 
