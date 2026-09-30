@@ -801,6 +801,7 @@ def composition(source, work, manual, width, height, language, style=None):
       const stage = document.querySelector('[data-composition-id]');
       const motion = Math.max(0, Math.min(100, Number((stage && stage.getAttribute('data-animation-motion')) || 100))) / 100;
       const typeScale = Math.max(0.4, Math.min(1, Number((stage && stage.getAttribute('data-type-scale')) || 1)));
+      const graphicScale = Math.max(0, Math.min(1, Number((stage && stage.getAttribute('data-graphic-scale')) || 1)));
       for (const el of layers) {{
         const start = Number(el.getAttribute('data-hypit-start-frame'));
         const end = Number(el.getAttribute('data-hypit-end-frame'));
@@ -822,8 +823,9 @@ def composition(source, work, manual, width, height, language, style=None):
         if (card) {{
           const lift = Math.round((el.classList.contains('hf-board') ? 28 : 16) * motion);
           const shift = Math.round((1 - opacity) * lift);
-          el.style.transformOrigin = '50% 40%';
-          el.style.transform = 'translateY(' + shift + 'px)';
+          const plate = el.classList.contains('hf-plate') || el.classList.contains('hf-board');
+          el.style.transformOrigin = plate ? '50% 40%' : '0% 100%';
+          el.style.transform = 'translateY(' + shift + 'px)' + (!plate && graphicScale < 0.999 ? ' scale(' + graphicScale.toFixed(3) + ')' : '');
           const figure = el.querySelector('.hf-board-figure');
           if (figure) figure.style.transform = 'scale(' + (typeScale * (1 - 0.1 * motion * (1 - opacity))).toFixed(3) + ')';
         }}
@@ -842,8 +844,9 @@ def composition(source, work, manual, width, height, language, style=None):
           const cardTop = Number(root.getAttribute('data-card-top') || 0.15);
           const cardWidth = Number(root.getAttribute('data-card-width') || 0.86);
           const cardHeight = Number(root.getAttribute('data-card-height') || 0.70);
-          const shrink = Number(root.getAttribute('data-graphic-scale') || 1) < 0.999;
-          const ad = Number(root.getAttribute('data-avatar-d') || (boardOn ? 0.22 : 0.28));
+          const graphicFit = Number(root.getAttribute('data-graphic-scale') || 1);
+          const shrink = graphicFit < 0.999;
+          const ad = Number(root.getAttribute('data-avatar-d') || (boardOn ? 0.22 : 0.28)) * (shrink ? graphicFit : 1);
           const box = Math.round(frameW * (ad > 0.12 ? ad : 0.28));
           const half = box / 2;
           const marginX = Math.round(frameW * 0.04);

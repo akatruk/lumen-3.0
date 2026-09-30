@@ -250,7 +250,7 @@ export function ManualEditor({
     setRevision(serverRevision);
   },[serverRevision, dirty, edit, revision]);
   const blocked = disabled || busy;
-  editRef.current = edit;
+  if (!animationDirty.current) editRef.current = edit;
   revisionRef.current = revision;
   function presentationMessage(detail: unknown) {
     return detail === "presentation_needs_context"

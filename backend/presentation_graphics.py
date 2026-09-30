@@ -174,17 +174,17 @@ def animation_levels(edit):
 
 
 def frame_presence(levels):
-    """How much of the accepted card the sliders leave on the frame.
+    """Width and height of every graphic, as a fraction of the accepted full size.
 
-    100% coverage and 100% depth keep that card. A lower coverage is that share
-    of its area. Depth scales the same area, so either slider changes the size.
+    100% coverage and 100% depth keep that size. 40% coverage draws the card at
+    40% of its width and height. Depth scales the same fraction.
     """
     coverage = max(0, min(100, int(levels['coverage']))) / 100
     depth = max(0, min(100, int(levels['depth']))) / 100
-    area = coverage * (0.45 + 0.55 * depth)
+    linear = coverage * (0.45 + 0.55 * depth) if coverage > 0 else 0.0
     return {
-        'area': area,
-        'linear': area ** 0.5 if area > 0 else 0.0,
+        'area': linear * linear,
+        'linear': linear,
         'type': 0.4 + 0.6 * depth,
         'full': int(levels['coverage']) >= 100 and int(levels['depth']) >= 100,
     }
@@ -195,8 +195,8 @@ def animation_brief(edit):
     levels = animation_levels(edit)
     return (
         'Создай графику Hypit поверх исходного кадра и не меняй его резкость. '
-        f"Присутствие {levels['coverage']}%: карточка занимает {levels['coverage']}% площади полной плашки и стоит по центру. "
-        f"Глубина {levels['depth']}%: плашка и текст {levels['depth']}% полного размера. "
+        f"Присутствие {levels['coverage']}%: ширина и высота графики {levels['coverage']}% полной плашки, блок по центру. "
+        f"Глубина {levels['depth']}%: тот же размер графики умножается на {levels['depth']}%. "
         f"Движение {levels['motion']}%: появление карточки {levels['motion']}% полного входа. "
         f"Плотность {levels['density']}%: на экране {levels['density']}% графических слоёв. "
         'Без крупного титра на лицо, без виньетки и без затемнения кадра.'

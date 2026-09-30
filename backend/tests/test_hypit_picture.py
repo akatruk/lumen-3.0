@@ -128,8 +128,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
 
     assert 'data-card-width="0.860"' in html and 'left:7%;width:86%;top:15%;height:70%' in html
     assert 'data-graphic-scale=' not in html
-    assert 'data-card-width="0.272"' in mid and 'width:27.2%' in mid
-    assert 'data-graphic-scale="0.316"' in mid and '外资比例' in mid
+    assert 'data-card-width="0.086"' in mid and 'width:8.6%' in mid
+    assert 'data-graphic-scale="0.100"' in mid and '外资比例' in mid
+    assert "scale(' + graphicScale.toFixed(3) + ')'" in mid
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
@@ -295,14 +296,14 @@ def test_the_sliders_write_one_animation_prompt():
         'animation_density': 60,
     })
     brief = animation_brief(edit)
-    assert 'Присутствие 40%' in brief and 'Глубина 80%' in brief and 'площади' in brief
+    assert 'Присутствие 40%' in brief and 'Глубина 80%' in brief and 'полной плашки' in brief
     assert 'Движение 20%' in brief and 'Плотность 60%' in brief
     assert 'виньетки' in brief and 'титра' in brief
     from backend.presentation_graphics import frame_presence
     full = frame_presence(animation_levels(Edit.model_validate({'clips': [{'start': 0, 'end': 20}]})))
     assert full['full'] is True and full['linear'] == 1
     small = frame_presence({'coverage': 40, 'depth': 100, 'motion': 100, 'density': 100})
-    assert small['area'] == pytest.approx(0.4) and small['linear'] == pytest.approx(0.4 ** 0.5)
+    assert small['linear'] == pytest.approx(0.4) and small['area'] == pytest.approx(0.16)
     assert plan(edit).animation_prompt == brief
     with pytest.raises(Exception):
         Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_depth': 7})
