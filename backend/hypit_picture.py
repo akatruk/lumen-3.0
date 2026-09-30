@@ -348,26 +348,60 @@ def _picture_cut(source, work, clips, width, height):
     clip length, so the mouth drifts further from the words on every join.
     """
     available = _piece_duration(source)
-    chains = []
-    labels = []
+    pieces = []
     lengths = []
     for index, clip in enumerate(clips):
         start, length, take, _average = _span(clip, available)
-        _chain, _rate = _piece_vf(clip, width, height, length, (available - start) / length if available > start else 1)
-        label = f'v{index}'
-        chains.append(
-            f'[0:v]trim=start={start:.3f}:duration={take:.3f},setpts=PTS-STARTPTS,{_chain}[{label}]'
-        )
-        labels.append(f'[{label}]')
+        chain, _rate = _piece_vf(clip, width, height, length, (available - start) / length if available > start else 1)
+        pieces.append((index, start, take, chain))
         lengths.append(length)
-    graph = work / 'picture.txt'
-    graph.write_text(';\n'.join(chains) + f';\n{"".join(labels)}concat=n={len(labels)}:v=1:a=0[v]\n')
     out = work / 'cut.mp4'
-    ffmpeg(
-        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[v]', '-an',
-        '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
-        str(out), timeout=600,
-    )
+    # One graph of every scene at once asks for more RAM than this machine has.
+    # Short pictures keep that graph. Longer ones encode a scene, then join.
+    if len(pieces) > 6:
+        encoded = []
+        for index, start, take, chain in pieces:
+            part = work / f'part-{index}.mp4'
+            part_graph = work / f'part-{index}.txt'
+            part_graph.write_text(
+                f'[0:v]trim=start={start:.3f}:duration={take:.3f},setpts=PTS-STARTPTS,{chain}[v]\n'
+            )
+            ffmpeg(
+                '-i', str(source), '-filter_complex_script', str(part_graph), '-map', '[v]', '-an',
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p',
+                str(part), timeout=600,
+            )
+            part_graph.unlink(missing_ok=True)
+            encoded.append(part)
+        graph = work / 'picture.txt'
+        joined = ''.join(f'[{index}:v]' for index in range(len(encoded)))
+        graph.write_text(f'{joined}concat=n={len(encoded)}:v=1:a=0[v]\n')
+        args = []
+        for part in encoded:
+            args.extend(['-i', str(part)])
+        ffmpeg(
+            *args, '-filter_complex_script', str(graph), '-map', '[v]', '-an',
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p',
+            str(out), timeout=600,
+        )
+        for part in encoded:
+            part.unlink(missing_ok=True)
+    else:
+        chains = []
+        labels = []
+        for index, start, take, chain in pieces:
+            label = f'v{index}'
+            chains.append(
+                f'[0:v]trim=start={start:.3f}:duration={take:.3f},setpts=PTS-STARTPTS,{chain}[{label}]'
+            )
+            labels.append(f'[{label}]')
+        graph = work / 'picture.txt'
+        graph.write_text(';\n'.join(chains) + f';\n{"".join(labels)}concat=n={len(labels)}:v=1:a=0[v]\n')
+        ffmpeg(
+            '-i', str(source), '-filter_complex_script', str(graph), '-map', '[v]', '-an',
+            '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
+            str(out), timeout=600,
+        )
     ranges = []
     cursor = 0.0
     for length in lengths:
