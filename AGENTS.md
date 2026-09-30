@@ -27,3 +27,16 @@ For changes affecting editing, rendering, audio, delivery selection or versions:
 Continue authorized diagnosis, fixes and verification autonomously. Do not ask
 the user to discover regressions one button at a time or repeat tests that can
 be performed in the available environment.
+
+## Hypit prompt boundary
+
+Lumen-fix only assembles the prompt for Hypit
+(`https://github.com/hypit-ai/hypit`). Lumen stays the app, the project, the
+sliders, and the review surface. Hypit generates the video from that prompt.
+
+Sliders and every control in «Эффекты» change that prompt. Hypit renders it.
+Card pixel size is not a Lumen effect. Duration share (10% of a 1-minute video
+= 6 seconds of animation) and intensity (5–100, step 5) are prompt inputs, not
+CSS. Do not invent a parallel composition engine: no plate CSS, zoom, font
+size, seek-script geometry, timeline cuts inside `index.html`, or a second
+renderer.

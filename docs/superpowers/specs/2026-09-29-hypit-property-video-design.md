@@ -2,6 +2,19 @@
 
 Date: 2026-09-29. Working label only: this is not a product rename.
 
+## Locked product rule
+
+Lumen-fix only assembles the prompt for Hypit
+(`https://github.com/hypit-ai/hypit`). Lumen stays the app, the project, the
+sliders, and the review surface. Hypit generates the video from that prompt.
+
+Sliders and every control in «Эффекты» change that prompt. Hypit renders it.
+Card pixel size is not a Lumen effect. Duration share (10% of a 1-minute video
+= 6 seconds of animation) and intensity (5–100, step 5) are prompt inputs, not
+CSS. Do not invent a parallel composition engine: no plate CSS, zoom, font
+size, seek-script geometry, timeline cuts inside `index.html`, or a second
+renderer.
+
 Lumen stays the application, the project record, and the delivery history. Hypit
 (`https://github.com/hypit-ai/hypit`, inspected commit `b00532e`, package version
 0.2.16) stays an engine behind that boundary. No user-owned Hypit fork remote is
