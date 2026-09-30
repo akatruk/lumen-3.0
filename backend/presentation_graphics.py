@@ -222,23 +222,62 @@ _KIND_RU = {
 def _caption_text(caption):
     if not isinstance(caption, dict):
         caption = caption.model_dump() if hasattr(caption, 'model_dump') else {}
-    return ' '.join(str(caption.get(key) or '') for key in ('zh', 'original', 'en', 'ru'))
+    for key in ('zh', 'original', 'ru', 'en'):
+        text = ' '.join(str(caption.get(key) or '').split())
+        if text and text != '口播':
+            return text
+    return ''
 
 
-def _visual_title(caption):
+_FOCUS = (
+    '法人代表', '董事权限', '股东结构', '注册资本', '外资比例', '出资节奏',
+    '三名股东', '实缴', '认缴', '第一步', '第一关',
+)
+
+
+def _spoken_line(caption):
     if not isinstance(caption, dict):
         caption = caption.model_dump() if hasattr(caption, 'model_dump') else {}
     for key in ('zh', 'original', 'ru', 'en'):
         text = ' '.join(str(caption.get(key) or '').split())
         if text and text != '口播' and not text.isdigit():
-            for sep in ('，', ',', '。', '？', '?', '！', '!', '；', ';'):
-                if sep in text:
-                    text = text.split(sep)[0].strip()
-            text = text.strip(' ，,。.')
-            if len(text) > 18:
-                text = text[:18].rsplit(' ', 1)[0].strip() or text[:18]
             return text
     return ''
+
+
+def _focus(text):
+    for token in _FOCUS:
+        if token in text:
+            return token
+    line = text
+    for sep in ('，', ',', '。', '？', '?', '！', '!', '；', ';', '：', ':'):
+        if sep in line:
+            line = line.split(sep)[0].strip()
+    named = re.search(r'(?:看的是|强调|是)([\u4e00-\u9fff]{2,6})', text)
+    if named:
+        return named.group(1)
+    chars = re.findall(r'[\u4e00-\u9fff]', line)
+    if chars:
+        return ''.join(chars[:8])
+    return line[:24].strip()
+
+
+def _visual_title(caption):
+    return _focus(_spoken_line(caption))
+
+
+def _compare_sides(text):
+    """Two labels already spoken. A missing side adds nothing."""
+    if '中国' not in text or '泰国' not in text:
+        return '', ''
+    right = text.split('中国', 1)[1]
+    if '泰国' not in right:
+        return '', ''
+    left, right = right.split('泰国', 1)
+    left, right = _focus(left), _focus(right)
+    if len(left) < 2 or len(right) < 2 or left == right:
+        return '', ''
+    return left, right
 
 
 def visual_kind(text):
@@ -249,6 +288,8 @@ def visual_kind(text):
     folded = blob.lower()
     if re.search(r'\d+(?:\.\d+)?\s*[%％]', blob) or re.search(r'\d+(?:\.\d+)?\s*[万千亿]', blob):
         return 'figure'
+    if _compare_sides(blob)[0]:
+        return 'compare'
     up = any(needle.lower() in folded for needle in _UP)
     down = any(needle.lower() in folded for needle in _DOWN)
     if up and down:
@@ -257,11 +298,13 @@ def visual_kind(text):
         return 'down'
     if up:
         return 'up'
+    if any(token in blob for token in _FOCUS if token not in ('第一步', '第一关')):
+        return 'phrase'
     if any(needle.lower() in folded for needle in _STEPS):
         return 'steps'
     if any(needle.lower() in folded for needle in _COMPARE):
         return 'compare'
-    if any(needle.lower() in folded for needle in _DEADLINE):
+    if any(needle.lower() in folded for needle in _DEADLINE) or '节奏' in blob or '时间' in blob:
         return 'deadline'
     return 'phrase'
 
@@ -290,13 +333,22 @@ def speech_visuals(edit):
             continue
         seen.add(key)
         figure = ''
+        left, right = '', ''
         if kind == 'figure':
             found = re.search(r'\d+(?:\.\d+)?\s*[%％]|\d+(?:\.\d+)?\s*[万千亿]', blob)
             figure = re.sub(r'\s+', '', found.group(0)) if found else title
+            if '外资' in blob:
+                title = '外资比例'
+        elif kind == 'compare':
+            left, right = _compare_sides(blob)
+        elif kind == 'steps':
+            title = '第一关' if '第一关' in blob else ('第一步' if '第一步' in blob else title)
         beats.append({
             'kind': kind,
             'title': title,
             'figure': figure,
+            'left': left,
+            'right': right,
             'start': round(start, 3),
             'end': round(end, 3),
         })

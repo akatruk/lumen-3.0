@@ -691,17 +691,18 @@ def _speech_ideas(clips, ranges, captions, total, occupied=None):
             continue
         a = max(0, int(round(out_start * FPS)))
         b = max(a + 1, min(total, int(round(out_end * FPS))))
-        if occupied is not None and _occupied(a, b, occupied):
-            continue
         chapter += 1
         kind = beat['kind']
         title = html.escape(beat['title'])
         figure = html.escape(beat['figure'] or '')
         if kind == 'figure' and figure:
             body = f'<div class="hf-idea-figure">{figure}</div><div class="hf-idea-title">{title}</div>'
-        elif kind == 'compare' and '，' in beat['title']:
-            left, right = [html.escape(part.strip()) for part in beat['title'].split('，', 1)]
-            body = f'<div class="hf-idea-split"><b>{left}</b><b>{right}</b></div>'
+        elif kind == 'compare' and beat.get('left') and beat.get('right'):
+            left, right = html.escape(beat['left']), html.escape(beat['right'])
+            body = (
+                f'<div class="hf-idea-split"><b>{left}</b><b>{right}</b></div>'
+                f'<div class="hf-idea-caption">中国 · 泰国</div>'
+            )
         elif kind == 'steps':
             body = f'<div class="hf-idea-step">{chapter:02d}</div><div class="hf-idea-title">{title}</div>'
         elif kind == 'deadline':
@@ -718,6 +719,26 @@ def _speech_ideas(clips, ranges, captions, total, occupied=None):
         if occupied is not None:
             occupied.append((a, b))
     return layers
+
+
+def _tile_ideas(layers, total):
+    """At full presence the previous picture holds until the next spoken one."""
+    parsed = []
+    for layer in layers:
+        found = re.search(r'data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', layer)
+        if not found:
+            continue
+        parsed.append((int(found.group(1)), int(found.group(2)), layer))
+    if not parsed:
+        return layers
+    parsed.sort(key=lambda item: item[0])
+    tiled = []
+    for index, (start, end, layer) in enumerate(parsed):
+        begin = 0 if index == 0 else start
+        stop = parsed[index + 1][0] if index + 1 < len(parsed) else total
+        stop = max(begin + 1, min(total, stop))
+        tiled.append(_retimed(layer, begin, stop) if (begin, stop) != (start, end) else layer)
+    return tiled
 
 
 def _retimed(layer, start, end):
@@ -792,13 +813,15 @@ def composition(source, work, manual, width, height, language, style=None):
                 if span_index > 8:
                     break
     plates = _plates(clips, ranges, language, total)
-    occupied = _spans(plates)
-    ideas = _speech_ideas(clips, ranges, manual.get('captions') or [], total, occupied)
+    ideas = _speech_ideas(clips, ranges, manual.get('captions') or [], total, None)
+    from .presentation_graphics import animation_brief, animation_levels
+    levels = animation_levels(manual)
+    if levels['coverage'] >= 100 and ideas:
+        ideas = _tile_ideas(ideas, total)
+    occupied = _spans(plates) + _spans(ideas)
     graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied)
     graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
     graphics.extend(ideas)
-    from .presentation_graphics import animation_brief, animation_levels
-    levels = animation_levels(manual)
     filmed = max(5, min(100, int(levels['depth'] or levels['intensity'])))
     layers.extend(_limit_graphics(graphics, total, levels['coverage'], levels['density']))
     seconds = f'{total / FPS:.3f}'
@@ -840,6 +863,7 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-idea-step{{font:800 {max(64, height // 10)}px/1 "Noto Sans CJK SC",sans-serif;color:#7eb6ff}}
     .hf-idea-split{{display:flex;gap:18px;width:84%}}
     .hf-idea-split b{{flex:1;padding:18px 12px;border-radius:16px;background:rgba(255,255,255,.08);font:800 {max(22, height // 28)}px/1.25 "Noto Sans CJK SC",sans-serif}}
+    .hf-idea-caption{{font:600 {max(16, height // 48)}px/1.2 "Noto Sans CJK SC",sans-serif;opacity:.72}}
     .hf-idea-track{{display:block;width:68%;height:10px;border-radius:10px;background:rgba(255,255,255,.22);overflow:hidden}}
     .hf-idea-fill{{display:block;width:0;height:100%;background:#f2c14b}}
     .hf-window .hf-card-title,.hf-mini .hf-card-title{{width:auto;padding:0;border-radius:0;background:none;font:700 {max(15, min(22, height // 52))}px/1.28 sans-serif;overflow-wrap:break-word}}

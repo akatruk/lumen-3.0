@@ -104,7 +104,8 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert '三名股东开会' in html
     assert '口播' not in html and 'Shareholders' not in html and '>3<' not in html
     assert 'Governance logic also differs' not in html
-    assert '股东结构' not in html and '董事权限' not in html
+    assert '股东结构' not in html
+    assert '法人代表' in html and '董事权限' in html
     assert 'hf-board' in html and '外资比例' in html and '49%' in html
     assert 'class="hf-plate"' in html and 'hf-board hf-plate' not in html
     assert '<text' not in html and 'render:Video' not in html and '<?svml' not in html
@@ -323,12 +324,13 @@ def test_spoken_words_become_a_matching_picture():
     assert 'data-visual="up"' in layers[0] and 'data-visual-mark="up"' in layers[0]
     assert 'data-visual="down"' in layers[1] and 'rotate' not in layers[1]
     assert 'data-hf-avatar="1"' in layers[0]
-    blocked = _speech_ideas(
-        [{'start': 0, 'end': 8}], [(0.0, 8.0)],
-        [{'start': 1, 'end': 3, 'zh': '利润一直在增长', 'original': '利润一直在增长'}],
-        240, [(0, 240)],
-    )
-    assert blocked == []
+    compared = speech_visuals({'captions': [
+        {'start': 47, 'end': 56, 'zh': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限', 'original': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限'},
+        {'start': 26, 'end': 34, 'zh': '外资比例一般是不超过49%', 'original': '外资比例一般是不超过49%'},
+    ]})
+    assert compared[0]['kind'] == 'compare'
+    assert compared[0]['left'] == '法人代表' and compared[0]['right'] == '董事权限'
+    assert compared[1]['kind'] == 'figure' and compared[1]['figure'] == '49%' and compared[1]['title'] == '外资比例'
 
 
 def test_the_sliders_write_one_animation_prompt():
