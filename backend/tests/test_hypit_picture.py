@@ -114,7 +114,8 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'data-card-motion="100"' in html
     assert 'data-animation-intensity="100"' in html
     assert '(el.classList.contains(\'hf-board\') ? 28 : 16) * intensity' in html
-    assert 'Анимация 100%' in html and 'не меняются' in html
+    assert '100% длины ролика' in html and '60 секунд на каждую минуту' in html
+    assert 'площади' not in html and 'этот размер' not in html
     assert (tmp_path / 'animation-share.txt').read_text() == '100'
     from backend.hypit_picture import composition
     quiet = tmp_path / 'motion-zero'
@@ -127,7 +128,8 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     composition(src, mid_dir, {**edit, 'card_motion': 10}, 160, 240, 'zh')
     mid = (mid_dir / 'index.html').read_text()
     assert 'data-card-motion="10"' in mid and 'data-card-motion="100"' not in mid
-    assert 'Анимация 10%' in mid and 'data-animation-intensity="100"' in mid
+    assert '10% длины ролика' in mid and '6 секунд на каждую минуту' in mid
+    assert 'data-animation-intensity="100"' in mid
 
     assert 'data-card-width="0.860"' in html and 'left:7%;width:86%;top:15%;height:70%' in html
     assert 'data-graphic-scale="' not in html and 'el.style.zoom' not in html
@@ -296,20 +298,26 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
 
 def test_the_sliders_write_one_animation_prompt():
     from backend.manual import Edit
-    from backend.presentation_graphics import animation_brief, animation_levels, plan
+    from backend.presentation_graphics import animation_brief, plan
 
     edit = Edit.model_validate({
         'clips': [{'start': 0, 'end': 60}],
-        'card_motion': 10,
-        'animation_intensity': 40,
-        'animation_density': 60,
+        'card_motion': 20,
+        'animation_depth': 40,
+        'animation_motion': 60,
+        'animation_density': 80,
     })
     brief = animation_brief(edit)
-    assert 'Анимация 10%' in brief and '6.0 с из 60.0 с' in brief
-    assert 'Интенсивность 40%' in brief and 'Плотность 60%' in brief
-    assert 'не меняются' in brief and 'виньетки' in brief and 'титра' in brief
-    full = animation_levels(Edit.model_validate({'clips': [{'start': 0, 'end': 60}]}))
-    assert full['coverage'] == 100 and full['intensity'] == 100
+    assert brief == (
+        'Будет добавлена анимация на 20% длины ролика — это 12 секунд на каждую минуту. '
+        'Интенсивность 40%. Движение 60%. Плотность 80% слоёв.'
+    )
+    assert 'площад' not in brief and 'размер' not in brief
+    full = animation_brief(Edit.model_validate({'clips': [{'start': 0, 'end': 60}]}))
+    assert full == (
+        'Будет добавлена анимация на 100% длины ролика — это 60 секунд на каждую минуту. '
+        'Интенсивность 100%. Движение 100%. Плотность 100% слоёв.'
+    )
     assert plan(edit).animation_prompt == brief
     with pytest.raises(Exception):
         Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_intensity': 7})

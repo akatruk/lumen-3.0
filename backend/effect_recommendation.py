@@ -140,17 +140,23 @@ def recommend(edit):
     clips = _open(edit)
     if not clips:
         raise ValueError('no_open_picture')
+    if not _graphics(edit):
+        raise ValueError('effect_unavailable')
     motion = edit.get('card_motion')
     motion = 100 if motion is None else _num(motion, 100)
-    if _graphics(edit) and motion >= 95:
+    if motion >= 95:
         return {'id': 'card_motion', 'clips': {}, 'edit': {'card_motion': CARD_MOTION}}
-    intensity = edit.get('animation_intensity')
-    intensity = 100 if intensity is None else _num(intensity, 100)
-    if _graphics(edit) and intensity >= 95:
-        return {'id': 'intensity', 'clips': {}, 'edit': {'animation_intensity': 50}}
+    depth = edit.get('animation_depth')
+    depth = 100 if depth is None else _num(depth, 100)
+    if depth >= 95:
+        return {'id': 'depth', 'clips': {}, 'edit': {'animation_depth': 50}}
+    movement = edit.get('animation_motion')
+    movement = 100 if movement is None else _num(movement, 100)
+    if movement >= 95:
+        return {'id': 'motion', 'clips': {}, 'edit': {'animation_motion': 50}}
     density = edit.get('animation_density')
     density = 100 if density is None else _num(density, 100)
-    if _graphics(edit) and density >= 95:
+    if density >= 95:
         return {'id': 'density', 'clips': {}, 'edit': {'animation_density': 60}}
     raise ValueError('effect_unavailable')
 
@@ -165,7 +171,7 @@ def apply_recommendation(edit, recommendation):
         if isinstance(patch, dict):
             clip.update(patch)
     extra = (recommendation or {}).get('edit') or {}
-    for key in ('card_motion', 'animation_intensity', 'animation_density'):
+    for key in ('card_motion', 'animation_depth', 'animation_motion', 'animation_density'):
         if key in extra:
             shaped[key] = extra[key]
     return shaped

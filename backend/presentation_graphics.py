@@ -195,16 +195,16 @@ def animation_window(edit):
 
 
 def animation_brief(edit):
-    """The prompt Hypit captures. The same numbers limit the timeline, not the card size."""
-    window = animation_window(edit)
+    """The prompt saved with the edit and sent when Hypit generates the video.
+
+    Presence is a share of one minute. Depth is intensity. Nothing here changes card size.
+    """
     levels = animation_levels(edit)
+    presence = levels['coverage']
+    seconds = presence * 60 // 100
     return (
-        'Создай графику Hypit полного размера поверх исходного кадра и не меняй его резкость. '
-        f"Анимация {window['coverage']}% длительности: графика занимает {window['seconds']:.1f} с из {window['length']:.1f} с, "
-        'остальное время — чистый кадр без этих плашек. '
-        f"Интенсивность {window['intensity']}%: появление карточек {window['intensity']}% полного входа. "
-        f"Плотность {levels['density']}%: в этом отрезке {levels['density']}% графических слоёв. "
-        'Ширина, высота и кегль плашек не меняются. Без крупного титра на лицо, без виньетки и без затемнения кадра.'
+        f"Будет добавлена анимация на {presence}% длины ролика — это {seconds} секунд на каждую минуту. "
+        f"Интенсивность {levels['depth']}%. Движение {levels['motion']}%. Плотность {levels['density']}% слоёв."
     )
 
 

@@ -382,9 +382,8 @@ export function ManualEditor({
       setBusy(false);
     }
   }
-  function setAnimation(key: "card_motion" | "animation_intensity" | "animation_density", value: number) {
-    const floor = key === "animation_intensity" ? 5 : 0;
-    const level = Math.max(floor, Math.min(100, Math.round(value / 5) * 5));
+  function setAnimation(key: "card_motion" | "animation_depth" | "animation_motion" | "animation_density", value: number) {
+    const level = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
     const current = editRef.current;
     if (!current || (current[key] ?? 100) === level) return;
     const next = { ...current, [key]: level };
@@ -418,9 +417,9 @@ export function ManualEditor({
       setDirty(false);
       sessionStorage.removeItem(draftKey);
       setCardNote(w(
-        "Уровень сохранён. «Собрать видео заново» перепишет промпт Hypit: этот процент длины ролика, плашки полного размера.",
-        "Saved. Regenerate video rewrites the Hypit prompt: that share of the video, cards at full size.",
-        "已保存。重新生成会改写 Hypit 提示：成片的这个时长比例，卡片保持完整尺寸。",
+        "Уровень сохранён. «Собрать видео заново» отправит этот промпт в Hypit.",
+        "Saved. Regenerate video sends this prompt to Hypit.",
+        "已保存。重新生成会把这个提示发给 Hypit。",
       ));
       await onSaved();
     } catch (e) {
@@ -502,6 +501,8 @@ export function ManualEditor({
       ...current,
       clips,
       ...(pick.edit?.card_motion != null ? { card_motion: pick.edit.card_motion } : {}),
+      ...(pick.edit?.animation_depth != null ? { animation_depth: pick.edit.animation_depth } : {}),
+      ...(pick.edit?.animation_motion != null ? { animation_motion: pick.edit.animation_motion } : {}),
       ...(pick.edit?.animation_intensity != null ? { animation_intensity: pick.edit.animation_intensity } : {}),
       ...(pick.edit?.animation_density != null ? { animation_density: pick.edit.animation_density } : {}),
     };
@@ -692,23 +693,23 @@ export function ManualEditor({
       <div hidden={task!=='edit'&&task!=='effects'}>
       {task==='effects'&&<section className="presentation-share" aria-label={w('Процент добавляемой анимации','Added animation percent','添加动画的百分比')}>
         {([
-          ['card_motion', 0, w('Анимация в видео, %','Animation in the video, %','成片中的动画，%'), w('Процент добавляемой анимации','Added animation, %','添加动画的百分比'), edit.card_motion],
-          ['animation_intensity', 5, w('Интенсивность, %','Intensity, %','强度，%'), w('Интенсивность анимации','Animation intensity','动画强度'), edit.animation_intensity],
-          ['animation_density', 0, w('Плотность, %','Density, %','密度，%'), w('Плотность анимации','Animation density','动画密度'), edit.animation_density],
-        ] as const).map(([key, floor, label, name, value]) => (
+          ['card_motion', w('Присутствие, %','Presence, %','占比，%'), w('Процент добавляемой анимации','Added animation, %','添加动画的百分比'), edit.card_motion],
+          ['animation_depth', w('Глубина, %','Depth, %','深度，%'), w('Глубина анимации','Animation depth','动画深度'), edit.animation_depth],
+          ['animation_motion', w('Движение, %','Motion, %','运动，%'), w('Движение анимации','Animation motion','动画运动'), edit.animation_motion],
+          ['animation_density', w('Плотность, %','Density, %','密度，%'), w('Плотность анимации','Animation density','动画密度'), edit.animation_density],
+        ] as const).map(([key, label, name, value]) => (
           <label className="inspector-slider" key={key}>
             {label}
-            <input type="range" min={floor} max={100} step={5} value={value??100} aria-label={name} aria-valuemin={floor} aria-valuemax={100} aria-valuenow={value??100} aria-valuetext={`${value??100}%`} onChange={e=>setAnimation(key, Number(e.target.value))} />
+            <input type="range" min={0} max={100} step={5} value={value??100} aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value??100} aria-valuetext={`${value??100}%`} onChange={e=>setAnimation(key, Number(e.target.value))} />
             <output>{value??100}%</output>
           </label>
         ))}
         {cardNote&&<p role="status">{cardNote}</p>}
         <p className="animation-prompt">{w(
-          `Промпт Hypit: анимация ${edit.card_motion??100}% длины ролика, плашки полного размера. Интенсивность ${edit.animation_intensity??100}%. Плотность ${edit.animation_density??100}% слоёв. Кадр остаётся резким.`,
-          `Hypit prompt: animation covers ${edit.card_motion??100}% of the video, cards stay full size. Intensity ${edit.animation_intensity??100}%. Density ${edit.animation_density??100}% of the layers. The footage stays sharp.`,
-          `Hypit 提示：动画占成片长度的 ${edit.card_motion??100}%，卡片保持完整尺寸。强度 ${edit.animation_intensity??100}%。密度 ${edit.animation_density??100}%。原画面保持清晰。`,
+          `Будет добавлена анимация на ${edit.card_motion??100}% длины ролика — это ${Math.round((edit.card_motion??100)*60/100)} секунд на каждую минуту. Интенсивность ${edit.animation_depth??100}%. Движение ${edit.animation_motion??100}%. Плотность ${edit.animation_density??100}% слоёв.`,
+          `Animation will cover ${edit.card_motion??100}% of the video — ${Math.round((edit.card_motion??100)*60/100)} seconds of each minute. Intensity ${edit.animation_depth??100}%. Motion ${edit.animation_motion??100}%. Density ${edit.animation_density??100}% of the layers.`,
+          `动画将占成片的 ${edit.card_motion??100}%，即每分钟 ${Math.round((edit.card_motion??100)*60/100)} 秒。强度 ${edit.animation_depth??100}%。运动 ${edit.animation_motion??100}%。密度为图层的 ${edit.animation_density??100}%。`,
         )}</p>
-        <small>{w('Шаг 5%. 10% минутного ролика — это 6 секунд анимации полного размера, остальное время чистый кадр. Интенсивность меняет силу входа, не размер плашки. 100% и интенсивность 100 оставляют принятую картинку. Сохраните уровень и соберите видео заново.','Steps of 5%. 10% of a one-minute video is 6 seconds of full-size animation; the rest is clean footage. Intensity changes the entrance, not the card size. 100% coverage and intensity 100 keep the accepted picture. Save the level, then regenerate the video.','步进 5%。一分钟视频的 10% 是 6 秒完整尺寸动画，其余是干净画面。强度改变入场，不改变卡片尺寸。100% 覆盖和强度 100 保留已接受的画面。保存后请重新生成视频。')}</small>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       <section className="inspector-scene-controls">

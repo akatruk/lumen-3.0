@@ -355,7 +355,11 @@ def effect_recommendation(pid:str,body:EffectRequest,user=Depends(current_user))
     from .effect_recommendation import proposal
     owned(pid,user)
     with connect() as db:
-        db.lock();locked_state(pid,body.revision,db)
+        db.lock()
+        from .studio import state
+        current = state(pid, db)
+        if not current or not current['plan'] or body.revision != current['revision']:
+            raise HTTPException(409, 'plan_changed')
     try:
         return proposal(body.edit.model_dump())
     except ValueError as exc:

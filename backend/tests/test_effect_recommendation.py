@@ -92,10 +92,10 @@ def test_vignette_and_card_motion_follow_when_the_picture_already_has_the_earlie
     applied = apply_recommendation(saved, cards)
     assert applied['card_motion'] == 70
     quieter = proposal({**applied, 'card_motion': 70})
-    assert quieter['id'] == 'intensity'
-    assert quieter['edit']['animation_intensity'] == 50
+    assert quieter['id'] == 'depth'
+    assert quieter['edit']['animation_depth'] == 50
     shaped = apply_recommendation(applied, quieter)
-    assert shaped['animation_intensity'] == 50 and shaped['card_motion'] == 70
+    assert shaped['animation_depth'] == 50 and shaped['card_motion'] == 70
     assert applied['clips'][0]['zoom_end'] == 1.35
     assert 'vignette=' not in motion_filter(applied['clips'][0], 1080, 1920, 6)
     assert 'unsharp=' not in motion_filter(applied['clips'][0], 1080, 1920, 6)
