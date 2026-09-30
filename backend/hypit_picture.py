@@ -746,8 +746,26 @@ def composition(source, work, manual, width, height, language, style=None):
     occupied = _spans(plates)
     graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied)
     graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
-    from .presentation_graphics import animation_brief, animation_levels
+    from .presentation_graphics import animation_brief, animation_levels, frame_presence
     levels = animation_levels(manual)
+    presence = frame_presence(levels)
+    fit = 1.0 if presence['full'] or presence['linear'] <= 0 else presence['linear']
+
+    def _px(base):
+        return base if fit >= 0.999 else max(8, round(base * fit))
+
+    type_fit = ''
+    if fit < 0.999:
+        type_fit = (
+            f'.hf-lower{{right:auto;width:{70 * fit:.1f}%;}}'
+            f'.hf-lower-head{{font:800 {_px(max(22, height // 36))}px/1.2 "Noto Sans CJK SC",sans-serif}}'
+            f'.hf-lower-head b{{font:700 {_px(max(15, height // 52))}px/1 "Noto Sans CJK SC",sans-serif}}'
+            f'.hf-lower-kicker{{font:600 {_px(max(16, height // 48))}px/1.3 "Noto Sans CJK SC",sans-serif}}'
+            f'.hf-lower-bar{{width:{_px(64)}px}}'
+            f'.hf-chip{{width:{46 * fit:.1f}%;}}'
+            f'.hf-board-label{{font:600 {_px(max(22, height // 36))}px/1.2 "Noto Sans CJK SC",sans-serif}}'
+            f'.hf-board-figure{{font:800 {_px(max(56, height // 12))}px/1 "Noto Sans CJK SC",sans-serif}}'
+        )
     layers.extend(_limit_graphics(graphics, total, levels['coverage'], levels['density']))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
@@ -787,6 +805,7 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-plate-value{{font:700 {max(36, height // 12)}px/1 sans-serif;margin-top:8px}}
     .hf-plate-track{{width:72%;height:10px;margin-top:18px;border-radius:10px;background:rgba(255,255,255,.22);overflow:hidden}}
     .hf-plate-fill{{height:100%;border-radius:10px;background:#d5f5c4}}
+    {type_fit}
   </style>
 </head>
 <body>
@@ -801,7 +820,6 @@ def composition(source, work, manual, width, height, language, style=None):
       const stage = document.querySelector('[data-composition-id]');
       const motion = Math.max(0, Math.min(100, Number((stage && stage.getAttribute('data-animation-motion')) || 100))) / 100;
       const typeScale = Math.max(0.4, Math.min(1, Number((stage && stage.getAttribute('data-type-scale')) || 1)));
-      const graphicScale = Math.max(0, Math.min(1, Number((stage && stage.getAttribute('data-graphic-scale')) || 1)));
       for (const el of layers) {{
         const start = Number(el.getAttribute('data-hypit-start-frame'));
         const end = Number(el.getAttribute('data-hypit-end-frame'));
@@ -823,9 +841,8 @@ def composition(source, work, manual, width, height, language, style=None):
         if (card) {{
           const lift = Math.round((el.classList.contains('hf-board') ? 28 : 16) * motion);
           const shift = Math.round((1 - opacity) * lift);
-          const plate = el.classList.contains('hf-plate') || el.classList.contains('hf-board');
-          el.style.transformOrigin = plate ? '50% 40%' : '0% 100%';
-          el.style.transform = 'translateY(' + shift + 'px)' + (!plate && graphicScale < 0.999 ? ' scale(' + graphicScale.toFixed(3) + ')' : '');
+          el.style.transformOrigin = '50% 40%';
+          el.style.transform = 'translateY(' + shift + 'px)';
           const figure = el.querySelector('.hf-board-figure');
           if (figure) figure.style.transform = 'scale(' + (typeScale * (1 - 0.1 * motion * (1 - opacity))).toFixed(3) + ')';
         }}

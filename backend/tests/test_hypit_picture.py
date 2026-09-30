@@ -130,7 +130,8 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'data-graphic-scale=' not in html
     assert 'data-card-width="0.086"' in mid and 'width:8.6%' in mid
     assert 'data-graphic-scale="0.100"' in mid and '外资比例' in mid
-    assert "scale(' + graphicScale.toFixed(3) + ')'" in mid
+    assert '.hf-lower{right:auto;width:7.0%;}' in mid
+    assert 'right:auto;width:7.0%' not in html
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
