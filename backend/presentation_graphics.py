@@ -162,44 +162,49 @@ def _step(value, default=100):
     return max(0, min(100, number // 5 * 5))
 
 
+def _intensity(value):
+    """5–100 in steps of 5. A missing value keeps the accepted entrance."""
+    return max(5, _step(value, 100))
+
+
 def animation_levels(edit):
-    """Coverage, depth, entrance, and density. Missing values keep the full picture."""
+    """How much of the timeline carries graphics, and how strong that entrance is.
+
+    Coverage is a share of the video length. Intensity never changes card size.
+    """
     manual = edit if isinstance(edit, dict) else edit.model_dump()
     return {
         'coverage': _step(manual.get('card_motion'), 100),
+        'intensity': _intensity(manual.get('animation_intensity')),
         'depth': _step(manual.get('animation_depth'), 100),
         'motion': _step(manual.get('animation_motion'), 100),
         'density': _step(manual.get('animation_density'), 100),
     }
 
 
-def frame_presence(levels):
-    """Width and height of every graphic, as a fraction of the accepted full size.
-
-    100% coverage and 100% depth keep that size. 40% coverage draws the card at
-    40% of its width and height. Depth scales the same fraction.
-    """
-    coverage = max(0, min(100, int(levels['coverage']))) / 100
-    depth = max(0, min(100, int(levels['depth']))) / 100
-    linear = coverage * (0.45 + 0.55 * depth) if coverage > 0 else 0.0
+def animation_window(edit):
+    """Seconds of full-size graphics. 10% of a minute is 6 seconds."""
+    levels = animation_levels(edit)
+    length = _footage_seconds(edit)
     return {
-        'area': linear * linear,
-        'linear': linear,
-        'type': 0.4 + 0.6 * depth,
-        'full': int(levels['coverage']) >= 100 and int(levels['depth']) >= 100,
+        'length': length,
+        'seconds': length * levels['coverage'] / 100,
+        'coverage': levels['coverage'],
+        'intensity': levels['intensity'],
     }
 
 
 def animation_brief(edit):
-    """The Hypit prompt the sliders write. The picture uses the same numbers."""
+    """The prompt Hypit captures. The same numbers limit the timeline, not the card size."""
+    window = animation_window(edit)
     levels = animation_levels(edit)
     return (
-        'Создай графику Hypit поверх исходного кадра и не меняй его резкость. '
-        f"Присутствие {levels['coverage']}%: ширина и высота графики {levels['coverage']}% полной плашки, блок по центру. "
-        f"Глубина {levels['depth']}%: тот же размер графики умножается на {levels['depth']}%. "
-        f"Движение {levels['motion']}%: появление карточки {levels['motion']}% полного входа. "
-        f"Плотность {levels['density']}%: на экране {levels['density']}% графических слоёв. "
-        'Без крупного титра на лицо, без виньетки и без затемнения кадра.'
+        'Создай графику Hypit полного размера поверх исходного кадра и не меняй его резкость. '
+        f"Анимация {window['coverage']}% длительности: графика занимает {window['seconds']:.1f} с из {window['length']:.1f} с, "
+        'остальное время — чистый кадр без этих плашек. '
+        f"Интенсивность {window['intensity']}%: появление карточек {window['intensity']}% полного входа. "
+        f"Плотность {levels['density']}%: в этом отрезке {levels['density']}% графических слоёв. "
+        'Ширина, высота и кегль плашек не меняются. Без крупного титра на лицо, без виньетки и без затемнения кадра.'
     )
 
 

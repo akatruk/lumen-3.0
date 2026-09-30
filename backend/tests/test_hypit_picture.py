@@ -112,7 +112,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'during="program"' in svml and '三名股东开会' in svml and '<render:Video id="final"' in svml
     assert (tmp_path / 'hypit' / 'recipes.svs').is_file() and (tmp_path / 'hypit' / 'build.svrun').is_file()
     assert 'data-card-motion="100"' in html
-    assert '(el.classList.contains(\'hf-board\') ? 28 : 16) * motion' in html
+    assert 'data-animation-intensity="100"' in html
+    assert '(el.classList.contains(\'hf-board\') ? 28 : 16) * intensity' in html
+    assert 'Анимация 100%' in html and 'не меняются' in html
     assert (tmp_path / 'animation-share.txt').read_text() == '100'
     from backend.hypit_picture import composition
     quiet = tmp_path / 'motion-zero'
@@ -125,11 +127,20 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     composition(src, mid_dir, {**edit, 'card_motion': 10}, 160, 240, 'zh')
     mid = (mid_dir / 'index.html').read_text()
     assert 'data-card-motion="10"' in mid and 'data-card-motion="100"' not in mid
+    assert 'Анимация 10%' in mid and 'data-animation-intensity="100"' in mid
 
     assert 'data-card-width="0.860"' in html and 'left:7%;width:86%;top:15%;height:70%' in html
-    assert 'data-graphic-scale="' not in html
-    assert 'data-card-width="0.860"' in mid and 'data-graphic-scale="0.100"' in mid
-    assert 'el.style.zoom' in mid and '外资比例' in mid
+    assert 'data-graphic-scale="' not in html and 'el.style.zoom' not in html
+    assert 'data-card-width="0.860"' in mid and 'left:7%;width:86%;top:15%;height:70%' in mid
+    assert 'data-graphic-scale="' not in mid and 'el.style.zoom' not in mid
+    total = int(mid.split('data-hypit-frame-count="', 1)[1].split('"', 1)[0])
+    horizon = max(1, round(total * 10 / 100))
+    plates = mid.split('class="hf-plate"')[1:]
+    for layer in plates:
+        end = int(layer.split('data-hypit-end-frame="', 1)[1].split('"', 1)[0])
+        assert end <= horizon
+    full_plates = html.split('class="hf-plate"')[1:]
+    assert full_plates and int(full_plates[0].split('data-hypit-end-frame="', 1)[1].split('"', 1)[0]) > horizon
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
@@ -288,24 +299,22 @@ def test_the_sliders_write_one_animation_prompt():
     from backend.presentation_graphics import animation_brief, animation_levels, plan
 
     edit = Edit.model_validate({
-        'clips': [{'start': 0, 'end': 20}],
-        'card_motion': 40,
-        'animation_depth': 80,
-        'animation_motion': 20,
+        'clips': [{'start': 0, 'end': 60}],
+        'card_motion': 10,
+        'animation_intensity': 40,
         'animation_density': 60,
     })
     brief = animation_brief(edit)
-    assert 'Присутствие 40%' in brief and 'Глубина 80%' in brief and 'полной плашки' in brief
-    assert 'Движение 20%' in brief and 'Плотность 60%' in brief
-    assert 'виньетки' in brief and 'титра' in brief
-    from backend.presentation_graphics import frame_presence
-    full = frame_presence(animation_levels(Edit.model_validate({'clips': [{'start': 0, 'end': 20}]})))
-    assert full['full'] is True and full['linear'] == 1
-    small = frame_presence({'coverage': 40, 'depth': 100, 'motion': 100, 'density': 100})
-    assert small['linear'] == pytest.approx(0.4) and small['area'] == pytest.approx(0.16)
+    assert 'Анимация 10%' in brief and '6.0 с из 60.0 с' in brief
+    assert 'Интенсивность 40%' in brief and 'Плотность 60%' in brief
+    assert 'не меняются' in brief and 'виньетки' in brief and 'титра' in brief
+    full = animation_levels(Edit.model_validate({'clips': [{'start': 0, 'end': 60}]}))
+    assert full['coverage'] == 100 and full['intensity'] == 100
     assert plan(edit).animation_prompt == brief
     with pytest.raises(Exception):
-        Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_depth': 7})
+        Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_intensity': 7})
+    with pytest.raises(Exception):
+        Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_intensity': 0})
     from backend.hypit_picture import _card_motion, _limit_graphics
 
     def plate(start, end, name):
@@ -323,9 +332,11 @@ def test_the_sliders_write_one_animation_prompt():
     assert _limit_graphics(layers, 900, 0) == []
     assert _limit_graphics([caption, *layers], 900, 0) == [caption]
     assert _limit_graphics(layers, 900, 100) == layers
-
-    assert _limit_graphics(layers, 900, 50) == layers
-    assert _limit_graphics(layers, 900, 5) == layers
+    half = _limit_graphics(layers, 900, 50)
+    assert len(half) == 2 and 'data-hypit-end-frame="450"' in half[1] and '>c<' not in ''.join(half)
+    short = _limit_graphics(layers, 900, 10)
+    assert len(short) == 1 and 'data-hypit-end-frame="90"' in short[0]
+    assert 'width:' not in short[0]
     sparse = _limit_graphics(layers, 900, 100, 50)
     assert len(sparse) == 2
     assert _limit_graphics(layers, 900, 100, 0) == []

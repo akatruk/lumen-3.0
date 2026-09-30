@@ -144,6 +144,14 @@ def recommend(edit):
     motion = 100 if motion is None else _num(motion, 100)
     if _graphics(edit) and motion >= 95:
         return {'id': 'card_motion', 'clips': {}, 'edit': {'card_motion': CARD_MOTION}}
+    intensity = edit.get('animation_intensity')
+    intensity = 100 if intensity is None else _num(intensity, 100)
+    if _graphics(edit) and intensity >= 95:
+        return {'id': 'intensity', 'clips': {}, 'edit': {'animation_intensity': 50}}
+    density = edit.get('animation_density')
+    density = 100 if density is None else _num(density, 100)
+    if _graphics(edit) and density >= 95:
+        return {'id': 'density', 'clips': {}, 'edit': {'animation_density': 60}}
     raise ValueError('effect_unavailable')
 
 
@@ -157,8 +165,9 @@ def apply_recommendation(edit, recommendation):
         if isinstance(patch, dict):
             clip.update(patch)
     extra = (recommendation or {}).get('edit') or {}
-    if 'card_motion' in extra:
-        shaped['card_motion'] = extra['card_motion']
+    for key in ('card_motion', 'animation_intensity', 'animation_density'):
+        if key in extra:
+            shaped[key] = extra[key]
     return shaped
 
 

@@ -704,6 +704,7 @@ def test_regenerate_keeps_the_animation_sliders(client, monkeypatch):
         db.execute("UPDATE jobs SET status='complete' WHERE project_id=?", (pid,))
         config = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
         config['card_motion'] = 40
+        config['animation_intensity'] = 55
         config['animation_depth'] = 20
         config['animation_motion'] = 60
         config['animation_density'] = 80
@@ -714,9 +715,10 @@ def test_regenerate_keeps_the_animation_sliders(client, monkeypatch):
         stored = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
     assert payload['manual']['card_motion'] == 40
     assert payload['manual']['animation_depth'] == 20
+    assert payload['manual']['animation_intensity'] == 55
     assert payload['manual']['animation_motion'] == 60
     assert payload['manual']['animation_density'] == 80
-    assert stored['card_motion'] == 40 and stored['animation_density'] == 80
+    assert stored['card_motion'] == 40 and stored['animation_intensity'] == 55 and stored['animation_density'] == 80
 
 
 def test_style_match_stays_off_until_requested(client):

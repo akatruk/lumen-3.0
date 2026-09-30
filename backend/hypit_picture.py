@@ -647,50 +647,44 @@ def _retimed(layer, start, end):
 
 
 def _limit_graphics(layers, total_frames, share, density=100):
-    """Density keeps that share of the layers. Coverage sizes the card on the frame."""
+    """Keep full-size graphics for the first share% of frames.
+
+    10% of a 60 second picture is about 6 seconds. 100% returns the designed
+    layers with their original timing. Density only drops layers; it does not
+    scale a card.
+    """
     share = max(0, min(100, int(share)))
     density = max(0, min(100, int(density)))
     graphic = [layer for layer in layers if _graphic_layer(layer)]
     rest = [layer for layer in layers if layer not in graphic]
-    if share >= 100 and density >= 100 or not graphic:
+    if (share >= 100 and density >= 100) or not graphic:
         return rest + graphic
     if share <= 0 or density <= 0 or total_frames <= 0:
         return rest
+    horizon = total_frames if share >= 100 else max(1, int(round(total_frames * share / 100)))
     parsed = []
     for layer in graphic:
         found = re.search(r'data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', layer)
         if not found:
             continue
         start, end = int(found.group(1)), int(found.group(2))
-        if end > start:
-            parsed.append((start, end, layer))
+        if end <= start or start >= horizon:
+            continue
+        stop = min(end, horizon)
+        if stop <= start:
+            continue
+        parsed.append((start, stop, layer if stop == end else _retimed(layer, start, stop)))
     if not parsed:
         return rest
-    if density >= 100 or len(parsed) <= 1:
-        return rest + [layer for _start, _end, layer in parsed]
-    keep = max(1, int(round(len(parsed) * density / 100)))
-    if keep >= len(parsed):
-        return rest + [layer for _start, _end, layer in parsed]
-    if keep == 1:
-        picks = [len(parsed) // 2]
-    else:
-        picks = [round(i * (len(parsed) - 1) / (keep - 1)) for i in range(keep)]
-    return rest + [parsed[index][2] for index in picks]
-
-
-def _apply_presence(page, levels):
-    """Mark the scale Hypit captures. 100% leaves the accepted plate untouched."""
-    from .presentation_graphics import frame_presence
-
-    presence = frame_presence(levels)
-    if presence['full'] or presence['linear'] <= 0:
-        return page
-    return page.replace(
-        'data-composition-id="lumen"',
-        'data-composition-id="lumen" '
-        f'data-graphic-scale="{presence["linear"]:.3f}" data-type-scale="{presence["type"]:.3f}"',
-        1,
-    )
+    if density < 100 and len(parsed) > 1:
+        keep = max(1, int(round(len(parsed) * density / 100)))
+        if keep < len(parsed):
+            if keep == 1:
+                picks = [len(parsed) // 2]
+            else:
+                picks = [round(i * (len(parsed) - 1) / (keep - 1)) for i in range(keep)]
+            parsed = [parsed[index] for index in picks]
+    return rest + [layer for _start, _end, layer in parsed]
 
 
 def composition(source, work, manual, width, height, language, style=None):
@@ -722,7 +716,7 @@ def composition(source, work, manual, width, height, language, style=None):
     occupied = _spans(plates)
     graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied)
     graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
-    from .presentation_graphics import animation_brief, animation_levels, frame_presence
+    from .presentation_graphics import animation_brief, animation_levels
     levels = animation_levels(manual)
     layers.extend(_limit_graphics(graphics, total, levels['coverage'], levels['density']))
     seconds = f'{total / FPS:.3f}'
@@ -766,7 +760,7 @@ def composition(source, work, manual, width, height, language, style=None):
   </style>
 </head>
 <body>
-  <div data-composition-id="lumen" data-card-motion="{levels['coverage']}" data-animation-depth="{levels['depth']}" data-animation-motion="{levels['motion']}" data-animation-density="{levels['density']}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
+  <div data-composition-id="lumen" data-card-motion="{levels['coverage']}" data-animation-intensity="{levels['intensity']}" data-animation-density="{levels['density']}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
     {body}
   </div>
   <script>
@@ -775,8 +769,7 @@ def composition(source, work, manual, width, height, language, style=None):
     const apply = (time) => {{
       const frame = Math.max(0, Math.round(Number(time || 0) * fps));
       const stage = document.querySelector('[data-composition-id]');
-      const motion = Math.max(0, Math.min(100, Number((stage && stage.getAttribute('data-animation-motion')) || 100))) / 100;
-      const typeScale = Math.max(0.4, Math.min(1, Number((stage && stage.getAttribute('data-type-scale')) || 1)));
+      const intensity = Math.max(5, Math.min(100, Number((stage && stage.getAttribute('data-animation-intensity')) || 100))) / 100;
       for (const el of layers) {{
         const start = Number(el.getAttribute('data-hypit-start-frame'));
         const end = Number(el.getAttribute('data-hypit-end-frame'));
@@ -785,27 +778,18 @@ def composition(source, work, manual, width, height, language, style=None):
         let opacity = 0;
         const card = el.classList.contains('hf-board') || el.classList.contains('hf-lower') || el.classList.contains('hf-card') || el.classList.contains('hf-plate') || el.classList.contains('hf-window') || el.classList.contains('hf-mini') || el.classList.contains('hf-chip');
         if (frame >= start && frame < end) {{
-          if (card && motion <= 0) opacity = 1;
-          else {{
-            const innFrames = card ? fadeIn * motion : fadeIn;
-            const outFrames = card ? fadeOut * motion : fadeOut;
-            const inn = innFrames > 0 ? Math.min(1, (frame - start + 1) / innFrames) : 1;
-            const out = outFrames > 0 ? Math.min(1, (end - frame) / outFrames) : 1;
-            opacity = Math.min(inn, out);
-          }}
+          const innFrames = card ? fadeIn * intensity : fadeIn;
+          const outFrames = card ? fadeOut * intensity : fadeOut;
+          const inn = innFrames > 0 ? Math.min(1, (frame - start + 1) / innFrames) : 1;
+          const out = outFrames > 0 ? Math.min(1, (end - frame) / outFrames) : 1;
+          opacity = Math.min(inn, out);
         }}
         el.style.opacity = String(opacity);
         if (card) {{
-          const lift = Math.round((el.classList.contains('hf-board') ? 28 : 16) * motion);
+          const lift = Math.round((el.classList.contains('hf-board') ? 28 : 16) * intensity);
           const shift = Math.round((1 - opacity) * lift);
           el.style.transformOrigin = '50% 40%';
           el.style.transform = 'translateY(' + shift + 'px)';
-          if (!el.classList.contains('hf-plate') && !el.classList.contains('hf-board')) {{
-            const fit = Number((stage && stage.getAttribute('data-graphic-scale')) || 1);
-            if (fit < 0.999) el.style.zoom = fit.toFixed(3);
-          }}
-          const figure = el.querySelector('.hf-board-figure');
-          if (figure) figure.style.transform = 'scale(' + (typeScale * (1 - 0.1 * motion * (1 - opacity))).toFixed(3) + ')';
         }}
       }}
       const video = document.getElementById('picture');
@@ -822,19 +806,13 @@ def composition(source, work, manual, width, height, language, style=None):
           const cardTop = Number(root.getAttribute('data-card-top') || 0.15);
           const cardWidth = Number(root.getAttribute('data-card-width') || 0.86);
           const cardHeight = Number(root.getAttribute('data-card-height') || 0.70);
-          const graphicFit = Number(root.getAttribute('data-graphic-scale') || 1);
-          const shrink = graphicFit < 0.999;
-          const shownW = cardWidth * graphicFit;
-          const shownH = cardHeight * graphicFit;
-          const shownLeft = shrink ? (1 - shownW) / 2 : cardLeft;
-          const shownTop = shrink ? (1 - shownH) / 2 : cardTop;
-          const ad = Number(root.getAttribute('data-avatar-d') || (boardOn ? 0.22 : 0.28)) * (shrink ? graphicFit : 1);
+          const ad = Number(root.getAttribute('data-avatar-d') || (boardOn ? 0.22 : 0.28));
           const box = Math.round(frameW * (ad > 0.12 ? ad : 0.28));
           const half = box / 2;
           const marginX = Math.round(frameW * 0.04);
           const marginY = Math.round(frameH * 0.04);
-          let cx = frameW * (shownLeft + shownW / 2);
-          let cy = frameH * shownTop + box * 0.42;
+          let cx = frameW * (cardLeft + cardWidth / 2);
+          let cy = frameH * cardTop + box * 0.42;
           if (boardOn && !plateOn) {{
             cx = frameW * 0.78;
             cy = frameH * 0.18;
@@ -842,16 +820,15 @@ def composition(source, work, manual, width, height, language, style=None):
           cx = Math.max(marginX + half, Math.min(frameW - marginX - half, cx));
           cy = Math.max(marginY + half, Math.min(frameH - marginY - half, cy));
           for (const el of layers) {{
-            if (!el.classList.contains('hf-plate') && !(shrink && el.classList.contains('hf-board'))) continue;
+            if (!el.classList.contains('hf-plate')) continue;
             el.style.inset = 'auto';
-            el.style.zoom = shrink ? graphicFit.toFixed(3) : '1';
-            el.style.left = (shownLeft * 100) + '%';
-            el.style.top = (shownTop * 100) + '%';
+            el.style.left = (cardLeft * 100) + '%';
+            el.style.top = (cardTop * 100) + '%';
             el.style.width = (cardWidth * 100) + '%';
             el.style.height = (cardHeight * 100) + '%';
             el.style.right = 'auto';
             el.style.bottom = 'auto';
-            el.style.paddingTop = Math.max(18, Math.round(cy + half - frameH * shownTop + 18)) + 'px';
+            el.style.paddingTop = Math.max(18, Math.round(cy + half - frameH * cardTop + 18)) + 'px';
             el.style.paddingLeft = '8%';
             el.style.paddingRight = '8%';
             el.style.alignItems = 'stretch';
@@ -888,7 +865,7 @@ def composition(source, work, manual, width, height, language, style=None):
 </body>
 </html>
 '''
-    page = _apply_presence(_apply_style(page, style), levels)
+    page = _apply_style(page, style)
     prompt = animation_brief(manual)
     page = page.replace(
         'data-composition-id="lumen"',

@@ -1957,7 +1957,7 @@ def attach_recommended_bed(pid, edit, studio):
     shaped['music'] = Music(asset_id=asset_id, gain_db=-22, fade_in=0.8, fade_out=1.6, duck=True).model_dump()
     return shaped
 
-_ANIMATION_KEYS = ('card_motion', 'animation_depth', 'animation_motion', 'animation_density')
+_ANIMATION_KEYS = ('card_motion', 'animation_intensity', 'animation_depth', 'animation_motion', 'animation_density')
 
 def _keep_animation(saved, edit):
     """A rebuilt cut must keep the sliders. Regenerating otherwise renders them at 100%."""

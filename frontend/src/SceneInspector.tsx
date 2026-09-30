@@ -2,9 +2,9 @@ import type {Lang} from './types';
 import {workspaceText} from './ProjectWorkspace';
 
 export type EffectPickData={
-  id:'punch'|'grade'|'vignette'|'glow'|'card_motion';
+  id:'punch'|'grade'|'vignette'|'glow'|'card_motion'|'intensity'|'density';
   clips:Record<string,{zoom?:number;zoom_end?:number;shade?:number;glow_amount?:number}>;
-  edit:{card_motion?:number};
+  edit:{card_motion?:number;animation_intensity?:number;animation_density?:number};
 };
 
 export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:Lang;pick:EffectPickData|null;error:string;busy:boolean;note:string;onAccept:()=>void;onRetry:()=>void}){
@@ -14,7 +14,9 @@ export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:La
     grade:w('Теплее и контрастнее','A warmer, clearer grade','更暖、更清晰的调色'),
     vignette:w('Лёгкая виньетка по краям','A light vignette at the edges','边缘轻微暗角'),
     glow:w('Чуть яснее детали','A light clarity lift','细节稍微更清晰'),
-    card_motion:w('Карточки появляются мягче','Cards enter more softly','卡片入场更柔和'),
+    card_motion:w('Короче анимация в ролике','A shorter share of the video','成片里更短的动画'),
+    intensity:w('Слабее вход карточек','A quieter card entrance','卡片入场更轻'),
+    density:w('Меньше графических слоёв','Fewer graphic layers','更少图形层'),
   };
   const patches=Object.values(pick?.clips||{});
   const zoomEnd=patches.map(row=>row.zoom_end).filter((value):value is number=>typeof value==='number');
@@ -35,9 +37,17 @@ export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:La
     'Detail gets a little clearer. The next render applies it.',
     '细节会稍微更清晰。下次生成会应用这个效果。',
   ):pick?.id==='card_motion'?w(
-    `Анимация карточек станет ${pick.edit.card_motion??70}%. Следующая сборка использует это значение.`,
-    `Card animation becomes ${pick.edit.card_motion??70}%. The next render uses that level.`,
-    `卡片动画变为 ${pick.edit.card_motion??70}%。下次生成会使用这个比例。`,
+    `Графика полного размера останется на ${pick.edit.card_motion??70}% длины ролика. Следующая сборка перепишет промпт Hypit.`,
+    `Full-size graphics stay for ${pick.edit.card_motion??70}% of the video. The next render rewrites the Hypit prompt.`,
+    `完整尺寸的图形会保留成片长度的 ${pick.edit.card_motion??70}%。下次生成会改写 Hypit 提示。`,
+  ):pick?.id==='intensity'?w(
+    `Интенсивность входа станет ${pick.edit.animation_intensity??50}%. Размер плашек не меняется.`,
+    `Entrance intensity becomes ${pick.edit.animation_intensity??50}%. Card size stays the same.`,
+    `入场强度变为 ${pick.edit.animation_intensity??50}%。卡片尺寸不变。`,
+  ):pick?.id==='density'?w(
+    `В этом отрезке останется ${pick.edit.animation_density??60}% графических слоёв. Размер плашек не меняется.`,
+    `${pick.edit.animation_density??60}% of the graphic layers stay in that span. Card size stays the same.`,
+    `这段时间保留 ${pick.edit.animation_density??60}% 的图形层。卡片尺寸不变。`,
   ):'';
   return <section className="effect-pick" aria-label={w('Подбор эффекта','Effect pick','效果建议')}>
     <h3>{w('Подбор эффекта','Effect pick','效果建议')}</h3>
