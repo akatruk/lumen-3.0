@@ -296,6 +296,41 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
     assert {item['codec_type'] for item in streams} == {'video', 'audio'}
 
 
+def test_spoken_words_become_a_matching_picture():
+    from backend.presentation_graphics import speech_visuals, visual_kind
+    from backend.hypit_picture import _speech_ideas
+
+    assert visual_kind('利润一直在增长') == 'up'
+    assert visual_kind('风险在下降') == 'down'
+    assert visual_kind('外资比例 49%') == 'figure'
+    assert visual_kind('首先注册公司') == 'steps'
+    assert visual_kind('三个月内截止') == 'deadline'
+    assert visual_kind('口播') == ''
+    beats = speech_visuals({'captions': [
+        {'start': 1, 'end': 3, 'zh': '利润一直在增长', 'original': '利润一直在增长'},
+        {'start': 4, 'end': 6, 'zh': '风险在下降', 'original': '风险在下降'},
+    ]})
+    assert [beat['kind'] for beat in beats] == ['up', 'down']
+    layers = _speech_ideas(
+        [{'start': 0, 'end': 8}], [(0.0, 8.0)],
+        [
+            {'start': 1, 'end': 3, 'zh': '利润一直在增长', 'original': '利润一直在增长'},
+            {'start': 4, 'end': 6, 'zh': '风险在下降', 'original': '风险在下降'},
+        ],
+        240, [],
+    )
+    assert len(layers) == 2
+    assert 'data-visual="up"' in layers[0] and 'data-visual-mark="up"' in layers[0]
+    assert 'data-visual="down"' in layers[1] and 'rotate' not in layers[1]
+    assert 'data-hf-avatar="1"' in layers[0]
+    blocked = _speech_ideas(
+        [{'start': 0, 'end': 8}], [(0.0, 8.0)],
+        [{'start': 1, 'end': 3, 'zh': '利润一直在增长', 'original': '利润一直在增长'}],
+        240, [(0, 240)],
+    )
+    assert blocked == []
+
+
 def test_the_sliders_write_one_animation_prompt():
     from backend.manual import Edit
     from backend.presentation_graphics import animation_brief, plan
@@ -308,16 +343,14 @@ def test_the_sliders_write_one_animation_prompt():
         'animation_density': 80,
     })
     brief = animation_brief(edit)
-    assert brief == (
-        'Будет добавлена анимация на 20% длины ролика — это 12 секунд на каждую минуту. '
-        'Интенсивность 40%. Движение 60%. Плотность 80% слоёв.'
-    )
-    assert 'площад' not in brief and 'размер' not in brief
+    assert 'Будет добавлена анимация на 20% длины ролика — это 12 секунд на каждую минуту.' in brief
+    assert 'Ведущий в кружке' in brief and 'Интенсивность 40%' in brief
+    assert 'Движение 60%' in brief and 'Плотность 80% слоёв' in brief
+    assert 'стрелка вверх' in brief and 'крупная цифра' in brief
+    assert 'площад' not in brief
     full = animation_brief(Edit.model_validate({'clips': [{'start': 0, 'end': 60}]}))
-    assert full == (
-        'Будет добавлена анимация на 100% длины ролика — это 60 секунд на каждую минуту. '
-        'Интенсивность 100%. Движение 100%. Плотность 100% слоёв.'
-    )
+    assert '100% длины ролика' in full and '60 секунд на каждую минуту' in full
+    assert 'Интенсивность 100%' in full
     assert plan(edit).animation_prompt == brief
     with pytest.raises(Exception):
         Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_intensity': 7})

@@ -40,3 +40,11 @@ Card pixel size is not a Lumen effect. Duration share (10% of a 1-minute video
 CSS. Do not invent a parallel composition engine: no plate CSS, zoom, font
 size, seek-script geometry, timeline cuts inside `index.html`, or a second
 renderer.
+
+The main prompt visualizes the host's words. While a phrase is spoken, the
+foreground is a graphic of that thought and the host is a circle; the footage
+stays sharp. Profit or growth is an arrow moving up. Risk or a fall is an
+arrow moving down. A spoken number is a large figure. Steps appear one by one.
+A comparison is two columns. A deadline is a mark on a scale. Do not invent
+facts. At 100% this treatment covers the whole minute. A lower percent covers
+that share of each minute, and the rest is the host full frame.

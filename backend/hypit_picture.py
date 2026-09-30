@@ -638,7 +638,52 @@ def _card_motion(manual):
 
 
 def _graphic_layer(layer):
-    return bool(re.search(r'class="(?:hf-plate|hf-board|hf-lower|hf-window|hf-mini|hf-chip)\b', layer))
+    return bool(re.search(r'class="(?:hf-plate|hf-board|hf-idea|hf-lower|hf-window|hf-mini|hf-chip)\b', layer))
+
+
+def _speech_ideas(clips, ranges, captions, total, occupied=None):
+    """Full-frame pictures of spoken phrases. A plate that already holds the moment stays."""
+    from .presentation_graphics import speech_visuals
+
+    layers = []
+    chapter = 0
+    for beat in speech_visuals({'captions': captions or []}):
+        start, end = float(beat['start']), float(beat['end'])
+        spans = _caption_spans({'start': start, 'end': end}, clips, ranges)
+        if not spans:
+            continue
+        out_start, out_end = spans[0][0], spans[-1][1]
+        if out_end - out_start < 0.45:
+            continue
+        a = max(0, int(round(out_start * FPS)))
+        b = max(a + 1, min(total, int(round(out_end * FPS))))
+        if occupied is not None and _occupied(a, b, occupied):
+            continue
+        chapter += 1
+        kind = beat['kind']
+        title = html.escape(beat['title'])
+        figure = html.escape(beat['figure'] or '')
+        if kind == 'figure' and figure:
+            body = f'<div class="hf-idea-figure">{figure}</div><div class="hf-idea-title">{title}</div>'
+        elif kind == 'compare' and '，' in beat['title']:
+            left, right = [html.escape(part.strip()) for part in beat['title'].split('，', 1)]
+            body = f'<div class="hf-idea-split"><b>{left}</b><b>{right}</b></div>'
+        elif kind == 'steps':
+            body = f'<div class="hf-idea-step">{chapter:02d}</div><div class="hf-idea-title">{title}</div>'
+        elif kind == 'deadline':
+            body = f'<div class="hf-idea-title">{title}</div><i class="hf-idea-track"><i class="hf-idea-fill"></i></i>'
+        elif kind in {'up', 'down'}:
+            body = f'<i class="hf-idea-mark" data-visual-mark="{kind}"></i><div class="hf-idea-title">{title}</div>'
+        else:
+            body = f'<div class="hf-idea-title">{title}</div>'
+        layers.append(
+            f'<aside class="hf-idea" data-visual="{kind}" data-hf-avatar="1" '
+            f'data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
+            f'data-hf-fade-in="6" data-hf-fade-out="6">{body}</aside>'
+        )
+        if occupied is not None:
+            occupied.append((a, b))
+    return layers
 
 
 def _retimed(layer, start, end):
@@ -714,10 +759,13 @@ def composition(source, work, manual, width, height, language, style=None):
                     break
     plates = _plates(clips, ranges, language, total)
     occupied = _spans(plates)
+    ideas = _speech_ideas(clips, ranges, manual.get('captions') or [], total, occupied)
     graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied)
     graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
+    graphics.extend(ideas)
     from .presentation_graphics import animation_brief, animation_levels
     levels = animation_levels(manual)
+    filmed = max(5, min(100, int(levels['depth'] or levels['intensity'])))
     layers.extend(_limit_graphics(graphics, total, levels['coverage'], levels['density']))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
@@ -751,6 +799,15 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-chip .hf-card-title{{padding:0;background:none;font:700 {max(18, height // 32)}px/1.15 sans-serif}}
     .hf-chip .hf-card-sub{{padding:0;margin-top:4px;background:none;font:600 {max(12, height // 52)}px/1.2 sans-serif}}
     .hf-window,.hf-mini{{position:absolute;z-index:6;box-sizing:border-box;width:auto;max-width:46%;padding:14px 16px;border-radius:18px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 14px 32px rgba(0,0,0,.4);display:flex;flex-direction:column;justify-content:center;gap:6px;overflow:visible}}
+    .hf-idea{{position:absolute;inset:0;z-index:4;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:14% 12% 24%;color:#fff;text-align:center;opacity:0;background:radial-gradient(120% 80% at 50% 12%, #16325c 0%, #0b1830 58%, #08101f 100%)}}
+    .hf-idea-mark{{width:0;height:0;border-left:46px solid transparent;border-right:46px solid transparent;border-bottom:78px solid #f2c14b}}
+    .hf-idea-title{{max-width:78%;font:800 {max(28, height // 18)}px/1.2 "Noto Sans CJK SC",sans-serif}}
+    .hf-idea-figure{{font:800 {max(72, height // 8)}px/1 "Noto Sans CJK SC",sans-serif;color:#f2c14b;letter-spacing:-.04em}}
+    .hf-idea-step{{font:800 {max(64, height // 10)}px/1 "Noto Sans CJK SC",sans-serif;color:#7eb6ff}}
+    .hf-idea-split{{display:flex;gap:18px;width:84%}}
+    .hf-idea-split b{{flex:1;padding:18px 12px;border-radius:16px;background:rgba(255,255,255,.08);font:800 {max(22, height // 28)}px/1.25 "Noto Sans CJK SC",sans-serif}}
+    .hf-idea-track{{display:block;width:68%;height:10px;border-radius:10px;background:rgba(255,255,255,.22);overflow:hidden}}
+    .hf-idea-fill{{display:block;width:0;height:100%;background:#f2c14b}}
     .hf-window .hf-card-title,.hf-mini .hf-card-title{{width:auto;padding:0;border-radius:0;background:none;font:700 {max(15, min(22, height // 52))}px/1.28 sans-serif;overflow-wrap:break-word}}
     .hf-window .hf-card-sub,.hf-mini .hf-card-sub{{width:auto;padding:0;border-radius:0;background:none;letter-spacing:0;font:600 {max(13, min(16, height // 64))}px/1.3 sans-serif;overflow-wrap:break-word;opacity:.9}}
     .hf-plate-label{{font:600 {max(14, height // 46)}px/1.2 sans-serif;letter-spacing:.06em;opacity:.78}}
@@ -760,7 +817,7 @@ def composition(source, work, manual, width, height, language, style=None):
   </style>
 </head>
 <body>
-  <div data-composition-id="lumen" data-card-motion="{levels['coverage']}" data-animation-intensity="{levels['intensity']}" data-animation-density="{levels['density']}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
+  <div data-composition-id="lumen" data-card-motion="{levels['coverage']}" data-animation-intensity="{filmed}" data-animation-motion="{levels['motion']}" data-animation-density="{levels['density']}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
     {body}
   </div>
   <script>
@@ -776,7 +833,7 @@ def composition(source, work, manual, width, height, language, style=None):
         const fadeIn = Number(el.getAttribute('data-hf-fade-in') || 0);
         const fadeOut = Number(el.getAttribute('data-hf-fade-out') || 0);
         let opacity = 0;
-        const card = el.classList.contains('hf-board') || el.classList.contains('hf-lower') || el.classList.contains('hf-card') || el.classList.contains('hf-plate') || el.classList.contains('hf-window') || el.classList.contains('hf-mini') || el.classList.contains('hf-chip');
+        const card = el.classList.contains('hf-board') || el.classList.contains('hf-idea') || el.classList.contains('hf-lower') || el.classList.contains('hf-card') || el.classList.contains('hf-plate') || el.classList.contains('hf-window') || el.classList.contains('hf-mini') || el.classList.contains('hf-chip');
         if (frame >= start && frame < end) {{
           const innFrames = card ? fadeIn * intensity : fadeIn;
           const outFrames = card ? fadeOut * intensity : fadeOut;
@@ -785,6 +842,17 @@ def composition(source, work, manual, width, height, language, style=None):
           opacity = Math.min(inn, out);
         }}
         el.style.opacity = String(opacity);
+        const mark = el.querySelector('[data-visual-mark]');
+        const fill = el.querySelector('.hf-idea-fill');
+        if ((mark || fill) && frame >= start && frame < end) {{
+          const span = Math.max(1, end - start);
+          const travel = 36 * intensity * (Math.max(5, Math.min(100, Number((stage && stage.getAttribute('data-animation-motion')) || 100))) / 100);
+          const along = (frame - start) / span;
+          const dir = el.getAttribute('data-visual');
+          if (mark && dir === 'up') mark.style.transform = 'translateY(' + Math.round((1 - along) * travel) + '%)';
+          if (mark && dir === 'down') mark.style.transform = 'translateY(' + Math.round(along * travel) + '%) rotate(180deg)';
+          if (fill) fill.style.width = Math.round(along * 100) + '%';
+        }}
         if (card) {{
           const lift = Math.round((el.classList.contains('hf-board') ? 28 : 16) * intensity);
           const shift = Math.round((1 - opacity) * lift);
@@ -797,7 +865,8 @@ def composition(source, work, manual, width, height, language, style=None):
       const covers = (el) => frame >= Number(el.getAttribute('data-hypit-start-frame')) && frame < Number(el.getAttribute('data-hypit-end-frame'));
       const plateOn = layers.some((el) => el.classList.contains('hf-plate') && covers(el));
       const boardOn = !plateOn && layers.some((el) => el.classList.contains('hf-board') && covers(el));
-      const avatar = plateOn || boardOn;
+      const ideaOn = layers.some((el) => el.classList.contains('hf-idea') && covers(el));
+      const avatar = plateOn || boardOn || ideaOn;
       const root = video && video.parentElement;
         if (video && frameBox) {{
           const frameW = frameBox.clientWidth;
@@ -813,7 +882,10 @@ def composition(source, work, manual, width, height, language, style=None):
           const marginY = Math.round(frameH * 0.04);
           let cx = frameW * (cardLeft + cardWidth / 2);
           let cy = frameH * cardTop + box * 0.42;
-          if (boardOn && !plateOn) {{
+          if (ideaOn && !plateOn) {{
+            cx = frameW * 0.78;
+            cy = frameH * 0.82;
+          }} else if (boardOn && !plateOn) {{
             cx = frameW * 0.78;
             cy = frameH * 0.18;
           }}

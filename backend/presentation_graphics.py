@@ -194,18 +194,146 @@ def animation_window(edit):
     }
 
 
+# The picture Hypit generates. Lumen only fills this from the words that were said.
+MAIN_VISUAL_PROMPT = (
+    "Визуализируй слова ведущего синхронно с речью. "
+    "Пока звучит фраза, на переднем плане графика этой мысли, ведущий в кружке, исходный кадр резкий. "
+    "Прибыль, рост и «больше» — стрелка вверх. Риск, падение и «меньше» — стрелка вниз. "
+    "Названное число — крупная цифра. Шаги появляются по одному. Сравнение — две колонки. "
+    "Срок — отметка на шкале. Не выдумывай факты и не меняй размер картинок."
+)
+
+_UP = ('利润', '盈利', '增长', '上涨', '提高', '上升', '增加', 'profit', 'growth', 'increase', 'rising', 'прибыл', 'рост')
+_DOWN = ('风险', '下降', '降低', '下跌', '减少', '亏损', 'risk', 'drop', 'fall', 'decline', 'риск', 'паден')
+_STEPS = ('第一', '首先', '然后', '接着', '步骤', 'step', 'first', 'then', 'сначала', 'затем')
+_COMPARE = ('相比', '对比', '不同于', 'compared', 'unlike', 'versus', 'сравн')
+_DEADLINE = ('截止', '期限', '天内', '个月内', 'deadline', 'срок', 'дедлайн')
+_KIND_RU = {
+    'up': 'стрелка вверх',
+    'down': 'стрелка вниз',
+    'figure': 'крупная цифра',
+    'steps': 'шаг',
+    'compare': 'сравнение',
+    'deadline': 'срок',
+    'phrase': 'фраза',
+}
+
+
+def _caption_text(caption):
+    if not isinstance(caption, dict):
+        caption = caption.model_dump() if hasattr(caption, 'model_dump') else {}
+    return ' '.join(str(caption.get(key) or '') for key in ('zh', 'original', 'en', 'ru'))
+
+
+def _visual_title(caption):
+    if not isinstance(caption, dict):
+        caption = caption.model_dump() if hasattr(caption, 'model_dump') else {}
+    for key in ('zh', 'original', 'ru', 'en'):
+        text = ' '.join(str(caption.get(key) or '').split())
+        if text and text != '口播' and not text.isdigit():
+            for sep in ('，', ',', '。', '？', '?', '！', '!', '；', ';'):
+                if sep in text:
+                    text = text.split(sep)[0].strip()
+            text = text.strip(' ，,。.')
+            if len(text) > 18:
+                text = text[:18].rsplit(' ', 1)[0].strip() or text[:18]
+            return text
+    return ''
+
+
+def visual_kind(text):
+    """One picture for a spoken phrase. Nothing is added that the words do not say."""
+    blob = ' '.join(str(text or '').split())
+    if not blob or blob == '口播':
+        return ''
+    folded = blob.lower()
+    if re.search(r'\d+(?:\.\d+)?\s*[%％]', blob) or re.search(r'\d+(?:\.\d+)?\s*[万千亿]', blob):
+        return 'figure'
+    up = any(needle.lower() in folded for needle in _UP)
+    down = any(needle.lower() in folded for needle in _DOWN)
+    if up and down:
+        return 'compare'
+    if down:
+        return 'down'
+    if up:
+        return 'up'
+    if any(needle.lower() in folded for needle in _STEPS):
+        return 'steps'
+    if any(needle.lower() in folded for needle in _COMPARE):
+        return 'compare'
+    if any(needle.lower() in folded for needle in _DEADLINE):
+        return 'deadline'
+    return 'phrase'
+
+
+def speech_visuals(edit):
+    """Timed pictures of what the host says. A missing phrase adds no picture."""
+    manual = edit if isinstance(edit, dict) else edit.model_dump()
+    beats = []
+    seen = set()
+    for caption in manual.get('captions') or []:
+        if not isinstance(caption, dict):
+            caption = caption.model_dump() if hasattr(caption, 'model_dump') else {}
+        blob = _caption_text(caption)
+        kind = visual_kind(blob)
+        title = _visual_title(caption)
+        if not kind or not title:
+            continue
+        try:
+            start, end = float(caption.get('start') or 0), float(caption.get('end') or 0)
+        except (TypeError, ValueError):
+            continue
+        if end <= start:
+            continue
+        key = (kind, title, int(start))
+        if key in seen:
+            continue
+        seen.add(key)
+        figure = ''
+        if kind == 'figure':
+            found = re.search(r'\d+(?:\.\d+)?\s*[%％]|\d+(?:\.\d+)?\s*[万千亿]', blob)
+            figure = re.sub(r'\s+', '', found.group(0)) if found else title
+        beats.append({
+            'kind': kind,
+            'title': title,
+            'figure': figure,
+            'start': round(start, 3),
+            'end': round(end, 3),
+        })
+    return beats
+
+
 def animation_brief(edit):
     """The prompt saved with the edit and sent when Hypit generates the video.
 
-    Presence is a share of one minute. Depth is intensity. Nothing here changes card size.
+    Presence is how much of each minute the host spends in the circle while the
+    words become graphics. Depth is how sharply those graphics arrive.
     """
     levels = animation_levels(edit)
     presence = levels['coverage']
     seconds = presence * 60 // 100
-    return (
-        f"Будет добавлена анимация на {presence}% длины ролика — это {seconds} секунд на каждую минуту. "
-        f"Интенсивность {levels['depth']}%. Движение {levels['motion']}%. Плотность {levels['density']}% слоёв."
+    kept = speech_visuals(edit)
+    density = levels['density']
+    if 0 < density < 100 and len(kept) > 1:
+        count = max(1, int(round(len(kept) * density / 100)))
+        if count < len(kept):
+            if count == 1:
+                kept = [kept[len(kept) // 2]]
+            else:
+                kept = [kept[round(i * (len(kept) - 1) / (count - 1))] for i in range(count)]
+    added = '; '.join(
+        f"{int(beat['start'])}с {_KIND_RU.get(beat['kind'], 'фраза')}: {beat['figure'] or beat['title']}"
+        for beat in kept[:12]
     )
+    brief = (
+        f"Будет добавлена анимация на {presence}% длины ролика — это {seconds} секунд на каждую минуту. "
+        f"Ведущий в кружке, передний план — графика сказанного. "
+        f"Интенсивность {levels['depth']}%. Движение {levels['motion']}%. Плотность {levels['density']}% слоёв. "
+        f"{MAIN_VISUAL_PROMPT}"
+    )
+    if added:
+        brief = f"{brief} Добавится: {added}."
+    return brief[:1100]
 
 
 def plan(edit, board=None):

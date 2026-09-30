@@ -39,7 +39,7 @@ export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:La
     'Detail gets a little clearer. The next render applies it.',
     '细节会稍微更清晰。下次生成会应用这个效果。',
   ):pick?.id==='card_motion'?w(
-    `Будет добавлена анимация на ${pick.edit.card_motion??70}% длины ролика — это ${Math.round((pick.edit.card_motion??70)*60/100)} секунд на каждую минуту.`,
+    `На ${pick.edit.card_motion??70}% длины ведущий в кружке, слова становятся графикой — это ${Math.round((pick.edit.card_motion??70)*60/100)} секунд на каждую минуту.`,
     `Animation will cover ${pick.edit.card_motion??70}% of the video — ${Math.round((pick.edit.card_motion??70)*60/100)} seconds of each minute.`,
     `动画将占成片的 ${pick.edit.card_motion??70}%，即每分钟 ${Math.round((pick.edit.card_motion??70)*60/100)} 秒。`,
   ):pick?.id==='intensity'||pick?.id==='depth'?w(

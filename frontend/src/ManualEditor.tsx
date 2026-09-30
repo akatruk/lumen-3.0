@@ -706,9 +706,9 @@ export function ManualEditor({
         ))}
         {cardNote&&<p role="status">{cardNote}</p>}
         <p className="animation-prompt">{w(
-          `Будет добавлена анимация на ${edit.card_motion??100}% длины ролика — это ${Math.round((edit.card_motion??100)*60/100)} секунд на каждую минуту. Интенсивность ${edit.animation_depth??100}%. Движение ${edit.animation_motion??100}%. Плотность ${edit.animation_density??100}% слоёв.`,
-          `Animation will cover ${edit.card_motion??100}% of the video — ${Math.round((edit.card_motion??100)*60/100)} seconds of each minute. Intensity ${edit.animation_depth??100}%. Motion ${edit.animation_motion??100}%. Density ${edit.animation_density??100}% of the layers.`,
-          `动画将占成片的 ${edit.card_motion??100}%，即每分钟 ${Math.round((edit.card_motion??100)*60/100)} 秒。强度 ${edit.animation_depth??100}%。运动 ${edit.animation_motion??100}%。密度为图层的 ${edit.animation_density??100}%。`,
+          `На ${edit.card_motion??100}% длины ролика (${Math.round((edit.card_motion??100)*60/100)} с на минуту) ведущий в кружке, слова становятся графикой: прибыль — стрелка вверх, риск — вниз, число — крупная цифра, шаги по одному, сравнение — две колонки, срок — шкала. Интенсивность ${edit.animation_depth??100}% — насколько резко графика приходит. Движение ${edit.animation_motion??100}%. Плотность ${edit.animation_density??100}% фраз.`,
+          `For ${edit.card_motion??100}% of the video (${Math.round((edit.card_motion??100)*60/100)}s per minute) the host is in a circle and the words become graphics: profit rises, risk falls, a number is large, steps arrive one by one. Intensity ${edit.animation_depth??100}%. Motion ${edit.animation_motion??100}%. Density ${edit.animation_density??100}% of the phrases.`,
+          `成片的 ${edit.card_motion??100}%（每分钟 ${Math.round((edit.card_motion??100)*60/100)} 秒）里，主持人收进圆圈，所说的话变成图形：利润向上，风险向下，数字放大，步骤逐个出现。强度 ${edit.animation_depth??100}%。运动 ${edit.animation_motion??100}%。密度为语句的 ${edit.animation_density??100}%。`,
         )}</p>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
