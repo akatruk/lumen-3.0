@@ -393,7 +393,7 @@ export function ManualEditor({
     setCardNote("");
     const ticket = ++mixTicket.current;
     window.clearTimeout(motionTimer.current);
-    motionTimer.current = window.setTimeout(() => { void saveAnimation(ticket); }, 250);
+    motionTimer.current = window.setTimeout(() => { void saveAnimation(ticket); }, 0);
   }
   async function saveAnimation(ticket: number) {
     const current = editRef.current;
@@ -684,7 +684,7 @@ export function ManualEditor({
       <div hidden={task!=='edit'&&task!=='effects'}>
       {task==='effects'&&<section className="presentation-share" aria-label={w('Процент добавляемой анимации','Added animation percent','添加动画的百分比')}>
         {([
-          ['card_motion', w('Охват, %','Coverage, %','覆盖，%'), w('Процент добавляемой анимации','Added animation, %','添加动画的百分比'), edit.card_motion],
+          ['card_motion', w('Присутствие, %','Presence, %','占比，%'), w('Процент добавляемой анимации','Added animation, %','添加动画的百分比'), edit.card_motion],
           ['animation_depth', w('Глубина, %','Depth, %','深度，%'), w('Глубина анимации','Animation depth','动画深度'), edit.animation_depth],
           ['animation_motion', w('Движение, %','Motion, %','运动，%'), w('Движение анимации','Animation motion','动画运动'), edit.animation_motion],
           ['animation_density', w('Плотность, %','Density, %','密度，%'), w('Плотность анимации','Animation density','动画密度'), edit.animation_density],
@@ -696,12 +696,12 @@ export function ManualEditor({
           </label>
         ))}
         {cardNote&&<p role="status">{cardNote}</p>}
-        <p className="animation-prompt">{edit.animation_prompt || w(
-          `Промпт: охват ${edit.card_motion??100}%, глубина ${edit.animation_depth??100}%, движение ${edit.animation_motion??100}%, плотность ${edit.animation_density??100}%. Исходный кадр остаётся резким.`,
-          `Prompt: coverage ${edit.card_motion??100}%, depth ${edit.animation_depth??100}%, motion ${edit.animation_motion??100}%, density ${edit.animation_density??100}%. The footage stays sharp.`,
-          `提示：覆盖 ${edit.card_motion??100}%，深度 ${edit.animation_depth??100}%，运动 ${edit.animation_motion??100}%，密度 ${edit.animation_density??100}%。原画面保持清晰。`,
+        <p className="animation-prompt">{w(
+          `Промпт Hypit: присутствие ${edit.card_motion??100}% площади полной плашки, глубина ${edit.animation_depth??100}% размера, движение ${edit.animation_motion??100}%, плотность ${edit.animation_density??100}%. Исходный кадр остаётся резким.`,
+          `Hypit prompt: graphics occupy ${edit.card_motion??100}% of the full card area, depth ${edit.animation_depth??100}% of full size, motion ${edit.animation_motion??100}%, density ${edit.animation_density??100}%. The footage stays sharp.`,
+          `Hypit 提示：图形占完整卡片面积的 ${edit.card_motion??100}%，深度 ${edit.animation_depth??100}%，运动 ${edit.animation_motion??100}%，密度 ${edit.animation_density??100}%。原画面保持清晰。`,
         )}</p>
-        <small>{w('Шаг 5%. Охват обрезает графику: после этого процента длины карточек нет. 100% оставляет текущую картинку на всю длину. Соберите видео ещё раз — в сборку уходят числа с этих ползунков.','Steps of 5%. Coverage cuts the graphics: after that percent of the length there are no cards. 100% keeps the current picture for the whole length. Create the video again; the render uses the numbers on these sliders.','步进 5%。覆盖会截断图形：超过该时长百分比后不再出现卡片。100% 会在全片保留当前画面。请重新生成视频，渲染会使用这些滑块上的数值。')}</small>
+        <small>{w('Шаг 5%. Присутствие — это доля площади полной плашки на кадре. 100% оставляет текущую плашку. Глубина тоже меняет этот размер. Сохраните уровень и соберите видео заново.','Steps of 5%. Presence is that share of the full card’s area on the frame. 100% keeps the current card. Depth changes that size too. Save the level, then regenerate the video.','步进 5%。占比是完整卡片在画面上的面积比例。100% 保留当前卡片。深度也会改变这个尺寸。保存后请重新生成视频。')}</small>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       <section className="inspector-scene-controls">

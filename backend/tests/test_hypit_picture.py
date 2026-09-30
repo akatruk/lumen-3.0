@@ -126,29 +126,10 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     mid = (mid_dir / 'index.html').read_text()
     assert 'data-card-motion="10"' in mid and 'data-card-motion="100"' not in mid
 
-    import re
-
-    def covered(page):
-        return sum(
-            int(end) - int(start)
-            for start, end in re.findall(
-                r'class="hf-(?:plate|board|lower|window|mini|chip)\b[^"]*"[^>]*data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"',
-                page,
-            )
-        )
-
-    total = int(re.search(r'data-hypit-frame-count="(\d+)"', html).group(1))
-    horizon = max(1, int(round(total * 0.1)))
-    graphic_ends = [
-        int(end)
-        for _start, end in re.findall(
-            r'class="hf-(?:plate|board|lower|window|mini|chip)\b[^"]*"[^>]*data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"',
-            mid,
-        )
-    ]
-    assert covered(html) > covered(mid)
-    assert graphic_ends and max(graphic_ends) <= horizon + 1
-    assert 0 < covered(mid) <= horizon + 3
+    assert 'data-card-width="0.860"' in html and 'left:7%;width:86%;top:15%;height:70%' in html
+    assert 'data-graphic-scale=' not in html
+    assert 'data-card-width="0.272"' in mid and 'width:27.2%' in mid
+    assert 'data-graphic-scale="0.316"' in mid and '外资比例' in mid
     assert 'boardOn ? 0.78' not in html and 'marginY' in html
     assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
@@ -304,7 +285,7 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
 
 def test_the_sliders_write_one_animation_prompt():
     from backend.manual import Edit
-    from backend.presentation_graphics import animation_brief, plan
+    from backend.presentation_graphics import animation_brief, animation_levels, plan
 
     edit = Edit.model_validate({
         'clips': [{'start': 0, 'end': 20}],
@@ -314,13 +295,17 @@ def test_the_sliders_write_one_animation_prompt():
         'animation_density': 60,
     })
     brief = animation_brief(edit)
-    assert 'Охват 40%' in brief and 'Глубина 80%' in brief
+    assert 'Присутствие 40%' in brief and 'Глубина 80%' in brief and 'площади' in brief
     assert 'Движение 20%' in brief and 'Плотность 60%' in brief
     assert 'виньетки' in brief and 'титра' in brief
+    from backend.presentation_graphics import frame_presence
+    full = frame_presence(animation_levels(Edit.model_validate({'clips': [{'start': 0, 'end': 20}]})))
+    assert full['full'] is True and full['linear'] == 1
+    small = frame_presence({'coverage': 40, 'depth': 100, 'motion': 100, 'density': 100})
+    assert small['area'] == pytest.approx(0.4) and small['linear'] == pytest.approx(0.4 ** 0.5)
     assert plan(edit).animation_prompt == brief
     with pytest.raises(Exception):
         Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_depth': 7})
-    import re
     from backend.hypit_picture import _card_motion, _limit_graphics
 
     def plate(start, end, name):
@@ -339,21 +324,8 @@ def test_the_sliders_write_one_animation_prompt():
     assert _limit_graphics([caption, *layers], 900, 0) == [caption]
     assert _limit_graphics(layers, 900, 100) == layers
 
-    def covered(rows):
-        return sum(int(b) - int(a) for a, b in re.findall(r'data-hypit-start-frame="(\d+)" data-hypit-end-frame="(\d+)"', ''.join(rows)))
-
-    half = _limit_graphics(layers, 900, 50)
-    assert covered(half) == pytest.approx(450, abs=3)
-    assert len(half) == 2
-    assert 'data-hypit-start-frame="0"' in half[0]
-    assert 'data-hypit-start-frame="600"' not in ''.join(half)
-    assert all(int(end) <= 450 for end in re.findall(r'data-hypit-end-frame="(\d+)"', ''.join(half)))
-    eighty = _limit_graphics(layers, 900, 80)
-    assert covered(eighty) == pytest.approx(720, abs=3)
-    assert 'data-hypit-start-frame="600"' in eighty[-1]
-    thin = _limit_graphics(layers, 900, 5)
-    assert covered(thin) == pytest.approx(45, abs=3)
-    assert len(thin) == 1
+    assert _limit_graphics(layers, 900, 50) == layers
+    assert _limit_graphics(layers, 900, 5) == layers
     sparse = _limit_graphics(layers, 900, 100, 50)
     assert len(sparse) == 2
     assert _limit_graphics(layers, 900, 100, 0) == []

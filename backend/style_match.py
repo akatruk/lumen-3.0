@@ -2849,11 +2849,11 @@ def regenerate(pid: str, user=Depends(current_user)):
         edit, report = attach(pid, edit, shots, item.get('brief') or '', report, item['metadata']['duration'])
     except Exception:
         pass
-    edit = _keep_animation(saved, edit)
     with connect() as db:
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
+        edit = _keep_animation(read(pid, db), edit)
         _store(db, pid, edit, report, 'pending', True)
     return {'ok': True}
 
@@ -2883,5 +2883,6 @@ def regenerate_section(pid: str, index: int, user=Depends(current_user)):
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
+        dumped = _keep_animation(read(pid, db), dumped)
         _store(db, pid, dumped, report, 'pending', True, baked=True)
     return {'ok': True}
