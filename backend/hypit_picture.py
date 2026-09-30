@@ -679,40 +679,16 @@ def _limit_graphics(layers, total_frames, share, density=100):
 
 
 def _apply_presence(page, levels):
-    """Scale the card Hypit captures. 100% leaves the accepted plate untouched."""
+    """Mark the scale Hypit captures. 100% leaves the accepted plate untouched."""
     from .presentation_graphics import frame_presence
 
     presence = frame_presence(levels)
     if presence['full'] or presence['linear'] <= 0:
         return page
-    found = re.search(
-        r'data-card-left="([\d.]+)" data-card-top="([\d.]+)" data-card-width="([\d.]+)" data-card-height="([\d.]+)"',
-        page,
-    )
-    if not found:
-        return page
-    base_left, base_top, base_width, base_height = (float(item) for item in found.groups())
-    linear = presence['linear']
-    width = round(base_width * linear, 3)
-    height = round(base_height * linear, 3)
-    left = round(base_left + base_width / 2 - width / 2, 3)
-    top = round(base_top + base_height / 2 - height / 2, 3)
-    page = page.replace(
-        found.group(0),
-        f'data-card-left="{left:.3f}" data-card-top="{top:.3f}" data-card-width="{width:.3f}" data-card-height="{height:.3f}"',
-        1,
-    )
-    box = re.search(r'left:[\d.]+%;width:[\d.]+%;top:[\d.]+%;height:[\d.]+%', page)
-    if box:
-        page = page.replace(
-            box.group(0),
-            f'left:{left * 100:.1f}%;width:{width * 100:.1f}%;top:{top * 100:.1f}%;height:{height * 100:.1f}%',
-            1,
-        )
     return page.replace(
         'data-composition-id="lumen"',
         'data-composition-id="lumen" '
-        f'data-graphic-scale="{linear:.3f}" data-type-scale="{presence["type"]:.3f}"',
+        f'data-graphic-scale="{presence["linear"]:.3f}" data-type-scale="{presence["type"]:.3f}"',
         1,
     )
 
@@ -748,24 +724,6 @@ def composition(source, work, manual, width, height, language, style=None):
     graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
     from .presentation_graphics import animation_brief, animation_levels, frame_presence
     levels = animation_levels(manual)
-    presence = frame_presence(levels)
-    fit = 1.0 if presence['full'] or presence['linear'] <= 0 else presence['linear']
-
-    def _px(base):
-        return base if fit >= 0.999 else max(8, round(base * fit))
-
-    type_fit = ''
-    if fit < 0.999:
-        type_fit = (
-            f'.hf-lower{{right:auto;width:{70 * fit:.1f}%;}}'
-            f'.hf-lower-head{{font:800 {_px(max(22, height // 36))}px/1.2 "Noto Sans CJK SC",sans-serif}}'
-            f'.hf-lower-head b{{font:700 {_px(max(15, height // 52))}px/1 "Noto Sans CJK SC",sans-serif}}'
-            f'.hf-lower-kicker{{font:600 {_px(max(16, height // 48))}px/1.3 "Noto Sans CJK SC",sans-serif}}'
-            f'.hf-lower-bar{{width:{_px(64)}px}}'
-            f'.hf-chip{{width:{46 * fit:.1f}%;}}'
-            f'.hf-board-label{{font:600 {_px(max(22, height // 36))}px/1.2 "Noto Sans CJK SC",sans-serif}}'
-            f'.hf-board-figure{{font:800 {_px(max(56, height // 12))}px/1 "Noto Sans CJK SC",sans-serif}}'
-        )
     layers.extend(_limit_graphics(graphics, total, levels['coverage'], levels['density']))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
@@ -805,7 +763,6 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-plate-value{{font:700 {max(36, height // 12)}px/1 sans-serif;margin-top:8px}}
     .hf-plate-track{{width:72%;height:10px;margin-top:18px;border-radius:10px;background:rgba(255,255,255,.22);overflow:hidden}}
     .hf-plate-fill{{height:100%;border-radius:10px;background:#d5f5c4}}
-    {type_fit}
   </style>
 </head>
 <body>
@@ -843,6 +800,10 @@ def composition(source, work, manual, width, height, language, style=None):
           const shift = Math.round((1 - opacity) * lift);
           el.style.transformOrigin = '50% 40%';
           el.style.transform = 'translateY(' + shift + 'px)';
+          if (!el.classList.contains('hf-plate') && !el.classList.contains('hf-board')) {{
+            const fit = Number((stage && stage.getAttribute('data-graphic-scale')) || 1);
+            if (fit < 0.999) el.style.zoom = fit.toFixed(3);
+          }}
           const figure = el.querySelector('.hf-board-figure');
           if (figure) figure.style.transform = 'scale(' + (typeScale * (1 - 0.1 * motion * (1 - opacity))).toFixed(3) + ')';
         }}
@@ -863,13 +824,17 @@ def composition(source, work, manual, width, height, language, style=None):
           const cardHeight = Number(root.getAttribute('data-card-height') || 0.70);
           const graphicFit = Number(root.getAttribute('data-graphic-scale') || 1);
           const shrink = graphicFit < 0.999;
+          const shownW = cardWidth * graphicFit;
+          const shownH = cardHeight * graphicFit;
+          const shownLeft = shrink ? (1 - shownW) / 2 : cardLeft;
+          const shownTop = shrink ? (1 - shownH) / 2 : cardTop;
           const ad = Number(root.getAttribute('data-avatar-d') || (boardOn ? 0.22 : 0.28)) * (shrink ? graphicFit : 1);
           const box = Math.round(frameW * (ad > 0.12 ? ad : 0.28));
           const half = box / 2;
           const marginX = Math.round(frameW * 0.04);
           const marginY = Math.round(frameH * 0.04);
-          let cx = frameW * (cardLeft + cardWidth / 2);
-          let cy = frameH * cardTop + box * 0.42;
+          let cx = frameW * (shownLeft + shownW / 2);
+          let cy = frameH * shownTop + box * 0.42;
           if (boardOn && !plateOn) {{
             cx = frameW * 0.78;
             cy = frameH * 0.18;
@@ -879,15 +844,14 @@ def composition(source, work, manual, width, height, language, style=None):
           for (const el of layers) {{
             if (!el.classList.contains('hf-plate') && !(shrink && el.classList.contains('hf-board'))) continue;
             el.style.inset = 'auto';
-            el.style.left = (cardLeft * 100) + '%';
-            el.style.top = (cardTop * 100) + '%';
+            el.style.zoom = shrink ? graphicFit.toFixed(3) : '1';
+            el.style.left = (shownLeft * 100) + '%';
+            el.style.top = (shownTop * 100) + '%';
             el.style.width = (cardWidth * 100) + '%';
             el.style.height = (cardHeight * 100) + '%';
             el.style.right = 'auto';
             el.style.bottom = 'auto';
-            const rawPad = Math.max(18, Math.round(cy + half - frameH * cardTop + 18));
-            const padLimit = shrink ? Math.round(frameH * cardHeight * 0.22) : rawPad;
-            el.style.paddingTop = Math.min(rawPad, Math.max(8, padLimit)) + 'px';
+            el.style.paddingTop = Math.max(18, Math.round(cy + half - frameH * shownTop + 18)) + 'px';
             el.style.paddingLeft = '8%';
             el.style.paddingRight = '8%';
             el.style.alignItems = 'stretch';
