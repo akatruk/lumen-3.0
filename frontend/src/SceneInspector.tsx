@@ -47,9 +47,9 @@ export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:La
     `Intensity becomes ${pick.edit.animation_depth??pick.edit.animation_intensity??50}%.`,
     `强度变为 ${pick.edit.animation_depth??pick.edit.animation_intensity??50}%。`,
   ):pick?.id==='motion'?w(
-    `Движение станет ${pick.edit.animation_motion??50}%.`,
-    `Motion becomes ${pick.edit.animation_motion??50}%.`,
-    `运动变为 ${pick.edit.animation_motion??50}%。`,
+    `Движение станет ${pick.edit.animation_motion??50}%. Карточки выезжают на эту долю. С 80% в кадр входят короткие тематические вставки.`,
+    `Motion becomes ${pick.edit.animation_motion??50}%. Cards travel that far. From 80%, short thematic clips enter.`,
+    `运动变为 ${pick.edit.animation_motion??50}%。卡片按这个幅度滑入。从 80% 起加入主题短镜头。`,
   ):pick?.id==='density'?w(
     `Плотность станет ${pick.edit.animation_density??60}% слоёв.`,
     `Density becomes ${pick.edit.animation_density??60}% of the layers.`,

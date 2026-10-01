@@ -102,6 +102,9 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'film.grade' not in prompt and 'film.vignette' not in prompt
     assert 'data-hypit-start-frame' not in prompt and 'end="' not in prompt
     assert 'площади' not in prompt and 'этот размер' not in prompt
+    assert 'карточки выезжают на эту долю' in prompt and 'не закрывает' in prompt
+    page = (tmp_path / 'hypit' / 'index.html').read_text()
+    assert 'captionTop' in page and 'frameH * 0.62' in page
     assert (tmp_path / 'hypit' / 'recipes.svs').is_file() and (tmp_path / 'hypit' / 'build.svrun').is_file()
     assert (tmp_path / 'hypit' / 'source.mp4').is_file()
     assert 'concat=' not in seen['picture'] and 'trim=' not in seen['picture']
@@ -282,8 +285,8 @@ def test_spoken_words_become_a_matching_picture():
     assert len(layers) == 2
     assert 'data-visual="up"' in layers[0] and 'data-visual-mark="up"' in layers[0]
     assert 'data-visual="down"' in layers[1] and 'rotate' not in layers[1]
-    assert 'hf-scene' in layers[0] and 'hf-scene-link' in layers[0]
-    assert 'data-scene="stack"' in layers[1]
+    assert 'hf-scene' in layers[0] and 'hf-scene-link' in layers[0] and 'data-hf-piece="1"' in layers[0]
+    assert 'data-scene="stack"' in layers[1] and 'data-hf-piece="1"' in layers[1]
     assert 'data-hf-avatar="1"' in layers[0]
     compared = speech_visuals({'captions': [
         {'start': 47, 'end': 56, 'zh': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限', 'original': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限'},

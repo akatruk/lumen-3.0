@@ -741,21 +741,39 @@ def _scene_body(beat, chapter):
     elif kind == 'deadline':
         mark = '<i class="hf-idea-track"><i class="hf-idea-fill"></i></i>'
     head = figure or title
+    strong = (
+        f'<strong class="hf-scene-figure">{figure}</strong>'
+        if kind == 'figure' and figure else f'<strong>{head}</strong>'
+    )
     extras = [card for card in cards if card not in {head, title}]
+    piece = 0
+
+    def tag(node):
+        nonlocal piece
+        piece += 1
+        if node.startswith('<b>'):
+            return f'<b data-hf-piece="{piece}">' + node[3:]
+        if node.startswith('<div '):
+            return node.replace('<div ', f'<div data-hf-piece="{piece}" ', 1)
+        if node.startswith('<p '):
+            return node.replace('<p ', f'<p data-hf-piece="{piece}" ', 1)
+        return node
+
     if layout == 'stack':
-        bits = [f'<b>{mark}<strong>{head}</strong></b>']
+        bits = [tag(f'<b>{mark}{strong}</b>')]
         for extra in (extras or ([title] if title != head else []))[:2]:
-            bits.append(f'<b><strong>{extra}</strong></b>')
+            bits.append(tag(f'<b><strong>{extra}</strong></b>'))
         inner = f'<div class="hf-stack">{"".join(bits)}</div>'
     elif layout == 'columns' and len(cards) >= 2:
-        inner = f'<div class="hf-scene-row">{"".join(f"<b>{card}</b>" for card in cards[:3])}</div>'
+        inner = f'<div class="hf-scene-row">{"".join(tag(f"<b>{card}</b>") for card in cards[:3])}</div>'
     else:
-        row = ''.join(f'<b>{card}</b>' for card in (extras or cards)[:3])
+        row = ''.join(tag(f'<b>{card}</b>') for card in (extras or cards)[:3])
         inner = (
-            f'<div class="hf-scene-head">{mark}<strong>{head}</strong></div>'
-            f'<i class="hf-scene-link"></i><div class="hf-scene-row">{row}</div>'
+            f'{tag(f"<div class=\"hf-scene-head\">{mark}{strong}</div>")}'
+            f'<i class="hf-scene-link" data-hf-piece="{piece + 1}"></i><div class="hf-scene-row">{row}</div>'
         )
-    return layout, f'{inner}<p class="hf-scene-caption">{line}</p>'
+        piece += 1
+    return layout, f'<i class="hf-scene-shard"></i>{inner}{tag(f"<p class=\"hf-scene-caption\">{line}</p>")}'
 
 
 def _speech_ideas(clips, ranges, captions, total, occupied=None):
@@ -780,7 +798,7 @@ def _speech_ideas(clips, ranges, captions, total, occupied=None):
         layers.append(
             f'<aside class="hf-idea hf-scene" data-visual="{kind}" data-scene="{layout}" data-hf-avatar="1" '
             f'data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
-            f'data-hf-fade-in="6" data-hf-fade-out="6">{body}</aside>'
+            f'data-hf-fade-in="3" data-hf-fade-out="6">{body}</aside>'
         )
         if occupied is not None:
             occupied.append((a, b))
@@ -853,6 +871,29 @@ def _limit_graphics(layers, total_frames, share, density=100):
     return rest + [layer for _start, _end, layer in parsed]
 
 
+def _broll_layers(inserts):
+    """Short windows. The host file is not cut to make room for them."""
+    layers = []
+    for index, item in enumerate(list(inserts or [])[:2]):
+        if not isinstance(item, dict) or not item.get('src'):
+            continue
+        try:
+            start, end = float(item.get('start') or 0), float(item.get('end') or 0)
+        except (TypeError, ValueError):
+            continue
+        a = max(0, int(round(start * FPS)))
+        b = max(a + 1, int(round(end * FPS)))
+        tag = _video(f'broll-{index}', item['src'], a, b, 0, 0.0, Fraction(1, 1), FPS, 1, 4, 4)
+        layers.append(tag.replace('<video ', '<video class="hf-broll" ', 1))
+        credit = html.escape(str(item.get('credit') or '')[:48])
+        if credit:
+            layers.append(
+                f'<p class="hf-broll-credit" data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
+                f'data-hf-fade-in="4" data-hf-fade-out="4">{credit}</p>'
+            )
+    return layers
+
+
 def composition(source, work, manual, width, height, language, style=None):
     """HyperFrames HTML. A paragraph, 口播, and a lone headcount digit are not drawn.
 
@@ -893,6 +934,19 @@ def composition(source, work, manual, width, height, language, style=None):
     graphics.extend(ideas)
     filmed = max(5, min(100, int(levels['depth'] or levels['intensity'])))
     layers.extend(_limit_graphics(graphics, total, levels['coverage'], levels['density']))
+    if levels['motion'] >= 80:
+        horizon = total / FPS if levels['coverage'] >= 100 else total / FPS * levels['coverage'] / 100
+        inserts = []
+        for item in manual.get('_thematic_broll') or []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                start = float(item.get('start') or 0)
+            except (TypeError, ValueError):
+                continue
+            if start < horizon:
+                inserts.append(item)
+        layers.extend(_broll_layers(inserts))
     seconds = f'{total / FPS:.3f}'
     body = '\n    '.join(layers)
     page = f'''<!doctype html>
@@ -926,17 +980,24 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-chip .hf-card-sub{{padding:0;margin-top:4px;background:none;font:600 {max(12, height // 52)}px/1.2 sans-serif}}
     .hf-window,.hf-mini{{position:absolute;z-index:6;box-sizing:border-box;width:auto;max-width:46%;padding:14px 16px;border-radius:18px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 14px 32px rgba(0,0,0,.4);display:flex;flex-direction:column;justify-content:center;gap:6px;overflow:visible}}
     .hf-idea{{position:absolute;inset:0;z-index:4;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:14% 12% 24%;color:#fff;text-align:center;opacity:0;background:radial-gradient(120% 80% at 50% 12%, #16325c 0%, #0b1830 58%, #08101f 100%)}}
-    .hf-scene{{align-items:stretch;justify-content:flex-start;text-align:left;gap:0;padding:8% 7% 18%;background:#07080c}}
-    .hf-scene-head,.hf-scene-row b,.hf-stack b{{box-sizing:border-box;border-radius:18px;border:1px solid rgba(255,255,255,.16);background:linear-gradient(180deg,#23262e,#101218);color:#fff;padding:16px 14px;box-shadow:0 18px 40px rgba(0,0,0,.45)}}
-    .hf-scene-head{{display:flex;flex-direction:column;align-items:flex-start;gap:10px}}
-    .hf-scene-head strong,.hf-stack strong,.hf-scene-row b{{font:800 {max(24, height // 24)}px/1.25 "Noto Sans CJK SC",sans-serif}}
-    .hf-scene-link{{display:block;height:34px;margin:0 16%;background:linear-gradient(#1f8f52,#0c3d22);clip-path:polygon(10% 0,90% 0,100% 100%,0 100%)}}
+    .hf-scene{{align-items:stretch;justify-content:flex-start;text-align:left;gap:0;padding:6% 6% 22%;background:#07080c;overflow:hidden}}
+    .hf-scene-shard{{position:absolute;right:-8%;top:8%;width:46%;height:28%;background:#141820;transform:rotate(8deg);border-radius:18px;opacity:.9}}
+    .hf-scene-head,.hf-scene-row b,.hf-stack b{{box-sizing:border-box;min-height:108px;border-radius:18px;border:1px solid rgba(255,255,255,.16);background:linear-gradient(180deg,#23262e,#101218);color:#fff;padding:18px 16px;box-shadow:0 18px 40px rgba(0,0,0,.45);overflow-wrap:anywhere}}
+    .hf-scene-head{{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;background:linear-gradient(160deg,#3a3420,#16140e)}}
+    .hf-scene-head strong,.hf-stack strong,.hf-scene-row b{{font:800 {max(26, height // 24)}px/1.25 "Noto Sans CJK SC",sans-serif}}
+    .hf-scene-head .hf-scene-figure,.hf-stack .hf-scene-figure{{font:800 {max(120, height // 7)}px/0.9 "Noto Sans CJK SC",sans-serif;color:#f2c14b;letter-spacing:-.04em}}
+    .hf-scene-link{{display:block;height:64px;margin:0 18%;background:linear-gradient(#1f8f52,#0c3d22);clip-path:polygon(10% 0,90% 0,100% 100%,0 100%);transform-origin:top center}}
     .hf-scene-row{{display:flex;gap:12px}}
     .hf-scene-row b{{flex:1}}
-    .hf-stack{{display:flex;flex-direction:column;gap:14px;width:72%;margin-left:auto}}
+    .hf-scene-row b:nth-child(1){{background:linear-gradient(160deg,#6a3494,#2a1244)}}
+    .hf-scene-row b:nth-child(2){{background:linear-gradient(160deg,#1fa971,#0c5c40)}}
+    .hf-scene-row b:nth-child(3){{background:linear-gradient(160deg,#8a6a22,#3d2e0c)}}
+    .hf-stack{{display:flex;flex-direction:column;gap:14px;width:58%;margin-left:auto}}
     .hf-stack b:first-child{{background:linear-gradient(160deg,#6a3494,#2a1244)}}
     .hf-stack b:nth-child(2){{background:linear-gradient(160deg,#1fa971,#0c5c40)}}
-    .hf-scene-caption{{position:absolute;left:8%;right:24%;bottom:5%;margin:0;text-align:center;font:700 {max(18, height // 34)}px/1.3 "Noto Sans CJK SC",sans-serif}}
+    .hf-scene-caption{{position:absolute;left:7%;right:7%;bottom:3%;z-index:8;margin:0;text-align:left;font:700 {max(18, height // 36)}px/1.3 "Noto Sans CJK SC",sans-serif;overflow-wrap:anywhere;text-shadow:0 2px 8px #000}}
+    .hf-broll{{position:absolute;left:8%;top:64%;width:40%;height:12%;z-index:5;object-fit:cover;border-radius:16px;box-shadow:0 0 0 3px #fff;opacity:0}}
+    .hf-broll-credit{{position:absolute;left:8%;top:74%;width:40%;z-index:6;margin:0;color:#fff;font:600 11px/1.2 sans-serif;text-shadow:0 1px 4px #000;opacity:0;overflow:hidden;white-space:nowrap}}
     .hf-idea-mark{{width:0;height:0;border-left:46px solid transparent;border-right:46px solid transparent;border-bottom:78px solid #f2c14b}}
     .hf-idea-title{{max-width:78%;font:800 {max(28, height // 18)}px/1.2 "Noto Sans CJK SC",sans-serif}}
     .hf-idea-figure{{font:800 {max(72, height // 8)}px/1 "Noto Sans CJK SC",sans-serif;color:#f2c14b;letter-spacing:-.04em}}
@@ -965,6 +1026,7 @@ def composition(source, work, manual, width, height, language, style=None):
       const frame = Math.max(0, Math.round(Number(time || 0) * fps));
       const stage = document.querySelector('[data-composition-id]');
       const intensity = Math.max(5, Math.min(100, Number((stage && stage.getAttribute('data-animation-intensity')) || 100))) / 100;
+      const motion = Math.max(0, Math.min(100, Number((stage && stage.getAttribute('data-animation-motion')) || 100))) / 100;
       for (const el of layers) {{
         const start = Number(el.getAttribute('data-hypit-start-frame'));
         const end = Number(el.getAttribute('data-hypit-end-frame'));
@@ -991,7 +1053,22 @@ def composition(source, work, manual, width, height, language, style=None):
           if (mark && dir === 'down') mark.style.transform = 'translateY(' + Math.round(along * travel) + '%) rotate(180deg)';
           if (fill) fill.style.width = Math.round(along * 100) + '%';
         }}
-        if (card) {{
+        if (card && el.classList.contains('hf-scene') && frame >= start && frame < end) {{
+          const pieces = [...el.querySelectorAll('[data-hf-piece]')];
+          const step = Math.round(16 * motion);
+          const enter = Math.max(6, Math.round((8 + 14 * motion) * Math.max(0.45, intensity)));
+          pieces.forEach((piece, index) => {{
+            const delay = index * step;
+            const arrived = Math.max(0, Math.min(1, (frame - start - delay + 1) / enter));
+            const travel = Math.round((1 - arrived) * (index % 2 ? 180 : -200) * motion);
+            const drift = Math.round(Math.sin((frame - start) / 20) * 18 * motion * arrived);
+            const scale = motion < 0.02 ? 1 : (0.86 + 0.14 * arrived);
+            piece.style.opacity = String(arrived);
+            piece.style.transform = 'translate(' + travel + 'px,' + drift + 'px) scale(' + scale + ')';
+          }});
+          const link = el.querySelector('.hf-scene-link');
+          if (link) link.style.transform = 'scaleY(' + (motion < 0.02 ? 1 : Math.max(0, Math.min(1, (frame - start - Math.max(step, 1)) / 28))) + ')';
+        }} else if (card) {{
           const lift = Math.round((el.classList.contains('hf-board') ? 28 : 16) * intensity);
           const shift = Math.round((1 - opacity) * lift);
           el.style.transformOrigin = '50% 40%';
@@ -1003,7 +1080,9 @@ def composition(source, work, manual, width, height, language, style=None):
       const covers = (el) => frame >= Number(el.getAttribute('data-hypit-start-frame')) && frame < Number(el.getAttribute('data-hypit-end-frame'));
       const plateOn = layers.some((el) => el.classList.contains('hf-plate') && covers(el));
       const boardOn = !plateOn && layers.some((el) => el.classList.contains('hf-board') && covers(el));
-      const ideaOn = layers.some((el) => el.classList.contains('hf-idea') && covers(el));
+          const idea = layers.find((el) => el.classList.contains('hf-idea') && covers(el));
+          const ideaOn = !!idea;
+          const scene = idea && idea.getAttribute('data-scene');
       const avatar = plateOn || boardOn || ideaOn;
       const root = video && video.parentElement;
         if (video && frameBox) {{
@@ -1020,15 +1099,20 @@ def composition(source, work, manual, width, height, language, style=None):
           const marginY = Math.round(frameH * 0.04);
           let cx = frameW * (cardLeft + cardWidth / 2);
           let cy = frameH * cardTop + box * 0.42;
-          if (ideaOn && !plateOn) {{
-            cx = frameW * 0.78;
-            cy = frameH * 0.82;
+          if (scene === 'stack') {{
+            cx = frameW * 0.24;
+            cy = frameH * 0.36;
+          }} else if (ideaOn && !plateOn) {{
+            cx = scene === 'columns' ? frameW * 0.5 : frameW * 0.78;
+            cy = frameH * 0.62;
           }} else if (boardOn && !plateOn) {{
             cx = frameW * 0.78;
             cy = frameH * 0.18;
           }}
           cx = Math.max(marginX + half, Math.min(frameW - marginX - half, cx));
           cy = Math.max(marginY + half, Math.min(frameH - marginY - half, cy));
+          const captionTop = frameH * 0.80;
+          cy = Math.min(cy, captionTop - half - 12);
           for (const el of layers) {{
             if (!el.classList.contains('hf-plate')) continue;
             el.style.inset = 'auto';
@@ -1044,11 +1128,29 @@ def composition(source, work, manual, width, height, language, style=None):
             el.style.alignItems = 'stretch';
             el.style.textAlign = 'left';
           }}
-        if (avatar) {{
+        const hostStart = idea ? Number(idea.getAttribute('data-hypit-start-frame')) : frame;
+        const hostIn = ideaOn ? Math.max(0, Math.min(1, (frame - hostStart + 1) / Math.max(8, Math.round(22 * Math.max(motion, 0.05))))) : 1;
+        const hostSlide = Math.round((1 - hostIn) * frameW * 0.22 * motion);
+        const hostSway = ideaOn ? Math.round(Math.sin(frame / 18) * 12 * hostIn * motion) : 0;
+        if (avatar && scene === 'stack') {{
+          const portraitW = Math.round(frameW * 0.34);
+          const portraitH = Math.round(frameH * 0.28);
+          video.style.width = portraitW + 'px';
+          video.style.height = portraitH + 'px';
+          video.style.left = Math.round(frameW * 0.06 - hostSlide) + 'px';
+          video.style.top = Math.round(frameH * 0.2 + hostSway) + 'px';
+          video.style.right = 'auto';
+          video.style.bottom = 'auto';
+          video.style.objectFit = 'cover';
+          video.style.objectPosition = 'center 30%';
+          video.style.borderRadius = '18px';
+          video.style.zIndex = '6';
+          video.style.boxShadow = '0 0 0 4px #fff';
+        }} else if (avatar) {{
           video.style.width = box + 'px';
           video.style.height = box + 'px';
-          video.style.left = Math.round(cx - half) + 'px';
-          video.style.top = Math.round(cy - half) + 'px';
+          video.style.left = Math.round(cx - half + hostSlide) + 'px';
+          video.style.top = Math.round(cy - half + hostSway) + 'px';
           video.style.right = 'auto';
           video.style.bottom = 'auto';
           video.style.objectFit = 'cover';
@@ -1152,6 +1254,10 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
         style = read_style(reference) if reference else None
     except Exception:
         style = None
+    from .presentation_graphics import animation_levels
+    if animation_levels(manual)['motion'] >= 80 and '_thematic_broll' not in manual:
+        from .thematic_broll import attach
+        manual['_thematic_broll'] = attach(manual, work)
     frame_count = composition(source, work, manual, width, height, language, style)
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
