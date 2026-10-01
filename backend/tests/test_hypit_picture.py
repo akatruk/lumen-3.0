@@ -95,6 +95,8 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     prompt = seen['prompt']
     assert '<render:Video id="final"' in prompt and 'src="./source.mp4"' in prompt
     assert '100% длины ролика' in prompt and '60 секунд на каждую минуту' in prompt
+    assert 'посторонних шумов' in prompt and 'На отрезки не режь' in prompt
+    assert 'субтитры по речи' in prompt
     assert '三名股东开会' in prompt and '法人代表' in prompt and '董事权限' in prompt
     assert '口播' not in prompt and 'Shareholders' not in prompt and 'Governance logic also differs' not in prompt
     assert 'film.grade' not in prompt and 'film.vignette' not in prompt
@@ -280,6 +282,8 @@ def test_spoken_words_become_a_matching_picture():
     assert len(layers) == 2
     assert 'data-visual="up"' in layers[0] and 'data-visual-mark="up"' in layers[0]
     assert 'data-visual="down"' in layers[1] and 'rotate' not in layers[1]
+    assert 'hf-scene' in layers[0] and 'hf-scene-link' in layers[0]
+    assert 'data-scene="stack"' in layers[1]
     assert 'data-hf-avatar="1"' in layers[0]
     compared = speech_visuals({'captions': [
         {'start': 47, 'end': 56, 'zh': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限', 'original': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限'},

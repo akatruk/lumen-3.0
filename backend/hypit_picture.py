@@ -702,6 +702,62 @@ def _graphic_layer(layer):
     return bool(re.search(r'class="(?:hf-plate|hf-board|hf-idea|hf-lower|hf-window|hf-mini|hf-chip)\b', layer))
 
 
+def _scene_cards(beat):
+    """Labels already spoken. A short phrase stays one card; a split line becomes several."""
+    if beat.get('left') and beat.get('right'):
+        cards = [beat['title'], beat['left'], beat['right']]
+    else:
+        line = beat.get('line') or beat['title']
+        cards = []
+        for part in re.split(r'[，,。；;：:、]', line):
+            label = part.strip()[:12]
+            if len(label) < 2 or label in cards:
+                continue
+            cards.append(label)
+            if len(cards) == 3:
+                break
+        if beat.get('figure'):
+            cards = [beat['figure'], beat['title'], *cards]
+        if not cards:
+            cards = [beat['title']]
+    seen = []
+    for card in cards:
+        if card and card not in seen:
+            seen.append(card)
+    return seen[:3]
+
+
+def _scene_body(beat, chapter):
+    """One composed board. The layout changes; the words stay the ones that were spoken."""
+    kind = beat['kind']
+    title = html.escape(beat['title'])
+    figure = html.escape(beat['figure'] or '')
+    line = html.escape((beat.get('line') or beat['title'])[:42])
+    cards = [html.escape(card) for card in _scene_cards(beat)]
+    layout = 'columns' if kind == 'compare' else ('flow', 'stack', 'columns')[(chapter - 1) % 3]
+    mark = ''
+    if kind in {'up', 'down'}:
+        mark = f'<i class="hf-idea-mark" data-visual-mark="{kind}"></i>'
+    elif kind == 'deadline':
+        mark = '<i class="hf-idea-track"><i class="hf-idea-fill"></i></i>'
+    head = figure or title
+    extras = [card for card in cards if card not in {head, title}]
+    if layout == 'stack':
+        bits = [f'<b>{mark}<strong>{head}</strong></b>']
+        for extra in (extras or ([title] if title != head else []))[:2]:
+            bits.append(f'<b><strong>{extra}</strong></b>')
+        inner = f'<div class="hf-stack">{"".join(bits)}</div>'
+    elif layout == 'columns' and len(cards) >= 2:
+        inner = f'<div class="hf-scene-row">{"".join(f"<b>{card}</b>" for card in cards[:3])}</div>'
+    else:
+        row = ''.join(f'<b>{card}</b>' for card in (extras or cards)[:3])
+        inner = (
+            f'<div class="hf-scene-head">{mark}<strong>{head}</strong></div>'
+            f'<i class="hf-scene-link"></i><div class="hf-scene-row">{row}</div>'
+        )
+    return layout, f'{inner}<p class="hf-scene-caption">{line}</p>'
+
+
 def _speech_ideas(clips, ranges, captions, total, occupied=None):
     """Full-frame pictures of spoken phrases. A plate that already holds the moment stays."""
     from .presentation_graphics import speech_visuals
@@ -720,26 +776,9 @@ def _speech_ideas(clips, ranges, captions, total, occupied=None):
         b = max(a + 1, min(total, int(round(out_end * FPS))))
         chapter += 1
         kind = beat['kind']
-        title = html.escape(beat['title'])
-        figure = html.escape(beat['figure'] or '')
-        if kind == 'figure' and figure:
-            body = f'<div class="hf-idea-figure">{figure}</div><div class="hf-idea-title">{title}</div>'
-        elif kind == 'compare' and beat.get('left') and beat.get('right'):
-            left, right = html.escape(beat['left']), html.escape(beat['right'])
-            body = (
-                f'<div class="hf-idea-split"><b>{left}</b><b>{right}</b></div>'
-                f'<div class="hf-idea-caption">中国 · 泰国</div>'
-            )
-        elif kind == 'steps':
-            body = f'<div class="hf-idea-step">{chapter:02d}</div><div class="hf-idea-title">{title}</div>'
-        elif kind == 'deadline':
-            body = f'<div class="hf-idea-title">{title}</div><i class="hf-idea-track"><i class="hf-idea-fill"></i></i>'
-        elif kind in {'up', 'down'}:
-            body = f'<i class="hf-idea-mark" data-visual-mark="{kind}"></i><div class="hf-idea-title">{title}</div>'
-        else:
-            body = f'<div class="hf-idea-title">{title}</div>'
+        layout, body = _scene_body(beat, chapter)
         layers.append(
-            f'<aside class="hf-idea" data-visual="{kind}" data-hf-avatar="1" '
+            f'<aside class="hf-idea hf-scene" data-visual="{kind}" data-scene="{layout}" data-hf-avatar="1" '
             f'data-hypit-start-frame="{a}" data-hypit-end-frame="{b}" '
             f'data-hf-fade-in="6" data-hf-fade-out="6">{body}</aside>'
         )
@@ -887,6 +926,17 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-chip .hf-card-sub{{padding:0;margin-top:4px;background:none;font:600 {max(12, height // 52)}px/1.2 sans-serif}}
     .hf-window,.hf-mini{{position:absolute;z-index:6;box-sizing:border-box;width:auto;max-width:46%;padding:14px 16px;border-radius:18px;background:#10233f;color:#fff;text-align:left;opacity:0;box-shadow:0 14px 32px rgba(0,0,0,.4);display:flex;flex-direction:column;justify-content:center;gap:6px;overflow:visible}}
     .hf-idea{{position:absolute;inset:0;z-index:4;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:14% 12% 24%;color:#fff;text-align:center;opacity:0;background:radial-gradient(120% 80% at 50% 12%, #16325c 0%, #0b1830 58%, #08101f 100%)}}
+    .hf-scene{{align-items:stretch;justify-content:flex-start;text-align:left;gap:0;padding:8% 7% 18%;background:#07080c}}
+    .hf-scene-head,.hf-scene-row b,.hf-stack b{{box-sizing:border-box;border-radius:18px;border:1px solid rgba(255,255,255,.16);background:linear-gradient(180deg,#23262e,#101218);color:#fff;padding:16px 14px;box-shadow:0 18px 40px rgba(0,0,0,.45)}}
+    .hf-scene-head{{display:flex;flex-direction:column;align-items:flex-start;gap:10px}}
+    .hf-scene-head strong,.hf-stack strong,.hf-scene-row b{{font:800 {max(24, height // 24)}px/1.25 "Noto Sans CJK SC",sans-serif}}
+    .hf-scene-link{{display:block;height:34px;margin:0 16%;background:linear-gradient(#1f8f52,#0c3d22);clip-path:polygon(10% 0,90% 0,100% 100%,0 100%)}}
+    .hf-scene-row{{display:flex;gap:12px}}
+    .hf-scene-row b{{flex:1}}
+    .hf-stack{{display:flex;flex-direction:column;gap:14px;width:72%;margin-left:auto}}
+    .hf-stack b:first-child{{background:linear-gradient(160deg,#6a3494,#2a1244)}}
+    .hf-stack b:nth-child(2){{background:linear-gradient(160deg,#1fa971,#0c5c40)}}
+    .hf-scene-caption{{position:absolute;left:8%;right:24%;bottom:5%;margin:0;text-align:center;font:700 {max(18, height // 34)}px/1.3 "Noto Sans CJK SC",sans-serif}}
     .hf-idea-mark{{width:0;height:0;border-left:46px solid transparent;border-right:46px solid transparent;border-bottom:78px solid #f2c14b}}
     .hf-idea-title{{max-width:78%;font:800 {max(28, height // 18)}px/1.2 "Noto Sans CJK SC",sans-serif}}
     .hf-idea-figure{{font:800 {max(72, height // 8)}px/1 "Noto Sans CJK SC",sans-serif;color:#f2c14b;letter-spacing:-.04em}}
@@ -1026,7 +1076,8 @@ def composition(source, work, manual, width, height, language, style=None):
 </html>
 '''
     page = _apply_style(page, style)
-    prompt = animation_brief(manual)
+    from .hypit_prompt import _look_line
+    prompt = animation_brief(manual) + _look_line()
     page = page.replace(
         'data-composition-id="lumen"',
         'data-composition-id="lumen" data-hypit-prompt="' + html.escape(prompt, quote=True) + '"',
@@ -1068,7 +1119,7 @@ def _host_audio(source, folder, clips):
     return mixed
 
 
-def render_picture(source, folder, manual, width, height, metadata, asset_paths=None, language='en'):
+def render_picture(source, folder, manual, width, height, metadata, asset_paths=None, language='en', board=None, voiceover=False):
     """Composite the approved clips. Raises hypit_unavailable when capture cannot run."""
     clips = [dict(clip) for clip in manual['clips'] if clip.get('approved', True)]
     if not clips:
@@ -1105,7 +1156,7 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
     from .hypit_prompt import author_source, write_author
-    write_author(work, author_source(manual, width, height, language=language))
+    write_author(work, author_source(manual, width, height, board, language, voiceover=voiceover))
     shutil.copyfile(work / 'cut.mp4', work / 'source.mp4')
     job = {
         'directory': str(work),

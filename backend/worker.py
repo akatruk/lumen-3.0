@@ -104,6 +104,7 @@ def render_job(p,payload):
         from .studio import state as studio_state
         from .style_match import board_for_render
         current=studio_state(pid)
+        effect_board=((current or {}).get('context') or {}).get('effect_board') if current else None
         manual=board_for_render(manual,(current or {}).get('context') if current else None)
         if ((current or {}).get('context') or {}).get('style_match'):
             from .style_match import animate_for_render, present_for_render
@@ -113,7 +114,7 @@ def render_job(p,payload):
             manual=present_for_render(manual)
             picture_engine=engine_for((current or {}).get('context'))
     spoken=(delivery or {}).get('voice') or {}
-    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,presentation_language=spoken.get('language'),**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
+    result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,presentation_language=spoken.get('language'),effect_board=effect_board if manual else None,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id
     if delivery and delivery['voice']:result['voiceover']={k:delivery['voice'][k] for k in ('language','voice')}
     if asset_paths:
