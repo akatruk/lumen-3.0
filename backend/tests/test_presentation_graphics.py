@@ -29,16 +29,14 @@ def test_slider_percentage_is_the_hypit_prompt():
     bare = plan(edit(card_motion=0))
     assert low.presentation_prompt.startswith('<?svml using="@hypit/svs@1"?>')
     assert '<render:Video id="final" composition={main.composition}' in low.presentation_prompt
-    assert 'end="2.000s"' in low.presentation_prompt
-    assert 'contrast: 1.040' in low.presentation_prompt
+    assert '10% длины ролика' in low.presentation_prompt and '6 секунд на каждую минуту' in low.presentation_prompt
+    assert 'end="' not in low.presentation_prompt and 'film.grade' not in low.presentation_prompt
     assert 'film.vignette' not in low.presentation_prompt
-    assert 'end="8.000s"' in mid.presentation_prompt
-    assert 'style={title-style} during="program"' not in mid.presentation_prompt
-    assert 'style={title-style} during="program"' in full.presentation_prompt
-    assert 'contrast: 1.220' in full.presentation_prompt and 'film.vignette { amount: 0.550; }' in full.presentation_prompt
-    assert 'size: 72' in full.presentation_prompt
-    assert '<text:Track' not in bare.presentation_prompt and 'film.grade' not in bare.presentation_prompt
-    assert '<performance:Track' in bare.presentation_prompt
+    assert '40% длины ролика' in mid.presentation_prompt and 'end="' not in mid.presentation_prompt
+    assert '100% длины ролика' in full.presentation_prompt and '60 секунд на каждую минуту' in full.presentation_prompt
+    assert 'film.grade' not in full.presentation_prompt and 'film.vignette' not in full.presentation_prompt
+    assert '0% длины ролика' in bare.presentation_prompt and 'film.grade' not in bare.presentation_prompt
+    assert '<performance:Track' in bare.presentation_prompt and 'src="./source.mp4"' in bare.presentation_prompt
     assert low.presentation_prompt != mid.presentation_prompt != full.presentation_prompt != bare.presentation_prompt
     assert len(full.presentation_prompt) < 12000
     covered = sum(beat.end - beat.start for beat in plan(edit(presentation_share=10)).presentation)
@@ -49,9 +47,10 @@ def test_slider_percentage_is_the_hypit_prompt():
     }}
     scaled = plan(edit(card_motion=100), quiet)
     assert 'film.grade' not in scaled.presentation_prompt and 'film.vignette' not in scaled.presentation_prompt
-    assert 'text.kinetic' in scaled.presentation_prompt and 'style={title-style} during="program"' in scaled.presentation_prompt
+    assert 'Эффекты: kinetic.' in scaled.presentation_prompt
     colored = plan(edit(card_motion=100), {**quiet, 'effects': {**quiet['effects'], 'color': True, 'kinetic': False}})
-    assert 'contrast: 1.352' in colored.presentation_prompt and 'text.kinetic' not in colored.presentation_prompt
+    assert 'Эффекты: color.' in colored.presentation_prompt and 'kinetic' not in colored.presentation_prompt.split('Эффекты:', 1)[-1]
+    assert 'contrast:' not in colored.presentation_prompt
 
 def test_hypit_page_uses_that_prompt_percentage():
     from backend.hypit_picture import _presentation_page, presentation_layers
@@ -170,7 +169,8 @@ def test_saved_percent_queues_a_render_only_when_every_scene_is_approved(client)
     approved = edit(card_motion=40, presentation_share=0, clips=[{'start': 0, 'end': 10, 'approved': True}], captions=_speech()).model_dump()
     saved = client.put(url, json={'revision': 1, 'edit': approved})
     assert saved.status_code == 200
-    assert 'end="4.000s"' in saved.json()['edit']['presentation_prompt']
+    assert '40% длины ролика' in saved.json()['edit']['presentation_prompt']
+    assert 'end="' not in saved.json()['edit']['presentation_prompt']
     revision = saved.json()['revision']
     assert client.post(url + '/render', json={'revision': revision}).status_code == 200
     with connect() as db:
@@ -183,7 +183,8 @@ def test_saved_percent_queues_a_render_only_when_every_scene_is_approved(client)
     ], captions=_speech()).model_dump()
     stored = client.put(f'/api/studio/projects/{other}/manual', json={'revision': 1, 'edit': held})
     assert stored.status_code == 200
-    assert 'during="program"' in stored.json()['edit']['presentation_prompt']
+    assert '80% длины ролика' in stored.json()['edit']['presentation_prompt']
+    assert 'film.grade' not in stored.json()['edit']['presentation_prompt']
     refused = client.post(f'/api/studio/projects/{other}/manual/render', json={'revision': stored.json()['revision']})
     assert refused.status_code == 422 and refused.json()['detail'] == 'approve_shots_first'
     with connect() as db:
@@ -204,5 +205,5 @@ def test_effect_board_scales_the_stored_prompt_without_a_new_revision(client):
     assert client.get(f'/api/studio/projects/{pid}').json()['revision'] == revision
     with connect() as db:
         stored = json.loads(db.execute('SELECT config FROM studio_manual WHERE project_id=?', (pid,)).fetchone()[0])
-    assert 'contrast: 1.352' in stored['presentation_prompt']
-    assert 'film.vignette' not in stored['presentation_prompt']
+    assert 'Эффекты: color.' in stored['presentation_prompt']
+    assert 'film.grade' not in stored['presentation_prompt'] and 'film.vignette' not in stored['presentation_prompt']

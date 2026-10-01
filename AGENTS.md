@@ -48,3 +48,7 @@ arrow moving down. A spoken number is a large figure. Steps appear one by one.
 A comparison is two columns. A deadline is a mark on a scale. Do not invent
 facts. At 100% this treatment covers the whole minute. A lower percent covers
 that share of each minute, and the rest is the host full frame.
+
+The handoff is that one prompt. Hypit builds it into one video. Lumen does not
+cut the footage into scenes, does not set a parameter on each frame, and does
+not concatenate those pieces.

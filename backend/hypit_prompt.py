@@ -1,9 +1,8 @@
-"""The effects percent is a Hypit author source.
+"""One Hypit prompt for the whole picture.
 
-Hypit consumes SVML. ``render:Video`` compiles ``film:Film`` into the picture.
-0% is the footage alone. A higher percent lengthens the type window and
-strengthens the grade, vignette, and type size. 75% and above keep the type
-for the whole timeline (``during="program"``).
+The percent, the intensity and the spoken words are that prompt. Hypit builds
+one video from it. Lumen does not cut the footage into scenes or set a
+parameter on each frame.
 """
 import html
 
@@ -32,126 +31,69 @@ def treatment_line(manual, language='en'):
 
 
 def _xml(text):
-    return html.escape(text or '•', quote=False)
+    return html.escape(text or '', quote=False)
 
 
-def _strength(board):
+def _board_line(board):
+    """Enabled effect names, as words in the one prompt."""
     if not isinstance(board, dict):
-        return None, 1.0
+        return ''
     effects = board.get('effects') if isinstance(board.get('effects'), dict) else {}
-    try:
-        amount = max(0.4, min(1.6, float(board.get('amount') or 1)))
-    except (TypeError, ValueError):
-        amount = 1.0
-    return effects, amount
+    names = [str(key) for key, enabled in effects.items() if enabled]
+    if not names:
+        return ''
+    return ' Эффекты: ' + ', '.join(names) + '.'
 
 
-def _flags(share, board):
-    """Color, vignette, and kinetic. 0% adds none. A missing board follows the percent."""
-    if share <= 0:
-        return False, False, False, 1.0
-    effects, amount = _strength(board)
-    if effects is None:
-        return True, share >= 45, False, 1.0
-    return bool(effects.get('color')), bool(effects.get('shadow')), bool(effects.get('kinetic')), amount
+def _spoken(manual):
+    from .presentation_graphics import _caption_text
+
+    lines = []
+    for caption in (manual or {}).get('captions') or []:
+        text = _caption_text(caption)
+        if text:
+            lines.append(text.replace('{', '').replace('}', ''))
+    return lines
 
 
-def _levels(share, scale, color, vignette):
-    if share >= 75:
-        contrast, saturation, shade, size = 1.22, 1.28, 0.55, 72
-    elif share >= 45:
-        contrast, saturation, shade, size = 1.12, 1.14, 0.35, 56
-    else:
-        contrast, saturation, shade, size = 1.04, 1.06, 0.35, 48
-    contrast = 1 + (contrast - 1) * scale
-    saturation = 1 + (saturation - 1) * scale
-    shade = shade * scale
-    size = max(32, min(96, round(size * scale)))
-    return (
-        f'{contrast:.3f}' if color else '',
-        f'{saturation:.3f}' if color else '',
-        f'{shade:.3f}' if vignette else '',
-        size,
-    )
-
-
-def recipes_sheet(share, board=None):
-    """Recipe numbers for this percent. Board strength scales them."""
-    share = max(0, min(100, int(share or 0)))
-    color, vignette, kinetic, scale = _flags(share, board)
-    contrast, saturation, shade, size = _levels(share, scale, color, vignette)
-    lines = [
-        'film.vertical {',
-        '    background: #09090B;',
-        '  }',
-        '  media.performance { stack-order: 0; fit: cover; }',
-    ]
-    if contrast:
-        lines.append(f'  film.grade {{ contrast: {contrast}; saturation: {saturation}; }}')
-    if shade:
-        lines.append(f'  film.vignette {{ amount: {shade}; }}')
-    if share > 0:
-        lines.append(
-            '  text.title {'
-            f' stack-order: 90; weight: 900; size: {size}; align: center;'
-            ' fill: #FFFFFF; tracking: -1;'
-            ' }'
-        )
-    if kinetic:
-        lines.append(
-            '  text.kinetic {'
-            f' stack-order: 91; weight: 900; size: {min(96, size + 8)}; align: center;'
-            ' fill: #FFFFFF; tracking: -3;'
-            ' }'
-        )
-    body = '\n'.join(lines)
-    return f'''<?svml using="@hypit/svs@1"?>
+def recipes_sheet():
+    """The footage stays sharp. The percent is not a grade or a vignette."""
+    return '''<?svml using="@hypit/svs@1"?>
 
 <sheet version="1">
-  {body}
+  film.vertical {
+    background: #09090B;
+  }
+  media.performance { stack-order: 0; fit: cover; }
 </sheet>
 '''
 
 
-def author_source(share, duration, width, height, line, board=None):
-    """SVML Hypit checks, plus the recipe sheet for this percent."""
-    share = max(0, min(100, int(share or 0)))
-    duration = max(1 / 30, float(duration or 0))
+def _prompt_language(manual, language=None):
+    """WhisperX needs the language of the words in the prompt."""
+    if isinstance(language, str) and language.startswith('zh'):
+        return 'zh'
+    if language in ('en', 'ru', 'zh'):
+        return language
+    blob = ' '.join(_spoken(manual))
+    if any('\u4e00' <= char <= '\u9fff' for char in blob):
+        return 'zh'
+    if any('а' <= char.lower() <= 'я' or char in 'ёЁ' for char in blob):
+        return 'ru'
+    return 'en'
+
+
+def author_source(edit, width, height, board=None, language=None):
+    """One prompt for the whole video. The percent is the request inside it."""
+    from .presentation_graphics import animation_brief
+
+    manual = edit if isinstance(edit, dict) else edit.model_dump()
     width = max(2, int(width))
     height = max(2, int(height))
-    color, vignette, kinetic, _scale = _flags(share, board)
-    words = _xml(line)
-    text_imports = ''
-    text = ''
-    titles = ''
-    grade = ''
-    shade = ''
-    if color:
-        grade = '\n  <film:Grade id="look" recipe={recipes.film.grade}/>'
-    if vignette:
-        shade = '\n  <film:Vignette id="shade" recipe={recipes.film.vignette}/>'
-    if share > 0:
-        window = 'during="program"' if share >= 75 else f'start="0s" end="{duration * share / 100:.3f}s"'
-        text_imports = '''
-  <import as="fonts" from="@hypit/fonts-open@1"/>
-  <import as="text" from="@hypit/typography-track@1"/>'''
-        kinetic_area = ''
-        if kinetic:
-            kinetic_area = f'''
-    <text:Area id="kinetic" placement={{title-frame}} style={{kinetic-style}} {window}>
-      {words}
-    </text:Area>'''
-        kinetic_style = '\n  <text:Style id="kinetic-style" recipe={recipes.text.kinetic} font={title-font}/>' if kinetic else ''
-        text = f'''
-  <fonts:Stack id="title-font" family="inter" weight="900" style="normal"/>
-  <text:Style id="title-style" recipe={{recipes.text.title}} font={{title-font}}/>{kinetic_style}
-  <text:Track id="titles" timeline={{speech.timeline}}>
-    <text:Area id="title" placement={{title-frame}} style={{title-style}} {window}>
-      {words}
-    </text:Area>{kinetic_area}
-  </text:Track>
-'''
-        titles = '\n    <film:Track source={titles.track}/>'
+    spoken_language = _prompt_language(manual, language)
+    request = _xml((animation_brief(manual) + _board_line(board)).replace('{', '').replace('}', ''))
+    script = _xml(' '.join(_spoken(manual)))
+    language_attr = f' language="{spoken_language}"' if script else ''
     svml = f'''{_MARKUP}
 
 <svml>
@@ -162,25 +104,26 @@ def author_source(share, duration, width, height, line, board=None):
   <import as="whisperx" from="@hypit/whisperx@1"/>
   <import as="space" from="@hypit/spatial@1"/>
   <import as="program" from="@hypit/program-space@1"/>
-  <import as="performance" from="@hypit/performance@1"/>{text_imports}
+  <import as="performance" from="@hypit/performance@1"/>
+  <import as="text" from="@hypit/text@1"/>
   <import as="film" from="@hypit/film@1"/>
   <import as="render" from="@hypit/render-hyperframes@1"/>
   <import as="recipes" source="./recipes.svs"/>
 
   <script id="story">
-    <picture></picture>
+    <picture>{script}</picture>
   </script>
+  <text:Value id="request">{request}</text:Value>
 
-  <media:Video id="footage" src="./cut.mp4"/>
+  <media:Video id="footage" src="./source.mp4"/>
   <space:Canvas id="vertical" width="{width}" height="{height}"/>
   <program:Clock id="clock" frame-rate="30"/>
   <space:Frame id="speech-frame" within={{vertical}} left="0%" top="0%" right="100%" bottom="100%"/>
-  <space:Frame id="title-frame" within={{vertical}} left="6%" top="72%" right="94%" bottom="94%"/>
 
   <pipeline:Normalize id="footage-media" source={{footage}}
     video="primary-moving" audio="none" span-authority="video" clock={{clock}}/>
   <whisperx:SemanticTake id="picture-semantic" narrative={{story}}
-    segment={{story.segment.picture}} media={{footage-media.media}}/>
+    segment={{story.segment.picture}} media={{footage-media.media}}{language_attr}/>
   <time:Timeline id="speech" clock={{clock}}>
     <time:Take source={{picture-semantic.take}}/>
   </time:Timeline>
@@ -189,14 +132,13 @@ def author_source(share, duration, width, height, line, board=None):
   <performance:Track id="performance" timeline={{speech.timeline}} canvas={{vertical}}>
     <performance:Use style={{performance-style}} during="program"/>
   </performance:Track>
-{text}{grade}{shade}
   <film:Film id="main" canvas={{vertical}} timeline={{speech.timeline}} appearance={{recipes.film.vertical}}>
-    <film:Track source={{performance.visual}}/>{titles}
+    <film:Track source={{performance.visual}}/>
   </film:Film>
   <render:Video id="final" composition={{main.composition}} timeline={{speech.timeline}}/>
 </svml>
 '''
-    return recipes_sheet(share, board) + svml
+    return recipes_sheet() + svml
 
 
 def write_author(folder, prompt):

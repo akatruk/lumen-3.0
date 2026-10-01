@@ -1,10 +1,9 @@
-"""Style-match pictures rendered by Hypit's HyperFrames capture.
+"""Style-match pictures are one Hypit build of one prompt.
 
 Hypit is Apache License 2.0 with additional conditions. Lumen does not vendor
-that source. A style-match render writes a HyperFrames HTML programme and runs
-``provider-hyperframes-local`` from ``HYPIT_ROOT`` (default ``/opt/hypit``).
-The capture composites frames in Chrome and encodes them with ffmpeg. Lumen
-still owns the edit, the voice, and the music bed.
+that source. The prompt names the percent and the spoken words. ``hypit build``
+returns one video. Lumen does not cut the footage into scenes or set a
+parameter on each frame.
 """
 import html
 import json
@@ -125,6 +124,84 @@ def spawn(argv, env):
         raise _note_failure(exc, 'capture timed out') from None
     except OSError as exc:
         raise _note_failure(exc, f'{type(exc).__name__}: {exc.strerror or "capture could not start"}') from None
+
+
+def _build_payload(text):
+    """The last Hypit build report. Progress lines may precede the JSON."""
+    decoder = json.JSONDecoder()
+    found = None
+    for index, char in enumerate(text or ''):
+        if char != '{':
+            continue
+        try:
+            payload, _end = decoder.raw_decode(text[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and payload.get('format') == 'hypit.cli-build@1':
+            found = payload
+    if not found or not (found.get('build') or {}).get('id'):
+        raise RuntimeError('hypit_unavailable')
+    work = (found.get('build') or {}).get('work') or {}
+    if work.get('outcome') == 'failed' or work.get('state') == 'failed':
+        raise RuntimeError('hypit_unavailable')
+    return found
+
+
+def _runtime_profile(work):
+    """Local picture and alignment only. A hosted key is not part of this prompt."""
+    chrome = _chrome()
+    picture = {'use': '@hypit/provider-hyperframes-local', 'config': {'workers': 1, 'defaultConcurrency': 1}}
+    if chrome:
+        picture['config']['chromePath'] = chrome
+    profile = {
+        'format': 'hypit.runtime-local@1',
+        'dataRoot': '.hypit/runtimes/local',
+        'endpoints': {
+            'media.local': {'use': '@hypit/provider-media-local'},
+            'hyperframes.local': picture,
+            'whisperx.local': {'use': '@hypit/provider-whisperx-local'},
+        },
+    }
+    path = Path(work) / 'hypit.runtime.json'
+    path.write_text(json.dumps(profile))
+    return path
+
+
+def deliver(work):
+    """Build the one prompt and write visual.mp4. The source is not spliced."""
+    work = Path(work)
+    binary = _root() / 'bin' / 'hypit.mjs'
+    if not binary.is_file():
+        raise RuntimeError('hypit_unavailable')
+    node = os.environ.get('HYPIT_NODE') or 'node'
+    env = os.environ.copy()
+    env['HYPIT_ROOT'] = str(_root())
+
+    def cli(args):
+        try:
+            return subprocess.run(
+                [node, str(binary), *args, '--workspace', str(work)],
+                check=True, cwd=str(work), env=env, timeout=45 * 60,
+                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, errors='replace',
+            )
+        except subprocess.CalledProcessError as exc:
+            output = (exc.stderr or '').strip() or (exc.stdout or '').strip()
+            raise _note_failure(RuntimeError('hypit_unavailable'), f'exit {exc.returncode}: {output}' if output else f'exit {exc.returncode}') from None
+        except subprocess.TimeoutExpired as exc:
+            raise _note_failure(RuntimeError('hypit_unavailable'), 'build timed out') from exc
+        except OSError as exc:
+            raise _note_failure(RuntimeError('hypit_unavailable'), f'{type(exc).__name__}: {exc.strerror or "build could not start"}') from exc
+
+    _runtime_profile(work)
+    cli(['runtime', 'use', 'hypit.runtime.json'])
+    completed = cli(['build', 'build.svrun', '--follow', '--json'])
+    build_id = _build_payload(completed.stdout)['build']['id']
+    visual = work / 'visual.mp4'
+    cli(['get', build_id, '--output', 'final.video', '--to', str(visual)])
+    if not visual.is_file() or visual.stat().st_size < 32:
+        raise RuntimeError('hypit_unavailable')
+    return visual
 
 
 def _caption_line(caption, language):
@@ -342,72 +419,22 @@ def _span(clip, available):
 
 
 def _picture_cut(source, work, clips, width, height):
-    """One continuous picture. Separate scene files leave a gap when joined.
-
-    A crossfade would shorten the picture while the voice stays at the full
-    clip length, so the mouth drifts further from the words on every join.
-    """
-    available = _piece_duration(source)
-    pieces = []
-    lengths = []
-    for index, clip in enumerate(clips):
-        start, length, take, _average = _span(clip, available)
-        chain, _rate = _piece_vf(clip, width, height, length, (available - start) / length if available > start else 1)
-        pieces.append((index, start, take, chain))
-        lengths.append(length)
+    """The whole source, once. Clips are not trimmed and not joined."""
+    del clips
+    duration = max(0.1, _piece_duration(source))
+    chain = (
+        f'scale={int(width)}:{int(height)}:force_original_aspect_ratio=increase,'
+        f'crop={int(width)}:{int(height)},fps={FPS},format=yuv420p'
+    )
+    graph = work / 'picture.txt'
+    graph.write_text(f'[0:v]{chain}[v]\n')
     out = work / 'cut.mp4'
-    # One graph of every scene at once asks for more RAM than this machine has.
-    # Short pictures keep that graph. Longer ones encode a scene, then join.
-    if len(pieces) > 6:
-        encoded = []
-        for index, start, take, chain in pieces:
-            part = work / f'part-{index}.mp4'
-            part_graph = work / f'part-{index}.txt'
-            part_graph.write_text(
-                f'[0:v]trim=start={start:.3f}:duration={take:.3f},setpts=PTS-STARTPTS,{chain}[v]\n'
-            )
-            ffmpeg(
-                '-i', str(source), '-filter_complex_script', str(part_graph), '-map', '[v]', '-an',
-                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p',
-                str(part), timeout=600,
-            )
-            part_graph.unlink(missing_ok=True)
-            encoded.append(part)
-        graph = work / 'picture.txt'
-        joined = ''.join(f'[{index}:v]' for index in range(len(encoded)))
-        graph.write_text(f'{joined}concat=n={len(encoded)}:v=1:a=0[v]\n')
-        args = []
-        for part in encoded:
-            args.extend(['-i', str(part)])
-        ffmpeg(
-            *args, '-filter_complex_script', str(graph), '-map', '[v]', '-an',
-            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p',
-            str(out), timeout=600,
-        )
-        for part in encoded:
-            part.unlink(missing_ok=True)
-    else:
-        chains = []
-        labels = []
-        for index, start, take, chain in pieces:
-            label = f'v{index}'
-            chains.append(
-                f'[0:v]trim=start={start:.3f}:duration={take:.3f},setpts=PTS-STARTPTS,{chain}[{label}]'
-            )
-            labels.append(f'[{label}]')
-        graph = work / 'picture.txt'
-        graph.write_text(';\n'.join(chains) + f';\n{"".join(labels)}concat=n={len(labels)}:v=1:a=0[v]\n')
-        ffmpeg(
-            '-i', str(source), '-filter_complex_script', str(graph), '-map', '[v]', '-an',
-            '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
-            str(out), timeout=600,
-        )
-    ranges = []
-    cursor = 0.0
-    for length in lengths:
-        ranges.append((cursor, cursor + length))
-        cursor += length
-    return max(1, int(round(cursor * FPS))), ranges
+    ffmpeg(
+        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[v]', '-an',
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
+        str(out), timeout=600,
+    )
+    return max(1, int(round(duration * FPS))), duration
 
 
 def _headcount(card):
@@ -794,7 +821,10 @@ def composition(source, work, manual, width, height, language, style=None):
     piece at once and the capture never finishes.
     """
     clips = [clip for clip in manual['clips'] if clip.get('approved', True)]
-    total, ranges = _picture_cut(source, work, clips, width, height)
+    total, duration = _picture_cut(source, work, clips, width, height)
+    # One timeline for the whole file. Caption times stay where they were spoken.
+    clips = [{'start': 0.0, 'end': duration, 'approved': True}]
+    ranges = [(0.0, duration)]
     layers = [_video(
         'picture', 'cut.mp4', 0, total, 0, 0.0, Fraction(1, 1), FPS, 1, 0, 0,
     )]
@@ -1028,25 +1058,12 @@ def _piece_duration(path):
 
 
 def _host_audio(source, folder, clips):
-    """One speech stem for the whole picture. Scene files leave a gap at each join."""
-    available = _piece_duration(source)
-    chains = []
-    labels = []
-    for index, clip in enumerate(clips):
-        start, length, take, average = _span(clip, available)
-        tempo = f',atempo={average:.4f}' if abs(average - 1) > 0.04 else ''
-        label = f'a{index}'
-        chains.append(
-            f'[0:a]atrim=start={start:.3f}:duration={take:.3f},asetpts=PTS-STARTPTS{tempo},'
-            f'atrim=duration={length:.3f},aformat=sample_fmts=s16:sample_rates=48000:channel_layouts=stereo[{label}]'
-        )
-        labels.append(f'[{label}]')
-    graph = folder / 'speech.txt'
-    graph.write_text(';\n'.join(chains) + f';\n{"".join(labels)}concat=n={len(labels)}:v=0:a=1[a]\n')
+    """The source soundtrack, whole. It is not rebuilt from clip pieces."""
+    del clips
     mixed = folder / 'hypit-audio.wav'
     ffmpeg(
-        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[a]',
-        '-c:a', 'pcm_s16le', '-ar', '48000', '-ac', '2', str(mixed), timeout=600,
+        '-i', str(source), '-vn', '-c:a', 'pcm_s16le', '-ar', '48000', '-ac', '2',
+        str(mixed), timeout=600,
     )
     return mixed
 
@@ -1087,13 +1104,9 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     frame_count = composition(source, work, manual, width, height, language, style)
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
-    from .hypit_prompt import author_source, treatment_line, write_author
-    stored = manual.get('presentation_prompt') or ''
-    if '<?svml using="@hypit/markup@1"?>' not in stored:
-        stored = author_source(
-            _card_motion(manual), frame_count / FPS, width, height, treatment_line(manual, language),
-        )
-    write_author(work, stored)
+    from .hypit_prompt import author_source, write_author
+    write_author(work, author_source(manual, width, height, language=language))
+    shutil.copyfile(work / 'cut.mp4', work / 'source.mp4')
     job = {
         'directory': str(work),
         'width': int(width),
@@ -1119,7 +1132,7 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
         raise RuntimeError('hypit_unavailable')
     assembled = Path(folder) / 'assembled.mp4'
     if metadata.get('has_audio'):
-        audio = _host_audio(source, work, clips)
+        audio = source
         if manual.get('voice_cleanup'):
             from .hypit_controls import clean_host
             audio = clean_host(audio, work)

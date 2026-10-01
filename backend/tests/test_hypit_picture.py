@@ -47,9 +47,8 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
 
     def fake_spawn(argv, env):
         job = json.loads(Path(argv[-1]).read_text())
-        seen['argv'] = argv
-        seen['html'] = (Path(job['directory']) / 'index.html').read_text()
-        seen['root'] = env['HYPIT_ROOT']
+        seen['prompt'] = (Path(job['directory']) / 'main.svml').read_text()
+        seen['picture'] = (Path(job['directory']) / 'picture.txt').read_text()
         frames = job['frameCount']
         ffmpeg(
             '-f', 'lavfi', '-i', f'color=c=blue:s={job["width"]}x{job["height"]}:d={frames / 30:.3f}:r=30',
@@ -93,71 +92,29 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
         'presentation_share': 100,
     }
     result = render(src, tmp_path, probe(src), analysis, [], 'zh', 'original', manual=edit, picture_engine='hypit')
-    assert seen['argv'][2].endswith('hypit_render.mjs')
-    assert seen['root'] == str(root)
-    html = seen['html']
-    assert 'data-composition-id="lumen"' in html
-    assert 'data-hypit-start-frame=' in html
-    assert 'data-hypit-source-fps=' in html
-    assert 'data-start="0.000"' in html and 'data-end="' in html and 'data-media-start="0.000"' in html
-    assert 'data-has-audio="false"' in html
-    assert '三名股东开会' in html
-    assert '口播' not in html and 'Shareholders' not in html and '>3<' not in html
-    assert 'Governance logic also differs' not in html
-    assert '股东结构' not in html
-    assert '法人代表' in html and '董事权限' in html
-    assert 'hf-board' in html and '外资比例' in html and '49%' in html
-    assert 'class="hf-plate"' in html and 'hf-board hf-plate' not in html
-    assert '<text' not in html and 'render:Video' not in html and '<?svml' not in html
-    svml = (tmp_path / 'hypit' / 'main.svml').read_text()
-    assert 'during="program"' in svml and '三名股东开会' in svml and '<render:Video id="final"' in svml
+    prompt = seen['prompt']
+    assert '<render:Video id="final"' in prompt and 'src="./source.mp4"' in prompt
+    assert '100% длины ролика' in prompt and '60 секунд на каждую минуту' in prompt
+    assert '三名股东开会' in prompt and '法人代表' in prompt and '董事权限' in prompt
+    assert '口播' not in prompt and 'Shareholders' not in prompt and 'Governance logic also differs' not in prompt
+    assert 'film.grade' not in prompt and 'film.vignette' not in prompt
+    assert 'data-hypit-start-frame' not in prompt and 'end="' not in prompt
+    assert 'площади' not in prompt and 'этот размер' not in prompt
     assert (tmp_path / 'hypit' / 'recipes.svs').is_file() and (tmp_path / 'hypit' / 'build.svrun').is_file()
-    assert 'data-card-motion="100"' in html
-    assert 'data-animation-intensity="100"' in html
-    assert '(el.classList.contains(\'hf-board\') ? 28 : 16) * intensity' in html
-    assert '100% длины ролика' in html and '60 секунд на каждую минуту' in html
-    assert 'площади' not in html and 'этот размер' not in html
+    assert (tmp_path / 'hypit' / 'source.mp4').is_file()
+    assert 'concat=' not in seen['picture'] and 'trim=' not in seen['picture']
+    assert seen['picture'].count('[0:v]') == 1
+    assert not list((tmp_path / 'hypit').glob('part-*.mp4'))
     assert (tmp_path / 'animation-share.txt').read_text() == '100'
-    from backend.hypit_picture import composition
-    quiet = tmp_path / 'motion-zero'
-    quiet.mkdir()
-    composition(src, quiet, {**edit, 'card_motion': 0}, 160, 240, 'zh')
-    gone = (quiet / 'index.html').read_text()
-    assert 'data-card-motion="0"' in gone and '外资比例' not in gone and '三名股东开会' in gone
-    mid_dir = tmp_path / 'motion-mid'
-    mid_dir.mkdir()
-    composition(src, mid_dir, {**edit, 'card_motion': 10}, 160, 240, 'zh')
-    mid = (mid_dir / 'index.html').read_text()
-    assert 'data-card-motion="10"' in mid and 'data-card-motion="100"' not in mid
+    from backend.hypit_prompt import author_source
+    quiet = author_source({**edit, 'card_motion': 0}, 160, 240)
+    assert '0% длины ролика' in quiet and '100% длины ролика' not in quiet
+    mid = author_source({**edit, 'card_motion': 10}, 160, 240)
     assert '10% длины ролика' in mid and '6 секунд на каждую минуту' in mid
-    assert 'data-animation-intensity="100"' in mid
-
-    assert 'data-card-width="0.860"' in html and 'left:7%;width:86%;top:15%;height:70%' in html
-    assert 'data-graphic-scale="' not in html and 'el.style.zoom' not in html
-    assert 'data-card-width="0.860"' in mid and 'left:7%;width:86%;top:15%;height:70%' in mid
-    assert 'data-graphic-scale="' not in mid and 'el.style.zoom' not in mid
-    total = int(mid.split('data-hypit-frame-count="', 1)[1].split('"', 1)[0])
-    horizon = max(1, round(total * 10 / 100))
-    plates = mid.split('class="hf-plate"')[1:]
-    for layer in plates:
-        end = int(layer.split('data-hypit-end-frame="', 1)[1].split('"', 1)[0])
-        assert end <= horizon
-    full_plates = html.split('class="hf-plate"')[1:]
-    assert full_plates and int(full_plates[0].split('data-hypit-end-frame="', 1)[1].split('"', 1)[0]) > horizon
-    assert 'boardOn ? 0.78' not in html and 'marginY' in html
-    assert 'data-hf-avatar="1"' in html and 'hf-board-figure' in html
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
     assert (tmp_path / 'hypit' / 'host-cleaned.wav').is_file()
-    assert not list((tmp_path / 'hypit').glob('piece-*.mp4'))
-    picture = (tmp_path / 'hypit' / 'picture.txt').read_text()
-    assert 'concat=n=2:v=1:a=0' in picture and 'file ' not in picture
-    cut = float((json.loads(run(
-        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'json', str(tmp_path / 'hypit' / 'cut.mp4')],
-        30,
-    )[0])['format'] or {}).get('duration') or 0)
-    assert abs(cut - 2) < 0.08
     assert result['metadata']['has_audio']
     assert abs(result['metadata']['duration'] - 2) < 0.6
     streams = json.loads(run(

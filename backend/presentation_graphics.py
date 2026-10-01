@@ -143,16 +143,10 @@ def _footage_seconds(edit):
     return total or 0.1
 
 def presentation_prompt(edit, board=None):
-    """The card-animation percent is the SVML Hypit builds. Words stay on the edit."""
-    from .hypit_prompt import author_source, treatment_line
+    """One prompt. The slider percent is the request Hypit builds, not a frame window."""
+    from .hypit_prompt import author_source
 
-    manual = edit if isinstance(edit, dict) else edit.model_dump()
-    share = manual.get('card_motion', 100)
-    try:
-        share = int(0 if share is None else share)
-    except (TypeError, ValueError):
-        share = 100
-    return author_source(share, _footage_seconds(edit), 720, 1280, treatment_line(manual), board)
+    return author_source(edit, 720, 1280, board)
 
 def _step(value, default=100):
     try:
