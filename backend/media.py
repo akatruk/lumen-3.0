@@ -543,7 +543,7 @@ def _mask_axes(clip):
         return 0.38, 0.42
     return rx, ry
 
-def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None,presentation_language=None):
+def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None,presentation_language=None,effect_board=None):
     def beat(stage, value):
         if on_progress:
             on_progress(stage, value)
@@ -575,7 +575,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             raise RuntimeError('hypit_unavailable')
         from .hypit_picture import render_picture
         beat('rendering_shots', 28)
-        input_path = render_picture(source, folder, manual, w, h, metadata, asset_paths, language)
+        input_path = render_picture(source, folder, manual, w, h, metadata, asset_paths, language, effect_board, bool(voice_audio))
         captions = False
         parts = []
         base = input_path

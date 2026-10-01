@@ -43,7 +43,10 @@ renderer.
 
 The main prompt visualizes the host's words. While a phrase is spoken, the
 foreground is a graphic of that thought and the host is a circle; the footage
-stays sharp. Profit or growth is an arrow moving up. Risk or a fall is an
+stays sharp. The graphic is a composed motion scene: several cards, a link
+between them, and a picture of a named place or object when the words include
+one. The layout changes from phrase to phrase. It is not one centered title
+on a flat plate. Profit or growth is an arrow moving up. Risk or a fall is an
 arrow moving down. A spoken number is a large figure. Steps appear one by one.
 A comparison is two columns. A deadline is a mark on a scale. Do not invent
 facts. At 100% this treatment covers the whole minute. A lower percent covers
@@ -51,4 +54,5 @@ that share of each minute, and the rest is the host full frame.
 
 The handoff is that one prompt. Hypit builds it into one video. Lumen does not
 cut the footage into scenes, does not set a parameter on each frame, and does
-not concatenate those pieces.
+not concatenate those pieces. Voice cleanup, loudness, captions, music, sound
+accents, and picture quality are sentences in that same prompt.

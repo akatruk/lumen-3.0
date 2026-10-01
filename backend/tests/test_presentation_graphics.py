@@ -52,6 +52,31 @@ def test_slider_percentage_is_the_hypit_prompt():
     assert 'Эффекты: color.' in colored.presentation_prompt and 'kinetic' not in colored.presentation_prompt.split('Эффекты:', 1)[-1]
     assert 'contrast:' not in colored.presentation_prompt
 
+def test_other_controls_are_sentences_in_the_same_prompt():
+    bare = plan(edit())
+    assert 'На отрезки не режь' in bare.presentation_prompt
+    assert 'посторонних шумов' not in bare.presentation_prompt
+    assert 'фоновую музыку' not in bare.presentation_prompt
+    cleaned = plan(edit(voice_cleanup=True, normalize=True, picture_quality=True, subtitles=True, font_size='large', position='top', color='yellow'))
+    assert 'посторонних шумов' in cleaned.presentation_prompt
+    assert 'Выровняй громкость' in cleaned.presentation_prompt
+    assert 'верни резкость' in cleaned.presentation_prompt
+    assert 'субтитры по речи: крупные, вверху, жёлтые' in cleaned.presentation_prompt
+    assert 'На отрезки не режь' in cleaned.presentation_prompt
+    music = plan(edit(music={'asset_id': 'a' * 32, 'gain_db': -18, 'fade_in': 1, 'fade_out': 2, 'duck': True}))
+    assert 'фоновую музыку: -18 дБ' in music.presentation_prompt
+    assert 'Приглушай её под речь' in music.presentation_prompt
+    accents = plan(edit(clips=[{'start': 0, 'end': 20, 'sound_effects': [{'kind': 'whoosh', 'at': 1}]}]))
+    assert 'Звуковые акценты: свист' in accents.presentation_prompt
+    spoken = plan(edit(voice_cleanup=True))
+    assert 'закадровый голос' not in spoken.presentation_prompt
+    from backend.hypit_prompt import author_source
+    voiced = author_source(edit(voice_cleanup=True), 720, 1280, voiceover=True)
+    assert 'закадровый голос' in voiced and 'посторонних шумов' in voiced
+    assert 'нескольких карточек' in cleaned.presentation_prompt
+    assert 'Одну и ту же плашку не повторяй' in cleaned.presentation_prompt
+    assert 'золотая пометка' in cleaned.presentation_prompt
+
 def test_hypit_page_uses_that_prompt_percentage():
     from backend.hypit_picture import _presentation_page, presentation_layers
     planned = plan(edit(presentation_share=10))
