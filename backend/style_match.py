@@ -1957,6 +1957,18 @@ def attach_recommended_bed(pid, edit, studio):
     shaped['music'] = Music(asset_id=asset_id, gain_db=-22, fade_in=0.8, fade_out=1.6, duck=True).model_dump()
     return shaped
 
+_ANIMATION_KEYS = ('card_motion', 'animation_intensity', 'animation_depth', 'animation_motion', 'animation_density')
+
+def _keep_animation(saved, edit):
+    """A rebuilt cut must keep the sliders. Regenerating otherwise renders them at 100%."""
+    if not isinstance(saved, dict) or not isinstance(edit, dict):
+        return edit
+    shaped = json.loads(json.dumps(edit))
+    for key in _ANIMATION_KEYS:
+        if saved.get(key) is not None:
+            shaped[key] = saved[key]
+    return shaped
+
 def _carry_selected_music(db, pid, edit):
     """Keep a selected music bed on the next picture without changing the saved edit."""
     shaped = json.loads(json.dumps(edit))
@@ -2100,11 +2112,13 @@ def apply_effect_board(edit, board):
     return shaped
 
 # Pushes previously invented for a still. A measured move does not use these exact ends.
+# 1.00 → 1.26 is the effect pick's centered push. zoompan resamples a 720p frame and softens it.
 _STAGED_PUSHES = (
     (1.02, 1.18, 0.50, 0.50, 0.56, 0.42),
     (1.16, 1.04, 0.38, 0.58, 0.48, 0.50),
     (1.04, 1.20, 0.58, 0.42, 0.50, 0.50),
     (1.12, 1.02, 0.50, 0.50, 0.40, 0.58),
+    (1.00, 1.26, 0.50, 0.50, 0.50, 0.50),
 )
 
 def _near(left, right):
@@ -2348,8 +2362,7 @@ def animate_for_render(edit):
         if not isinstance(clip, dict) or clip.get('locked'):
             continue
         clip['sweep'] = False
-        if clip.get('split'):
-            continue
+        # A split layout still must not keep the invented push. That push upscales the face.
         _undo_staged_push(clip)
     return shaped
 
@@ -2840,6 +2853,7 @@ def regenerate(pid: str, user=Depends(current_user)):
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
+        edit = _keep_animation(read(pid, db), edit)
         _store(db, pid, edit, report, 'pending', True)
     return {'ok': True}
 
@@ -2857,7 +2871,7 @@ def regenerate_section(pid: str, index: int, user=Depends(current_user)):
     edit = _with_board(_restyle(saved, shots, transcript, index, item['metadata']['duration'], _facts(item.get('brief') or '', transcript), look=_look(measured)), current['context'])
     checked = Edit.model_validate(edit)
     check(checked, item['metadata']['duration'])
-    dumped = checked.model_dump()
+    dumped = _keep_animation(saved, checked.model_dump())
     trimmed = abs(sum(c['end'] - c['start'] for c in dumped['clips']) - float(item['metadata']['duration'])) >= 0.5
     report = _report(shots, dumped, item['metadata']['duration'], trimmed)
     try:
@@ -2869,5 +2883,6 @@ def regenerate_section(pid: str, index: int, user=Depends(current_user)):
         db.lock()
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
+        dumped = _keep_animation(read(pid, db), dumped)
         _store(db, pid, dumped, report, 'pending', True, baked=True)
     return {'ok': True}

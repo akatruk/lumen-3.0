@@ -1,49 +1,72 @@
-import {useEffect,useRef} from 'react';
-import {ChevronLeft,ChevronRight,Lock,ZoomIn,Blend,Frame} from 'lucide-react';
 import type {Lang} from './types';
 import {workspaceText} from './ProjectWorkspace';
-type Scene={start:number;end:number;text:string;approved?:boolean;locked?:boolean};
-export function SceneInspector({clips,selected,onSelect,lang}:{clips:Scene[];selected:number;onSelect:(i:number)=>void;lang:Lang}){
- const w=(r:string,e:string,z:string)=>workspaceText(lang,r,e,z),clip=clips[selected]||clips[0];
- const list=useRef<HTMLDivElement>(null);
- const stamp=(v:number)=>`${Math.floor(v/60)}:${(v%60).toFixed(1).padStart(4,'0')}`;
- const seconds=(c:Scene)=>`${(c.end-c.start).toFixed(1)} ${w('сек','sec','秒')}`;
- const title=w('Сцена {n} из {total}','Scene {n} of {total}','镜头 {n}/{total}').replaceAll('{n}',String(selected+1)).replaceAll('{total}',String(clips.length));
- const step=(delta:number,focus=false)=>{const next=selected+delta;if(next<0||next>=clips.length)return;onSelect(next);if(focus)requestAnimationFrame(()=>document.getElementById(`montage-scene-${next}`)?.focus())};
- useEffect(()=>{
-  const box=list.current,row=box?.querySelector<HTMLElement>('[aria-selected="true"]');
-  if(!box||!row)return;
-  const boxTop=box.getBoundingClientRect().top,rowBox=row.getBoundingClientRect();
-  if(rowBox.top<boxTop)box.scrollTop-=boxTop-rowBox.top;
-  else if(rowBox.bottom>boxTop+box.clientHeight)box.scrollTop+=rowBox.bottom-(boxTop+box.clientHeight);
- },[selected,clips.length]);
- const flags=(c:Scene)=><span className="scene-flags"><em className={c.approved===false?'scene-flag out':'scene-flag in'}>{c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}</em>{c.locked&&<em className="scene-flag frozen"><Lock size={12} aria-hidden="true"/>{w('Тайминг заморожен','Timing frozen','时间已冻结')}</em>}</span>;
- return <header className="scene-picker">
-  <div className="scene-picker-top">
-   <div>
-    <p className="scene-picker-kicker">{w('Выбранная сцена','Selected scene','所选场景')}</p>
-    <p className="scene-picker-range"><span>{stamp(clip.start)} — {stamp(clip.end)}</span><span>{seconds(clip)}</span></p>
-   </div>
-   {flags(clip)}
-  </div>
-  <div className="scene-picker-nav">
-   <button type="button" className="scene-step" aria-label={w('Предыдущая сцена','Previous scene','上一个镜头')} disabled={selected===0} onClick={()=>step(-1)}><ChevronLeft size={20}/></button>
-   <p>{title}</p>
-   <button type="button" className="scene-step" aria-label={w('Следующая сцена','Next scene','下一个镜头')} disabled={selected>=clips.length-1} onClick={()=>step(1)}><ChevronRight size={20}/></button>
-  </div>
-  <div className="scene-strip" role="listbox" aria-label={w('Сцены','Scenes','场景')} aria-activedescendant={`montage-scene-${selected}`} tabIndex={0} ref={list} onKeyDown={e=>{if(e.key==='ArrowDown'||e.key==='ArrowRight'){e.preventDefault();step(1,true)}else if(e.key==='ArrowUp'||e.key==='ArrowLeft'){e.preventDefault();step(-1,true)}}}>
-   {clips.map((c,i)=><button key={i} id={`montage-scene-${i}`} type="button" role="option" data-scene={i} aria-selected={selected===i} tabIndex={-1} onClick={()=>onSelect(i)}>
-    <span className="scene-strip-num">{i+1}</span>
-    <span className="scene-strip-copy"><strong>{stamp(c.start)} — {stamp(c.end)}</strong><small>{seconds(c)}</small></span>
-    {flags(c)}
-   </button>)}
-  </div>
- </header>;
-}
-export function EffectPresets({lang,duration,motionSeconds,first,zoom,zoomEnd,x,y,xEnd,yEnd,transition,onChange}:{lang:Lang;duration:number;motionSeconds?:number|null;first:boolean;zoom:number;zoomEnd?:number|null;x:number;y:number;xEnd?:number|null;yEnd?:number|null;transition?:string;onChange:(value:{motion_seconds?:number;zoom?:number;zoom_end?:number;x_end?:number;y_end?:number;transition?:'crossfade'|'cut'})=>void}){
- const w=(r:string,e:string,z:string)=>workspaceText(lang,r,e,z);
- const items=[{id:'push',Icon:ZoomIn,title:w('Плавное приближение','Gentle zoom','缓慢放大'),detail:w('1× → 1,2×','1× → 1.2×','1× → 1.2×'),active:zoom===1&&zoomEnd===1.2&&(motionSeconds??duration)===Math.min(4,duration),patch:{zoom:1,zoom_end:1.2,motion_seconds:Math.min(4,duration)}},
- {id:'dissolve',Icon:Blend,title:w('Растворение','Cross dissolve','叠化'),detail:first?w('Со второй сцены','From scene 2','从第二个镜头开始'):w('Мягкий переход','Soft transition','柔和转场'),active:!first&&transition==='crossfade',patch:{transition:'crossfade' as const}},
- {id:'still',Icon:Frame,title:w('Без движения','No motion','静止画面'),detail:w('Исходный кадр','Original framing','原始构图'),active:zoom===1&&(zoomEnd??zoom)===1&&(xEnd??x)===x&&(yEnd??y)===y&&(!transition||transition==='cut'),patch:{zoom:1,zoom_end:1,x_end:x,y_end:y,transition:'cut' as const}}];
- return <section className="inspector-presets"><h3>{w('Быстрые эффекты','Quick effects','快捷效果')}</h3><div className="ws-effect-presets">{items.map(({id,Icon,title,detail,active,patch})=><button key={id} type="button" aria-label={title} aria-pressed={active} disabled={id==='dissolve'&&first} onClick={()=>onChange(patch)}><span className={'preset-art preset-'+id}><Icon size={24}/></span><strong>{title}</strong><small>{detail}{id==='push'?` · ${Math.min(4,duration).toFixed(1)} s`:''}</small></button>)}</div></section>;
+
+export type EffectPickData={
+  id:'punch'|'grade'|'vignette'|'glow'|'card_motion'|'intensity'|'depth'|'motion'|'density';
+  clips:Record<string,{zoom?:number;zoom_end?:number;shade?:number;glow_amount?:number}>;
+  edit:{card_motion?:number;animation_intensity?:number;animation_depth?:number;animation_motion?:number;animation_density?:number};
+};
+
+export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:Lang;pick:EffectPickData|null;error:string;busy:boolean;note:string;onAccept:()=>void;onRetry:()=>void}){
+  const w=(r:string,e:string,z:string)=>workspaceText(lang,r,e,z);
+  const title:Record<EffectPickData['id'],string>={
+    punch:w('Плавный наезд на всю картинку','A slow push across the whole picture','整段画面缓慢推近'),
+    grade:w('Теплее и контрастнее','A warmer, clearer grade','更暖、更清晰的调色'),
+    vignette:w('Лёгкая виньетка по краям','A light vignette at the edges','边缘轻微暗角'),
+    glow:w('Чуть яснее детали','A light clarity lift','细节稍微更清晰'),
+    card_motion:w('Анимация на части ролика','Animation for part of the video','成片中的一段动画'),
+    intensity:w('Ниже интенсивность','Lower intensity','更低的强度'),
+    depth:w('Ниже интенсивность','Lower intensity','更低的强度'),
+    motion:w('Меньше движения','Less motion','更少的运动'),
+    density:w('Меньше графических слоёв','Fewer graphic layers','更少图形层'),
+  };
+  const patches=Object.values(pick?.clips||{});
+  const zoomEnd=patches.map(row=>row.zoom_end).filter((value):value is number=>typeof value==='number');
+  const detail=pick?.id==='punch'&&zoomEnd.length?w(
+    `От ${patches[0]?.zoom??1}× до ${zoomEnd[zoomEnd.length-1]}× на всей картинке. Следующая сборка применит наезд.`,
+    `From ${patches[0]?.zoom??1}× to ${zoomEnd[zoomEnd.length-1]}× across the picture. The next render applies the push.`,
+    `从 ${patches[0]?.zoom??1}× 推到 ${zoomEnd[zoomEnd.length-1]}×，覆盖整段画面。下次生成会应用这个推近。`,
+  ):pick?.id==='grade'?w(
+    'Цвет и контраст меняются на кадрах, которые попадут в ролик. Следующая сборка применит эту коррекцию.',
+    'Color and contrast change on the frames that reach the video. The next render applies this grade.',
+    '进入成片的画面会改变色彩和对比度。下次生成会应用这个调色。',
+  ):pick?.id==='vignette'?w(
+    'Края кадра темнеют. Следующая сборка применит виньетку.',
+    'The frame edges darken. The next render applies the vignette.',
+    '画面边缘会变暗。下次生成会应用这个暗角。',
+  ):pick?.id==='glow'?w(
+    'Детали становятся чуть яснее. Следующая сборка применит это.',
+    'Detail gets a little clearer. The next render applies it.',
+    '细节会稍微更清晰。下次生成会应用这个效果。',
+  ):pick?.id==='card_motion'?w(
+    `На ${pick.edit.card_motion??70}% длины ведущий в кружке, слова становятся графикой — это ${Math.round((pick.edit.card_motion??70)*60/100)} секунд на каждую минуту.`,
+    `Animation will cover ${pick.edit.card_motion??70}% of the video — ${Math.round((pick.edit.card_motion??70)*60/100)} seconds of each minute.`,
+    `动画将占成片的 ${pick.edit.card_motion??70}%，即每分钟 ${Math.round((pick.edit.card_motion??70)*60/100)} 秒。`,
+  ):pick?.id==='intensity'||pick?.id==='depth'?w(
+    `Интенсивность станет ${pick.edit.animation_depth??pick.edit.animation_intensity??50}%.`,
+    `Intensity becomes ${pick.edit.animation_depth??pick.edit.animation_intensity??50}%.`,
+    `强度变为 ${pick.edit.animation_depth??pick.edit.animation_intensity??50}%。`,
+  ):pick?.id==='motion'?w(
+    `Движение станет ${pick.edit.animation_motion??50}%.`,
+    `Motion becomes ${pick.edit.animation_motion??50}%.`,
+    `运动变为 ${pick.edit.animation_motion??50}%。`,
+  ):pick?.id==='density'?w(
+    `Плотность станет ${pick.edit.animation_density??60}% слоёв.`,
+    `Density becomes ${pick.edit.animation_density??60}% of the layers.`,
+    `密度变为图层的 ${pick.edit.animation_density??60}%。`,
+  ):'';
+  return <section className="effect-pick" aria-label={w('Подбор эффекта','Effect pick','效果建议')}>
+    <h3>{w('Подбор эффекта','Effect pick','效果建议')}</h3>
+    {busy&&!pick&&<p role="status">{w('Смотрю текущую картинку…','Looking at the current picture…','正在查看当前画面…')}</p>}
+    {error&&<p role="alert">{error}</p>}
+    {pick&&<div>
+      <strong>{title[pick.id]}</strong>
+      <p>{detail}</p>
+      <div className="manual-actions">
+        <button type="button" disabled={busy} onClick={onAccept}>{w('Применить к ролику','Use this look','采用这个效果')}</button>
+        <button type="button" className="secondary" disabled={busy} onClick={onRetry}>{w('Подобрать снова','Pick again','重新建议')}</button>
+      </div>
+    </div>}
+    {note&&<p role="status">{note}</p>}
+  </section>;
 }

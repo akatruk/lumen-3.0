@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import type { Lang } from "./types";
 import { workspaceText } from "./ProjectWorkspace";
+import { uploadVideo } from "./resumableUpload";
 
 const FACTS = ["price", "currency", "floor_area", "floor_area_unit", "bedrooms", "bathrooms", "floor", "tenure", "fees", "availability", "developer", "amenities"] as const;
 const DESTINATIONS = ["douyin", "instagram_reels", "youtube_shorts", "tiktok", "xiaohongshu"] as const;
 type FactKey = (typeof FACTS)[number];
 type Fact = { key: FactKey; value: string; source: string; status: "supplied" | "verified" };
 type Scene = { id: string; role: string; start: number; end: number; caption: string; fact_keys: string[]; location?: string };
+type LibraryAsset = { id: string; title: string; metadata: { kind?: string; role?: string } };
 type PropertyState = {
   brief?: Record<string, unknown>;
   plan?: { scenes: Scene[]; show_location: boolean; illustrative_in_picture: boolean; destinations: string[] };
@@ -44,6 +46,11 @@ export function PropertyVideo({ pid, lang }: { pid: string; lang: Lang }) {
   const [facts, setFacts] = useState<Fact[]>([]);
   const [highlights, setHighlights] = useState<FactKey[]>([]);
   const [destinations, setDestinations] = useState<string[]>(["youtube_shorts"]);
+  const [assets, setAssets] = useState<LibraryAsset[]>([]);
+  const [musicId, setMusicId] = useState("");
+  const [logoId, setLogoId] = useState("");
+  const [photoId, setPhotoId] = useState("");
+  const [illustrative, setIllustrative] = useState<string[]>([]);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,8 +70,12 @@ export function PropertyVideo({ pid, lang }: { pid: string; lang: Lang }) {
   };
 
   useEffect(() => {
-    request("/studio/projects/" + pid + "/property").then((saved: PropertyState) => {
+    Promise.all([
+      request("/studio/projects/" + pid + "/property"),
+      request("/studio/projects/" + pid + "/assets"),
+    ]).then(([saved, library]: [PropertyState, LibraryAsset[]]) => {
       setProp(saved);
+      setAssets(library);
       const brief = saved.brief as Record<string, unknown> | undefined;
       if (!brief) return;
       setAudience(String(brief.audience || ""));
@@ -80,6 +91,10 @@ export function PropertyVideo({ pid, lang }: { pid: string; lang: Lang }) {
       setFacts((brief.facts as Fact[]) || []);
       setHighlights((brief.highlights as FactKey[]) || []);
       setDestinations((brief.destinations as string[]) || []);
+      setMusicId(String(brief.music_asset_id || ""));
+      setLogoId(String(brief.logo_asset_id || ""));
+      setPhotoId(((brief.photo_asset_ids as string[]) || [])[0] || "");
+      setIllustrative((brief.illustrative_asset_ids as string[]) || []);
       setScenes(saved.plan?.scenes || []);
     }).catch((reason: Error) => setError(reason.message));
   }, [pid]);
@@ -94,6 +109,10 @@ export function PropertyVideo({ pid, lang }: { pid: string; lang: Lang }) {
     brand,
     cta: { text: cta, contact },
     destinations,
+    music_asset_id: musicId,
+    logo_asset_id: logoId,
+    photo_asset_ids: photoId ? [photoId] : [],
+    illustrative_asset_ids: illustrative,
   });
 
   const run = async (work: () => Promise<PropertyState>) => {
@@ -108,6 +127,30 @@ export function PropertyVideo({ pid, lang }: { pid: string; lang: Lang }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const music = assets.filter((asset) => asset.metadata.kind === "music");
+  const logos = assets.filter((asset) => asset.metadata.role === "logo");
+  const photos = assets.filter((asset) => asset.metadata.role === "photo");
+  const drawings = assets.filter((asset) => asset.metadata.kind !== "music" && asset.metadata.role !== "logo" && asset.metadata.role !== "photo");
+
+  const uploadOwned = async (file: File, kind: "music" | "image", role?: "logo" | "photo" | "illustration") => {
+    const attribution = w("Материал команды", "Owned by the team", "团队自有素材");
+    const uploaded = await uploadVideo(file, {
+      kind,
+      ...(role ? { role } : {}),
+      asset_project_id: pid,
+      request_id: crypto.randomUUID().replaceAll("-", ""),
+      title: file.name.slice(0, 120),
+      attribution,
+      owned_rights_confirmed: true,
+    }, new AbortController().signal, () => undefined);
+    setAssets(await request("/studio/projects/" + pid + "/assets"));
+    if (uploaded.id && kind === "music") setMusicId(String(uploaded.id));
+    if (uploaded.id && role === "logo") setLogoId(String(uploaded.id));
+    if (uploaded.id && role === "photo") setPhotoId(String(uploaded.id));
+    if (uploaded.id && role === "illustration") setIllustrative((current) => current.includes(String(uploaded.id)) ? current : [...current, String(uploaded.id)]);
+    return request("/studio/projects/" + pid + "/property");
   };
 
   const addFact = (key: FactKey) => {
@@ -214,6 +257,75 @@ export function PropertyVideo({ pid, lang }: { pid: string; lang: Lang }) {
             {destination}
           </label>
         ))}
+      </fieldset>
+      <fieldset>
+        <legend>{w("Музыка, логотип и фото", "Music, logo, and photo", "音乐、标志和照片")}</legend>
+        <p>
+          {w(
+            "Музыка и фото ваши. Иллюстрация остаётся вне кадра и не выдаётся за объект.",
+            "The music and the photo are yours. An illustration stays out of the picture and is not presented as the property.",
+            "音乐和照片属于你。示意图不进入画面，也不会被当成真实房屋。",
+          )}
+        </p>
+        <label>
+          {w("Музыка", "Music", "音乐")}
+          <select value={musicId} onChange={(event) => setMusicId(event.target.value)}>
+            <option value="">{w("Без музыки", "No music", "无音乐")}</option>
+            {music.map((asset) => <option key={asset.id} value={asset.id}>{asset.title}</option>)}
+          </select>
+        </label>
+        <label>
+          {w("Загрузить музыку, на которую есть права", "Upload rights-cleared music", "上传已获授权的音乐")}
+          <input type="file" accept=".mp3,.wav,.m4a,.flac,.ogg" onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void run(() => uploadOwned(file, "music"));
+          }} />
+        </label>
+        <label>
+          {w("Логотип", "Logo", "标志")}
+          <select value={logoId} onChange={(event) => setLogoId(event.target.value)}>
+            <option value="">{w("Без логотипа", "No logo", "无标志")}</option>
+            {logos.map((asset) => <option key={asset.id} value={asset.id}>{asset.title}</option>)}
+          </select>
+        </label>
+        <label>
+          {w("Загрузить логотип", "Upload a logo", "上传标志")}
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void run(() => uploadOwned(file, "image", "logo"));
+          }} />
+        </label>
+        <label>
+          {w("Фото объекта", "Property photo", "房屋照片")}
+          <select value={photoId} onChange={(event) => setPhotoId(event.target.value)}>
+            <option value="">{w("Без фото", "No photo", "无照片")}</option>
+            {photos.map((asset) => <option key={asset.id} value={asset.id}>{asset.title}</option>)}
+          </select>
+        </label>
+        <label>
+          {w("Загрузить фото объекта", "Upload a property photo", "上传房屋照片")}
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void run(() => uploadOwned(file, "image", "photo"));
+          }} />
+        </label>
+        {drawings.map((asset) => (
+          <label key={asset.id}>
+            <input
+              type="checkbox"
+              checked={illustrative.includes(asset.id)}
+              onChange={(event) => setIllustrative(event.target.checked ? [...illustrative, asset.id] : illustrative.filter((id) => id !== asset.id))}
+            />
+            {asset.title}: {w("иллюстрация, не объект", "illustration, not the property", "示意图，不是房屋")}
+          </label>
+        ))}
+        <label>
+          {w("Загрузить иллюстрацию. Она не попадёт в кадр.", "Upload an illustration. It stays out of the picture.", "上传示意图。它不会进入画面。")}
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void run(() => uploadOwned(file, "image", "illustration"));
+          }} />
+        </label>
       </fieldset>
       <button type="button" className="secondary" disabled={busy} onClick={() => run(() => request("/studio/projects/" + pid + "/property", json("PUT", briefBody())))}>
         {w("Сохранить факты", "Save facts", "保存事实")}

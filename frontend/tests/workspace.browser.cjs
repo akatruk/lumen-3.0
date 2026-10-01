@@ -65,6 +65,9 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
             };
             return route.fulfill({ json: { revision: body.revision, edit } });
           }
+          if (path.endsWith("/manual/effect") && request.method() === "POST") {
+            return route.fulfill({ status: 422, json: { detail: "effect_unavailable" } });
+          }
           if (path.endsWith("/manual") && request.method() === "PUT") {
             data.manual.edit = body.edit;
             data.manual.revision++;
@@ -89,19 +92,19 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
       assert.equal(await page.locator(".project-workspace").count(), 1);
       if (scenario === "presentation") {
         await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
-        const slider = page.getByLabel("Промпт Hypit, %");
-        assert.equal(await slider.isDisabled(), false);
-        await slider.fill("40");
-        await page.locator(".presentation-share output").getByText("40%").waitFor();
-        assert.match(await page.locator(".presentation-prompt").innerText(), /Hypit/);
-        assert.match(await page.locator(".presentation-prompt").innerText(), /40%/);
-        await page.locator(".presentation-share").getByText("Привет").waitFor();
-        await page.locator(".presentation-share").getByText("Доля сохранена в проект").waitFor();
-        const saved = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual"));
-        assert.equal(saved.at(-1).body.edit.presentation_share, 40);
-        assert.equal(saved.at(-1).body.edit.presentation[0].title.ru, "Привет");
+        assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
+        const cards = page.getByRole("slider", { name: "Процент добавляемой анимации" });
+        assert.equal(await cards.inputValue(), "100");
+        await cards.fill("50");
+        await page.getByRole("region", { name: "Процент добавляемой анимации" }).getByText("Уровень сохранён").waitFor();
+        const cardSave = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual")).at(-1);
+        assert.equal(cardSave.body.edit.card_motion, 50);
+        assert.equal(writes.filter((row) => row.path.endsWith("/presentation")).length, 0);
       } else if (scenario === "studio" || scenario === "other-project") {
-        await page.locator(".ws-scenes button").first().waitFor();
+        await page.getByRole("button", { name: "Сохранить ручные правки", exact: true }).waitFor();
+        assert.equal(await page.locator(".scene-picker").count(), 0);
+        assert.equal(await page.locator(".ws-scenes button").count(), 0);
+        assert.equal(await page.getByText(/Сцена \d+ из/).count(), 0);
         assert.equal(await page.locator(".manual-clip:visible").count(), 1);
         await page
           .locator(".ws-heading")
@@ -116,7 +119,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           download,
         );
         assert.equal(
-          await page.locator(".ws-preview-meta a").getAttribute("href"),
+          await page.locator(".ws-footer a.primary").getAttribute("href"),
           download,
         );
         assert.equal(await page.locator("video:visible").count(), 1);
@@ -139,14 +142,12 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
           .locator(".ws-tools")
           .getByRole("button", { name: "Эффекты", exact: true })
           .click();
-        await page
-          .getByRole("button", { name: "Плавное приближение", exact: true })
-          .click();
-        assert.equal(await page.locator(".ws-draft-slot").isVisible(), true);
-        assert.match(
-          await page.locator(".ws-footer").innerText(),
-          /Сцен для проверки: 1/,
-        );
+        const pick = page.getByRole("region", { name: "Подбор эффекта" });
+        await pick.getByText("Наезд, свечение и виньетка сами не включаются").waitFor();
+        assert.equal(await pick.getByText("Плавный наезд на всю картинку").count(), 0);
+        assert.equal(await page.getByRole("button", { name: "Плавное приближение" }).count(), 0);
+        assert.equal(await page.getByRole("slider", { name: "Процент добавляемой анимации" }).inputValue(), "100");
+        assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
         await page
           .locator(".ws-tools")
           .getByRole("button", { name: "Субтитры", exact: true })
@@ -183,11 +184,12 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         await page.locator('.render-summary').waitFor();
         assert.match(await page.locator('.render-summary').innerText(), /Неприменённые предложения AI: 3/);
         assert.match(await page.locator('.render-summary').innerText(), /Движение камеры/);
-        assert.equal(writes[0].body.edit.clips[0].zoom_end, 1.2);
-        assert.equal(writes[0].body.edit.subtitles, false);
-        assert.notEqual(writes[0].body.edit.picture_quality, true);
+        const manualSaves = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual"));
+        assert.equal(manualSaves[0].body.edit.clips[0].zoom_end, 1);
+        assert.equal(manualSaves.at(-1).body.edit.subtitles, false);
+        assert.notEqual(manualSaves[0].body.edit.picture_quality, true);
         assert.match(await page.locator('.render-summary').innerText(), /Качество изображения/);
-        assert.equal(writes[0].path, `/api/studio/projects/${pid}/manual`);
+        assert.equal(manualSaves[0].path, `/api/studio/projects/${pid}/manual`);
         await page
           .getByRole("button", { name: "Создать видео с этими изменениями", exact: true })
           .click();
@@ -229,12 +231,8 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         await page.keyboard.press("Escape");
         assert.equal(await page.locator("dialog[open]").count(), 0);
         await page.locator(".ws-tools").getByRole("button", { name: "Эффекты", exact: true }).click();
-        await page.getByLabel("Промпт Hypit, %").fill("20");
-        await page.locator(".presentation-share").getByText("Привет").waitFor();
-        const scan = writes.find((row) => row.path.endsWith("/presentation"));
-        assert.equal(scan.body.edit.presentation_share, 20);
-        assert.match(await page.locator(".presentation-share").innerText(), /20%/);
-        assert.match(await page.locator(".presentation-share").innerText(), /3D-окно/);
+        assert.equal(await page.getByLabel("Промпт Hypit, %").count(), 0);
+        assert.equal(await page.getByRole("slider", { name: "Процент добавляемой анимации" }).count(), 1);
       } else if (scenario === "legacy") {
         await page.locator(".ws-scenes button").first().click();
         assert.match(

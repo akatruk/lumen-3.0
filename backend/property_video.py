@@ -69,6 +69,8 @@ class PropertyBrief(Strict):
     cta: CallToAction
     destinations: list[Destination] = Field(min_length=1, max_length=5)
     music_asset_id: str = Field(default='', max_length=32)
+    logo_asset_id: str = Field(default='', max_length=32)
+    photo_asset_ids: list[str] = Field(default_factory=list, max_length=1)
     illustrative_asset_ids: list[str] = Field(default_factory=list, max_length=4)
 
     def prepared(self):
@@ -79,10 +81,12 @@ class PropertyBrief(Strict):
         known = {fact.key for fact in self.facts}
         if len(known) != len(self.facts) or any(key not in known for key in self.highlights):
             raise ValueError('unverified_claim')
-        if self.music_asset_id and not re.fullmatch(r'[a-f0-9]{32}', self.music_asset_id):
+        ids = [self.music_asset_id, self.logo_asset_id, *self.photo_asset_ids, *self.illustrative_asset_ids]
+        if any(ident and not re.fullmatch(r'[a-f0-9]{32}', ident) for ident in ids):
             raise ValueError('asset_not_found')
-        if any(not re.fullmatch(r'[a-f0-9]{32}', ident) for ident in self.illustrative_asset_ids):
-            raise ValueError('asset_not_found')
+        chosen = [ident for ident in ids if ident]
+        if len(chosen) != len(set(chosen)):
+            raise ValueError('invalid_settings')
         _grounded(self.hook, _allowed_numbers(self))
         _grounded(self.cta.text, _allowed_numbers(self))
         _grounded(self.cta.contact, _allowed_numbers(self))
@@ -150,6 +154,31 @@ def _save(db, pid, context):
     db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
 
 
+def _asset_meta(db, pid, ident):
+    row = db.execute('SELECT metadata FROM studio_assets WHERE id=? AND project_id=?', (ident, pid)).fetchone()
+    if not row:
+        raise ValueError('asset_not_found')
+    return json.loads(row['metadata'])
+
+
+def _check_media(db, pid, brief: PropertyBrief):
+    """Music, a logo, and a photo must be the owned file of that role. An illustration stays out."""
+    if brief.music_asset_id and _asset_meta(db, pid, brief.music_asset_id).get('kind') != 'music':
+        raise ValueError('invalid_media_path')
+    if brief.logo_asset_id:
+        meta = _asset_meta(db, pid, brief.logo_asset_id)
+        if meta.get('kind') != 'image' or meta.get('role') != 'logo':
+            raise ValueError('invalid_media_path')
+    for ident in brief.photo_asset_ids:
+        meta = _asset_meta(db, pid, ident)
+        if meta.get('kind') != 'image' or meta.get('role') != 'photo':
+            raise ValueError('invalid_media_path')
+    for ident in brief.illustrative_asset_ids:
+        meta = _asset_meta(db, pid, ident)
+        if meta.get('kind') == 'music' or meta.get('role') in ('logo', 'photo'):
+            raise ValueError('invalid_media_path')
+
+
 def save_brief(pid, brief: PropertyBrief):
     brief = brief.prepared()
     with connect() as db:
@@ -159,6 +188,7 @@ def save_brief(pid, brief: PropertyBrief):
             raise ValueError('not_found')
         if (context.get('creator') or {}).get('topic') != 'real_estate':
             raise ValueError('property_workflow')
+        _check_media(db, pid, brief)
         previous = (prop or {}).get('brief')
         dumped = brief.model_dump()
         prop = prop or {}
@@ -236,6 +266,8 @@ def build_plan(pid):
             'scenes': scenes,
             'illustrative_asset_ids': list(brief.illustrative_asset_ids),
             'illustrative_in_picture': False,
+            'logo_asset_id': brief.logo_asset_id,
+            'photo_asset_ids': list(brief.photo_asset_ids),
             'reference_media': 'technique_only' if context.get('reference_file') or context.get('references') else 'none',
             'destinations': list(brief.destinations),
             'music_asset_id': brief.music_asset_id,

@@ -15,6 +15,7 @@ module.exports=async function setup(browser){
    const body=req.headers()['content-type']?.includes('json')?req.postDataJSON():null;writes.push({path,method,body});
    if(path===root+'/final-music'){const id='f'.repeat(32);const voice=data.dubbing.versions.find(v=>v.id===data.dubbing.final_version_id);const v={id,master_id:data.project.result.render_id,kind:'mix',status:'ready',created:1800000000,language:voice?.language||'',voice:voice?.voice||'',source_voice:voice?.id||'',music:data.manual.edit.music,music_title:'QA music',stale:false};data.dubbing.final_version_id=id;data.dubbing.final_version=v;data.dubbing.versions.push(v);data.finalMusic={master_id:v.master_id,final_id:id,music:v.music,title:v.music?'QA music':'',voice_id:v.source_voice,jobs:[{id,status:'ready',error:null}]};return route.fulfill({json:{id}})}
    if(path===root+'/dubbing/final'){data.dubbing.final_version_id=body.version_id;return route.fulfill({json:{final_version_id:body.version_id}})}
+   if(path===root+'/manual/effect'&&method==='POST')return route.fulfill({status:422,json:{detail:'effect_unavailable'}});
    if(path===root+'/manual'&&method==='PUT'){data.manual.edit=body.edit;revised();return route.fulfill({json:data.manual})}
    if(path===root+'/manual/from-plan')return route.fulfill({json:{...data.manual,edit:{...data.manual.edit,clips:[{...data.manual.edit.clips[0],start:0,end:2},{...data.manual.edit.clips[1],start:4,end:12}]}}});
    if(path===root+'/manual/beat-preview')return route.fulfill({json:{revision:data.manual.revision,edit:data.manual.edit,changes:[],skipped:[]}});
@@ -67,7 +68,7 @@ module.exports=async function setup(browser){
  const button=(name,scope=page)=>scope.getByRole('button',{name,exact:true});
  const tool=async name=>{await button(name,page.locator('.ws-tools')).click()};
  const expand=async()=>page.locator('.ws-inspector details').evaluateAll(els=>els.forEach(e=>e.open=true));
- const goto=async()=>{await page.goto((process.env.WORKSPACE_URL||'http://127.0.0.1:5192')+'/#project/'+pid);await page.locator('.ws-scenes button').first().waitFor()};
+ const goto=async()=>{await page.goto((process.env.WORKSPACE_URL||'http://127.0.0.1:5192')+'/#project/'+pid);await button('Save manual edits').waitFor()};
  const save=async()=>{await button('Save manual edits').click();await page.waitForFunction(()=>document.querySelector('.ws-footer')?.textContent.includes('Saved'));};
  const draft=async()=>JSON.parse(await page.evaluate(key=>sessionStorage.getItem(key),'lumen-manual-draft:'+pid)).edit;
  const finish=async()=>{assert.deepEqual(errors,[]);await page.close()};

@@ -148,8 +148,14 @@ class Edit(Strict):
     voice_cleanup: bool=False
     picture_quality: bool=False
     presentation_share: int=Field(default=0, ge=0, le=100)
-    presentation_prompt: str=Field(default='', max_length=800)
+    presentation_prompt: str=Field(default='', max_length=12000)
     presentation: list[PresentationBeat]=Field(default_factory=list, max_length=16)
+    card_motion: int=Field(default=100, ge=0, le=100)
+    animation_intensity: int=Field(default=100, ge=5, le=100)
+    animation_depth: int=Field(default=100, ge=0, le=100)
+    animation_motion: int=Field(default=100, ge=0, le=100)
+    animation_density: int=Field(default=100, ge=0, le=100)
+    animation_prompt: str=Field(default='', max_length=1200)
     font_size: Literal['small','medium','large']='medium'
     position: Literal['bottom','top']='bottom'
     color: Literal['white','yellow']='white'
@@ -158,6 +164,11 @@ class Edit(Strict):
     def presentation_steps(self):
         if self.presentation_share % 5:
             raise ValueError('presentation_share_step')
+        if self.card_motion % 5:
+            raise ValueError('card_motion_step')
+        for name in ('animation_intensity', 'animation_depth', 'animation_motion', 'animation_density'):
+            if getattr(self, name) % 5:
+                raise ValueError('animation_step')
         return self
 class Save(Strict):
     revision: int=Field(ge=1)
@@ -288,8 +299,10 @@ def save(pid:str,body:Save,user=Depends(current_user)):
         from .assets import validate as validate_assets
         validate_assets(body.edit,pid,db)
         old=read(pid,db)
+        from .studio import state as studio_state
+        board=((studio_state(pid, db) or {}).get('context') or {}).get('effect_board')
         try:
-            edit=plan_presentation(body.edit)
+            edit=plan_presentation(body.edit, board)
         except ValueError as exc:
             if exc.args and exc.args[0]=='presentation_needs_context':
                 raise HTTPException(422,'presentation_needs_context') from exc
@@ -318,16 +331,42 @@ def presentation(pid:str,body:PresentationRequest,user=Depends(current_user)):
     """Scan speech already on this cut and place 3D windows for the requested share."""
     from .studio import owned
     p=owned(pid,user)
+    from .studio import state as studio_state
     with connect() as db:
         db.lock();locked_state(pid,body.revision,db)
+        board=((studio_state(pid, db) or {}).get('context') or {}).get('effect_board')
     try:
-        edit=plan_presentation(body.edit)
+        edit=plan_presentation(body.edit, board)
     except ValueError as exc:
         if exc.args and exc.args[0]=='presentation_needs_context':
             raise HTTPException(422,'presentation_needs_context') from exc
         raise
     check(edit,p['metadata']['duration'])
     return {'revision':body.revision,'edit':edit.model_dump()}
+
+class EffectRequest(Strict):
+    revision:int=Field(ge=1)
+    edit:Edit
+
+@router.post('/projects/{pid}/manual/effect')
+def effect_recommendation(pid:str,body:EffectRequest,user=Depends(current_user)):
+    """Recommend one treatment the next picture render already knows how to apply."""
+    from .studio import owned
+    from .effect_recommendation import proposal
+    owned(pid,user)
+    with connect() as db:
+        db.lock()
+        from .studio import state
+        current = state(pid, db)
+        if not current or not current['plan'] or body.revision != current['revision']:
+            raise HTTPException(409, 'plan_changed')
+    try:
+        return proposal(body.edit.model_dump())
+    except ValueError as exc:
+        code=exc.args[0] if exc.args else 'effect_unavailable'
+        if code not in ('effect_unavailable','no_open_picture'):
+            code='effect_unavailable'
+        raise HTTPException(422,code) from exc
 
 class BeatPreview(Strict):
     revision:int=Field(ge=1)

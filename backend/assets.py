@@ -3,19 +3,28 @@ import json,time,uuid,os
 from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Request
 from fastapi.responses import FileResponse
-from pydantic import Field
+from pydantic import Field, model_validator
 from .schemas import Strict
 from .config import settings
 from .db import connect
 from .auth import current_user
 router=APIRouter(prefix='/api/studio')
 class AssetCreate(Strict):
-    kind:Literal['video','music']='video'
+    kind:Literal['video','music','image']='video'
+    role:Literal['logo','photo','illustration']|None=None
     asset_project_id:str=Field(pattern=r'^[a-f0-9]{32}$')
     request_id:str=Field(pattern=r'^[a-f0-9]{32}$')
     title:str=Field(min_length=1,max_length=120)
     attribution:str=Field(min_length=1,max_length=1000)
     owned_rights_confirmed:Literal[True]
+
+    @model_validator(mode='after')
+    def role_matches_kind(self):
+        if self.kind=='image' and self.role not in ('logo','photo','illustration'):
+            raise ValueError('invalid_settings')
+        if self.kind!='image' and self.role is not None:
+            raise ValueError('invalid_settings')
+        return self
 
 def init(db):
     from .stock import init as init_stock
@@ -23,6 +32,26 @@ def init(db):
     db.execute('CREATE TABLE IF NOT EXISTS studio_assets(id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,request_id TEXT NOT NULL,title TEXT NOT NULL,attribution TEXT NOT NULL,metadata TEXT NOT NULL,created REAL NOT NULL,UNIQUE(project_id,request_id))')
 
 def path(pid,ident):return settings.data_dir/pid/'assets'/ident
+
+def _image_meta(file_path, role):
+    """Owned stills only. A logo, photo, or illustration has no timeline duration."""
+    raw = file_path.read_bytes()
+    head = raw[:16]
+    if head.startswith(b'\x89PNG\r\n\x1a\n'):
+        mime = 'image/png'
+    elif head.startswith(b'\xff\xd8\xff'):
+        mime = 'image/jpeg'
+    elif head[:4] == b'RIFF' and raw[8:12] == b'WEBP':
+        mime = 'image/webp'
+    else:
+        raise ValueError('not_an_image')
+    from .media import run
+    out, _err = run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'json', str(file_path)], 30)
+    stream = ((json.loads(out or '{}').get('streams')) or [{}])[0]
+    width, height = int(stream.get('width') or 0), int(stream.get('height') or 0)
+    if width < 8 or height < 8 or width > 8000 or height > 8000:
+        raise ValueError('not_an_image')
+    return {'kind': 'image', 'role': role, 'mime': mime, 'width': width, 'height': height}
 
 @router.post('/projects/{pid}/assets/{ident}/rhythm')
 def rhythm(pid:str,ident:str,request:Request,user=Depends(current_user)):
@@ -99,14 +128,18 @@ async def ingest(ident,body,user):
         r=owned_upload(db,ident,user)
         if r['received']!=r['size']:raise HTTPException(409,'upload_incomplete')
     from .music import probe_audio
-    try:meta=await run_in_threadpool(probe_audio if body.kind=='music' else processing.probe,upload_path(ident))
-    except Exception:raise HTTPException(422,'not_a_video') from None
-    with upload_path(ident).open('rb') as f:header=f.read(1024)
-    if header.startswith(bytes.fromhex('1a45dfa3')) and b'webm' not in header:raise HTTPException(422,'not_a_video')
-    if body.kind=='video':meta['mime']='video/webm' if header.startswith(bytes.fromhex('1a45dfa3')) else 'video/mp4'
+    if body.kind=='image':
+        try:meta=await run_in_threadpool(_image_meta,upload_path(ident),body.role)
+        except Exception:raise HTTPException(422,'not_an_image') from None
+    else:
+        try:meta=await run_in_threadpool(probe_audio if body.kind=='music' else processing.probe,upload_path(ident))
+        except Exception:raise HTTPException(422,'not_a_video') from None
+        with upload_path(ident).open('rb') as f:header=f.read(1024)
+        if header.startswith(bytes.fromhex('1a45dfa3')) and b'webm' not in header:raise HTTPException(422,'not_a_video')
+        if body.kind=='video':meta['mime']='video/webm' if header.startswith(bytes.fromhex('1a45dfa3')) else 'video/mp4'
+        if not .1<=meta['duration']<=settings.max_duration_seconds:raise HTTPException(422,'asset_duration')
     used=await run_in_threadpool(lambda:sum(p.stat().st_size for p in settings.data_dir.rglob('*') if p.is_file()))
     if used>settings.max_storage_gb*1024**3:raise HTTPException(507,'storage_full')
-    if not .1<=meta['duration']<=settings.max_duration_seconds:raise HTTPException(422,'asset_duration')
     # Store an immutable hard link; never move the upload while another finalizer can read it.
     with connect() as db:
         db.lock()

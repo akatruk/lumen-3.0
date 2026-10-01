@@ -14,6 +14,14 @@ from backend.worker import render_job
 T = {'en': 'Synthetic fixture, not AI analysis', 'zh': '合成测试素材，非 AI 分析'}
 
 
+def test_chrome_path_uses_the_explicit_browser(monkeypatch, tmp_path):
+    browser = tmp_path / 'chrome'
+    browser.write_text('')
+    monkeypatch.setenv('HYPIT_CHROME', str(browser))
+    from backend.hypit_picture import _chrome
+    assert _chrome() == str(browser)
+
+
 def test_style_match_selects_the_hypit_engine():
     assert engine_for({'style_match': True}) == 'hypit'
     assert engine_for({'style_match': False}) is None
@@ -39,9 +47,8 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
 
     def fake_spawn(argv, env):
         job = json.loads(Path(argv[-1]).read_text())
-        seen['argv'] = argv
-        seen['html'] = (Path(job['directory']) / 'index.html').read_text()
-        seen['root'] = env['HYPIT_ROOT']
+        seen['prompt'] = (Path(job['directory']) / 'main.svml').read_text()
+        seen['picture'] = (Path(job['directory']) / 'picture.txt').read_text()
         frames = job['frameCount']
         ffmpeg(
             '-f', 'lavfi', '-i', f'color=c=blue:s={job["width"]}x{job["height"]}:d={frames / 30:.3f}:r=30',
@@ -82,34 +89,32 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
         ],
         'subtitles': True,
         'voice_cleanup': True,
+        'presentation_share': 100,
     }
     result = render(src, tmp_path, probe(src), analysis, [], 'zh', 'original', manual=edit, picture_engine='hypit')
-    assert seen['argv'][2].endswith('hypit_render.mjs')
-    assert seen['root'] == str(root)
-    html = seen['html']
-    assert 'data-composition-id="lumen"' in html
-    assert 'data-hypit-start-frame=' in html
-    assert 'data-hypit-source-fps=' in html
-    assert 'data-start="0.000"' in html and 'data-end="' in html and 'data-media-start="0.000"' in html
-    assert 'data-has-audio="false"' in html
-    assert '三名股东开会' in html
-    assert '口播' not in html and 'Shareholders' not in html and '>3<' not in html
-    assert 'Governance logic also differs' not in html
-    assert 'hf-card' in html and '股东结构' in html and '董事权限' in html
-    assert 'hf-plate' in html and '外资比例' in html and '49%' in html
-    assert 'data-hf-avatar="1"' in html and 'top:22%' in html
+    prompt = seen['prompt']
+    assert '<render:Video id="final"' in prompt and 'src="./source.mp4"' in prompt
+    assert '100% длины ролика' in prompt and '60 секунд на каждую минуту' in prompt
+    assert '三名股东开会' in prompt and '法人代表' in prompt and '董事权限' in prompt
+    assert '口播' not in prompt and 'Shareholders' not in prompt and 'Governance logic also differs' not in prompt
+    assert 'film.grade' not in prompt and 'film.vignette' not in prompt
+    assert 'data-hypit-start-frame' not in prompt and 'end="' not in prompt
+    assert 'площади' not in prompt and 'этот размер' not in prompt
+    assert (tmp_path / 'hypit' / 'recipes.svs').is_file() and (tmp_path / 'hypit' / 'build.svrun').is_file()
+    assert (tmp_path / 'hypit' / 'source.mp4').is_file()
+    assert 'concat=' not in seen['picture'] and 'trim=' not in seen['picture']
+    assert seen['picture'].count('[0:v]') == 1
+    assert not list((tmp_path / 'hypit').glob('part-*.mp4'))
+    assert (tmp_path / 'animation-share.txt').read_text() == '100'
+    from backend.hypit_prompt import author_source
+    quiet = author_source({**edit, 'card_motion': 0}, 160, 240)
+    assert '0% длины ролика' in quiet and '100% длины ролика' not in quiet
+    mid = author_source({**edit, 'card_motion': 10}, 160, 240)
+    assert '10% длины ролика' in mid and '6 секунд на каждую минуту' in mid
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
     assert (tmp_path / 'hypit' / 'host-cleaned.wav').is_file()
-    assert not list((tmp_path / 'hypit').glob('piece-*.mp4'))
-    picture = (tmp_path / 'hypit' / 'picture.txt').read_text()
-    assert 'concat=n=2:v=1:a=0' in picture and 'file ' not in picture
-    cut = float((json.loads(run(
-        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'json', str(tmp_path / 'hypit' / 'cut.mp4')],
-        30,
-    )[0])['format'] or {}).get('duration') or 0)
-    assert abs(cut - 2) < 0.08
     assert result['metadata']['has_audio']
     assert abs(result['metadata']['duration'] - 2) < 0.6
     streams = json.loads(run(
@@ -119,6 +124,18 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     video = float(next(item['duration'] for item in streams if item['codec_type'] == 'video'))
     audio = float(next(item['duration'] for item in streams if item['codec_type'] == 'audio'))
     assert abs(video - audio) < 0.2
+
+
+def test_a_lower_third_shows_its_title_once_and_yields_when_a_plate_is_up():
+    from backend.hypit_picture import _lower_html, _side_cards
+
+    block = _lower_html('注册公司', 'Company setup', 'Many business owners', 1, 10, 40)
+    assert block.count('注册公司') == 1
+    assert 'Company setup' in block and 'Many business owners' not in block
+    assert 'hf-chapter' not in block and 'hf-lower-title' not in block
+    captions = [{'start': 0.2, 'end': 2.0, 'zh': '外资比例 49%', 'en': 'Foreign share 49%', 'original': '外资比例 49%'}]
+    blocked = _side_cards([{'start': 0, 'end': 3}], [(0.0, 3.0)], captions, 'zh', 90, None, [(0, 90)])
+    assert blocked == []
 
 
 def test_a_host_moment_keeps_a_corner_title():
@@ -135,7 +152,8 @@ def test_a_host_moment_keeps_a_corner_title():
     chips = _host_chips(clips, ranges, captions, 'en', 60, style)
     assert cards == []
     assert len(chips) == 1
-    assert 'hf-chip' in chips[0] and '股东结构' in chips[0]
+    assert 'hf-lower' in chips[0] and chips[0].count('股东结构') == 1
+    assert 'hf-chapter' not in chips[0] and 'hf-lower-title' not in chips[0]
     assert 'data-hf-avatar' not in chips[0]
     look, rate = _piece_vf({
         'zoom': 1, 'zoom_end': 1.35, 'x': 0.5, 'y': 0.62, 'speed': 1,
@@ -149,6 +167,10 @@ def test_a_host_moment_keeps_a_corner_title():
     assert "geq=lum='lum(X,Y)+" in look
     plain, _plain_rate = _piece_vf({'zoom': 1, 'x': 0.5, 'y': 0.5, 'speed': 1}, 1080, 1920, 1)
     assert 'eq=' not in plain and 'vignette=' not in plain and 'zoompan=' not in plain
+    pushed, _pushed_rate = _piece_vf({
+        'zoom': 1, 'zoom_end': 1.26, 'x': 0.5, 'y': 0.5, 'x_end': 0.5, 'y_end': 0.5, 'speed': 1,
+    }, 720, 1280, 63)
+    assert 'zoompan=' not in pushed and 'scale=iw*2' not in pushed
 
 
 def test_hypit_controls_name_cleanup_quality_and_leave_generation_closed():
@@ -232,16 +254,104 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
     assert {item['codec_type'] for item in streams} == {'video', 'audio'}
 
 
+def test_spoken_words_become_a_matching_picture():
+    from backend.presentation_graphics import speech_visuals, visual_kind
+    from backend.hypit_picture import _speech_ideas
+
+    assert visual_kind('利润一直在增长') == 'up'
+    assert visual_kind('风险在下降') == 'down'
+    assert visual_kind('外资比例 49%') == 'figure'
+    assert visual_kind('首先注册公司') == 'steps'
+    assert visual_kind('三个月内截止') == 'deadline'
+    assert visual_kind('口播') == ''
+    beats = speech_visuals({'captions': [
+        {'start': 1, 'end': 3, 'zh': '利润一直在增长', 'original': '利润一直在增长'},
+        {'start': 4, 'end': 6, 'zh': '风险在下降', 'original': '风险在下降'},
+    ]})
+    assert [beat['kind'] for beat in beats] == ['up', 'down']
+    layers = _speech_ideas(
+        [{'start': 0, 'end': 8}], [(0.0, 8.0)],
+        [
+            {'start': 1, 'end': 3, 'zh': '利润一直在增长', 'original': '利润一直在增长'},
+            {'start': 4, 'end': 6, 'zh': '风险在下降', 'original': '风险在下降'},
+        ],
+        240, [],
+    )
+    assert len(layers) == 2
+    assert 'data-visual="up"' in layers[0] and 'data-visual-mark="up"' in layers[0]
+    assert 'data-visual="down"' in layers[1] and 'rotate' not in layers[1]
+    assert 'data-hf-avatar="1"' in layers[0]
+    compared = speech_visuals({'captions': [
+        {'start': 47, 'end': 56, 'zh': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限', 'original': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限'},
+        {'start': 26, 'end': 34, 'zh': '外资比例一般是不超过49%', 'original': '外资比例一般是不超过49%'},
+    ]})
+    assert compared[0]['kind'] == 'compare'
+    assert compared[0]['left'] == '法人代表' and compared[0]['right'] == '董事权限'
+    assert compared[1]['kind'] == 'figure' and compared[1]['figure'] == '49%' and compared[1]['title'] == '外资比例'
+
+
+def test_the_sliders_write_one_animation_prompt():
+    from backend.manual import Edit
+    from backend.presentation_graphics import animation_brief, plan
+
+    edit = Edit.model_validate({
+        'clips': [{'start': 0, 'end': 60}],
+        'card_motion': 20,
+        'animation_depth': 40,
+        'animation_motion': 60,
+        'animation_density': 80,
+    })
+    brief = animation_brief(edit)
+    assert 'Будет добавлена анимация на 20% длины ролика — это 12 секунд на каждую минуту.' in brief
+    assert 'Ведущий в кружке' in brief and 'Интенсивность 40%' in brief
+    assert 'Движение 60%' in brief and 'Плотность 80% слоёв' in brief
+    assert 'стрелка вверх' in brief and 'крупная цифра' in brief
+    assert 'площад' not in brief
+    full = animation_brief(Edit.model_validate({'clips': [{'start': 0, 'end': 60}]}))
+    assert '100% длины ролика' in full and '60 секунд на каждую минуту' in full
+    assert 'Интенсивность 100%' in full
+    assert plan(edit).animation_prompt == brief
+    with pytest.raises(Exception):
+        Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_intensity': 7})
+    with pytest.raises(Exception):
+        Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_intensity': 0})
+    from backend.hypit_picture import _card_motion, _limit_graphics
+
+    def plate(start, end, name):
+        return (
+            f'<aside class="hf-plate" data-hypit-start-frame="{start}" data-hypit-end-frame="{end}" '
+            f'data-hf-fade-in="6" data-hf-fade-out="6">{name}</aside>'
+        )
+
+    layers = [plate(0, 300, 'a'), plate(300, 600, 'b'), plate(600, 900, 'c')]
+    caption = '<div class="hf-caption" data-hypit-start-frame="0" data-hypit-end-frame="90">Hello</div>'
+    assert _card_motion({}) == 100
+    assert _card_motion({'presentation_share': 0}) == 100
+    assert _card_motion({'card_motion': 0}) == 0
+    assert _card_motion({'card_motion': 40}) == 40
+    assert _limit_graphics(layers, 900, 0) == []
+    assert _limit_graphics([caption, *layers], 900, 0) == [caption]
+    assert _limit_graphics(layers, 900, 100) == layers
+    half = _limit_graphics(layers, 900, 50)
+    assert len(half) == 2 and 'data-hypit-end-frame="450"' in half[1] and '>c<' not in ''.join(half)
+    short = _limit_graphics(layers, 900, 10)
+    assert len(short) == 1 and 'data-hypit-end-frame="90"' in short[0]
+    assert 'width:' not in short[0]
+    sparse = _limit_graphics(layers, 900, 100, 50)
+    assert len(sparse) == 2
+    assert _limit_graphics(layers, 900, 100, 0) == []
+
+
 def test_presenter_is_centered_on_the_card():
     from backend.hypit_picture import _apply_style
-    page = '<style>.hf-card,.hf-plate{left:7%;right:7%;top:22%;bottom:8%;background:#10233f;color:#fff}</style><div data-composition-id="lumen">'
+    page = '<style>.hf-card,.hf-plate{left:7%;width:86%;top:15%;height:70%;background:#10233f;color:#fff}</style><div data-composition-id="lumen">'
     style = {'stage': {
         'card': {'x': 0.28, 'y': 0.30, 'w': 0.84, 'h': 0.57},
         'avatar': {'x': 0.28, 'y': 0.195, 'd': 0.273},
         'fill': '282a44', 'ink': 'ffffff',
     }}
     out = _apply_style(page, style)
-    assert 'left:8.0%;top:21.5%;width:84.0%;height:57.0%' in out
+    assert 'left:8.0%;width:84.0%;top:21.5%;height:57.0%' in out
     assert 'data-avatar-x="0.500"' in out
     assert 'data-avatar-y="0.392"' in out
     assert 'data-card-left="0.080"' in out

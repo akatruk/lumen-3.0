@@ -95,7 +95,7 @@ export type Project = {
   created: number;
   cost: number;
   events: { kind: string; detail: string; created: number }[];
-  pictures?: { id: string; created: number; current: boolean }[];
+  pictures?: { id: string; created: number; current: boolean; animation_share?: number }[];
 };
 export type Summary = Pick<
   Project,

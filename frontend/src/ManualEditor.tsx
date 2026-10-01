@@ -1,4 +1,5 @@
-import {SceneInspector,EffectPresets} from './SceneInspector';
+import {registerAnimationFlush} from './pictureRender';
+import {EffectPick,type EffectPickData} from './SceneInspector';
 import {RenderSummary,type RenderSummaryData} from './RenderSummary';
 import {createPortal} from 'react-dom';
 import {useWorkspace, workspaceText} from './ProjectWorkspace';
@@ -103,6 +104,12 @@ export type Edit = {
   presentation_share?: number;
   presentation_prompt?: string;
   presentation?: {kind:'window'|'mini';start:number;end:number;title:{en:string;zh:string;ru:string};body?:{en:string;zh:string;ru:string}|null;x:number;y:number}[];
+  card_motion?: number;
+  animation_intensity?: number;
+  animation_depth?: number;
+  animation_motion?: number;
+  animation_density?: number;
+  animation_prompt?: string;
   font_size: "small" | "medium" | "large";
   position: "top" | "bottom";
   color: "white" | "yellow";
@@ -169,8 +176,17 @@ export function ManualEditor({
     editRef = useRef<Edit | null>(null),
     revisionRef = useRef(0),
     shareTicket = useRef(0),
-    shareTimer = useRef<number | undefined>(undefined);
+    shareTimer = useRef<number | undefined>(undefined),
+    motionTimer = useRef<number | undefined>(undefined),
+    mixTicket = useRef(0),
+    animationDirty = useRef(false);
   const [shareNote, setShareNote] = useState("");
+  const [cardNote, setCardNote] = useState("");
+  const [effectPick, setEffectPick] = useState<EffectPickData | null>(null);
+  const [effectError, setEffectError] = useState("");
+  const [effectNote, setEffectNote] = useState("");
+  const [effectBusy, setEffectBusy] = useState(false);
+  const effectTicket = useRef(0);
   const base = `/api/studio/projects/${pid}/manual`;
   const [assets,setAssets]=useState<Asset[]>([]);
   async function loadAssets(){const r=await fetch(`/api/studio/projects/${pid}/assets`);if(r.ok)setAssets(await r.json())}
@@ -235,7 +251,7 @@ export function ManualEditor({
     setRevision(serverRevision);
   },[serverRevision, dirty, edit, revision]);
   const blocked = disabled || busy;
-  editRef.current = edit;
+  if (!animationDirty.current) editRef.current = edit;
   revisionRef.current = revision;
   function presentationMessage(detail: unknown) {
     return detail === "presentation_needs_context"
@@ -288,11 +304,29 @@ export function ManualEditor({
   const finalMusic = useRef<FinalMusicHandle>(null);
   async function act(render = false) {
     if (!edit) return null;
+    window.clearTimeout(motionTimer.current);
     let savedRevision=revisionRef.current || revision;
     setBusy(true);
     setError("");
     try {
       let rev = savedRevision;
+      const pending = editRef.current;
+      if (render && pending) {
+        const saved = await fetch(base, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ revision: rev, edit: pending }),
+        });
+        const stored = await saved.json().catch(() => ({}));
+        if (!saved.ok || !stored.edit) throw Error(presentationMessage(stored.detail));
+        editRef.current = stored.edit;
+        rev = stored.revision;
+        revisionRef.current = stored.revision;
+        animationDirty.current = false;
+        setEdit(stored.edit);
+        setRevision(stored.revision);
+        setDirty(false);
+      }
       let r: Response | null = null;
       let detail: unknown;
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -348,6 +382,166 @@ export function ManualEditor({
       setBusy(false);
     }
   }
+  function setAnimation(key: "card_motion" | "animation_depth" | "animation_motion" | "animation_density", value: number) {
+    const level = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
+    const current = editRef.current;
+    if (!current || (current[key] ?? 100) === level) return;
+    const next = { ...current, [key]: level };
+    editRef.current = next;
+    animationDirty.current = true;
+    setEdit(next);
+    setDirty(true);
+    setCardNote("");
+    const ticket = ++mixTicket.current;
+    window.clearTimeout(motionTimer.current);
+    motionTimer.current = window.setTimeout(() => { void saveAnimation(ticket); }, 0);
+  }
+  async function saveAnimation(ticket: number) {
+    const current = editRef.current;
+    if (!current || ticket !== mixTicket.current) return;
+    setCardNote(w("Сохраняю промпт анимации…", "Saving the animation prompt…", "正在保存动画提示…"));
+    try {
+      const save = await fetch(base, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: revisionRef.current, edit: current }),
+      });
+      const stored = await save.json().catch(() => ({}));
+      if (ticket !== mixTicket.current) return;
+      if (!save.ok || !stored.edit) throw Error(presentationMessage(stored.detail));
+      editRef.current = stored.edit;
+      revisionRef.current = stored.revision;
+      animationDirty.current = false;
+      setEdit(stored.edit);
+      setRevision(stored.revision);
+      setDirty(false);
+      sessionStorage.removeItem(draftKey);
+      setCardNote(w(
+        "Уровень сохранён. «Собрать видео заново» отправит этот промпт в Hypit.",
+        "Saved. Regenerate video sends this prompt to Hypit.",
+        "已保存。重新生成会把这个提示发给 Hypit。",
+      ));
+      await onSaved();
+    } catch (e) {
+      if (ticket !== mixTicket.current) return;
+      setCardNote((e as Error).message);
+    }
+  }
+  const saveAnimationRef = useRef(saveAnimation);
+  saveAnimationRef.current = saveAnimation;
+  useEffect(() => {
+    registerAnimationFlush(async () => {
+      window.clearTimeout(motionTimer.current);
+      if (!animationDirty.current) return revisionRef.current;
+      await saveAnimationRef.current(mixTicket.current);
+      if (animationDirty.current) {
+        throw Error(w(
+          "Не удалось сохранить ползунки. Сборка не начата.",
+          "The sliders could not be saved. The video was not started.",
+          "无法保存滑块。视频没有开始生成。",
+        ));
+      }
+      return revisionRef.current;
+    });
+    return () => registerAnimationFlush(null);
+  }, [pid]);
+  function effectMessage(detail: unknown) {
+    return detail === "no_open_picture"
+      ? w("Нет открытого фрагмента, который попадёт в ролик.", "There is no open piece the render will use.", "没有会进入成片的开放片段。")
+      : detail === "effect_unavailable"
+        ? w("Для этой картинки уже включены эффекты, которые меняют ролик.", "This picture already has effects the render will use.", "这个画面已经有会改变成片的效果。")
+        : detail === "plan_changed"
+          ? t("The plan changed. Reload saved edits before continuing.", "计划已更新，请重新加载已保存的剪辑。")
+          : w("Не удалось подобрать эффект. Повторите.", "Could not pick an effect. Try again.", "无法建议效果，请重试。");
+  }
+  async function loadEffect() {
+    const current = editRef.current;
+    if (!current) return;
+    const ticket = ++effectTicket.current;
+    setEffectBusy(true);
+    setEffectError("");
+    try {
+      const response = await fetch(`${base}/effect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: revisionRef.current, edit: current }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (ticket !== effectTicket.current) return;
+      if (response.status === 422 && data?.detail === "effect_unavailable") {
+        setEffectPick(null);
+        setEffectError("");
+        setEffectNote(w(
+          "Наезд, свечение и виньетка сами не включаются. Анимацию карточек задаёт ползунок выше.",
+          "A push, glow, and vignette are not added on their own. The card slider above sets the animation.",
+          "不会自动加上推近、发光和暗角。卡片动画由上面的滑块决定。",
+        ));
+        return;
+      }
+      if (!response.ok || !data?.id) throw Error(effectMessage(data?.detail));
+      setEffectPick(data);
+      setEffectNote("");
+    } catch (e) {
+      if (ticket !== effectTicket.current) return;
+      setEffectPick(null);
+      setEffectError((e as Error).message);
+    } finally {
+      if (ticket === effectTicket.current) setEffectBusy(false);
+    }
+  }
+  async function acceptEffect() {
+    const current = editRef.current;
+    const pick = effectPick;
+    if (!current || !pick) return;
+    const clips = current.clips.map((clip) => {
+      const patch = pick.clips?.[clip.id || ""] as Partial<Clip> | undefined;
+      return patch ? { ...clip, ...patch } : clip;
+    });
+    const next = {
+      ...current,
+      clips,
+      ...(pick.edit?.card_motion != null ? { card_motion: pick.edit.card_motion } : {}),
+      ...(pick.edit?.animation_depth != null ? { animation_depth: pick.edit.animation_depth } : {}),
+      ...(pick.edit?.animation_motion != null ? { animation_motion: pick.edit.animation_motion } : {}),
+      ...(pick.edit?.animation_intensity != null ? { animation_intensity: pick.edit.animation_intensity } : {}),
+      ...(pick.edit?.animation_density != null ? { animation_density: pick.edit.animation_density } : {}),
+    };
+    editRef.current = next;
+    setEdit(next);
+    setEffectBusy(true);
+    setEffectError("");
+    setEffectNote(w("Сохраняю эффект…", "Saving the look…", "正在保存效果…"));
+    try {
+      const save = await fetch(base, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: revisionRef.current, edit: next }),
+      });
+      const stored = await save.json().catch(() => ({}));
+      if (!save.ok || !stored.edit) throw Error(effectMessage(stored.detail));
+      editRef.current = stored.edit;
+      revisionRef.current = stored.revision;
+      setEdit(stored.edit);
+      setRevision(stored.revision);
+      setDirty(false);
+      sessionStorage.removeItem(draftKey);
+      setEffectNote(w(
+        "Образ сохранён. Соберите видео заново, чтобы увидеть его в ролике.",
+        "Look saved. Create the video again to see it.",
+        "效果已保存。请重新生成视频后在画面中查看。",
+      ));
+      await onSaved();
+    } catch (e) {
+      setEffectError((e as Error).message);
+      setEffectNote("");
+    } finally {
+      setEffectBusy(false);
+    }
+  }
+  useEffect(() => {
+    if (task !== "effects" || !edit) return;
+    void loadEffect();
+  }, [task, pid, Boolean(edit)]);
   function setPresentationShare(value: number) {
     const share = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
     const current = editRef.current;
@@ -494,27 +688,31 @@ export function ManualEditor({
       <div hidden={task!=="materials"}>
       <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;workspace?.setTask('effects');setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[contentLanguage(lang)]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
       </div>
-      {portal(<section className="ws-scene-list"><div className="ws-scene-heading"><h3>{w('Сцены','Scenes','场景')} <small>{edit.clips.length}</small></h3><span>{w('Выберите сцену для редактирования','Select a scene to edit','选择场景进行编辑')}</span></div><div className="ws-scenes">{edit.clips.map((c,i)=><button key={c.id||i} aria-pressed={selected===i} onClick={()=>{setSelected(i);workspace?.showDraft();if(task==='review')workspace?.setTask('edit')}}><span>{String(i+1).padStart(2,'0')}</span><strong>{c.text||`${w('Сцена','Scene','场景')} ${i+1}`}</strong><small>{c.start.toFixed(1)}–{c.end.toFixed(1)}s · {(c.end-c.start).toFixed(1)} {w('сек','sec','秒')} · {c.approved===false?w('Не в ролике','Out of the cut','不进成片'):w('В ролике','In the cut','在成片中')}{c.locked?` · ${w('Тайминг заморожен','Timing frozen','时间已冻结')}`:''}</small></button>)}</div><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
+      {portal(<section className="ws-scene-list"><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
-      {task==='effects'&&<section className="presentation-share" aria-label={w('Промпт Hypit','Hypit prompt','Hypit 提示')}>
-        <label className="inspector-slider">
-          {w('Промпт Hypit, %','Hypit prompt, %','Hypit 提示比例')}
-          <input type="range" min={0} max={100} step={5} value={edit.presentation_share||0} aria-label={w('Промпт Hypit, %','Hypit prompt, %','Hypit 提示比例')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={edit.presentation_share||0} aria-valuetext={`${edit.presentation_share||0}%`} onChange={e=>setPresentationShare(Number(e.target.value))} />
-          <output>{edit.presentation_share||0}%</output>
-        </label>
-        {shareNote&&<p role="status">{shareNote}</p>}
-        {(edit.presentation_share||0)>0&&<p className="presentation-prompt">{w(
-          `Промпт Hypit: использовать фреймворк Hypit на ${edit.presentation_share}% готового видео. Движущиеся 3D-окна и мини-презентации ставятся на отсканированную речь.`,
-          `Hypit prompt: use the Hypit framework on ${edit.presentation_share}% of the finished video. Moving 3D windows and mini presentations sit on the scanned speech.`,
-          `Hypit 提示：在成片的 ${edit.presentation_share}% 上使用 Hypit 框架。移动的 3D 窗口和迷你演示落在扫描到的讲话上。`,
-        )}</p>}
-        <small>{w('Шаг 5%. Число становится процентом в промпте Hypit: фреймворк занимает графикой именно эту долю ролика. Скан сначала читает речь. Слова на экране идут на языке озвучки, а если её нет — на языке проекта.','Steps of 5%. The number becomes the percentage in the Hypit prompt: the framework covers exactly that share of the video with graphics. The scan reads the speech first. On-screen words follow the voiceover language, or the project language when there is no voiceover.','步长为 5%。这个数字会写入 Hypit 提示的百分比：框架只用图形覆盖成片的这一比例。扫描会先读取语音。画面文字跟随配音语言；没有配音时使用项目语言。')}</small>
-        {(edit.presentation||[]).length>0&&<p role="status">{w('Скан поставил','The scan placed','扫描已放置')} {(edit.presentation||[]).filter(b=>b.kind==='window').length} {w('окон','windows','个窗口')} · {(edit.presentation||[]).filter(b=>b.kind==='mini').length} {w('мини-презентаций','mini presentations','个迷你演示')} · {(edit.presentation||[]).reduce((sum,b)=>sum+b.end-b.start,0).toFixed(1)} {w('с','s','秒')}</p>}
-        {(edit.presentation||[]).length>0&&<ol>{(edit.presentation||[]).map((beat,index)=>{const line=lang==='zh'?beat.title.zh:lang==='ru'?beat.title.ru:beat.title.en;return <li key={index}>{beat.kind==='mini'?w('Мини-презентация','Mini presentation','迷你演示'):w('3D-окно','3D window','3D 窗口')} · {beat.start.toFixed(1)}–{beat.end.toFixed(1)} {w('с','s','秒')} · {line}</li>})}</ol>}
+      {task==='effects'&&<section className="presentation-share" aria-label={w('Процент добавляемой анимации','Added animation percent','添加动画的百分比')}>
+        {([
+          ['card_motion', w('Присутствие, %','Presence, %','占比，%'), w('Процент добавляемой анимации','Added animation, %','添加动画的百分比'), edit.card_motion],
+          ['animation_depth', w('Глубина, %','Depth, %','深度，%'), w('Глубина анимации','Animation depth','动画深度'), edit.animation_depth],
+          ['animation_motion', w('Движение, %','Motion, %','运动，%'), w('Движение анимации','Animation motion','动画运动'), edit.animation_motion],
+          ['animation_density', w('Плотность, %','Density, %','密度，%'), w('Плотность анимации','Animation density','动画密度'), edit.animation_density],
+        ] as const).map(([key, label, name, value]) => (
+          <label className="inspector-slider" key={key}>
+            {label}
+            <input type="range" min={0} max={100} step={5} value={value??100} aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value??100} aria-valuetext={`${value??100}%`} onChange={e=>setAnimation(key, Number(e.target.value))} />
+            <output>{value??100}%</output>
+          </label>
+        ))}
+        {cardNote&&<p role="status">{cardNote}</p>}
+        <p className="animation-prompt">{w(
+          `На ${edit.card_motion??100}% длины ролика (${Math.round((edit.card_motion??100)*60/100)} с на минуту) ведущий в кружке, слова становятся графикой: прибыль — стрелка вверх, риск — вниз, число — крупная цифра, шаги по одному, сравнение — две колонки, срок — шкала. Интенсивность ${edit.animation_depth??100}% — насколько резко графика приходит. Движение ${edit.animation_motion??100}%. Плотность ${edit.animation_density??100}% фраз.`,
+          `For ${edit.card_motion??100}% of the video (${Math.round((edit.card_motion??100)*60/100)}s per minute) the host is in a circle and the words become graphics: profit rises, risk falls, a number is large, steps arrive one by one. Intensity ${edit.animation_depth??100}%. Motion ${edit.animation_motion??100}%. Density ${edit.animation_density??100}% of the phrases.`,
+          `成片的 ${edit.card_motion??100}%（每分钟 ${Math.round((edit.card_motion??100)*60/100)} 秒）里，主持人收进圆圈，所说的话变成图形：利润向上，风险向下，数字放大，步骤逐个出现。强度 ${edit.animation_depth??100}%。运动 ${edit.animation_motion??100}%。密度为语句的 ${edit.animation_density??100}%。`,
+        )}</p>
       </section>}
+      {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       <section className="inspector-scene-controls">
-        <SceneInspector clips={edit.clips} selected={selected} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}}/>
         <fieldset disabled={blocked} className="director-fieldset">
           {edit.clips.map((c, i) => (
             <article className="manual-clip" hidden={!!workspace&&selected!==i} key={c.id||i}>
@@ -530,7 +728,6 @@ export function ManualEditor({
                 </label>
               </div>
               <fieldset className="director-fieldset" disabled={c.locked}>
-              {task==='effects'&&<EffectPresets lang={lang} duration={c.end-c.start} motionSeconds={c.motion_seconds} first={i===0} zoom={c.zoom} zoomEnd={c.zoom_end} x={c.x} y={c.y} xEnd={c.x_end} yEnd={c.y_end} transition={c.transition} onChange={patch=>clipChange(i,patch)}/>}
               <div className="scene-timing">
                 <p className="scene-timing-title">{w('Время и приближение этой сцены','Timing and zoom for this scene','此场景的时间与缩放')}</p>
                 <div className="manual-grid ws-framing-grid">{(["start","end","zoom"] as const).map(key=>framingField(c,i,key))}</div>
