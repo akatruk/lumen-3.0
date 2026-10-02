@@ -3,7 +3,7 @@ import {EffectPick,type EffectPickData} from './SceneInspector';
 import {RenderSummary,type RenderSummaryData} from './RenderSummary';
 import {createPortal} from 'react-dom';
 import {useWorkspace, workspaceText} from './ProjectWorkspace';
-import type {ReactNode} from 'react';
+import {cloneElement, isValidElement, type ReactElement, type ReactNode} from 'react';
 import {SoundtrackLibrary} from './SoundtrackLibrary';
 import { translate, contentLanguage } from './locale';
 import {reviseDecision} from './decisionReview';
@@ -21,6 +21,193 @@ import {TimelineTracks} from './TimelineTracks';
 import {ClipLayerTracks} from './ClipLayerTracks';
 import { useEffect, useRef, useState } from "react";
 import type { Lang, ContentLang } from "./types";
+
+function soundBed(assetId: string): Music {
+  return {asset_id: assetId, source_start: 0, gain_db: -22, fade_in: 0.8, fade_out: 1.6, duck: true};
+}
+
+const speechNames = {
+  ru: {zh: 'китайском', ru: 'русском', en: 'английском'},
+  en: {zh: 'Chinese', ru: 'Russian', en: 'English'},
+  zh: {zh: '中文', ru: '俄语', en: '英文'},
+} as const;
+
+function soundSentences(edit: Edit, lang: 'ru' | 'en' | 'zh') {
+  const names = {
+    ru: {zh: 'китайском', ru: 'русском', en: 'английском'},
+    en: {zh: 'Chinese', ru: 'Russian', en: 'English'},
+    zh: {zh: '中文', ru: '俄语', en: '英文'},
+  }[lang];
+  const gain = edit.music?.gain_db ?? -24;
+  const fadeIn = edit.music?.fade_in ?? 1;
+  const fadeOut = edit.music?.fade_out ?? 2;
+  const ducked = edit.music?.duck !== false;
+  const lines: string[] = [];
+  if (edit.music?.asset_id) {
+    lines.push(lang === 'en'
+      ? `Add background music: ${gain} dB, fade in ${fadeIn}s, fade out ${fadeOut}s. ${ducked ? 'Lower it under the speech.' : 'Do not lower it under the speech.'}`
+      : lang === 'zh'
+        ? `加入背景音乐：${gain} 分贝，淡入 ${fadeIn} 秒，淡出 ${fadeOut} 秒。${ducked ? '说话时压低。' : '说话时不压低。'}`
+        : `Добавь фоновую музыку: ${gain} дБ, появление ${fadeIn} с, затухание ${fadeOut} с. ${ducked ? 'Приглушай её под речь.' : 'Под речь не приглушай.'}`);
+  }
+  if (edit.normalize) {
+    lines.push(lang === 'en' ? 'Level the speech volume.' : lang === 'zh' ? '均衡语音音量。' : 'Выровняй громкость речи.');
+  }
+  if (edit.voice_cleanup) {
+    lines.push(lang === 'en'
+      ? 'Remove hiss, rumble and other noise from the host voice. Do not change the video length.'
+      : lang === 'zh'
+        ? '去掉主持人声音里的嘶声、低频和其他杂音。不要改变视频长度。'
+        : 'Очисти голос ведущего от посторонних шумов, гула и шипения. Длину ролика не меняй.');
+  }
+  if (edit.host_language && names[edit.host_language]) {
+    const spoken = names[edit.host_language];
+    lines.push(lang === 'en' ? `The host speaks ${spoken}.` : lang === 'zh' ? `主持人说${spoken}。` : `Речь ведущего на ${spoken}.`);
+  }
+  if (edit.subtitle_language && names[edit.subtitle_language]) {
+    const written = names[edit.subtitle_language];
+    const same = edit.subtitle_language === edit.host_language;
+    lines.push(lang === 'en'
+      ? (same ? `Subtitles are in ${written}, the same language as the speech.` : `Subtitles are in ${written}.`)
+      : lang === 'zh'
+        ? (same ? `字幕为${written}，与语音相同。` : `字幕为${written}。`)
+        : (same ? `Субтитры на ${written}, на том же языке, что и речь.` : `Субтитры на ${written}.`));
+  }
+  const graphics = graphicsSentence(edit, lang);
+  if (graphics) lines.push(graphics);
+  const voiceover = voiceoverScript(edit, lang);
+  if (voiceover) lines.push(voiceover);
+  return lines.join(' ');
+}
+
+function voiceoverScript(edit: Edit, lang: 'ru' | 'en' | 'zh') {
+  const host = edit.host_language;
+  if (!host) return '';
+  const spoken = (edit.captions || []).map(caption => {
+    const text = host === 'zh' ? (caption.zh || caption.original) : host === 'en' ? caption.en : (caption.ru || (/[а-яё]/i.test(caption.original) ? caption.original : ''));
+    return text.replace(/\s+/g, ' ').trim();
+  }).filter(text => text && text !== '口播');
+  if (!spoken.length) return '';
+  const script = spoken.join(' ');
+  if (lang === 'en') return `Voiceover in ${host === 'ru' ? 'Russian' : host === 'zh' ? 'Chinese' : 'English'}: ${script}`;
+  if (lang === 'zh') return `配音（${host === 'ru' ? '俄语' : host === 'zh' ? '中文' : '英文'}）：${script}`;
+  return `Озвучка на ${host === 'ru' ? 'русском' : host === 'zh' ? 'китайском' : 'английском'}: ${script}`;
+}
+
+function graphicsSentence(edit: Edit, lang: 'ru' | 'en' | 'zh') {
+  const language = edit.effects_language || edit.host_language;
+  if (!language) return '';
+  const names = {
+    ru: {zh: 'китайском', ru: 'русском', en: 'английском'},
+    en: {zh: 'Chinese', ru: 'Russian', en: 'English'},
+    zh: {zh: '中文', ru: '俄语', en: '英文'},
+  }[lang];
+  const label = names[language];
+  const same = language === edit.host_language;
+  if (lang === 'en') return same ? `Graphics and inserts are in ${label}, the same language as the speech.` : `Graphics and inserts are in ${label}.`;
+  if (lang === 'zh') return same ? `图形和插入为${label}，与语音相同。` : `图形和插入为${label}。`;
+  return same ? `Графика и вставки на ${label}, на том же языке, что и речь.` : `Графика и вставки на ${label}.`;
+}
+
+function SoundPanel({edit, lang, outputLanguage, blocked, busy, note, libraryOpen, assets, onToggleLibrary, onNormalize, onCleanup, onHost, onSubtitles, onGraphics, onLibrary, onClear, onRecommend, onUpload}: {
+  edit: Edit;
+  lang: Lang;
+  outputLanguage: ContentLang;
+  blocked: boolean;
+  busy: boolean;
+  note: string;
+  libraryOpen: boolean;
+  assets: Asset[];
+  onToggleLibrary: () => void;
+  onNormalize: () => void;
+  onCleanup: () => void;
+  onHost: (language: 'zh' | 'ru' | 'en') => void;
+  onSubtitles: (language: 'zh' | 'ru' | 'en') => void;
+  onGraphics: (language: 'zh' | 'ru' | 'en') => void;
+  onLibrary: (id: string) => void;
+  onClear: () => void;
+  onRecommend: () => void;
+  onUpload: () => void;
+}) {
+  const w = (ru: string, en: string, zh: string) => workspaceText(lang, ru, en, zh);
+  const spoken = edit.host_language || null;
+  const captions = edit.subtitle_language || (outputLanguage === 'zh' ? 'zh' : 'en');
+  const mismatch = !!spoken && (!edit.subtitles || captions !== spoken);
+  const graphicsNow = edit.effects_language || spoken || 'zh';
+  const graphicsDiffer = !!spoken && !!edit.effects_language && edit.effects_language !== spoken;
+  const prompt = soundSentences(edit, lang === 'zh' ? 'zh' : lang === 'en' ? 'en' : 'ru');
+  return <section className="sound-panel" aria-label={w('Звук ролика','Video sound','视频声音')}>
+    <h3>{w('Заменить фоновую музыку','Replace the background music','更换背景音乐')}</h3>
+    <p>{w('Речь ведущего остаётся. Меняется только музыка под ней: из разбора, который сделан при добавлении ролика, или из медиатеки.','The host\'s speech stays. Only the music under it changes: from the analysis made when the video was added, or from the library.','主持人语音保留。只更换底下的音乐：来自添加视频时的分析，或来自媒体库。')}</p>
+    <div className="sound-choices">
+      <button type="button" disabled={blocked} onClick={onRecommend}>{busy ? w('Берём рекомендацию…','Taking the recommendation…','正在采用推荐…') : w('По рекомендации разбора','From the analysis','按分析推荐')}</button>
+      <button type="button" aria-pressed={libraryOpen} disabled={blocked} onClick={onToggleLibrary}>{w('Из медиатеки','From the library','从媒体库')}</button>
+      {edit.music && <button type="button" disabled={blocked} onClick={onClear}>{w('Вернуть исходный фон','Keep the original background','保留原来的背景声')}</button>}
+    </div>
+    {libraryOpen && <div className="sound-choices">
+      {assets.length ? assets.map(asset => <button type="button" key={asset.id} aria-pressed={edit.music?.asset_id===asset.id} disabled={blocked} onClick={()=>onLibrary(asset.id)}>{asset.title}</button>) : <button type="button" disabled={blocked} onClick={onUpload}>{w('В медиатеке нет музыки. Загрузить трек','No music in the library. Upload a track','媒体库没有音乐。上传曲目')}</button>}
+    </div>}
+    <h3>{w('Речь','Speech','语音')}</h3>
+    <div className="sound-choices">
+      <button type="button" aria-pressed={!!edit.normalize} disabled={blocked} onClick={onNormalize}>{w('Выровнять громкость','Level the volume','均衡音量')}</button>
+      <button type="button" aria-pressed={!!edit.voice_cleanup} disabled={blocked} onClick={onCleanup}>{w('Убрать помехи','Remove noise','去除杂音')}</button>
+    </div>
+    <p>{w('Громкость выравнивает речь. Помехи убирают шипение и гул из голоса. Музыка, если она выбрана, добавляется после этого.','Leveling evens the speech. Noise removal takes hiss and rumble out of the voice. Selected music is added after that.','均衡音量会拉平语音。去除杂音会去掉嘶声和低频。若已选音乐，会在这之后混入。')}</p>
+    <h3>{w('Язык ведущего','Host language','主持人语言')}</h3>
+    <div className="sound-choices">
+      {(['zh','ru','en'] as const).map(id => <button type="button" key={id} aria-pressed={edit.host_language===id} disabled={blocked} onClick={()=>onHost(id)}>{{zh:'中文', ru:'Русский', en:'English'}[id]}</button>)}
+    </div>
+    {mismatch && spoken && <div className="sound-hint" role="status">
+      <p>{w(
+        `Речь будет на ${speechNames.ru[spoken]}. Субтитры сейчас ${edit.subtitles ? `на ${speechNames.ru[captions]}` : 'выключены'}. Поставить субтитры на ${speechNames.ru[spoken]}?`,
+        `Speech will be in ${speechNames.en[spoken]}. Subtitles are ${edit.subtitles ? `in ${speechNames.en[captions]}` : 'off'}. Use subtitles in ${speechNames.en[spoken]}?`,
+        `语音将为${speechNames.zh[spoken]}。字幕目前${edit.subtitles ? `是${speechNames.zh[captions]}` : '关闭'}。把字幕改成${speechNames.zh[spoken]}？`,
+      )}</p>
+      <div className="sound-choices"><button type="button" disabled={blocked} onClick={()=>onSubtitles(spoken)}>{w(`Субтитры на ${speechNames.ru[spoken]}`,`Subtitles in ${speechNames.en[spoken]}`,`字幕用${speechNames.zh[spoken]}`)}</button></div>
+    </div>}
+    {graphicsDiffer && spoken && <div className="sound-hint" role="status">
+      <p>{w(
+        `Речь будет на ${speechNames.ru[spoken]}. Графика и вставки сейчас на ${speechNames.ru[graphicsNow]}. Поставить их на ${speechNames.ru[spoken]}? Это не обязательно.`,
+        `Speech will be in ${speechNames.en[spoken]}. Graphics and inserts are in ${speechNames.en[graphicsNow]}. Use ${speechNames.en[spoken]} for them too? This is optional.`,
+        `语音将为${speechNames.zh[spoken]}。图形和插入目前是${speechNames.zh[graphicsNow]}。也改成${speechNames.zh[spoken]}？这不是必须的。`,
+      )}</p>
+      <div className="sound-choices"><button type="button" disabled={blocked} onClick={()=>onGraphics(spoken)}>{w(`Графика и вставки на ${speechNames.ru[spoken]}`,`Graphics and inserts in ${speechNames.en[spoken]}`,`图形和插入用${speechNames.zh[spoken]}`)}</button></div>
+    </div>}
+    {note && <p role="status">{note}</p>}
+    {prompt && <p className="animation-prompt">{w('В промпт уйдёт: ','The prompt will say: ','提示词将写入：')}{prompt}</p>}
+  </section>;
+}
+
+function insertCopy(percent: number, lang: 'ru' | 'en' | 'zh') {
+  const share = Math.max(0, Math.min(100, Math.round(percent)));
+  const count = share <= 0 ? 0 : Math.max(1, Math.min(6, Math.round(6 * share / 100)));
+  const hold = Math.round((1.5 + 1.5 * share / 100) * 10) / 10;
+  if (lang === 'en') {
+    return count ? `Inserts ${share}%: ${count} short clips of ${hold}s inside the graphic.` : `Inserts ${share}%: no extra clips.`;
+  }
+  if (lang === 'zh') {
+    return count ? `插入 ${share}%：图形里 ${count} 段 ${hold} 秒短视频。` : `插入 ${share}%：没有额外短视频。`;
+  }
+  return count ? `Вставки ${share}%: ${count} коротких роликов по ${hold} с внутри графики.` : `Вставки ${share}%: дополнительных роликов нет.`;
+}
+
+function insertTheme(edit: Edit, lang: 'ru' | 'en' | 'zh') {
+  const blob = (edit.captions || []).map(caption => `${caption.zh} ${caption.en} ${caption.original}`).join(' ').toLowerCase();
+  const places: string[] = [];
+  if (/泰国|thailand|thai|bangkok|中泰/.test(blob)) places.push(lang === 'en' ? 'Thailand' : lang === 'zh' ? '泰国' : 'Таиланд');
+  if (/中国|china|chinese|上海|北京/.test(blob)) places.push(lang === 'en' ? 'China' : lang === 'zh' ? '中国' : 'Китай');
+  const topics: string[] = [];
+  if (/注册|regist|公司|company/.test(blob)) topics.push(lang === 'en' ? 'company registration' : lang === 'zh' ? '公司注册' : 'регистрация компании');
+  if (/股东|shareholder/.test(blob)) topics.push(lang === 'en' ? 'shareholders' : lang === 'zh' ? '股东' : 'акционеры');
+  if (/董事|director|法人|representative/.test(blob)) topics.push(lang === 'en' ? 'directors' : lang === 'zh' ? '董事' : 'директора');
+  if (/资本|capital|出资/.test(blob)) topics.push(lang === 'en' ? 'capital' : lang === 'zh' ? '资本' : 'капитал');
+  const phrase = [places.join(lang === 'en' ? ' and ' : lang === 'zh' ? '和' : ' и '), topics.join(', ')].filter(Boolean).join(', ');
+  if (!phrase) return '';
+  if (lang === 'en') return `Inserts follow this video: ${phrase}. Another country or organization stays out.`;
+  if (lang === 'zh') return `插入跟随本片主题：${phrase}。不出现其他国家和机构。`;
+  return `Вставки по теме ролика: ${phrase}. Чужую страну и чужую организацию не показывай.`;
+}
+
 type Clip = {
   audio_fade_ms?: number;
   external_broll?:ExternalBroll|null;
@@ -92,6 +279,7 @@ type Caption = {
   original: string;
   en: string;
   zh: string;
+  ru?: string;
 };
 export type Edit = {
   music?:Music|null;
@@ -109,7 +297,11 @@ export type Edit = {
   animation_depth?: number;
   animation_motion?: number;
   animation_density?: number;
+  animation_inserts?: number;
   animation_prompt?: string;
+  host_language?: 'zh' | 'ru' | 'en' | null;
+  subtitle_language?: 'zh' | 'ru' | 'en' | null;
+  effects_language?: 'zh' | 'ru' | 'en' | null;
   font_size: "small" | "medium" | "large";
   position: "top" | "bottom";
   color: "white" | "yellow";
@@ -160,6 +352,9 @@ export function ManualEditor({
   const reviewDialog=useRef<HTMLDialogElement>(null);
   const reviewOpener=useRef<HTMLElement|null>(null);
   const mediaLibrary = useRef<MediaLibraryHandle>(null);
+  const [soundBusy, setSoundBusy] = useState(false);
+  const [soundNote, setSoundNote] = useState('');
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [edit, setEdit] = useState<Edit | null>(null),
     [revision, setRevision] = useState(0),
     [dirty, setDirty] = useState(false),
@@ -382,7 +577,7 @@ export function ManualEditor({
       setBusy(false);
     }
   }
-  function setAnimation(key: "card_motion" | "animation_depth" | "animation_motion" | "animation_density", value: number) {
+  function setAnimation(key: "card_motion" | "animation_depth" | "animation_motion" | "animation_density" | "animation_inserts", value: number) {
     const level = Math.max(0, Math.min(100, Math.round(value / 5) * 5));
     const current = editRef.current;
     if (!current || (current[key] ?? 100) === level) return;
@@ -505,6 +700,7 @@ export function ManualEditor({
       ...(pick.edit?.animation_motion != null ? { animation_motion: pick.edit.animation_motion } : {}),
       ...(pick.edit?.animation_intensity != null ? { animation_intensity: pick.edit.animation_intensity } : {}),
       ...(pick.edit?.animation_density != null ? { animation_density: pick.edit.animation_density } : {}),
+      ...(pick.edit?.animation_inserts != null ? { animation_inserts: pick.edit.animation_inserts } : {}),
     };
     editRef.current = next;
     setEdit(next);
@@ -624,6 +820,34 @@ export function ManualEditor({
       </section>
     );
   function openReview(){reviewOpener.current=document.activeElement as HTMLElement;reviewDialog.current?.showModal();if(!dirty)void loadRenderSummary()}
+  async function applyRecommendedBed() {
+    setSoundBusy(true);
+    setSoundNote('');
+    try {
+      const info = await fetch(`/api/studio/projects/${pid}/music-recommendation`);
+      const body = await info.json().catch(() => ({}));
+      if (!info.ok || !body.available || !body.key) {
+        setSoundNote(w('Разбор не назвал музыку для этого ролика. Выберите трек из медиатеки.','The analysis did not name music for this video. Choose a track from the library.','分析没有为这个视频指定音乐。请从媒体库选择。'));
+        setLibraryOpen(true);
+        return;
+      }
+      const added = await fetch(`/api/studio/projects/${pid}/soundtracks/${encodeURIComponent(body.key)}`, {method: 'POST'});
+      const asset = await added.json().catch(() => ({}));
+      if (!added.ok || !asset.id) {
+        setSoundNote(w('Рекомендованный трек сейчас недоступен. Выберите другой из медиатеки.','The recommended track is unavailable. Choose another from the library.','推荐曲目暂不可用。请从媒体库另选。'));
+        setLibraryOpen(true);
+        return;
+      }
+      await loadAssets();
+      change({music: soundBed(asset.id)}, false);
+      setLibraryOpen(false);
+      setSoundNote(w(`Фоновая музыка: ${body.title}. Речь ведущего остаётся.`,`Background music: ${body.title}. The host's speech stays.`,`背景音乐：${body.title}。主持人语音保留。`));
+    } catch {
+      setSoundNote(w('Не удалось взять рекомендацию. Правка звука не изменилась.','Could not apply the recommendation. The sound edit is unchanged.','无法应用推荐。声音设置未改变。'));
+    } finally {
+      setSoundBusy(false);
+    }
+  }
   const clip = edit.clips[selected] || edit.clips[0];
   const progress=Math.max(0,Math.min(1,(time-clip.start)/Math.min(clip.end-clip.start,clip.motion_seconds||clip.end-clip.start)));
   const frameZoom=clip.zoom+((clip.zoom_end??clip.zoom)-clip.zoom)*progress;
@@ -667,19 +891,30 @@ export function ManualEditor({
       aria-label={t("Manual editor", "手动剪辑")}
     >
       <div hidden={task!=="audio"}>
+      <SoundPanel
+        edit={edit}
+        lang={lang}
+        outputLanguage={outputLanguage}
+        blocked={blocked || soundBusy}
+        busy={soundBusy}
+        note={soundNote}
+        libraryOpen={libraryOpen}
+        assets={assets.filter(a=>a.metadata.kind==='music')}
+        onToggleLibrary={()=>setLibraryOpen(open=>!open)}
+        onNormalize={()=>change({normalize:!edit.normalize}, false)}
+        onCleanup={()=>change({voice_cleanup:!edit.voice_cleanup}, false)}
+        onHost={(next)=>change({host_language: edit.host_language===next ? null : next}, false)}
+        onSubtitles={(next)=>change({subtitle_language: next, subtitles: true}, false)}
+        onGraphics={(next)=>change({effects_language: next}, false)}
+        onLibrary={(id)=>change({music: soundBed(id)}, false)}
+        onClear={()=>{change({music: null}, false); setLibraryOpen(false);}}
+        onRecommend={()=>void applyRecommendedBed()}
+        onUpload={()=>{workspace?.setTask('materials'); requestAnimationFrame(()=>mediaLibrary.current?.openMusicUpload());}}
+      />
       <MusicPlan onUploadMusic={()=>{workspace?.setTask('materials');requestAnimationFrame(()=>mediaLibrary.current?.openMusicUpload())}} onUse={music=>change({music},false)} onAssetsChanged={loadAssets} currentMusic={edit.music} pid={pid} revision={revision} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} suggestDisabled={blocked||dirty||!!edit.music?.locked} onApplied={async nextRevision=>{sessionStorage.removeItem(draftKey);await load();await onSaved();await finalMusic.current?.apply(nextRevision)}}/>
       <MusicEditor delivery={<FinalMusic ref={finalMusic} pid={pid} lang={lang} music={edit.music||null} disabled={blocked||invalid} save={()=>act(false)}/>} pid={pid} onAnalyzed={loadAssets} firstCut={edit.clips.filter(c=>c.approved!==false).length>1?(()=>{const c=edit.clips.find(c=>c.approved!==false)!;return c.end-c.start})():null} value={edit.music||null} assets={assets.filter(a=>a.metadata.kind==='music')} lang={lang} disabled={blocked} onChange={music=>change({music},false)}/>
       {edit.music&&<BeatPreview pid={pid} revision={revision} lang={lang} disabled={blocked||dirty} onPreview={value=>{setEdit(value);setDirty(true)}}/>}
-      <div className="scene-choices">
-        <label className="scene-choice">
-          <input type="checkbox" checked={!!edit.voice_cleanup} disabled={blocked} onChange={e=>change({voice_cleanup:e.target.checked})} />
-          <span>
-            <strong>{w('Убрать лишние звуки из основной речи','Remove extra sound from the main speech','去除主语音中的多余声音')}</strong>
-            <small>{w('Шипение, гул и посторонние звуки уходят из речи. Музыка добавляется позже и остаётся.','Hiss, rumble, and other extra sounds leave the speech. Music is mixed in afterwards and stays.','嘶声、低频杂音和其他多余声音会从语音中去掉。音乐随后混入并保留。')}</small>
-          </span>
-        </label>
-      </div>
-      <details className="audio-voiceover"><summary>{w('Озвучка и язык','Voiceover and language','配音与语言')}</summary>{voiceover}</details>
+      {edit.host_language && voiceover && <div className="audio-voiceover">{isValidElement(voiceover) ? cloneElement(voiceover as ReactElement<{language?: 'zh'|'ru'|'en'}>, {language: edit.host_language}) : voiceover}</div>}
       <details className="audio-library"><summary>{w('Библиотека музыки','Music library','音乐库')}</summary><SoundtrackLibrary pid={pid} lang={lang} full={assets.length>=20} onChanged={loadAssets}/></details>
       </div>
       <div hidden={task!=="materials"}>
@@ -692,11 +927,33 @@ export function ManualEditor({
 </details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
       {task==='effects'&&<section className="presentation-share" aria-label={w('Процент добавляемой анимации','Added animation percent','添加动画的百分比')}>
+        <h3>{w('Язык эффектов','Effects language','效果语言')}</h3>
+        <p>{w('Язык надписей на карточках и во вставках. Речь ведущего от этого сама не меняется.','The language of the words on the cards and in the inserts. The host’s speech does not change by itself.','卡片和插入画面上的文字语言。主持人的语音不会因此自动改变。')}</p>
+        <div className="sound-choices">
+          {(['zh','ru','en'] as const).map(id => <button type="button" key={id} aria-pressed={edit.effects_language===id} disabled={blocked} onClick={()=>change({effects_language: edit.effects_language===id ? null : id}, false)}>{{zh:'中文', ru:'Русский', en:'English'}[id]}</button>)}
+        </div>
+        {edit.effects_language && edit.host_language && edit.effects_language !== edit.host_language && <div className="sound-hint" role="status">
+          <p>{w(
+            `Графика и вставки будут на ${speechNames.ru[edit.effects_language]}. Речь ведущего на ${speechNames.ru[edit.host_language]}. Поставить речь на ${speechNames.ru[edit.effects_language]}? Это не обязательно.`,
+            `Graphics and inserts will be in ${speechNames.en[edit.effects_language]}. The host speaks ${speechNames.en[edit.host_language]}. Also set the host language to ${speechNames.en[edit.effects_language]}? This is optional.`,
+            `图形和插入将为${speechNames.zh[edit.effects_language]}。主持人说${speechNames.zh[edit.host_language]}。也把语音改成${speechNames.zh[edit.effects_language]}？这不是必须的。`,
+          )}</p>
+          <div className="sound-choices"><button type="button" disabled={blocked} onClick={()=>change({host_language: edit.effects_language}, false)}>{w(`Речь ведущего на ${speechNames.ru[edit.effects_language]}`,`Host language: ${speechNames.en[edit.effects_language]}`,`主持人语言：${speechNames.zh[edit.effects_language]}`)}</button></div>
+        </div>}
+        {edit.effects_language && !edit.host_language && <div className="sound-hint" role="status">
+          <p>{w(
+            `Графика и вставки будут на ${speechNames.ru[edit.effects_language]}. Язык ведущего не выбран. Поставить его таким же? Это не обязательно.`,
+            `Graphics and inserts will be in ${speechNames.en[edit.effects_language]}. The host language is not set. Set it to the same language? This is optional.`,
+            `图形和插入将为${speechNames.zh[edit.effects_language]}。尚未选择主持人语言。也设成相同语言？这不是必须的。`,
+          )}</p>
+          <div className="sound-choices"><button type="button" disabled={blocked} onClick={()=>change({host_language: edit.effects_language}, false)}>{w(`Речь ведущего на ${speechNames.ru[edit.effects_language]}`,`Host language: ${speechNames.en[edit.effects_language]}`,`主持人语言：${speechNames.zh[edit.effects_language]}`)}</button></div>
+        </div>}
         {([
           ['card_motion', w('Присутствие, %','Presence, %','占比，%'), w('Процент добавляемой анимации','Added animation, %','添加动画的百分比'), edit.card_motion],
           ['animation_depth', w('Глубина, %','Depth, %','深度，%'), w('Глубина анимации','Animation depth','动画深度'), edit.animation_depth],
           ['animation_motion', w('Движение, %','Motion, %','运动，%'), w('Движение анимации','Animation motion','动画运动'), edit.animation_motion],
           ['animation_density', w('Плотность, %','Density, %','密度，%'), w('Плотность анимации','Animation density','动画密度'), edit.animation_density],
+          ['animation_inserts', w('Вставки, %','Inserts, %','插入，%'), w('Короткие ролики внутри графики','Short clips inside the graphic','图形里的短视频'), edit.animation_inserts],
         ] as const).map(([key, label, name, value]) => (
           <label className="inspector-slider" key={key}>
             {label}
@@ -706,13 +963,13 @@ export function ManualEditor({
         ))}
         {cardNote&&<p role="status">{cardNote}</p>}
         <p className="animation-prompt">{w(
-          `На ${edit.card_motion??100}% длины ролика (${Math.round((edit.card_motion??100)*60/100)} с на минуту) ведущий в кружке, слова становятся графикой: прибыль — стрелка вверх, риск — вниз, число — крупная цифра, шаги по одному, сравнение — две колонки, срок — шкала. Интенсивность ${edit.animation_depth??100}% — насколько резко графика приходит. Движение ${edit.animation_motion??100}% — насколько далеко карточки выезжают. С 80% в кадр входят короткие тематические вставки, речь не режется. Кружок ведущего не закрывает подпись. Плотность ${edit.animation_density??100}% фраз.`,
-          `For ${edit.card_motion??100}% of the video (${Math.round((edit.card_motion??100)*60/100)}s per minute) the host is in a circle and the words become graphics: profit rises, risk falls, a number is large, steps arrive one by one. Intensity ${edit.animation_depth??100}%. Motion ${edit.animation_motion??100}% is how far the cards travel. From 80%, short thematic clips enter and the speech stays whole. The host circle stays off the caption. Density ${edit.animation_density??100}% of the phrases.`,
-          `成片的 ${edit.card_motion??100}%（每分钟 ${Math.round((edit.card_motion??100)*60/100)} 秒）里，主持人收进圆圈，所说的话变成图形：利润向上，风险向下，数字放大，步骤逐个出现。强度 ${edit.animation_depth??100}%。运动 ${edit.animation_motion??100}% 决定卡片滑入的距离。从 80% 起，画面加入与台词相关的短镜头，语音不被切开。圆框不压住字幕。密度为语句的 ${edit.animation_density??100}%。`,
+          `На ${edit.card_motion??100}% длины ролика (${Math.round((edit.card_motion??100)*60/100)} с на минуту) ведущий в кружке, слова становятся графикой: прибыль — стрелка вверх, риск — вниз, число — крупная цифра, шаги по одному, сравнение — две колонки, срок — шкала. Интенсивность ${edit.animation_depth??100}% — насколько резко графика приходит. Движение ${edit.animation_motion??100}% — насколько далеко карточки выезжают. ${insertCopy(edit.animation_inserts??100, 'ru')} ${insertTheme(edit, 'ru')} Кружок ведущего не закрывает подпись. Плотность ${edit.animation_density??100}% фраз. ${graphicsSentence(edit, 'ru')}`.trim(),
+          `For ${edit.card_motion??100}% of the video (${Math.round((edit.card_motion??100)*60/100)}s per minute) the host is in a circle and the words become graphics: profit rises, risk falls, a number is large, steps arrive one by one. Intensity ${edit.animation_depth??100}%. Motion ${edit.animation_motion??100}% is how far the cards travel. ${insertCopy(edit.animation_inserts??100, 'en')} ${insertTheme(edit, 'en')} The host circle stays off the caption. Density ${edit.animation_density??100}% of the phrases. ${graphicsSentence(edit, 'en')}`.trim(),
+          `成片的 ${edit.card_motion??100}%（每分钟 ${Math.round((edit.card_motion??100)*60/100)} 秒）里，主持人收进圆圈，所说的话变成图形：利润向上，风险向下，数字放大，步骤逐个出现。强度 ${edit.animation_depth??100}%。运动 ${edit.animation_motion??100}% 决定卡片滑入的距离。${insertCopy(edit.animation_inserts??100, 'zh')}${insertTheme(edit, 'zh')}圆框不压住字幕。密度为语句的 ${edit.animation_density??100}%。${graphicsSentence(edit, 'zh')}`.trim(),
         )}</p>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
-      <section className="inspector-scene-controls">
+      {!workspace && <section className="inspector-scene-controls">
         <fieldset disabled={blocked} className="director-fieldset">
           {edit.clips.map((c, i) => (
             <article className="manual-clip" hidden={!!workspace&&selected!==i} key={c.id||i}>
@@ -788,7 +1045,6 @@ export function ManualEditor({
                   aria-pressed={selected === i}
                   onClick={() => {
                     setSelected(i);
-                    workspace?.showDraft();
                     pending.current=c.start;
                     if(video.current){
                       video.current.pause();
@@ -811,8 +1067,8 @@ export function ManualEditor({
             "时间对应原片。重复范围会重复播放，未选范围会被剪掉。请确保剪切不截断讲话。",
           )}
         </p>
-      </section>
-      <TimelineRegenerate matchRequest={matchRequest} assets={assets.filter(a=>a.metadata.kind!=='music')} pid={pid} revision={revision} clipId={clip.id} locked={clip.locked} disabled={blocked||dirty} lang={lang} onApplied={async()=>{sessionStorage.removeItem(draftKey);await load();await onSaved()}} />
+      </section>}
+      {!workspace && <TimelineRegenerate matchRequest={matchRequest} assets={assets.filter(a=>a.metadata.kind!=='music')} pid={pid} revision={revision} clipId={clip.id} locked={clip.locked} disabled={blocked||dirty} lang={lang} onApplied={async()=>{sessionStorage.removeItem(draftKey);await load();await onSaved()}} />}
       </div>
       {portal(<div className="manual-preview">
         <div className="manual-actions">
@@ -887,7 +1143,7 @@ export function ManualEditor({
         </small>
       </div>,workspace?.previewTarget)}
       <div hidden={task!=='subtitles'}>
-      <section className="ws-source-text"><h3>{w('Надписи в исходнике','Text in the original footage','原片中的文字')}</h3><p>{w('Если текст уже записан в изображение, переключатель субтитров его не уберёт. Загрузите исходник без текста или измените кадрирование.','Text already embedded in the picture cannot be switched off. Use a clean source or adjust the crop.','已嵌入画面的文字无法关闭，请使用无字幕原片或调整裁剪。')}</p><button onClick={()=>workspace?.setTask('edit')}>{w('Настроить кадр','Adjust framing','调整构图')}</button></section>
+      <section className="ws-source-text"><h3>{w('Надписи в исходнике','Text in the original footage','原片中的文字')}</h3><p>{w('Если текст уже записан в изображение, переключатель субтитров его не уберёт. Загрузите исходник без текста.','Text already embedded in the picture cannot be switched off. Use a clean source.','已嵌入画面的文字无法关闭，请使用无字幕原片。')}</p></section>
       <details open>
         <summary>
           {t("2. Edit subtitles and styling", "2. 编辑字幕和样式")}
@@ -1019,25 +1275,7 @@ export function ManualEditor({
       </details>
       <details><summary>{w('Расшифровка — не слой видео','Transcript — not a video layer','转录文本 — 不显示在视频中')}</summary>{edit.captions.map((c,i)=><p key={i}><small>{c.start.toFixed(1)}s</small> {c.original}</p>)}</details>
       </div>
-      <div hidden={task!=='audio'}>
-      <fieldset disabled={blocked} className="director-fieldset">
-        <label>
-          <input
-            type="checkbox"
-            checked={edit.normalize}
-            onChange={(e) => change({ normalize: e.target.checked })}
-          />
-          {t(" Normalize overall audio loudness", " 统一整体音量")}
-        </label>
-        <p>
-          {t(
-            "This adjusts the mixed audio track, not the separate voice/music balance.",
-            "此操作调整混合音轨的整体音量，不单独调整人声与音乐的比例。",
-          )}
-        </p>
-      </fieldset>
-      </div>
-      <details className="ws-editor-help"><summary>{w("Как работает редактор","How editing works","编辑器说明")}</summary>
+      {!workspace && <details className="ws-editor-help"><summary>{w("Как работает редактор","How editing works","编辑器说明")}</summary>
       <p>
         {t(
           "Timing, zoom, subtitles and scene order here override the AI plan for this render. Crop, wipes, charts, sound accents and extra clips stay with AI. Saving is free.",
@@ -1047,7 +1285,7 @@ export function ManualEditor({
       <div hidden={task!=="edit"}>
       <button className="secondary" disabled={blocked||dirty||edit.clips.some(c=>c.locked)} onClick={async()=>{setBusy(true);setError('');try{const r=await fetch(base+'/from-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision})});if(!r.ok)throw Error(t('Save or reload the latest plan first.','请先保存或重新加载最新计划。'));const data=await r.json();setEdit(data.edit);setDirty(true);setSelected(0);}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>{t('Build timeline from approved AI edits','根据已批准的 AI 改动建立时间线')}</button>
       </div>
-      </details>
+      </details>}
       {error && <p role="alert">{error}</p>}
       {invalidMusic&&<p role="alert">{t('Music points must start at 0, increase in time and stay between -40 and -6 dB.','音乐节点须从 0 秒开始，时间递增，音量介于 -40 至 -6 dB。')}</p>}
       {invalid && (
@@ -1108,7 +1346,7 @@ export function ManualEditor({
         {edit.clips.map((c,i)=>c.approved===false&&<div key={c.id||i} className="review-scene">
           <strong>{w('Сцена','Scene','场景')} {i+1} · {c.start.toFixed(1)}–{c.end.toFixed(1)}s</strong>
           {c.text&&<p>{c.text}</p>}
-          <div className="manual-actions"><button onClick={()=>{reviewDialog.current?.close();setSelected(i);workspace?.setTask('edit');workspace?.showDraft();pending.current=c.start;setTime(c.start);if(video.current)video.current.currentTime=c.start;}}>{w('Посмотреть сцену','Inspect scene','查看场景')}</button>
+          <div className="manual-actions"><button onClick={()=>{reviewDialog.current?.close();setSelected(i);workspace?.showDraft();pending.current=c.start;setTime(c.start);if(video.current)video.current.currentTime=c.start;}}>{w('Посмотреть сцену','Inspect scene','查看场景')}</button>
           <button disabled={blocked||!!c.locked} onClick={()=>clipChange(i,{approved:true})}>{w('Подтвердить сцену','Approve scene','批准场景')} {i+1}</button></div>
         </div>)}
       </section>}

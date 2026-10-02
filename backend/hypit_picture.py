@@ -205,8 +205,11 @@ def deliver(work):
 
 
 def _caption_line(caption, language):
-    if str(language).startswith('zh'):
+    lang = str(language or '')
+    if lang.startswith('zh'):
         text = caption.get('zh') or caption.get('original') or caption.get('en') or ''
+    elif lang.startswith('ru'):
+        text = caption.get('ru') or ''
     else:
         text = caption.get('en') or caption.get('original') or caption.get('zh') or ''
     text = ' '.join(str(text).split())
@@ -217,16 +220,16 @@ def _caption_line(caption, language):
 
 # Higher rank wins when one sentence names several facts. A headcount is a phrase, never a lone digit.
 _GRAPHIC_RULES = (
-    (90, ('董事', 'director'), ('董事权限', ''), ('Director authority', '')),
-    (80, ('法人', 'legal representative'), ('法人代表', ''), ('Legal representative', '')),
-    (70, ('实缴', 'paid-in', 'paid in'), ('实缴资本', ''), ('Paid-in capital', '')),
-    (60, ('出资', 'capital schedule'), ('出资节奏', ''), ('Capital schedule', '')),
-    (55, ('看的是结构', 'focuses on structure'), ('看结构', ''), ('Structure', '')),
-    (50, ('股东结构', 'shareholder structure'), ('股东结构', ''), ('Shareholder structure', '')),
-    (40, ('注册资本', 'registered capital'), ('注册资本', '认缴制'), ('Registered capital', 'Subscribed')),
-    (35, ('股东', 'shareholder'), ('股东结构', ''), ('Shareholder structure', '')),
-    (30, ('认缴', 'subscribed'), ('认缴制', ''), ('Subscribed capital', '')),
-    (20, ('注册公司', 'registering', 'registration'), ('注册公司', ''), ('Company setup', '')),
+    (90, ('董事', 'director'), ('董事权限', ''), ('Director authority', ''), ('Полномочия директора', '')),
+    (80, ('法人', 'legal representative'), ('法人代表', ''), ('Legal representative', ''), ('Законный представитель', '')),
+    (70, ('实缴', 'paid-in', 'paid in'), ('实缴资本', ''), ('Paid-in capital', ''), ('Оплаченный капитал', '')),
+    (60, ('出资', 'capital schedule'), ('出资节奏', ''), ('Capital schedule', ''), ('График взносов', '')),
+    (55, ('看的是结构', 'focuses on structure'), ('看结构', ''), ('Structure', ''), ('Структура', '')),
+    (50, ('股东结构', 'shareholder structure'), ('股东结构', ''), ('Shareholder structure', ''), ('Состав акционеров', '')),
+    (40, ('注册资本', 'registered capital'), ('注册资本', '认缴制'), ('Registered capital', 'Subscribed'), ('Уставный капитал', 'Заявленный капитал')),
+    (35, ('股东', 'shareholder'), ('股东结构', ''), ('Shareholder structure', ''), ('Состав акционеров', '')),
+    (30, ('认缴', 'subscribed'), ('认缴制', ''), ('Subscribed capital', ''), ('Заявленный капитал', '')),
+    (20, ('注册公司', 'registering', 'registration'), ('注册公司', ''), ('Company setup', ''), ('Регистрация компании', '')),
 )
 
 
@@ -237,13 +240,19 @@ def _graphic_copy(caption, _language):
         return None
     folded = blob.lower()
     best = None
-    for rank, needles, zh, en in _GRAPHIC_RULES:
+    for rank, needles, zh, en, ru in _GRAPHIC_RULES:
         if any(needle.lower() in folded for needle in needles) and (best is None or rank > best[0]):
-            best = (rank, zh, en)
+            best = (rank, zh, en, ru)
     if best is None:
         return None
     zh_title, _zh_sub = best[1]
     en_title, en_sub = best[2]
+    ru_title, _ru_sub = best[3]
+    lang = str(_language or '')
+    if lang.startswith('ru') and ru_title:
+        return ru_title.strip(), ''
+    if lang.startswith('en') and en_title:
+        return en_title.strip(), ''
     # The reference sets a large Chinese line over a short English line.
     title = (zh_title or en_title).strip()
     kicker = (en_title if en_title and en_title != title else en_sub).strip()
@@ -556,16 +565,16 @@ def _apply_style(page, style):
     return page
 
 
-def _side_cards(clips, ranges, captions, language, total, style=None, occupied=None):
+def _side_cards(clips, ranges, captions, language, total, style=None, occupied=None, graphic_language=''):
     """Reference card language, filled with this video's facts. Not the reference picture."""
     layers = []
     seen = set()
     for caption in captions or []:
         if not isinstance(caption, dict):
             continue
-        copied = _graphic_copy(caption, language)
+        copied = _graphic_copy(caption, graphic_language if graphic_language in ('en', 'ru') else '')
         figure = _spoken_figure(caption)
-        clause = '' if copied or figure else _clause(caption, language)
+        clause = '' if copied or figure else _clause(caption, graphic_language or language)
         if not copied and not figure and len(clause) < 2:
             continue
         title, sub = copied if copied else (clause, '')
@@ -592,23 +601,23 @@ def _side_cards(clips, ranges, captions, language, total, style=None, occupied=N
             shown, unit, label = figure
             layers.append(_board_html(title or label, shown, unit, sub, chapter, a, b))
         else:
-            spoken = _short_line(caption, language)
+            spoken = _short_line(caption, graphic_language or language)
             layers.append(_lower_html(title, sub, spoken, chapter, a, b))
         if occupied is not None:
             occupied.append((a, b))
     return layers
 
 
-def _host_chips(clips, ranges, captions, language, total, style, occupied=None):
+def _host_chips(clips, ranges, captions, language, total, style, occupied=None, graphic_language=''):
     """A reference host frame keeps the presenter and a small corner title."""
     layers = []
     seen = set()
     for caption in captions or []:
         if not isinstance(caption, dict):
             continue
-        copied = _graphic_copy(caption, language)
+        copied = _graphic_copy(caption, graphic_language if graphic_language in ('en', 'ru') else '')
         figure = _spoken_figure(caption)
-        clause = '' if copied or figure else _clause(caption, language)
+        clause = '' if copied or figure else _clause(caption, graphic_language or language)
         if not copied and not figure and len(clause) < 2:
             continue
         spans = _caption_spans(caption, clips, ranges)
@@ -635,7 +644,7 @@ def _host_chips(clips, ranges, captions, language, total, style, occupied=None):
             shown, unit, label = figure
             layers.append(_board_html(title or label, shown, unit, '', chapter, a, b))
         else:
-            spoken = _short_line(caption, language)
+            spoken = _short_line(caption, graphic_language or language)
             layers.append(_lower_html(title, sub, spoken, chapter, a, b))
         if occupied is not None:
             occupied.append((a, b))
@@ -703,27 +712,19 @@ def _graphic_layer(layer):
 
 
 def _scene_cards(beat):
-    """Labels already spoken. A short phrase stays one card; a split line becomes several."""
+    """The spoken labels, whole. A phrase is not cut to a fixed character count."""
     if beat.get('left') and beat.get('right'):
-        cards = [beat['title'], beat['left'], beat['right']]
+        cards = [beat['left'], beat['right']]
+    elif beat.get('figure'):
+        cards = [beat['figure'], beat.get('title') or '']
     else:
-        line = beat.get('line') or beat['title']
-        cards = []
-        for part in re.split(r'[，,。；;：:、]', line):
-            label = part.strip()[:12]
-            if len(label) < 2 or label in cards:
-                continue
-            cards.append(label)
-            if len(cards) == 3:
-                break
-        if beat.get('figure'):
-            cards = [beat['figure'], beat['title'], *cards]
-        if not cards:
-            cards = [beat['title']]
+        cards = [beat.get('title') or '']
     seen = []
     for card in cards:
-        if card and card not in seen:
-            seen.append(card)
+        text = ' '.join(str(card or '').split())
+        if len(text) < 2 or text in seen:
+            continue
+        seen.append(text)
     return seen[:3]
 
 
@@ -732,7 +733,7 @@ def _scene_body(beat, chapter):
     kind = beat['kind']
     title = html.escape(beat['title'])
     figure = html.escape(beat['figure'] or '')
-    line = html.escape((beat.get('line') or beat['title'])[:42])
+    line = html.escape(' '.join(str(beat.get('line') or beat['title']).split())[:160])
     cards = [html.escape(card) for card in _scene_cards(beat)]
     layout = 'columns' if kind == 'compare' else ('flow', 'stack', 'columns')[(chapter - 1) % 3]
     mark = ''
@@ -776,13 +777,16 @@ def _scene_body(beat, chapter):
     return layout, f'<i class="hf-scene-shard"></i>{inner}{tag(f"<p class=\"hf-scene-caption\">{line}</p>")}'
 
 
-def _speech_ideas(clips, ranges, captions, total, occupied=None):
+def _speech_ideas(clips, ranges, captions, total, occupied=None, effects_language=None):
     """Full-frame pictures of spoken phrases. A plate that already holds the moment stays."""
     from .presentation_graphics import speech_visuals
 
     layers = []
     chapter = 0
-    for beat in speech_visuals({'captions': captions or []}):
+    payload = {'captions': captions or []}
+    if effects_language in ('zh', 'ru', 'en'):
+        payload['effects_language'] = effects_language
+    for beat in speech_visuals(payload):
         start, end = float(beat['start']), float(beat['end'])
         spans = _caption_spans({'start': start, 'end': end}, clips, ranges)
         if not spans:
@@ -874,7 +878,7 @@ def _limit_graphics(layers, total_frames, share, density=100):
 def _broll_layers(inserts):
     """Short windows. The host file is not cut to make room for them."""
     layers = []
-    for index, item in enumerate(list(inserts or [])[:2]):
+    for index, item in enumerate(list(inserts or [])[:6]):
         if not isinstance(item, dict) or not item.get('src'):
             continue
         try:
@@ -909,8 +913,9 @@ def composition(source, work, manual, width, height, language, style=None):
         'picture', 'cut.mp4', 0, total, 0, 0.0, Fraction(1, 1), FPS, 1, 0, 0,
     )]
     if manual.get('subtitles'):
+        caption_language = manual.get('subtitle_language') or language
         for index, caption in enumerate(manual.get('captions') or []):
-            line = _caption_line(caption, language)
+            line = _caption_line(caption, caption_language)
             if not line or len(line) > 72:
                 continue
             for span_index, (start, end) in enumerate(_caption_spans(caption, clips, ranges)):
@@ -923,18 +928,19 @@ def composition(source, work, manual, width, height, language, style=None):
                 if span_index > 8:
                     break
     plates = _plates(clips, ranges, language, total)
-    ideas = _speech_ideas(clips, ranges, manual.get('captions') or [], total, None)
-    from .presentation_graphics import animation_brief, animation_levels
+    from .presentation_graphics import _effects_language, animation_levels
+    card_language = _effects_language(manual)
+    ideas = _speech_ideas(clips, ranges, manual.get('captions') or [], total, None, card_language)
     levels = animation_levels(manual)
     if levels['coverage'] >= 100 and ideas:
         ideas = _tile_ideas(ideas, total)
     occupied = _spans(plates) + _spans(ideas)
-    graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied)
-    graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied))
+    graphics = plates + _side_cards(clips, ranges, manual.get('captions') or [], language, total, style, occupied, card_language)
+    graphics.extend(_host_chips(clips, ranges, manual.get('captions') or [], language, total, style, occupied, card_language))
     graphics.extend(ideas)
     filmed = max(5, min(100, int(levels['depth'] or levels['intensity'])))
     layers.extend(_limit_graphics(graphics, total, levels['coverage'], levels['density']))
-    if levels['motion'] >= 80:
+    if levels['inserts'] > 0:
         horizon = total / FPS if levels['coverage'] >= 100 else total / FPS * levels['coverage'] / 100
         inserts = []
         for item in manual.get('_thematic_broll') or []:
@@ -982,9 +988,9 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-idea{{position:absolute;inset:0;z-index:4;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:14% 12% 24%;color:#fff;text-align:center;opacity:0;background:radial-gradient(120% 80% at 50% 12%, #16325c 0%, #0b1830 58%, #08101f 100%)}}
     .hf-scene{{align-items:stretch;justify-content:flex-start;text-align:left;gap:0;padding:6% 6% 22%;background:#07080c;overflow:hidden}}
     .hf-scene-shard{{position:absolute;right:-8%;top:8%;width:46%;height:28%;background:#141820;transform:rotate(8deg);border-radius:18px;opacity:.9}}
-    .hf-scene-head,.hf-scene-row b,.hf-stack b{{box-sizing:border-box;min-height:108px;border-radius:18px;border:1px solid rgba(255,255,255,.16);background:linear-gradient(180deg,#23262e,#101218);color:#fff;padding:18px 16px;box-shadow:0 18px 40px rgba(0,0,0,.45);overflow-wrap:anywhere}}
+    .hf-scene-head,.hf-scene-row b,.hf-stack b{{box-sizing:border-box;min-height:108px;border-radius:18px;border:1px solid rgba(255,255,255,.16);background:linear-gradient(180deg,#23262e,#101218);color:#fff;padding:18px 16px;box-shadow:0 18px 40px rgba(0,0,0,.45);overflow-wrap:break-word;word-break:normal}}
     .hf-scene-head{{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;background:linear-gradient(160deg,#3a3420,#16140e)}}
-    .hf-scene-head strong,.hf-stack strong,.hf-scene-row b{{font:800 {max(26, height // 24)}px/1.25 "Noto Sans CJK SC",sans-serif}}
+    .hf-scene-head strong,.hf-stack strong,.hf-scene-row b{{font:800 {max(20, height // 46)}px/1.2 "Noto Sans CJK SC",sans-serif}}
     .hf-scene-head .hf-scene-figure,.hf-stack .hf-scene-figure{{font:800 {max(120, height // 7)}px/0.9 "Noto Sans CJK SC",sans-serif;color:#f2c14b;letter-spacing:-.04em}}
     .hf-scene-link{{display:block;height:64px;margin:0 18%;background:linear-gradient(#1f8f52,#0c3d22);clip-path:polygon(10% 0,90% 0,100% 100%,0 100%);transform-origin:top center}}
     .hf-scene-row{{display:flex;gap:12px}}
@@ -995,7 +1001,7 @@ def composition(source, work, manual, width, height, language, style=None):
     .hf-stack{{display:flex;flex-direction:column;gap:14px;width:58%;margin-left:auto}}
     .hf-stack b:first-child{{background:linear-gradient(160deg,#6a3494,#2a1244)}}
     .hf-stack b:nth-child(2){{background:linear-gradient(160deg,#1fa971,#0c5c40)}}
-    .hf-scene-caption{{position:absolute;left:7%;right:7%;bottom:3%;z-index:8;margin:0;text-align:left;font:700 {max(18, height // 36)}px/1.3 "Noto Sans CJK SC",sans-serif;overflow-wrap:anywhere;text-shadow:0 2px 8px #000}}
+    .hf-scene-caption{{position:absolute;left:7%;right:7%;bottom:3%;z-index:8;margin:0;text-align:left;font:700 {max(18, height // 36)}px/1.3 "Noto Sans CJK SC",sans-serif;overflow-wrap:break-word;word-break:normal;text-shadow:0 2px 8px #000}}
     .hf-broll{{position:absolute;left:8%;top:64%;width:40%;height:12%;z-index:5;object-fit:cover;border-radius:16px;box-shadow:0 0 0 3px #fff;opacity:0}}
     .hf-broll-credit{{position:absolute;left:8%;top:74%;width:40%;z-index:6;margin:0;color:#fff;font:600 11px/1.2 sans-serif;text-shadow:0 1px 4px #000;opacity:0;overflow:hidden;white-space:nowrap}}
     .hf-idea-mark{{width:0;height:0;border-left:46px solid transparent;border-right:46px solid transparent;border-bottom:78px solid #f2c14b}}
@@ -1016,7 +1022,7 @@ def composition(source, work, manual, width, height, language, style=None):
   </style>
 </head>
 <body>
-  <div data-composition-id="lumen" data-card-motion="{levels['coverage']}" data-animation-intensity="{filmed}" data-animation-motion="{levels['motion']}" data-animation-density="{levels['density']}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
+  <div data-composition-id="lumen" data-card-motion="{levels['coverage']}" data-animation-intensity="{filmed}" data-animation-motion="{levels['motion']}" data-animation-density="{levels['density']}" data-animation-inserts="{levels['inserts']}" data-card-left="0.070" data-card-top="0.150" data-card-width="0.860" data-card-height="0.700" data-avatar-d="0.280" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{total}">
     {body}
   </div>
   <script>
@@ -1178,8 +1184,8 @@ def composition(source, work, manual, width, height, language, style=None):
 </html>
 '''
     page = _apply_style(page, style)
-    from .hypit_prompt import _look_line
-    prompt = animation_brief(manual) + _look_line()
+    from .hypit_prompt import picture_prompt
+    prompt = picture_prompt(manual)
     page = page.replace(
         'data-composition-id="lumen"',
         'data-composition-id="lumen" data-hypit-prompt="' + html.escape(prompt, quote=True) + '"',
@@ -1255,7 +1261,7 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     except Exception:
         style = None
     from .presentation_graphics import animation_levels
-    if animation_levels(manual)['motion'] >= 80 and '_thematic_broll' not in manual:
+    if animation_levels(manual)['inserts'] > 0 and '_thematic_broll' not in manual:
         from .thematic_broll import attach
         manual['_thematic_broll'] = attach(manual, work)
     frame_count = composition(source, work, manual, width, height, language, style)

@@ -173,6 +173,7 @@ def animation_levels(edit):
         'depth': _step(manual.get('animation_depth'), 100),
         'motion': _step(manual.get('animation_motion'), 100),
         'density': _step(manual.get('animation_density'), 100),
+        'inserts': _step(manual.get('animation_inserts'), 100),
     }
 
 
@@ -257,8 +258,73 @@ def _focus(text):
     return line[:24].strip()
 
 
+# Spoken terms already on the cards. Another language is the same word, not a new fact.
+_TERMS = (
+    ('法人代表', 'Legal representative', 'Законный представитель'),
+    ('董事权限', 'Director authority', 'Полномочия директора'),
+    ('股东结构', 'Shareholder structure', 'Состав акционеров'),
+    ('注册资本', 'Registered capital', 'Уставный капитал'),
+    ('外资比例', 'Foreign share', 'Доля иностранного капитала'),
+    ('出资节奏', 'Capital schedule', 'График взносов'),
+    ('三名股东', 'Three shareholders', 'Три акционера'),
+    ('实缴', 'Paid-in capital', 'Оплаченный капитал'),
+    ('认缴', 'Subscribed capital', 'Заявленный капитал'),
+    ('第一步', 'First step', 'Первый шаг'),
+    ('第一关', 'First step', 'Первый порог'),
+)
+
+
+def _effects_language(manual):
+    """Card language. An explicit effects choice wins. Otherwise the host language is used."""
+    if not isinstance(manual, dict):
+        return ''
+    language = manual.get('effects_language')
+    if language in ('zh', 'ru', 'en'):
+        return language
+    host = manual.get('host_language')
+    return host if host in ('zh', 'ru', 'en') else ''
+
+
+def _term(token, language):
+    if language not in ('en', 'ru'):
+        return token
+    for zh, en, ru in _TERMS:
+        if token == zh:
+            return en if language == 'en' else ru
+    return token
+
+
+def _terms_in(text, language):
+    if language not in ('en', 'ru'):
+        return []
+    hits = []
+    for zh, en, ru in _TERMS:
+        at = text.find(zh)
+        if at >= 0:
+            hits.append((at, en if language == 'en' else ru))
+    hits.sort()
+    found = []
+    for _, label in hits:
+        if label not in found:
+            found.append(label)
+    return found
+
+
 def _visual_title(caption):
     return _focus(_spoken_line(caption))
+
+
+def _ru_card_line(blob, title, figure, left, right, labels):
+    """The spoken idea in full words. A card keeps the phrase, not a chopped token."""
+    if left and right:
+        return f'{left} · {right}'
+    if figure and title and ('不超过' in blob or '不超' in blob):
+        return f'{title} не выше {figure}'
+    if figure and title:
+        return f'{title}: {figure}'
+    if labels:
+        return ' · '.join(labels)
+    return title
 
 
 def _compare_sides(text):
@@ -307,6 +373,7 @@ def visual_kind(text):
 def speech_visuals(edit):
     """Timed pictures of what the host says. A missing phrase adds no picture."""
     manual = edit if isinstance(edit, dict) else edit.model_dump()
+    language = _effects_language(manual)
     beats = []
     seen = set()
     for caption in manual.get('captions') or []:
@@ -338,17 +405,49 @@ def speech_visuals(edit):
             left, right = _compare_sides(blob)
         elif kind == 'steps':
             title = '第一关' if '第一关' in blob else ('第一步' if '第一步' in blob else title)
+        line = blob[:80]
+        if language in ('en', 'ru'):
+            title = _term(title, language)
+            left, right = _term(left, language), _term(right, language)
+            labels = _terms_in(blob, language)
+            english = ' '.join(str(caption.get('en') or '').split())
+            if language == 'en' and english:
+                line = english[:140]
+            elif language == 'ru':
+                line = _ru_card_line(blob, title, figure, left, right, labels)
+            elif labels:
+                line = ' · '.join(labels)[:80]
+            else:
+                line = title
         beats.append({
             'kind': kind,
             'title': title,
             'figure': figure,
             'left': left,
             'right': right,
-            'line': blob[:80],
+            'line': line,
             'start': round(start, 3),
             'end': round(end, 3),
         })
     return beats
+
+
+def _insert_line(percent, edit=None):
+    """The inserts slider, in the same prompt as the other percents."""
+    from .thematic_broll import hold, quota, theme_phrase, windows
+
+    count = quota(percent)
+    if not count:
+        return f"Вставки {percent}%: дополнительных роликов нет. "
+    manual = edit if isinstance(edit, dict) else edit.model_dump() if hasattr(edit, 'model_dump') else {}
+    theme = theme_phrase(manual)
+    chosen = windows(manual, count, hold(percent)) if theme else []
+    shown = len(chosen) if chosen else count
+    where = f" по теме ролика: {theme}." if theme else " внутри графики."
+    guard = " Чужую страну и чужую организацию не показывай." if theme else ""
+    return (
+        f"Вставки {percent}%: {shown} коротких роликов по {hold(percent):g} с{where}{guard} Речь не режется. "
+    )
 
 
 def animation_brief(edit):
@@ -377,7 +476,7 @@ def animation_brief(edit):
         f"Будет добавлена анимация на {presence}% длины ролика — это {seconds} секунд на каждую минуту. "
         f"Ведущий в кружке, передний план — графика сказанного. "
         f"Интенсивность {levels['depth']}%. Движение {levels['motion']}%: карточки выезжают на эту долю. "
-        f"{'С этой доли в кадр входят короткие тематические вставки, речь не режется. ' if levels['motion'] >= 80 else ''}"
+        f"{_insert_line(levels['inserts'], edit)}"
         f"Плотность {levels['density']}% слоёв. "
         f"{MAIN_VISUAL_PROMPT}"
     )

@@ -15,6 +15,16 @@ def seed(monkeypatch):
     return row
 
 
+def test_music_recommendation_comes_from_the_analysis(client, monkeypatch):
+    seed(monkeypatch)
+    pid = create(client).json()['id']
+    monkeypatch.setattr('backend.style_match.recommend_bed', lambda shots: 'calm')
+    body = client.get(f'/api/studio/projects/{pid}/music-recommendation').json()
+    assert body == {'available': True, 'key': 'curated:calm', 'title': 'Calm'}
+    monkeypatch.setattr('backend.style_match.recommend_bed', lambda shots: None)
+    assert client.get(f'/api/studio/projects/{pid}/music-recommendation').json()['available'] is False
+
+
 def test_catalogue_import_is_private_idempotent_and_preserves_edit(client,monkeypatch):
     seed(monkeypatch);pid=create(client).json()['id'];seed_plan(pid)
     before=project(pid)

@@ -85,6 +85,22 @@ def favorite(key: str, body: Favorite, user=Depends(current_user)):
     return {'favorite': body.favorite}
 
 
+@router.get('/projects/{pid}/music-recommendation')
+def music_recommendation(pid: str, user=Depends(current_user)):
+    """The bed named when this video was added. The reference file is not the track."""
+    owned(pid, user)
+    from .studio import state
+    from .style_match import recommend_bed, shots_of
+    ident = recommend_bed(shots_of((state(pid) or {}).get('dna')))
+    if not ident:
+        return {'available': False, 'key': None, 'title': None}
+    row = next((item for item in curated() if item['id'] == ident), None)
+    if row is None:
+        return {'available': False, 'key': None, 'title': None}
+    ready = (settings.data_dir / 'soundtracks' / (ident + '.mp3')).is_file()
+    return {'available': ready, 'key': 'curated:' + ident, 'title': row['title']}
+
+
 @router.post('/projects/{pid}/soundtracks/{key}', status_code=201)
 def add(pid: str, key: str, user=Depends(current_user)):
     owned(pid, user)

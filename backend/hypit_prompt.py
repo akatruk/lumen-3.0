@@ -60,6 +60,26 @@ def _delivery_line(manual, voiceover=False):
         place = 'вверху' if manual.get('position') == 'top' else 'внизу'
         ink = 'жёлтые' if manual.get('color') == 'yellow' else 'белые'
         lines.append(f'Добавь субтитры по речи: {size}, {place}, {ink}.')
+    names = {'zh': 'китайском', 'ru': 'русском', 'en': 'английском'}
+    host = manual.get('host_language')
+    captions = manual.get('subtitle_language')
+    if host in names:
+        lines.append(f'Речь ведущего на {names[host]}.')
+    if captions in names and captions == host:
+        lines.append(f'Субтитры на {names[captions]}, на том же языке, что и речь.')
+    elif captions in names:
+        lines.append(f'Субтитры на {names[captions]}.')
+    graphics = manual.get('effects_language') if manual.get('effects_language') in names else host
+    if graphics in names and graphics == host:
+        lines.append(f'Графика и вставки на {names[graphics]}, на том же языке, что и речь.')
+    elif graphics in names:
+        lines.append(f'Графика и вставки на {names[graphics]}.')
+    spoken = _host_speech(manual)
+    if host in names and spoken:
+        script = ' '.join(spoken)
+        if len(script) > 3500:
+            script = script[:3500].rsplit(' ', 1)[0]
+        lines.append(f'Озвучка на {names[host]}: {script}')
     music = manual.get('music') if isinstance(manual.get('music'), dict) else None
     if music and music.get('asset_id'):
         gain = music.get('gain_db', -24)
@@ -100,10 +120,37 @@ def _look_line():
         "или полный кадр места с кружком ведущего. Одну и ту же плашку не повторяй. "
         "Карточки выезжают по очереди на долю ползунка движения, лента между ними дорисовывается, "
         "ведущий подъезжает к графике и слегка смещается. "
-        "На высокой доле движения в кадр входят короткие тематические ролики по сказанным словам. "
+        "Сколько коротких роликов внутри графики решает ползунок вставок. "
+        "Каждый такой ролик показывает тему этой речи: названную страну или названное дело. "
+        "Чужую страну и чужую организацию не вставляй. "
         "Исходный ролик остаётся одним файлом. "
         "Бери только слова, которые были сказаны. Лицо не смягчай и исходный кадр не увеличивай."
     )
+
+
+def _host_speech(manual):
+    """Lines the host speaks in the selected language. Missing text adds no line."""
+    host = (manual or {}).get('host_language')
+    if host not in ('zh', 'ru', 'en'):
+        return []
+    lines = []
+    for caption in (manual or {}).get('captions') or []:
+        if not isinstance(caption, dict):
+            caption = caption.model_dump() if hasattr(caption, 'model_dump') else {}
+        if host == 'zh':
+            text = caption.get('zh') or caption.get('original') or ''
+        elif host == 'en':
+            text = caption.get('en') or ''
+        else:
+            text = caption.get('ru') or ''
+            if not text:
+                original = ' '.join(str(caption.get('original') or '').split())
+                if any('а' <= char.lower() <= 'я' or char in 'ёЁ' for char in original):
+                    text = original
+        text = ' '.join(str(text).split())
+        if text and text != '口播':
+            lines.append(text)
+    return lines
 
 
 def _spoken(manual):
@@ -144,17 +191,21 @@ def _prompt_language(manual, language=None):
     return 'en'
 
 
-def author_source(edit, width, height, board=None, language=None, voiceover=False):
-    """One prompt for the whole video. Sliders and the other controls are that request."""
+def picture_prompt(edit, board=None, voiceover=False):
+    """The prompt that is filmed. Speech, subtitles and graphics language are in it."""
     from .presentation_graphics import animation_brief
 
+    manual = edit if isinstance(edit, dict) else edit.model_dump()
+    return animation_brief(manual) + _board_line(board) + _delivery_line(manual, voiceover) + _look_line()
+
+
+def author_source(edit, width, height, board=None, language=None, voiceover=False):
+    """One prompt for the whole video. Sliders and the other controls are that request."""
     manual = edit if isinstance(edit, dict) else edit.model_dump()
     width = max(2, int(width))
     height = max(2, int(height))
     spoken_language = _prompt_language(manual, language)
-    request = _xml((
-        animation_brief(manual) + _board_line(board) + _delivery_line(manual, voiceover) + _look_line()
-    ).replace('{', '').replace('}', ''))
+    request = _xml(picture_prompt(manual, board, voiceover).replace('{', '').replace('}', ''))
     script = _xml(' '.join(_spoken(manual)))
     language_attr = f' language="{spoken_language}"' if script else ''
     svml = f'''{_MARKUP}

@@ -27,6 +27,7 @@ class Caption(Span):
     original: str = Field(max_length=300)
     en: str = Field(max_length=300)
     zh: str = Field(max_length=300)
+    ru: str = Field(default='', max_length=400)
 
 class Recommendation(Span):
     id: str = Field(pattern=r'^[a-z0-9_-]{1,32}$')

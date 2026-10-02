@@ -11,7 +11,7 @@ type Catalog = { final_version_id?: string; final_version?:{source_voice?:string
 const names: Record<Language, string> = { ru: 'Русский', en: 'English', zh: '中文' };
 const active = (v: Version) => !['ready', 'failed'].includes(v.status);
 
-export function Dubbing({ pid, lang, masterId, embedded=false, onPreview, onFinalChange }: { pid: string; lang: Lang; masterId?: string; embedded?:boolean; onPreview?:(url:string,label:string)=>void; onFinalChange?:()=>void }) {
+export function Dubbing({ pid, lang, masterId, embedded=false, onPreview, onFinalChange, language: requested }: { pid: string; lang: Lang; masterId?: string; embedded?:boolean; onPreview?:(url:string,label:string)=>void; onFinalChange?:()=>void; language?: Language }) {
   const t = (en: string, zh: string) => translate(lang, en, zh);
   const w = (ru:string,en:string,zh:string) => workspaceText(lang,ru,en,zh);
   const [open, setOpen] = useState(embedded);
@@ -60,6 +60,14 @@ export function Dubbing({ pid, lang, masterId, embedded=false, onPreview, onFina
     const timer = setInterval(poll, 4000);
     return () => { alive = false; controller.abort(); clearInterval(timer); };
   }, [url, open, masterId]);
+  useEffect(() => {
+    if (!requested) return;
+    setLanguage(requested);
+  }, [requested]);
+  useEffect(() => {
+    if (!requested || !data) return;
+    setVoice(current => data.voices.some(v => v.id === current && v.language === requested) ? current : (data.voices.find(v => v.language === requested)?.id || ''));
+  }, [requested, data]);
 
   async function create(kind: Version['kind']) {
     if (submitting.current || !data) return;

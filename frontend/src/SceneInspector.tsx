@@ -2,9 +2,9 @@ import type {Lang} from './types';
 import {workspaceText} from './ProjectWorkspace';
 
 export type EffectPickData={
-  id:'punch'|'grade'|'vignette'|'glow'|'card_motion'|'intensity'|'depth'|'motion'|'density';
+  id:'punch'|'grade'|'vignette'|'glow'|'card_motion'|'intensity'|'depth'|'motion'|'density'|'inserts';
   clips:Record<string,{zoom?:number;zoom_end?:number;shade?:number;glow_amount?:number}>;
-  edit:{card_motion?:number;animation_intensity?:number;animation_depth?:number;animation_motion?:number;animation_density?:number};
+  edit:{card_motion?:number;animation_intensity?:number;animation_depth?:number;animation_motion?:number;animation_density?:number;animation_inserts?:number};
 };
 
 export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:Lang;pick:EffectPickData|null;error:string;busy:boolean;note:string;onAccept:()=>void;onRetry:()=>void}){
@@ -19,6 +19,7 @@ export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:La
     depth:w('Ниже интенсивность','Lower intensity','更低的强度'),
     motion:w('Меньше движения','Less motion','更少的运动'),
     density:w('Меньше графических слоёв','Fewer graphic layers','更少图形层'),
+    inserts:w('Меньше роликов внутри графики','Fewer clips inside the graphic','图形里更少短视频'),
   };
   const patches=Object.values(pick?.clips||{});
   const zoomEnd=patches.map(row=>row.zoom_end).filter((value):value is number=>typeof value==='number');
@@ -47,9 +48,13 @@ export function EffectPick({lang,pick,error,busy,note,onAccept,onRetry}:{lang:La
     `Intensity becomes ${pick.edit.animation_depth??pick.edit.animation_intensity??50}%.`,
     `强度变为 ${pick.edit.animation_depth??pick.edit.animation_intensity??50}%。`,
   ):pick?.id==='motion'?w(
-    `Движение станет ${pick.edit.animation_motion??50}%. Карточки выезжают на эту долю. С 80% в кадр входят короткие тематические вставки.`,
-    `Motion becomes ${pick.edit.animation_motion??50}%. Cards travel that far. From 80%, short thematic clips enter.`,
-    `运动变为 ${pick.edit.animation_motion??50}%。卡片按这个幅度滑入。从 80% 起加入主题短镜头。`,
+    `Движение станет ${pick.edit.animation_motion??50}%. Карточки выезжают на эту долю.`,
+    `Motion becomes ${pick.edit.animation_motion??50}%. Cards travel that far.`,
+    `运动变为 ${pick.edit.animation_motion??50}%。卡片按这个幅度滑入。`,
+  ):pick?.id==='inserts'?w(
+    `Вставки станут ${pick.edit.animation_inserts??40}%. Столько сказанных тем получат короткий ролик внутри графики.`,
+    `Inserts become ${pick.edit.animation_inserts??40}%. That share of spoken subjects gets a short clip inside the graphic.`,
+    `插入变为 ${pick.edit.animation_inserts??40}%。这个比例的台词会在图形里得到短视频。`,
   ):pick?.id==='density'?w(
     `Плотность станет ${pick.edit.animation_density??60}% слоёв.`,
     `Density becomes ${pick.edit.animation_density??60}% of the layers.`,

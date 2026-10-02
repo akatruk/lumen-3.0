@@ -76,6 +76,20 @@ def test_other_controls_are_sentences_in_the_same_prompt():
     assert 'нескольких карточек' in cleaned.presentation_prompt
     assert 'Одну и ту же плашку не повторяй' in cleaned.presentation_prompt
     assert 'золотая пометка' in cleaned.presentation_prompt
+    russian = plan(edit(host_language='ru', subtitle_language='ru', subtitles=True))
+    assert 'Речь ведущего на русском.' in russian.presentation_prompt
+    assert 'Субтитры на русском, на том же языке, что и речь.' in russian.presentation_prompt
+    assert 'Графика и вставки на русском, на том же языке, что и речь.' in russian.presentation_prompt
+    mixed = plan(edit(host_language='en', subtitle_language='zh', subtitles=True))
+    assert 'Речь ведущего на английском.' in mixed.presentation_prompt
+    assert 'Субтитры на китайском.' in mixed.presentation_prompt
+    same = plan(edit(host_language='ru', effects_language='ru'))
+    assert 'Графика и вставки на русском, на том же языке, что и речь.' in same.presentation_prompt
+    other = plan(edit(host_language='ru', effects_language='en'))
+    assert 'Графика и вставки на английском.' in other.presentation_prompt
+    assert 'Графика и вставки на английском, на том же языке' not in other.presentation_prompt
+    from backend.hypit_picture import _caption_line
+    assert _caption_line({'zh': '开场', 'en': 'Open', 'original': '开场'}, 'ru') == ''
 
 def test_hypit_page_uses_that_prompt_percentage():
     from backend.hypit_picture import _presentation_page, presentation_layers

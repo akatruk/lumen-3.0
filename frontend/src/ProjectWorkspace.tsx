@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  Scissors,
   Captions,
   AudioLines,
   Sparkles,
@@ -114,7 +113,7 @@ export function ProjectWorkspace({
   children: ReactNode;
 }) {
   const w = (r: string, e: string, z: string) => workspaceText(lang, r, e, z);
-  const [task, setTask] = useState<WorkspaceTask>(p.studio ? "edit" : "review");
+  const [task, setTask] = useState<WorkspaceTask>(p.studio ? "effects" : "review");
   const [version, setVersion] = useState("result"),
     [dubs, setDubs] = useState<Version[]>([]),
     [loadError, setLoadError] = useState(false),
@@ -332,7 +331,6 @@ export function ProjectWorkspace({
   }
   const tools = p.studio
     ? ([
-        ["edit", Scissors, w("Монтаж", "Edit", "剪辑")],
         ["subtitles", Captions, w("Субтитры", "Subtitles", "字幕")],
         ["audio", AudioLines, w("Звук", "Audio", "声音")],
         ["effects", Sparkles, w("Эффекты", "Effects", "效果")],
@@ -527,7 +525,7 @@ export function ProjectWorkspace({
                   onClick={() => {
                     player.current?.pause();
                     setDraftActive(true);
-                    setTask("edit");
+                    setTask("effects");
                   }}
                 >
                   {w("Редактировать", "Edit video", "编辑视频")}

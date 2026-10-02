@@ -295,6 +295,32 @@ def test_spoken_words_become_a_matching_picture():
     assert compared[0]['kind'] == 'compare'
     assert compared[0]['left'] == '法人代表' and compared[0]['right'] == '董事权限'
     assert compared[1]['kind'] == 'figure' and compared[1]['figure'] == '49%' and compared[1]['title'] == '外资比例'
+    captions = [
+        {'start': 47, 'end': 56, 'zh': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限', 'original': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限'},
+        {'start': 26, 'end': 34, 'zh': '外资比例一般是不超过49%', 'original': '外资比例一般是不超过49%'},
+    ]
+    english = speech_visuals({'effects_language': 'en', 'captions': captions})
+    assert english[0]['left'] == 'Legal representative' and english[0]['right'] == 'Director authority'
+    assert english[1]['title'] == 'Foreign share' and english[1]['figure'] == '49%'
+    russian = speech_visuals({'effects_language': 'ru', 'captions': captions})
+    assert russian[0]['left'] == 'Законный представитель' and russian[0]['right'] == 'Полномочия директора'
+    assert russian[0]['line'] == 'Законный представитель · Полномочия директора'
+    assert russian[1]['line'] == 'Доля иностранного капитала не выше 49%'
+    from backend.hypit_prompt import picture_prompt
+    voiced_captions = [dict(captions[1], ru='Доля иностранного капитала обычно не выше 49%.')]
+    filmed = picture_prompt({'clips': [{'start': 0, 'end': 20}], 'host_language': 'ru', 'subtitle_language': 'ru', 'subtitles': True, 'captions': voiced_captions})
+    assert 'Речь ведущего на русском.' in filmed and 'Графика и вставки на русском, на том же языке, что и речь.' in filmed
+    assert 'Озвучка на русском: Доля иностранного капитала обычно не выше 49%.' in filmed
+    followed = speech_visuals({'host_language': 'ru', 'captions': captions})
+    assert followed[0]['left'] == 'Законный представитель'
+    assert russian[1]['title'] == 'Доля иностранного капитала'
+    russian_page = '\n'.join(_speech_ideas([{'start': 0, 'end': 60}], [(0, 60)], captions, 60 * 30, None, 'ru'))
+    assert 'Доля иностранного капитала не выше 49%' in russian_page
+    assert 'Законный представитель' in russian_page and 'Полномочия директора' in russian_page
+    filmed = _speech_ideas([{'start': 0, 'end': 60}], [(0, 60)], captions, 60 * 30, None, 'en')
+    page = '\n'.join(filmed)
+    assert 'Legal representative' in page and 'Director authority' in page and 'Foreign share' in page
+    assert '法人代表' not in page and '董事权限' not in page
 
 
 def test_the_sliders_write_one_animation_prompt():
