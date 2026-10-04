@@ -86,7 +86,11 @@ def _glow(clip):
 def _graphics(edit):
     if edit.get('presentation'):
         return True
-    return any(isinstance(clip, dict) and clip.get('card') for clip in edit.get('clips') or [])
+    if any(isinstance(clip, dict) and clip.get('card') for clip in edit.get('clips') or []):
+        return True
+    # The constructor stores the picture in the prompt. Card objects can be empty.
+    prompt = edit.get('presentation_prompt') or edit.get('animation_prompt')
+    return isinstance(prompt, str) and bool(prompt.strip())
 
 
 def _measured_grade(edit):
@@ -158,6 +162,10 @@ def recommend(edit):
     density = 100 if density is None else _num(density, 100)
     if density >= 95:
         return {'id': 'density', 'clips': {}, 'edit': {'animation_density': 60}}
+    inserts = edit.get('animation_inserts')
+    inserts = 100 if inserts is None else _num(inserts, 100)
+    if inserts >= 95:
+        return {'id': 'inserts', 'clips': {}, 'edit': {'animation_inserts': 40}}
     raise ValueError('effect_unavailable')
 
 
@@ -171,7 +179,7 @@ def apply_recommendation(edit, recommendation):
         if isinstance(patch, dict):
             clip.update(patch)
     extra = (recommendation or {}).get('edit') or {}
-    for key in ('card_motion', 'animation_depth', 'animation_motion', 'animation_density'):
+    for key in ('card_motion', 'animation_depth', 'animation_motion', 'animation_density', 'animation_inserts'):
         if key in extra:
             shaped[key] = extra[key]
     return shaped

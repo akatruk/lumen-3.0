@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  Scissors,
   Captions,
   AudioLines,
   Sparkles,
@@ -105,16 +104,18 @@ export function ProjectWorkspace({
   lang,
   onBack,
   onDelete,
+  simple,
   children,
 }: {
   p: Project;
   lang: Lang;
   onBack: () => void;
   onDelete?: () => void;
+  simple?: boolean;
   children: ReactNode;
 }) {
   const w = (r: string, e: string, z: string) => workspaceText(lang, r, e, z);
-  const [task, setTask] = useState<WorkspaceTask>(p.studio ? "edit" : "review");
+  const [task, setTask] = useState<WorkspaceTask>(p.studio ? "effects" : "review");
   const [version, setVersion] = useState("result"),
     [dubs, setDubs] = useState<Version[]>([]),
     [loadError, setLoadError] = useState(false),
@@ -332,7 +333,6 @@ export function ProjectWorkspace({
   }
   const tools = p.studio
     ? ([
-        ["edit", Scissors, w("Монтаж", "Edit", "剪辑")],
         ["subtitles", Captions, w("Субтитры", "Subtitles", "字幕")],
         ["audio", AudioLines, w("Звук", "Audio", "声音")],
         ["effects", Sparkles, w("Эффекты", "Effects", "效果")],
@@ -371,7 +371,7 @@ export function ProjectWorkspace({
         },
       }}
     >
-      <div className="project-workspace">
+      <div className={simple ? "project-workspace ws-create-only" : "project-workspace"}>
         <button className="text-button ws-back" onClick={onBack}>
           <ArrowLeft size={15} />
           {w("Проекты", "Projects", "项目")}
@@ -419,6 +419,7 @@ export function ProjectWorkspace({
           </div>
         )}
         <div className="ws-grid">
+          {!simple && (
           <MenuSlide
             className="ws-tools"
             label={w("Инструменты проекта", "Project tools", "项目工具")}
@@ -436,6 +437,7 @@ export function ProjectWorkspace({
               </button>
             ))}
           </MenuSlide>
+          )}
           <section className="ws-preview">
             <div className="ws-preview-heading">
               <button className="text-button" onClick={openVersions}>
@@ -521,13 +523,13 @@ export function ProjectWorkspace({
                     )
                   : selected.detail}
               </span>
-              {p.studio && p.analysis && !draftActive && (
+              {p.studio && p.analysis && !draftActive && !simple && (
                 <button
                   className="text-button"
                   onClick={() => {
                     player.current?.pause();
                     setDraftActive(true);
-                    setTask("edit");
+                    setTask("effects");
                   }}
                 >
                   {w("Редактировать", "Edit video", "编辑视频")}
@@ -536,7 +538,7 @@ export function ProjectWorkspace({
             </div>
             <div ref={setStyleTarget} className="ws-style-slot" />
             <div ref={setScenesTarget} className="ws-scene-slot" />
-            {!p.studio && p.analysis && (
+            {!simple && !p.studio && p.analysis && (
               <div className="ws-scenes">
                 {p.analysis.scenes.map((s, i) => (
                   <button key={i} onClick={() => seekSource(s.start, s.end)}>
@@ -588,6 +590,7 @@ export function ProjectWorkspace({
             className="ws-inspector"
             aria-label={w("Настройки проекта", "Project settings", "项目设置")}
           >
+            {!simple && (
             <header className="ws-inspector-heading">
               <span className="eyebrow">
                 {w("ИНСТРУМЕНТЫ", "TOOLS", "工具")}
@@ -596,6 +599,7 @@ export function ProjectWorkspace({
                 {tools.find((t) => t[0] === task)?.[2]}
               </h2>
             </header>
+            )}
             {children}
           </aside>
         </div>

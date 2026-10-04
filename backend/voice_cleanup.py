@@ -1,12 +1,25 @@
 """Clean host speech before a licensed music bed is mixed under it.
 
-ffmpeg here has arnndn, but that filter needs an RNNoise model file and none is
-shipped. The running chain is a high-pass plus FFT denoise. It is not a neural model.
+Traffic horns sit in the same band as speech, so a mild FFT denoise leaves them
+in the track. The chain is a high-pass plus RNNoise (leavened-quisling), which
+keeps the voice and drops street noise, horns, and hiss. Music is mixed later.
 """
 import json
+from pathlib import Path
 
-# 80 Hz drops room rumble. afftdn at its moderate default keeps the speech tone.
-FILTER = 'highpass=f=80,afftdn=nr=12:nf=-50:tn=1'
+# Public RNNoise weights for a voice against general noise (traffic, horns, hiss).
+# https://github.com/GregorR/rnnoise-models leavened-quisling-2018-08-31
+MODEL = Path(__file__).resolve().parent / 'assets' / 'rnnoise-lq.rnnn'
+
+
+def audio_filter():
+    """High-pass, then RNNoise at 48 kHz. The model path is required."""
+    if not MODEL.is_file():
+        raise RuntimeError('rnnoise_model_missing')
+    return f'highpass=f=100,aresample=48000,arnndn=m={MODEL}:mix=1'
+
+
+FILTER = audio_filter()
 
 
 def default_enabled(style_match=False, has_voiceover=False):
@@ -38,7 +51,7 @@ def _describe(path):
 
 
 def apply(source, folder):
-    """Return host speech with rumble, hiss, and broadband noise reduced.
+    """Return host speech with rumble, hiss, and traffic horns reduced.
 
     Video is copied. A file with no audio is returned unchanged. The music bed
     is not an input here; callers mix it afterwards.

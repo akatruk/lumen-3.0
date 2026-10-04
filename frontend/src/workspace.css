@@ -1049,9 +1049,11 @@
 .ws-inspector .ws-effect-presets strong { font-size: 13px; font-weight: 600; line-height: 1.4; color: #1c2740; padding: 0 2px; }
 .ws-inspector .ws-effect-presets small { font-size: 12px; line-height: 1.3; color: #3e4c64; padding: 0 2px; }
 .ws-inspector .ws-framing-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-.ws-inspector .inspector-slider { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; align-items: center; }
-.ws-inspector .inspector-slider input { grid-column: 1; grid-row: 2; }
+.ws-inspector .inspector-slider { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.ws-inspector .inspector-slider > span { grid-column: 1 / -1; grid-row: 1; }
+.ws-inspector .inspector-slider input { grid-column: 1; grid-row: 2; min-width: 0; }
 .ws-inspector .inspector-slider output { grid-column: 2; grid-row: 2; min-width: 52px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: #2e568f; }
+.ws-inspector .inspector-slider .animation-prompt { grid-column: 1 / -1; grid-row: 3; min-width: 0; white-space: normal; }
 .ws-inspector .inspector-motion .manual-grid { gap: 4px; }
 .ws-inspector .inspector-motion label { display: grid; grid-template-columns: 1fr auto; align-items: center; }
 .ws-inspector .inspector-motion input { grid-column: 1; grid-row: 2; }
