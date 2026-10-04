@@ -101,6 +101,13 @@ def test_vignette_and_card_motion_follow_when_the_picture_already_has_the_earlie
     assert 'unsharp=' not in motion_filter(applied['clips'][0], 1080, 1920, 6)
 
 
+def test_slider_picture_without_cards_still_offers_a_shorter_animation():
+    saved = edit(card_motion=100, presentation_prompt='Будет добавлена анимация на 100% длины ролика.')
+    picked = proposal(saved)
+    assert picked['id'] == 'card_motion'
+    assert picked['edit']['card_motion'] == 70
+
+
 def test_locked_and_excluded_pieces_stay_untouched_and_a_closed_picture_fails():
     saved = edit(clips=[
         {'id': 'kept', 'start': 0, 'end': 3, 'text': '', 'locked': True, 'zoom': 1, 'zoom_end': 1},

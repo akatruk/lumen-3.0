@@ -86,7 +86,11 @@ def _glow(clip):
 def _graphics(edit):
     if edit.get('presentation'):
         return True
-    return any(isinstance(clip, dict) and clip.get('card') for clip in edit.get('clips') or [])
+    if any(isinstance(clip, dict) and clip.get('card') for clip in edit.get('clips') or []):
+        return True
+    # The constructor stores the picture in the prompt. Card objects can be empty.
+    prompt = edit.get('presentation_prompt') or edit.get('animation_prompt')
+    return isinstance(prompt, str) and bool(prompt.strip())
 
 
 def _measured_grade(edit):

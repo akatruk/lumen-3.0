@@ -52,9 +52,39 @@ def test_slider_percentage_is_the_hypit_prompt():
     assert 'Эффекты: color.' in colored.presentation_prompt and 'kinetic' not in colored.presentation_prompt.split('Эффекты:', 1)[-1]
     assert 'contrast:' not in colored.presentation_prompt
 
+def test_reference_analysis_changes_the_assembled_prompt():
+    from backend.hypit_prompt import host_diameter, picture_prompt
+    talking = [{
+        'visual_type': {'en': 'Talking head with lower photo overlay', 'zh': '口播'},
+        'motion': {'en': 'Static medium shot with natural hand gestures', 'zh': '静态'},
+    }]
+    screen = [{
+        'visual_type': {'en': 'Talking head intercut with UI screen overlays', 'zh': '口播'},
+        'motion': {'en': 'Document scan overlay with animated avatar cutout', 'zh': '扫描'},
+    }]
+    bare = picture_prompt(edit())
+    photo = picture_prompt(edit(), reference=talking)
+    ui = picture_prompt(edit(), reference=screen)
+    assert bare != photo != ui
+    assert 'маленьк' not in bare and 'маленьк' not in photo
+    assert '50% ширины кадра' in photo
+    assert 'врезка предмета речи' in photo
+    assert 'схему или документ' in ui
+    assert 'Talking head with lower photo overlay' in photo
+    assert 'UI screen overlays' in ui
+    assert host_diameter(talking) == 0.5
+    assert host_diameter() == 0.5
+
+
 def test_other_controls_are_sentences_in_the_same_prompt():
     bare = plan(edit())
-    assert 'На отрезки не режь' in bare.presentation_prompt
+    assert 'без склейки из кусков' in bare.presentation_prompt
+    assert 'Каждую фразу договаривай' in bare.presentation_prompt
+    assert 'Один и тот же фрагмент не повторяй' in bare.presentation_prompt
+    assert 'поправляет волосы' in bare.presentation_prompt
+    assert 'На одну сказанную мысль одна карточка' in bare.presentation_prompt
+    assert 'Вторую копию тех же слов не рисуй' in bare.presentation_prompt
+    assert 'склеенную латиницу' in bare.presentation_prompt
     assert 'посторонних шумов' not in bare.presentation_prompt
     assert 'фоновую музыку' not in bare.presentation_prompt
     cleaned = plan(edit(voice_cleanup=True, normalize=True, picture_quality=True, subtitles=True, font_size='large', position='top', color='yellow'))
@@ -62,7 +92,7 @@ def test_other_controls_are_sentences_in_the_same_prompt():
     assert 'Выровняй громкость' in cleaned.presentation_prompt
     assert 'верни резкость' in cleaned.presentation_prompt
     assert 'субтитры по речи: крупные, вверху, жёлтые' in cleaned.presentation_prompt
-    assert 'На отрезки не режь' in cleaned.presentation_prompt
+    assert 'без склейки из кусков' in cleaned.presentation_prompt
     music = plan(edit(music={'asset_id': 'a' * 32, 'gain_db': -18, 'fade_in': 1, 'fade_out': 2, 'duck': True}))
     assert 'фоновую музыку: -18 дБ' in music.presentation_prompt
     assert 'Приглушай её под речь' in music.presentation_prompt
@@ -70,10 +100,17 @@ def test_other_controls_are_sentences_in_the_same_prompt():
     assert 'Звуковые акценты: свист' in accents.presentation_prompt
     spoken = plan(edit(voice_cleanup=True))
     assert 'закадровый голос' not in spoken.presentation_prompt
-    from backend.hypit_prompt import author_source
+    from backend.hypit_prompt import author_source, picture_prompt
     voiced = author_source(edit(voice_cleanup=True), 720, 1280, voiceover=True)
     assert 'закадровый голос' in voiced and 'посторонних шумов' in voiced
-    assert 'нескольких карточек' in cleaned.presentation_prompt
+    assert 'caption-fine:Track' not in voiced
+    burned = author_source(edit(subtitles=True, font_size='large', position='top', color='yellow', subtitle_language='zh'), 360, 640)
+    assert 'caption-fine:Track' in burned and 'document={story.caption}' in burned
+    assert 'size: 72' in burned and 'y: 0.1' in burned and 'fill: #FFE14A' in burned
+    assert 'family="noto-sans-sc"' in burned
+    assert 'На одну сказанную мысль одна карточка' in cleaned.presentation_prompt
+    assert 'Вторую копию тех же слов не рисуй' in cleaned.presentation_prompt
+    assert 'склеенную латиницу' in cleaned.presentation_prompt
     assert 'Одну и ту же плашку не повторяй' in cleaned.presentation_prompt
     assert 'золотая пометка' in cleaned.presentation_prompt
     russian = plan(edit(host_language='ru', subtitle_language='ru', subtitles=True))
@@ -85,6 +122,28 @@ def test_other_controls_are_sentences_in_the_same_prompt():
     assert 'Субтитры на китайском.' in mixed.presentation_prompt
     same = plan(edit(host_language='ru', effects_language='ru'))
     assert 'Графика и вставки на русском, на том же языке, что и речь.' in same.presentation_prompt
+    plain = picture_prompt({'clips': [{'start': 0, 'end': 4, 'text': '', 'transition': 'cut', 'zoom': 1}], 'captions': []})
+    noted = picture_prompt({
+        'clips': [
+            {'start': 0, 'end': 4, 'text': 'Элитная виза', 'transition': 'crossfade', 'zoom': 1.25, 'approved': True},
+            {'start': 4, 'end': 6, 'approved': False},
+        ],
+        'captions': [{'start': 0, 'end': 2, 'original': 'пауза', 'zh': '精英签', 'en': 'elite visa'}],
+        'card_motion': 40,
+    })
+    moved = picture_prompt({
+        'clips': [{'start': 0, 'end': 4, 'text': 'Элитная виза', 'transition': 'crossfade', 'zoom': 1.25, 'approved': True}],
+        'captions': [{'start': 0, 'end': 2, 'original': 'пауза', 'zh': '精英签', 'en': 'elite visa'}],
+        'card_motion': 80,
+    })
+    assert 'Элитная виза' not in plain and 'растворение' not in plain and '1.25' not in plain
+    assert 'Текст на сцене: Элитная виза.' in noted
+    assert 'Переходы между фразами: растворение.' in noted
+    assert 'Приближение кадра до 1.25.' in noted
+    assert 'Не включай фрагменты: 4.0–6.0 с.' in noted
+    assert '40% длины ролика' in noted and '80% длины ролика' not in noted
+    assert '80% длины ролика' in moved and '40% длины ролика' not in moved
+    assert 'Не включай фрагменты' not in moved
     other = plan(edit(host_language='ru', effects_language='en'))
     assert 'Графика и вставки на английском.' in other.presentation_prompt
     assert 'Графика и вставки на английском, на том же языке' not in other.presentation_prompt

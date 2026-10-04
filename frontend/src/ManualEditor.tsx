@@ -55,10 +55,10 @@ function soundSentences(edit: Edit, lang: 'ru' | 'en' | 'zh') {
   }
   if (edit.voice_cleanup) {
     lines.push(lang === 'en'
-      ? 'Remove hiss, rumble and other noise from the host voice. Do not change the video length.'
+      ? 'Remove hiss, rumble and other noise from the host voice. Do not speed up the speech.'
       : lang === 'zh'
-        ? '去掉主持人声音里的嘶声、低频和其他杂音。不要改变视频长度。'
-        : 'Очисти голос ведущего от посторонних шумов, гула и шипения. Длину ролика не меняй.');
+        ? '去掉主持人声音里的嘶声、低频和其他杂音。不要加快语速。'
+        : 'Очисти голос ведущего от посторонних шумов, гула и шипения. Речь не ускоряй.');
   }
   if (edit.host_language && names[edit.host_language]) {
     const spoken = names[edit.host_language];
@@ -178,34 +178,79 @@ function SoundPanel({edit, lang, outputLanguage, blocked, busy, note, libraryOpe
   </section>;
 }
 
-function insertCopy(percent: number, lang: 'ru' | 'en' | 'zh') {
-  const share = Math.max(0, Math.min(100, Math.round(percent)));
-  const count = share <= 0 ? 0 : Math.max(1, Math.min(6, Math.round(6 * share / 100)));
-  const hold = Math.round((1.5 + 1.5 * share / 100) * 10) / 10;
-  if (lang === 'en') {
-    return count ? `Inserts ${share}%: ${count} short clips of ${hold}s inside the graphic.` : `Inserts ${share}%: no extra clips.`;
-  }
-  if (lang === 'zh') {
-    return count ? `插入 ${share}%：图形里 ${count} 段 ${hold} 秒短视频。` : `插入 ${share}%：没有额外短视频。`;
-  }
-  return count ? `Вставки ${share}%: ${count} коротких роликов по ${hold} с внутри графики.` : `Вставки ${share}%: дополнительных роликов нет.`;
+const transitionPrompt: Record<string, string> = {
+  fade: 'затухание через чёрный',
+  crossfade: 'растворение',
+  zoom: 'наезд',
+  wipe: 'шторка',
+  'wipe-up': 'шторка вверх',
+  'wipe-down': 'шторка вниз',
+  circle: 'круг',
+  diagtl: 'диагональ',
+  diagtr: 'диагональ',
+  diagbl: 'диагональ',
+  diagbr: 'диагональ',
+};
+
+function sliderPhrase(key: string, value: number) {
+  if (key === 'card_motion') return `Будет добавлена анимация на ${value}% длины ролика — это ${Math.floor(value * 60 / 100)} секунд на каждую минуту.`;
+  if (key === 'animation_depth') return `Интенсивность ${value}%.`;
+  if (key === 'animation_motion') return `Движение ${value}%: карточки выезжают на эту долю.`;
+  if (key === 'animation_density') return `Плотность ${value}% слоёв.`;
+  if (key === 'animation_inserts') return `Вставки ${value}%:`;
+  return '';
 }
 
-function insertTheme(edit: Edit, lang: 'ru' | 'en' | 'zh') {
-  const blob = (edit.captions || []).map(caption => `${caption.zh} ${caption.en} ${caption.original}`).join(' ').toLowerCase();
-  const places: string[] = [];
-  if (/泰国|thailand|thai|bangkok|中泰/.test(blob)) places.push(lang === 'en' ? 'Thailand' : lang === 'zh' ? '泰国' : 'Таиланд');
-  if (/中国|china|chinese|上海|北京/.test(blob)) places.push(lang === 'en' ? 'China' : lang === 'zh' ? '中国' : 'Китай');
-  const topics: string[] = [];
-  if (/注册|regist|公司|company/.test(blob)) topics.push(lang === 'en' ? 'company registration' : lang === 'zh' ? '公司注册' : 'регистрация компании');
-  if (/股东|shareholder/.test(blob)) topics.push(lang === 'en' ? 'shareholders' : lang === 'zh' ? '股东' : 'акционеры');
-  if (/董事|director|法人|representative/.test(blob)) topics.push(lang === 'en' ? 'directors' : lang === 'zh' ? '董事' : 'директора');
-  if (/资本|capital|出资/.test(blob)) topics.push(lang === 'en' ? 'capital' : lang === 'zh' ? '资本' : 'капитал');
-  const phrase = [places.join(lang === 'en' ? ' and ' : lang === 'zh' ? '和' : ' и '), topics.join(', ')].filter(Boolean).join(', ');
-  if (!phrase) return '';
-  if (lang === 'en') return `Inserts follow this video: ${phrase}. Another country or organization stays out.`;
-  if (lang === 'zh') return `插入跟随本片主题：${phrase}。不出现其他国家和机构。`;
-  return `Вставки по теме ролика: ${phrase}. Чужую страну и чужую организацию не показывай.`;
+function montagePrompt(clips: Clip[]) {
+  const skipped: string[] = [];
+  const transitions: string[] = [];
+  const texts: string[] = [];
+  let zoom = 1;
+  let ownInsert = false;
+  for (const clip of clips) {
+    if (clip.approved === false) {
+      skipped.push(`${clip.start.toFixed(1)}–${clip.end.toFixed(1)} с`);
+      continue;
+    }
+    const label = transitionPrompt[clip.transition || 'cut'];
+    if (label && !transitions.includes(label)) transitions.push(label);
+    const text = clip.text.replace(/\s+/g, ' ').trim();
+    if (text && text !== '口播' && !texts.includes(text.slice(0, 80))) texts.push(text.slice(0, 80));
+    if (Number.isFinite(clip.zoom)) zoom = Math.max(zoom, clip.zoom);
+    if (clip.external_broll || clip.cutaway || clip.picture_insert) ownInsert = true;
+  }
+  const lines: string[] = [];
+  if (skipped.length) lines.push(`Не включай фрагменты: ${skipped.slice(0, 8).join(', ')}.`);
+  if (transitions.length) lines.push(`Переходы между фразами: ${transitions.join(', ')}.`);
+  if (texts.length) lines.push(`Текст на сцене: ${texts.slice(0, 8).join('; ')}.`);
+  if (zoom > 1.01) lines.push(`Приближение кадра до ${zoom.toFixed(2)}. Лицо остаётся резким.`);
+  if (ownInsert) lines.push('В ролике есть врезка из своего материала. Логин и водяной знак на врезке не пиши.');
+  return lines.join(' ');
+}
+
+function subtitlePrompt(edit: Edit) {
+  if (!edit.subtitles) return '';
+  const size = {small: 'мелкие', medium: 'средние', large: 'крупные'}[edit.font_size];
+  const place = edit.position === 'top' ? 'вверху' : 'внизу';
+  const ink = edit.color === 'yellow' ? 'жёлтые' : 'белые';
+  return `Добавь субтитры по речи: ${size}, ${place}, ${ink}.`;
+}
+
+function captionPhrase(caption: Caption) {
+  const text = [caption.zh, caption.original, caption.ru, caption.en]
+    .map(item => (item || '').replace(/\s+/g, ' ').trim())
+    .find(item => item && item !== '口播');
+  return text || '';
+}
+
+function savedPrompt(stored?: string) {
+  if (!stored) return '';
+  const open = '<text:Value id="request">';
+  const close = '</text:Value>';
+  const start = stored.indexOf(open);
+  const end = start < 0 ? -1 : stored.indexOf(close, start + open.length);
+  if (start < 0 || end < 0) return '';
+  return stored.slice(start + open.length, end).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 }
 
 type Clip = {
@@ -948,6 +993,7 @@ export function ManualEditor({
           )}</p>
           <div className="sound-choices"><button type="button" disabled={blocked} onClick={()=>change({host_language: edit.effects_language}, false)}>{w(`Речь ведущего на ${speechNames.ru[edit.effects_language]}`,`Host language: ${speechNames.en[edit.effects_language]}`,`主持人语言：${speechNames.zh[edit.effects_language]}`)}</button></div>
         </div>}
+        {graphicsSentence(edit, 'ru') && <p className="animation-prompt">{w('В промпт уйдёт: ','The prompt will say: ','提示词将写入：')}{graphicsSentence(edit, 'ru')}</p>}
         {([
           ['card_motion', w('Присутствие, %','Presence, %','占比，%'), w('Процент добавляемой анимации','Added animation, %','添加动画的百分比'), edit.card_motion],
           ['animation_depth', w('Глубина, %','Depth, %','深度，%'), w('Глубина анимации','Animation depth','动画深度'), edit.animation_depth],
@@ -956,17 +1002,13 @@ export function ManualEditor({
           ['animation_inserts', w('Вставки, %','Inserts, %','插入，%'), w('Короткие ролики внутри графики','Short clips inside the graphic','图形里的短视频'), edit.animation_inserts],
         ] as const).map(([key, label, name, value]) => (
           <label className="inspector-slider" key={key}>
-            {label}
+            <span>{label}</span>
             <input type="range" min={0} max={100} step={5} value={value??100} aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value??100} aria-valuetext={`${value??100}%`} onChange={e=>setAnimation(key, Number(e.target.value))} />
             <output>{value??100}%</output>
+            <small className="animation-prompt">{w('В промпт уйдёт: ','The prompt will say: ','提示词将写入：')}{sliderPhrase(key, value??100)}</small>
           </label>
         ))}
         {cardNote&&<p role="status">{cardNote}</p>}
-        <p className="animation-prompt">{w(
-          `На ${edit.card_motion??100}% длины ролика (${Math.round((edit.card_motion??100)*60/100)} с на минуту) ведущий в кружке, слова становятся графикой: прибыль — стрелка вверх, риск — вниз, число — крупная цифра, шаги по одному, сравнение — две колонки, срок — шкала. Интенсивность ${edit.animation_depth??100}% — насколько резко графика приходит. Движение ${edit.animation_motion??100}% — насколько далеко карточки выезжают. ${insertCopy(edit.animation_inserts??100, 'ru')} ${insertTheme(edit, 'ru')} Кружок ведущего не закрывает подпись. Плотность ${edit.animation_density??100}% фраз. ${graphicsSentence(edit, 'ru')}`.trim(),
-          `For ${edit.card_motion??100}% of the video (${Math.round((edit.card_motion??100)*60/100)}s per minute) the host is in a circle and the words become graphics: profit rises, risk falls, a number is large, steps arrive one by one. Intensity ${edit.animation_depth??100}%. Motion ${edit.animation_motion??100}% is how far the cards travel. ${insertCopy(edit.animation_inserts??100, 'en')} ${insertTheme(edit, 'en')} The host circle stays off the caption. Density ${edit.animation_density??100}% of the phrases. ${graphicsSentence(edit, 'en')}`.trim(),
-          `成片的 ${edit.card_motion??100}%（每分钟 ${Math.round((edit.card_motion??100)*60/100)} 秒）里，主持人收进圆圈，所说的话变成图形：利润向上，风险向下，数字放大，步骤逐个出现。强度 ${edit.animation_depth??100}%。运动 ${edit.animation_motion??100}% 决定卡片滑入的距离。${insertCopy(edit.animation_inserts??100, 'zh')}${insertTheme(edit, 'zh')}圆框不压住字幕。密度为语句的 ${edit.animation_density??100}%。${graphicsSentence(edit, 'zh')}`.trim(),
-        )}</p>
       </section>}
       {task==='effects'&&<EffectPick lang={lang} pick={effectPick} error={effectError} busy={effectBusy} note={effectNote} onAccept={()=>void acceptEffect()} onRetry={()=>void loadEffect()}/>}
       {!workspace && <section className="inspector-scene-controls">
@@ -1000,6 +1042,7 @@ export function ManualEditor({
                 />
               </label>
               </details>
+              {montagePrompt(edit.clips) && <p className="animation-prompt">{w('В промпт уйдёт: ','The prompt will say: ','提示词将写入：')}{montagePrompt(edit.clips)}</p>}
               <div className="inspector-inserts">
               <AssetPlacement value={c.external_broll||null} assets={assets.filter(a=>a.metadata.kind!=='music')} duration={c.end-c.start} lang={lang} onChange={external_broll=>clipChange(i,{external_broll,...(external_broll?{cutaway:null}:{})})}/>
               {(!!c.sound_effects?.length||!!c.card||!!c.cutaway)&&<p>{w('Карточки, звуковые акценты и перебивки из своего ролика задаёт AI.','Cards, sound accents and cutaways from this video are chosen by AI.','卡片、音效和原片切出由 AI 决定。')}{!!c.sound_effects?.length&&<button type="button" onClick={()=>clipChange(i,{sound_effects:[]})}>{w('Убрать звуковые акценты','Remove sound accents','移除音效')}</button>}{!!c.card&&<button type="button" onClick={()=>clipChange(i,{card:null})}>{w('Убрать карточку','Remove visual insert','移除视觉插入')}</button>}{!!c.cutaway&&<button type="button" onClick={()=>clipChange(i,{cutaway:null})}>{w('Убрать перебивку','Remove cutaway','移除补充镜头')}</button>}</p>}
@@ -1196,6 +1239,7 @@ export function ManualEditor({
               </select>
             </label>
           </div>
+          {subtitlePrompt(edit) && <p className="animation-prompt">{w('В промпт уйдёт: ','The prompt will say: ','提示词将写入：')}{subtitlePrompt(edit)}</p>}
           {edit.captions.map((c, i) => (
             <div className="manual-caption" key={i}>
               <strong>{i + 1}</strong>
@@ -1243,6 +1287,7 @@ export function ManualEditor({
                   onChange={(e) => captionChange(i, { zh: e.target.value })}
                 />
               </label>
+              {captionPhrase(c) && <p className="animation-prompt">{w('В промпт уйдёт: ','The prompt will say: ','提示词将写入：')}{captionPhrase(c)}</p>}
               <button
                 onClick={() =>
                   change({ captions: edit.captions.filter((_, j) => j !== i) })
@@ -1286,6 +1331,12 @@ export function ManualEditor({
       <button className="secondary" disabled={blocked||dirty||edit.clips.some(c=>c.locked)} onClick={async()=>{setBusy(true);setError('');try{const r=await fetch(base+'/from-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision})});if(!r.ok)throw Error(t('Save or reload the latest plan first.','请先保存或重新加载最新计划。'));const data=await r.json();setEdit(data.edit);setDirty(true);setSelected(0);}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}>{t('Build timeline from approved AI edits','根据已批准的 AI 改动建立时间线')}</button>
       </div>
       </details>}
+      <details className="final-prompt">
+        <summary>{w('Собранный промпт','Assembled prompt','已组装的提示词')}</summary>
+        {savedPrompt(edit.presentation_prompt)
+          ? <pre className="animation-prompt">{savedPrompt(edit.presentation_prompt)}</pre>
+          : <p>{w('Появится после сохранения.','It appears after you save.','保存后显示。')}</p>}
+      </details>
       {error && <p role="alert">{error}</p>}
       {invalidMusic&&<p role="alert">{t('Music points must start at 0, increase in time and stay between -40 and -6 dB.','音乐节点须从 0 秒开始，时间递增，音量介于 -40 至 -6 dB。')}</p>}
       {invalid && (
