@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from pydantic import BaseModel,Field
 from fastapi import FastAPI,Depends,HTTPException,Request,Response,UploadFile,File,Form
-from fastapi.responses import FileResponse,RedirectResponse
+from fastapi.responses import FileResponse,JSONResponse,RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from .config import ROOT,settings
@@ -35,8 +35,23 @@ def rate_limit(request,category,count,seconds=60):
     if len(q)>=count: raise HTTPException(429,'rate_limited')
     q.append(now)
 
+_RETIRED_SURFACE = re.compile(
+    r'^/api/(?:'
+    r'projects/[^/]+/render|'
+    r'studio/soundtracks/[^/]+/favorite|'
+    r'studio/projects/[^/]+/(?:'
+    r'manual(?:/.*)?|effect-board|plan|render|property(?:/.*)?|variants(?:/.*)?|'
+    r'timeline-proposals(?:/.*)?|creative-plans(?:/.*)?|dubbing(?:/.*)?|music-plans(?:/.*)?|'
+    r'final-music(?:/.*)?|stock(?:/.*)?|alternatives(?:/.*)?|style-match(?:/.*)?|'
+    r'soundtracks/[^/]+|assets/[^/]+/rhythm'
+    r')'
+    r')$'
+)
+
 @app.middleware('http')
 async def security(request,call_next):
+    if request.method not in ('GET','HEAD','OPTIONS') and _RETIRED_SURFACE.match(request.url.path):
+        return JSONResponse({'detail':'studio_surface_disabled'}, status_code=409)
     if request.method not in ('GET','HEAD','OPTIONS'):
         origin=request.headers.get('origin')
         if origin and origin!=settings.public_origin:

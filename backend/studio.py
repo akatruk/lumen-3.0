@@ -101,6 +101,9 @@ class PlanEdit(Strict):
 class RenderPlan(Strict):
     revision: int=Field(ge=1)
 
+class CreateVideo(Strict):
+    illustration_percent: int = Field(default=50, ge=0, le=100)
+
 def init(db):
     from .uploads import init as init_uploads
     init_uploads(db)
@@ -287,6 +290,38 @@ def render(pid:str,body:RenderPlan,request:Request,user=Depends(current_user)):
         enqueue(db,pid,'studio_render',{'revision':s['revision'],'plan':s['plan'],'decisions':selected})
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?",(pid,))
     return {'ok':True}
+
+@router.post('/projects/{pid}/create-video')
+def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(current_user)):
+    """Enqueue one Hypit picture from the uploads already on the project."""
+    from .app import rate_limit
+    from .manual import Clip, Edit, check
+    if body.illustration_percent % 5:
+        raise HTTPException(422, 'illustration_percent_step')
+    rate_limit(request, 'render', 12, 3600)
+    p = owned(pid, user)
+    duration = float((p.get('metadata') or {}).get('duration') or 0)
+    if duration <= 0:
+        raise HTTPException(422, 'analysis_not_ready')
+    with connect() as db:
+        db.lock()
+        s = state(pid, db)
+        if not s or not s.get('plan'):
+            raise HTTPException(422, 'analysis_not_ready')
+        if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
+            raise HTTPException(409, 'job_already_running')
+        edit = Edit(clips=[Clip(start=0, end=duration)], captions=[], subtitles=False, card_motion=body.illustration_percent)
+        check(edit, duration)
+        enqueue(db, pid, 'studio_render', {
+            'revision': s['revision'],
+            'plan': s['plan'],
+            'decisions': [],
+            'manual': edit.model_dump(),
+            'quality_review': True,
+            'illustration': True,
+        })
+        db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
+    return {'ok': True}
 
 def _analysis_plan(context):
     plan=['prepare']
@@ -502,7 +537,14 @@ def render_job(p,payload):
     for r in analysis.recommendations:
         if r.id in decisions:r.start=decisions[r.id]['start'];r.end=decisions[r.id]['end']
     # The renderer can only read owned source; reference files never enter inputs.
-    legacy_render(p|{'analysis':analysis.model_dump()}, {'recommendations':list(decisions),**({'quality_review':True} if payload.get('quality_review') else {}),**({'manual':payload['manual']} if payload.get('manual') else {})})
+    handed = {'recommendations': list(decisions)}
+    if payload.get('quality_review'):
+        handed['quality_review'] = True
+    if payload.get('manual'):
+        handed['manual'] = payload['manual']
+    if payload.get('illustration'):
+        handed['illustration'] = True
+    legacy_render(p|{'analysis': analysis.model_dump()}, handed)
     if state(p['id']).get('context',{}).get('style_match'):
         try:
             from .style_match import score_output

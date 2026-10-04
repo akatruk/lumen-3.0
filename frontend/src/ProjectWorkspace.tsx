@@ -104,12 +104,14 @@ export function ProjectWorkspace({
   lang,
   onBack,
   onDelete,
+  simple,
   children,
 }: {
   p: Project;
   lang: Lang;
   onBack: () => void;
   onDelete?: () => void;
+  simple?: boolean;
   children: ReactNode;
 }) {
   const w = (r: string, e: string, z: string) => workspaceText(lang, r, e, z);
@@ -369,7 +371,7 @@ export function ProjectWorkspace({
         },
       }}
     >
-      <div className="project-workspace">
+      <div className={simple ? "project-workspace ws-create-only" : "project-workspace"}>
         <button className="text-button ws-back" onClick={onBack}>
           <ArrowLeft size={15} />
           {w("Проекты", "Projects", "项目")}
@@ -417,6 +419,7 @@ export function ProjectWorkspace({
           </div>
         )}
         <div className="ws-grid">
+          {!simple && (
           <MenuSlide
             className="ws-tools"
             label={w("Инструменты проекта", "Project tools", "项目工具")}
@@ -434,6 +437,7 @@ export function ProjectWorkspace({
               </button>
             ))}
           </MenuSlide>
+          )}
           <section className="ws-preview">
             <div className="ws-preview-heading">
               <button className="text-button" onClick={openVersions}>
@@ -519,7 +523,7 @@ export function ProjectWorkspace({
                     )
                   : selected.detail}
               </span>
-              {p.studio && p.analysis && !draftActive && (
+              {p.studio && p.analysis && !draftActive && !simple && (
                 <button
                   className="text-button"
                   onClick={() => {
@@ -534,7 +538,7 @@ export function ProjectWorkspace({
             </div>
             <div ref={setStyleTarget} className="ws-style-slot" />
             <div ref={setScenesTarget} className="ws-scene-slot" />
-            {!p.studio && p.analysis && (
+            {!simple && !p.studio && p.analysis && (
               <div className="ws-scenes">
                 {p.analysis.scenes.map((s, i) => (
                   <button key={i} onClick={() => seekSource(s.start, s.end)}>
@@ -586,6 +590,7 @@ export function ProjectWorkspace({
             className="ws-inspector"
             aria-label={w("Настройки проекта", "Project settings", "项目设置")}
           >
+            {!simple && (
             <header className="ws-inspector-heading">
               <span className="eyebrow">
                 {w("ИНСТРУМЕНТЫ", "TOOLS", "工具")}
@@ -594,6 +599,7 @@ export function ProjectWorkspace({
                 {tools.find((t) => t[0] === task)?.[2]}
               </h2>
             </header>
+            )}
             {children}
           </aside>
         </div>

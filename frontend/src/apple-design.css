@@ -539,7 +539,16 @@ dialog h2 {
   display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; padding: 12px 14px;
   border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1px #d2d2d7;
 }
-.project-workspace .ws-inspector .manual-editor .presentation-share .inspector-slider { font-size: 15px; font-weight: 650; color: #1d1d1f; }
+.project-workspace .ws-inspector .manual-editor .presentation-share .inspector-slider {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name name" "note note" "range value";
+  align-items: center; gap: 4px 8px;
+  font-size: 15px; font-weight: 650; color: #1d1d1f;
+}
+.project-workspace .ws-inspector .manual-editor .presentation-share .inspector-slider > span { grid-area: name; min-width: 0; white-space: normal; }
+.project-workspace .ws-inspector .manual-editor .presentation-share .inspector-slider .animation-prompt { grid-area: note; min-width: 0; white-space: normal; }
+.project-workspace .ws-inspector .manual-editor .presentation-share .inspector-slider input[type="range"] { grid-area: range; width: 100%; min-width: 0; accent-color: #0071e3; }
+.project-workspace .ws-inspector .manual-editor .presentation-share .inspector-slider output { grid-area: value; font-variant-numeric: tabular-nums; color: #0071e3; }
 .project-workspace .ws-inspector .manual-editor .presentation-share input[type="range"] { width: 100%; accent-color: #0071e3; }
 .project-workspace .ws-inspector .manual-editor .presentation-share output { font-variant-numeric: tabular-nums; color: #0071e3; }
 .project-workspace .ws-inspector .manual-editor .presentation-share small,
@@ -636,6 +645,12 @@ dialog h2 {
   }
 }
 .ws-preview-heading-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.create-video { display: flex; flex-direction: column; gap: 16px; padding: 4px 2px 12px; }
+.create-video ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.create-video li { padding: 8px 0; border-bottom: 1px solid #00000010; }
+.create-video label { display: flex; flex-direction: column; gap: 8px; font-weight: 600; }
+.create-video pre { white-space: pre-wrap; margin: 0; padding: 12px; border-radius: 12px; background: var(--soft); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ws-create-only .ws-grid { grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.9fr); }
 .project-workspace .ws-grid,
 .project-workspace .ws-inspector,
 .project-workspace .ws-inspector .manual-editor,

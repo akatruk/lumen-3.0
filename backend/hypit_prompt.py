@@ -5,7 +5,6 @@ one video from it. Lumen does not cut the footage into scenes or set a
 parameter on each frame.
 """
 import html
-
 RUN = '''<?svml using="@hypit/run-markup@1"?>
 
 <svrun version="1">
@@ -251,55 +250,49 @@ def _spoken(manual):
     return lines
 
 
-def _caption_recipe(manual):
-    """Subtitle controls are recipe words Hypit draws. They are not page styles."""
-    manual = manual or {}
-    if not manual.get('subtitles'):
-        return ''
-    size = {'small': 36, 'large': 72}.get(manual.get('font_size'), 52)
-    top = manual.get('position') == 'top'
-    y = '0.1' if top else '0.9'
-    anchor = 'top' if top else 'bottom'
-    fill = '#FFE14A' if manual.get('color') == 'yellow' else '#FFFFFF'
-    return f'''
-  caption.speech {{
-    stack-order: 80;
-    x: 0.5; y: {y}; width: 0.88; height: 0.2;
-    anchor-x: center; anchor-y: {anchor};
-    align: center; block-align: end; inline-size: fixed;
-    wrap: word;
-    size: {size}; line-height: 1.08; fill: {fill};
-    background: #00000000; padding: "0"; radius: 0;
-    karaoke: current; active-fill: {fill};
-    cue-enter: none; cue-exit: none;
-    lead-frames: 0; tail-frames: 0; handoff: cut;
-  }}'''
-
-
-def recipes_sheet(manual=None):
-    """The footage stays sharp. The percent is not a grade or a vignette."""
-    return f'''<?svml using="@hypit/svs@1"?>
+def recipes_sheet():
+    """The footage stays sharp. The percent is a timed window, not a grade."""
+    return '''<?svml using="@hypit/svs@1"?>
 
 <sheet version="1">
-  film.vertical {{
+  film.vertical {
     background: #09090B;
-  }}
-  media.performance {{ stack-order: 0; fit: cover; }}{_caption_recipe(manual)}
+  }
+  media.performance { stack-order: 0; fit: cover; }
+  caption.line {
+    stack-order: 80;
+    x: 0.5; y: 0.93; width: 0.88; height: 0.14;
+    anchor-x: center; anchor-y: bottom;
+    align: center; block-align: end; inline-size: fixed; wrap: word;
+    size: 36; line-height: 1.05; fill: #FFFFFF;
+    stroke-color: #09090B; stroke-width: 3;
+    background: #09090BE6; padding: "12 22"; radius: 14;
+    karaoke: off; cue-enter: none; cue-exit: none;
+    lead-frames: 0; tail-frames: 0; handoff: cut;
+  }
+  comment.card {
+    stack-order: 64;
+    background: #111827F2; border-color: #FFFFFF33; border-width: 1;
+    radius: 22; padding-x: 28; padding-y: 22; rotation: 0;
+    tail: false; avatar-fallback: none;
+    body-size: 34; body-weight: 700; body-color: #FFFFFF; body-max-lines: 4;
+    enter: none; exit: none; hold: none;
+  }
 </sheet>
 '''
 
 
 def _prompt_language(manual, language=None):
-    """WhisperX needs the language of the words in the prompt."""
-    if isinstance(language, str) and language.startswith('zh'):
-        return 'zh'
-    if language in ('en', 'ru', 'zh'):
-        return language
+    """WhisperX aligns the spoken words, so their script wins over the project tag."""
     blob = ' '.join(_spoken(manual))
     if any('\u4e00' <= char <= '\u9fff' for char in blob):
         return 'zh'
     if any('а' <= char.lower() <= 'я' or char in 'ёЁ' for char in blob):
         return 'ru'
+    if isinstance(language, str) and language.startswith('zh'):
+        return 'zh'
+    if language in ('en', 'ru', 'zh'):
+        return language
     return 'en'
 
 
@@ -373,45 +366,315 @@ def _montage_line(manual):
     return (' ' + ' '.join(lines)) if lines else ''
 
 
-def picture_prompt(edit, board=None, voiceover=False, reference=None, style=None):
-    """The prompt that is filmed. Speech, sliders and the reference analysis are in it."""
-    from .presentation_graphics import animation_brief
+def illustration_percent(edit):
+    """The one control on the project page. A missing value is 50."""
+    manual = edit if isinstance(edit, dict) else edit.model_dump() if hasattr(edit, 'model_dump') else {}
+    raw = None if not isinstance(manual, dict) else manual.get('illustration_percent', manual.get('card_motion'))
+    if raw is None:
+        return 50
+    try:
+        number = int(round(float(raw)))
+    except (TypeError, ValueError):
+        return 50
+    return max(0, min(100, number // 5 * 5))
 
-    manual = edit if isinstance(edit, dict) else edit.model_dump()
+
+def illustration_request(percent):
+    """The request Hypit built. The typo and the line breaks are part of that text."""
     return (
-        animation_brief(manual)
-        + _board_line(board)
-        + _delivery_line(manual, voiceover)
-        + _montage_line(manual)
-        + _look_line(reference, style)
+        "analyze the style of both reference video and reference video 2, make edit to\n"
+        "src video 2. focus on adding the appropriate visuals to make it more\n"
+        "illustrative. make ilustration "
+        f"{int(percent)}% from all time video"
     )
 
 
-def author_source(edit, width, height, board=None, language=None, voiceover=False, reference=None, style=None):
-    """One prompt for the whole video. Sliders and the other controls are that request."""
+def picture_prompt(edit, board=None, voiceover=False, reference=None, style=None):
+    """The prompt that is filmed. Only the illustration percent changes it."""
+    del board, voiceover, reference, style
+    return illustration_request(illustration_percent(edit))
+
+
+def _script_words(text):
+    """Spoken words safe inside a Script body. Markers and tags are not words."""
+    cleaned = str(text or '').replace('{', '').replace('}', '')
+    cleaned = cleaned.replace('@', '').replace('<', '').replace('>', '').replace('||', ' ')
+    return ' '.join(cleaned.split())
+
+
+def _cue_script(manual):
+    """One caption cue per spoken phrase. ``||`` is the cue break, not a cut."""
+    lines = []
+    for text in _spoken(manual):
+        cleaned = _script_words(text)
+        if cleaned:
+            lines.append(cleaned)
+    return ' || '.join(lines)
+
+
+def _clock_ms(millis):
+    """Format an integer millisecond count. No second round trip through float."""
+    millis = int(millis)
+    if millis <= 0:
+        return '0s'
+    if millis % 1000 == 0:
+        return f'{millis // 1000}s'
+    whole, frac = divmod(millis, 1000)
+    return f'{whole}.{frac:03d}'.rstrip('0') + 's'
+
+
+# Hypit captures round(duration * clock). The clock is the source rate.
+_SOURCE_FPS = 30
+
+
+def _program_frames(duration):
+    """Frames at 30fps. A duration already on a frame boundary stays there."""
+    frames = float(duration) * 30
+    rounded = round(frames)
+    if abs(frames - rounded) <= 1e-4:
+        return max(1, int(rounded))
+    return max(1, int(frames))
+
+
+def _capture_rate(duration):
+    """Author clock Hypit honors as the screenshot count.
+
+    A finished minute is the source rate. A lower clock stretches a handful of
+    screenshots across the whole program.
+    """
+    return str(_SOURCE_FPS)
+
+
+def _max_end_ms(duration):
+    """Latest millisecond whose projection is still inside the program.
+
+    Hypit rejects an instant past the last frame. Rounding a remainder up
+    (3.466667s → 3.467s) lands one millisecond outside that frame.
+    """
+    return _program_frames(duration) * 1000 // 30
+
+
+def _bounded_ms(start, length, duration):
+    """Start and length in milliseconds. The end stays inside the program."""
+    if duration <= 0 or length <= 0:
+        return None
+    limit = _max_end_ms(duration)
+    start_ms = int(round(float(start) * 1000))
+    end_ms = int(round((float(start) + float(length)) * 1000))
+    if start_ms < 0:
+        start_ms = 0
+    if start_ms > limit:
+        start_ms = limit
+    if end_ms > limit:
+        end_ms = limit
+    if end_ms - start_ms < 33:
+        return None
+    return start_ms, end_ms - start_ms
+
+
+def _program_seconds(manual, duration):
+    if duration is not None:
+        try:
+            value = float(duration)
+            if value > 0:
+                return value
+        except (TypeError, ValueError):
+            pass
+    from .presentation_graphics import _footage_seconds
+    return _footage_seconds(manual)
+
+
+def _presence_seconds(manual):
+    """The same seconds the slider sentence names. 80% is 48 seconds a minute."""
+    from .presentation_graphics import animation_levels
+    coverage = animation_levels(manual)['coverage']
+    return coverage, coverage * 60 // 100
+
+
+def _graphic_windows(span, duration):
+    """Graphic time inside each minute, clipped so it stays in the program.
+
+    100% is the whole program. 0% is no graphic. Anything between repeats
+    ``span`` seconds from the start of every minute the file actually reaches.
+    Each window is milliseconds whose end frame is still inside the video.
+    """
+    if span >= 60:
+        return 'program'
+    if span <= 0 or duration <= 0:
+        return []
+    windows = []
+    minute = 0
+    while minute * 60 < duration - 1e-6 and minute < 240:
+        start = float(minute * 60)
+        room = duration - start
+        if room < 1 / 30:
+            break
+        length = float(span) if span <= room else room
+        bounded = _bounded_ms(start, length, duration)
+        if bounded:
+            windows.append(bounded)
+        minute += 1
+    return windows
+
+
+def _has_cyrillic(text):
+    return any('а' <= char.lower() <= 'я' or char in 'ёЁ' for char in text)
+
+
+def _timed_lines(manual):
+    from .presentation_graphics import _caption_text
+    lines = []
+    for caption in (manual or {}).get('captions') or []:
+        if not isinstance(caption, dict):
+            caption = caption.model_dump() if hasattr(caption, 'model_dump') else {}
+        text = _script_words(_caption_text(caption))
+        if not text:
+            continue
+        try:
+            start = float(caption.get('start'))
+            end = float(caption.get('end'))
+        except (TypeError, ValueError):
+            continue
+        if end > start:
+            lines.append((start, end, text))
+    return lines
+
+
+def _card_pieces(manual, windows, duration):
+    """One card per spoken thought that falls inside a graphic window.
+
+    A comment card draws its own letters from the open font catalog. That
+    catalog's Latin face does not carry Cyrillic, so those thoughts stay on
+    the bottom line, which can take the installed Cyrillic file.
+    """
+    if not windows:
+        return []
+    pieces = []
+    for start, end, text in _timed_lines(manual):
+        if _has_cyrillic(text):
+            continue
+        start = max(0.0, start)
+        end = min(float(duration), end)
+        if end - start < 1 / 30:
+            continue
+        if windows == 'program':
+            chosen = _bounded_ms(start, end - start, duration)
+        else:
+            chosen = None
+            best = 0
+            for win_start, win_len in windows:
+                lo = max(int(round(start * 1000)), win_start)
+                hi = min(int(round(end * 1000)), win_start + win_len)
+                if hi - lo > best:
+                    best = hi - lo
+                    chosen = (lo, hi - lo)
+            if best < 33:
+                chosen = None
+        if chosen:
+            pieces.append((*chosen, text))
+        if len(pieces) >= 40:
+            break
+    return pieces
+
+
+_CARD_BOXES = (
+    ('8%', '14%', '86%', '42%'),
+    ('12%', '20%', '90%', '48%'),
+    ('6%', '26%', '80%', '54%'),
+    ('16%', '12%', '92%', '40%'),
+)
+
+
+def _caption_uses(windows, span):
+    if windows == 'program':
+        return '    <caption-fine:Use id="graphic-program" style={spoken-style} during="program"/>'
+    if not windows:
+        return '    <caption-fine:Use id="graphic-off" style={graphic-hidden} during="program"/>'
+    lines = ['    <caption-fine:Use id="graphic-off" style={graphic-hidden} during="program"/>']
+    for index, (start_ms, length_ms) in enumerate(windows):
+        lines.append(
+            f'    <caption-fine:Use id="minute{index}-{span}" at="{_clock_ms(start_ms)}" '
+            f'for="{_clock_ms(length_ms)}" style={{spoken-style}}/>'
+        )
+    return '\n'.join(lines)
+
+
+def _graphic_markup(manual, duration, cyrillic_font):
+    """Bottom line for the graphic window, plus one local card per thought."""
+    if not _cue_script(manual):
+        return '', '', '', ''
+    _coverage, span = _presence_seconds(manual)
+    windows = _graphic_windows(span, duration)
+    pieces = _card_pieces(manual, windows, duration)
+    imports = (
+        '  <import as="caption" from="@hypit/caption@1"/>\n'
+        '  <import as="caption-fine" from="@hypit/caption-fine@1"/>\n'
+        '  <import as="fonts" from="@hypit/fonts-open@1"/>\n'
+    )
+    font = ''
+    if cyrillic_font:
+        font = (
+            f'  <media:Font id="cyrillic-face" src="{_xml(cyrillic_font)}" '
+            'weight="700" style="normal"/>\n'
+        )
+        style = (
+            '  <caption-fine:Style id="spoken-style" recipe={recipes.caption.line} font={caption-font}>\n'
+            '    <caption-fine:Fallback font={cyrillic-face}/>\n'
+            '  </caption-fine:Style>'
+        )
+    else:
+        style = '  <caption-fine:Style id="spoken-style" recipe={recipes.caption.line} font={caption-font}/>'
+    spoken = (
+        '  <fonts:Stack id="caption-font" family="noto-sans" weight="700" style="normal">\n'
+        '    <fonts:Fallback family="noto-sans-sc" weight="700" style="normal"/>\n'
+        '  </fonts:Stack>\n'
+        f'{font}{style}\n'
+        '  <caption:Hidden id="graphic-hidden"/>\n'
+        '  <caption-fine:Track id="spoken-line" document={story.caption} timeline={speech.timeline}>\n'
+        f'{_caption_uses(windows, span)}\n'
+        '  </caption-fine:Track>'
+    )
+    frames = ''
+    cards = ''
+    film = '    <film:Track source={spoken-line.track}/>\n'
+    if pieces:
+        imports += '  <import as="comment" from="@hypit/comment-sticker@1"/>\n'
+        frame_lines = []
+        sticker_lines = []
+        for index, (start_ms, length_ms, text) in enumerate(pieces, start=1):
+            left, top, right, bottom = _CARD_BOXES[(index - 1) % len(_CARD_BOXES)]
+            frame_lines.append(
+                f'  <space:Frame id="thought-frame-{index}" within={{vertical}} '
+                f'left="{left}" top="{top}" right="{right}" bottom="{bottom}"/>'
+            )
+            sticker_lines.append(
+                f'    <comment:Sticker id="thought-{index}" frame={{thought-frame-{index}}} '
+                f'style={{thought-style}} at="{_clock_ms(start_ms)}" for="{_clock_ms(length_ms)}">'
+                f'{_xml(text)}</comment:Sticker>'
+            )
+        frames = '\n'.join(frame_lines) + '\n'
+        cards = (
+            '  <comment:Style id="thought-style" recipe={recipes.comment.card} font={caption-font}/>\n'
+            '  <comment:Track id="thought-cards" canvas={vertical} timeline={speech.timeline}>\n'
+            + '\n'.join(sticker_lines) + '\n'
+            '  </comment:Track>\n'
+        )
+        film = '    <film:Track source={thought-cards.track}/>\n' + film
+    return imports, frames, spoken + '\n' + cards, film
+
+
+def author_source(edit, width, height, board=None, language=None, voiceover=False, reference=None, style=None, duration=None, cyrillic_font=None):
+    """One prompt for the whole video. The slider percent is a window in that prompt."""
     manual = edit if isinstance(edit, dict) else edit.model_dump()
     width = max(2, int(width))
     height = max(2, int(height))
     spoken_language = _prompt_language(manual, language)
     request = _xml(picture_prompt(manual, board, voiceover, reference, style).replace('{', '').replace('}', ''))
-    script = _xml(' '.join(_spoken(manual)))
+    script = _xml(_cue_script(manual))
     language_attr = f' language="{spoken_language}"' if script else ''
-    caption_imports = ''
-    caption_nodes = ''
-    caption_track = ''
-    if manual.get('subtitles') and script:
-        caption_language = manual.get('subtitle_language') or spoken_language
-        caption_font = {'zh': 'noto-sans-sc', 'ru': 'noto-sans'}.get(caption_language, 'noto-sans')
-        caption_imports = '''
-  <import as="fonts" from="@hypit/fonts-open@1"/>
-  <import as="caption-fine" from="@hypit/caption-fine@1"/>'''
-        caption_nodes = f'''
-  <fonts:Stack id="caption-font" family="{caption_font}" weight="700" style="normal"/>
-  <caption-fine:Style id="speech-captions" recipe={{recipes.caption.speech}} font={{caption-font}}/>
-  <caption-fine:Track id="captions" document={{story.caption}} timeline={{speech.timeline}}>
-    <caption-fine:Use style={{speech-captions}}/>
-  </caption-fine:Track>'''
-        caption_track = '\n    <film:Track source={captions.track}/>'
+    program = _program_seconds(manual, duration)
+    clock = _capture_rate(program)
+    imports, frames, graphic, film_graphic = _graphic_markup(manual, program, cyrillic_font)
     svml = f'''{_MARKUP}
 
 <svml>
@@ -426,7 +689,8 @@ def author_source(edit, width, height, board=None, language=None, voiceover=Fals
   <import as="text" from="@hypit/text@1"/>
   <import as="film" from="@hypit/film@1"/>
   <import as="render" from="@hypit/render-hyperframes@1"/>
-  <import as="recipes" source="./recipes.svs"/>{caption_imports}
+  <import as="recipes" source="./recipes.svs"/>
+{imports}
 
   <script id="story">
     <picture>{script}</picture>
@@ -435,8 +699,9 @@ def author_source(edit, width, height, board=None, language=None, voiceover=Fals
 
   <media:Video id="footage" src="./source.mp4"/>
   <space:Canvas id="vertical" width="{width}" height="{height}"/>
-  <program:Clock id="clock" frame-rate="30"/>
+  <program:Clock id="clock" frame-rate="{clock}"/>
   <space:Frame id="speech-frame" within={{vertical}} left="0%" top="0%" right="100%" bottom="100%"/>
+{frames}
 
   <pipeline:Normalize id="footage-media" source={{footage}}
     video="primary-moving" audio="default" span-authority="video" clock={{clock}}/>
@@ -445,18 +710,18 @@ def author_source(edit, width, height, board=None, language=None, voiceover=Fals
   <time:Timeline id="speech" clock={{clock}}>
     <time:Take source={{picture-semantic.take}}/>
   </time:Timeline>
-{caption_nodes}
-  <performance:Style id="performance-style" frame={{speech-frame}} appearance={{recipes.media.performance}}/>
+
+{graphic}  <performance:Style id="performance-style" frame={{speech-frame}} appearance={{recipes.media.performance}}/>
   <performance:Track id="performance" timeline={{speech.timeline}} canvas={{vertical}}>
     <performance:Use style={{performance-style}} during="program"/>
   </performance:Track>
   <film:Film id="main" canvas={{vertical}} timeline={{speech.timeline}} appearance={{recipes.film.vertical}}>
-    <film:Track source={{performance.visual}}/>{caption_track}
-  </film:Film>
+    <film:Track source={{performance.visual}}/>
+{film_graphic}  </film:Film>
   <render:Video id="final" composition={{main.composition}} timeline={{speech.timeline}}/>
 </svml>
 '''
-    return recipes_sheet(manual) + svml
+    return recipes_sheet() + svml
 
 
 def write_author(folder, prompt):

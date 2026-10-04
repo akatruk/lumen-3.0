@@ -1,11 +1,9 @@
-import { Trends } from "./Trends";
 import {ProjectWorkspace, useWorkspace} from './ProjectWorkspace';
 import { LanguageSelect } from './LanguageSelect';
 import { translate, contentLanguage, readLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
 import { AnalysisActivity, activityDetail, activityTitle } from "./AnalysisActivity";
 import { TutorialVideos } from "./TutorialVideos";
-import { LookBoard } from "./LookBoard";
 import { MenuSlide } from "./MenuSlide";
 import React, {
   useState,
@@ -27,7 +25,6 @@ import {
   Sparkles,
   Layers3,
   LayoutGrid,
-  TrendingUp,
   Settings2,
   LogOut,
   Globe,
@@ -59,7 +56,8 @@ import { words, type Word } from "./i18n";
 import type { Lang, Text, Project, Summary, Recommendation } from "./types";
 import "./style.css";
 import { DouyinSearch } from "./DouyinSearch";
-import { StudioCreate, DirectorProject } from "./Studio";
+import { StudioCreate } from "./Studio";
+import { CreateVideo } from "./CreateVideo";
 import "./workspace.css";
 import "./apple-design.css";
 const Locale = createContext<{ lang: Lang; t: (key: string) => string }>({
@@ -75,11 +73,10 @@ const fmt = (s: number) =>
     .padStart(2, "0")}`;
 function initialRoute() {
   const h = window.location.hash.slice(1);
-  const trend = /^trend\/[a-f0-9]{32}$/.test(h) ? h.slice(6) : null;
   return {
     pid: /^project\/[a-f0-9]{32}$/.test(h) ? h.slice(8) : null,
-    trend,
-    page: trend ? "trends" : ["studio", "look", "library", "settings", "guide", "trends"].includes(h) ? h : "studio",
+    trend: null,
+    page: ["studio", "library", "settings"].includes(h) ? h : "studio",
   };
 }
 const active = (p: { status: string }) =>
@@ -358,11 +355,8 @@ function App() {
             >
               {[
                 ["studio", ScanLine],
-                ["look", SlidersHorizontal],
-                ["trends", TrendingUp],
                 ["library", LayoutGrid],
                 ["settings", Settings2],
-                ["guide", Film],
               ].map(([key, Icon]) => {
                 const K = Icon as typeof ScanLine;
                 return (
@@ -449,13 +443,13 @@ function App() {
             )}
             {pid ? (
               project ? (
-                <ProjectWorkspace key={project.id} p={project} lang={lang} onBack={() => navigate("library")} onDelete={() => setDeleteId(project.id)}>{project.studio ? (
-                  <DirectorProject
+                <ProjectWorkspace simple key={project.id} p={project} lang={lang} onBack={() => navigate("library")} onDelete={() => setDeleteId(project.id)}>{project.studio ? (
+                  <CreateVideo
                     key={project.id}
-                    p={project}
+                    pid={project.id}
                     lang={lang}
-                    onBack={() => navigate("library")}
-                    onRefresh={async () => {
+                    working={active(project)}
+                    onStarted={async () => {
                       setProject(await api("/projects/" + pid));
                       void refresh();
                     }}
@@ -498,29 +492,13 @@ function App() {
                   void refresh();
                 }}
               />
-            ) : page === "look" ? (
-              <LookBoard lang={lang} onBack={leaveLook} />
-            ) : page === "trends" ? (
-              <Trends
-                lang={lang}
-                trendId={trend}
-                onOpen={(id) => {
-                  setPid(null);
-                  setTrend(id);
-                  setPage("trends");
-                }}
-                onBack={() => navigate("trends")}
-                onCreate={useTrend}
-              />
-            ) : page === "library" ? (
+            ) : page === "library" || page === "look" || page === "trends" || page === "guide" ? (
               <Library
                 items={items}
                 open={open}
                 newProject={() => newProject()}
                 onDelete={setDeleteId}
               />
-            ) : page === "guide" ? (
-              <div className="page tutorial-page"><TutorialVideos lang={lang}/></div>
             ) : (
               <Workspace />
             )}

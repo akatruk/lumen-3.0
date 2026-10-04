@@ -63,6 +63,8 @@ def render_job(p,payload):
     else: media.build_timeline(p['metadata']['duration'],selected)
     from . import render_audio
     with connect() as db:delivery=render_audio.snapshot(db,p)
+    if payload.get('illustration'):
+        delivery = None
     if not manual and delivery:
         from .manual import Edit,Clip
         from .studio import state as studio_state
@@ -73,6 +75,12 @@ def render_job(p,payload):
             normalize=any(r.action=='normalize_audio' for r in selected),music=delivery['music'],
             voice_cleanup=default_enabled(style, bool(delivery.get('voice')))).model_dump()
         payload=payload|{'quality_review':True} # Automatic renders already run QA.
+    if not manual:
+        from .manual import Edit, Clip
+        spans=media.build_timeline(p['metadata']['duration'],selected)
+        manual=Edit(clips=[Clip(start=a,end=b) for a,b in spans],
+            captions=analysis.transcript,subtitles=any(r.action=='captions' for r in selected),
+            normalize=any(r.action=='normalize_audio' for r in selected)).model_dump()
     timeline=[(c['start'],c['end']) for c in manual['clips'] if c.get('approved',True)] if manual else media.build_timeline(p['metadata']['duration'],selected)
     if delivery and delivery['voice']:render_audio.map_ranges(delivery['voice']['timeline'],timeline)
     update(pid,status='rendering',error=None)
@@ -80,8 +88,7 @@ def render_job(p,payload):
     brolls=[]
     generative=[r for r in selected if r.action=='generate_broll']
     if len(generative)>2: raise ValueError('too_many_generated_clips')
-    for r in generative:
-        brolls.append(ai.generate_broll(pid,folder,folder/'source',r,p['aspect'] if p['aspect'] in ('16:9','9:16') else ('16:9' if p['metadata']['width']>=p['metadata']['height'] else '9:16')))
+    # A hosted clip is not a Hypit prompt. The picture is the author source.
     progress(pid,'preparing_picture',12)
     render_id=uuid.uuid4().hex
     render_folder=folder/'renders'/render_id
@@ -91,28 +98,29 @@ def render_job(p,payload):
         from .studio import state as studio_state
         current=studio_state(pid)
         context=(current or {}).get('context') if current else None
-        if (context or {}).get('style_match') and not manual.get('music'):
+        if (context or {}).get('style_match') and not manual.get('music') and not payload.get('illustration'):
             from .style_match import attach_recommended_bed
             progress(pid,'matching_music',16)
             manual=attach_recommended_bed(pid, manual, current)
         from .assets import validate as validate_assets
         from .manual import Edit
         with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
-    voice_audio=render_audio.prepare(pid,delivery['voice'],render_folder,timeline) if delivery and delivery['voice'] else None
-    picture_engine=None
+    voice_audio=render_audio.prepare(pid,delivery['voice'],render_folder,timeline) if delivery and delivery['voice'] and not payload.get('illustration') else None
+    picture_engine='hypit'
+    effect_board=None
     if manual:
         from .studio import state as studio_state
         from .style_match import board_for_render
+        from .hypit_picture import engine_for
         current=studio_state(pid)
         effect_board=((current or {}).get('context') or {}).get('effect_board') if current else None
         manual=board_for_render(manual,(current or {}).get('context') if current else None)
         if ((current or {}).get('context') or {}).get('style_match'):
             from .style_match import animate_for_render, present_for_render
-            from .hypit_picture import engine_for
             progress(pid,'drawing_graphics',22)
             manual=animate_for_render(manual)
             manual=present_for_render(manual)
-            picture_engine=engine_for((current or {}).get('context'))
+        picture_engine=engine_for((current or {}).get('context') if current else None)
     spoken=(delivery or {}).get('voice') or {}
     result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,presentation_language=spoken.get('language'),effect_board=effect_board if manual else None,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
     result['render_id']=render_id

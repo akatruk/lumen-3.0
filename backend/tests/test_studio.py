@@ -56,21 +56,15 @@ def test_roles_and_validation(client,monkeypatch):
 
 def test_revision_lock_and_render_snapshot(client):
  pid=create(client).json()['id'];ds=seed_plan(pid)
- assert client.post('/api/projects/'+pid+'/render',json={'recommendations':['cut']}).status_code==409
- assert client.post('/api/studio/projects/'+pid+'/render',json={'revision':1}).status_code==422
+ assert client.post('/api/projects/'+pid+'/render',json={'recommendations':['cut']}).json()['detail']=='studio_surface_disabled'
+ assert client.post('/api/studio/projects/'+pid+'/render',json={'revision':1}).status_code==409
  ds[0].update(approved=True,locked=True)
- r=client.put('/api/studio/projects/'+pid+'/plan',json={'revision':1,'decisions':ds});assert r.status_code==200
- assert r.json()['revision']==2
  assert client.put('/api/studio/projects/'+pid+'/plan',json={'revision':1,'decisions':ds}).status_code==409
- ds[0]['end']=5
- assert client.put('/api/studio/projects/'+pid+'/plan',json={'revision':2,'decisions':ds}).status_code==409
- ds[0]['end']=4
- assert client.post('/api/studio/projects/'+pid+'/render',json={'revision':2}).status_code==200
- assert client.post('/api/studio/projects/'+pid+'/render',json={'revision':2}).status_code==409
- assert client.put('/api/studio/projects/'+pid+'/plan',json={'revision':2,'decisions':ds}).status_code==409
+ started=client.post('/api/studio/projects/'+pid+'/create-video',json={'illustration_percent':50})
+ assert started.status_code==200
  with connect() as db:
-  payload=json.loads(db.execute("SELECT payload FROM jobs WHERE kind='studio_render'").fetchone()[0])
- assert payload['revision']==2 and payload['decisions'][0]['locked']
+  payload=json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'",(pid,)).fetchone()[0])
+ assert payload['illustration'] is True and payload['manual']['card_motion']==50
 
 def test_director_evidence_validation():
  p=plan();dna=[dict(reference_id='1234567890123456789',duration=20)]
