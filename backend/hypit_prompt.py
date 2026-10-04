@@ -663,6 +663,52 @@ def _graphic_markup(manual, duration, cyrillic_font):
     return imports, frames, spoken + '\n' + cards, film
 
 
+def _bound_request(manual, duration):
+    """Put the short request on the film when the picture has no spoken script.
+
+    An unreferenced ``text:Value`` is dropped by the build, and the video is
+    then only the source footage. Create video sends no captions, so this
+    binding is what carries the request into the picture.
+    """
+    if _cue_script(manual) or illustration_percent(manual) <= 0:
+        return '', '', '', ''
+    _coverage, span = _presence_seconds(manual)
+    windows = _graphic_windows(span, duration)
+    if not windows:
+        return '', '', '', ''
+    imports = (
+        '  <import as="fonts" from="@hypit/fonts-open@1"/>\n'
+        '  <import as="comment" from="@hypit/comment-sticker@1"/>\n'
+    )
+    frames = (
+        '  <space:Frame id="request-frame" within={vertical} '
+        'left="8%" top="14%" right="86%" bottom="42%"/>\n'
+    )
+    if windows == 'program':
+        stickers = (
+            '    <comment:Sticker id="request-card" comment={request} '
+            'frame={request-frame} style={request-style} during="program"/>'
+        )
+    else:
+        stickers = '\n'.join(
+            f'    <comment:Sticker id="request-card-{index}" comment={{request}} '
+            f'frame={{request-frame}} style={{request-style}} '
+            f'at="{_clock_ms(start_ms)}" for="{_clock_ms(length_ms)}"/>'
+            for index, (start_ms, length_ms) in enumerate(windows, start=1)
+        )
+    graphic = (
+        '  <fonts:Stack id="caption-font" family="noto-sans" weight="700" style="normal">\n'
+        '    <fonts:Fallback family="noto-sans-sc" weight="700" style="normal"/>\n'
+        '  </fonts:Stack>\n'
+        '  <comment:Style id="request-style" recipe={recipes.comment.card} font={caption-font}/>\n'
+        '  <comment:Track id="request-cards" canvas={vertical} timeline={speech.timeline}>\n'
+        f'{stickers}\n'
+        '  </comment:Track>\n'
+    )
+    film = '    <film:Track source={request-cards.track}/>\n'
+    return imports, frames, graphic, film
+
+
 def author_source(edit, width, height, board=None, language=None, voiceover=False, reference=None, style=None, duration=None, cyrillic_font=None):
     """One prompt for the whole video. The slider percent is a window in that prompt."""
     manual = edit if isinstance(edit, dict) else edit.model_dump()
@@ -675,6 +721,12 @@ def author_source(edit, width, height, board=None, language=None, voiceover=Fals
     program = _program_seconds(manual, duration)
     clock = _capture_rate(program)
     imports, frames, graphic, film_graphic = _graphic_markup(manual, program, cyrillic_font)
+    if not script:
+        bound_imports, bound_frames, bound_graphic, bound_film = _bound_request(manual, program)
+        imports += bound_imports
+        frames += bound_frames
+        graphic += bound_graphic
+        film_graphic += bound_film
     svml = f'''{_MARKUP}
 
 <svml>

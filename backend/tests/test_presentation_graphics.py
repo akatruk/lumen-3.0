@@ -176,6 +176,7 @@ def test_create_video_enqueues_the_short_prompt(client):
     assert payload['illustration'] is True and payload['manual']['card_motion'] == 50
     assert payload['manual']['music'] is None and payload['decisions'] == []
     text = illustration_request(payload['manual']['card_motion'])
+    assert payload['manual']['presentation_prompt'] == text
     assert text == (
         'analyze the style of both reference video and reference video 2, make edit to\n'
         'src video 2. focus on adding the appropriate visuals to make it more\n'
