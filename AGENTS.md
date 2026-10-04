@@ -28,18 +28,21 @@ Continue authorized diagnosis, fixes and verification autonomously. Do not ask
 the user to discover regressions one button at a time or repeat tests that can
 be performed in the available environment.
 
-## Hypit prompt boundary
+## Hypit prompt constructor
 
-Lumen-fix only assembles the prompt for Hypit
-(`https://github.com/hypit-ai/hypit`). Lumen stays the app, the project, the
-sliders, and the review surface. Hypit generates the video from that prompt.
+Do not hand-edit code. Lumen-fix is the prompt constructor for open-source
+Hypit (`https://github.com/hypit-ai/hypit`). Lumen Studio is the interface
+where AI elements are modified. Every AI element a person can change in Lumen
+Studio — sliders, «Эффекты», captions, voice, music, picture notes, reference
+treatment — must land in the final prompt. A studio control that does not
+change the final prompt is not done. Do not edit application source, layout,
+the frame page, or the renderer by hand.
 
-Sliders and every control in «Эффекты» change that prompt. Hypit renders it.
 Card pixel size is not a Lumen effect. Duration share (10% of a 1-minute video
 = 6 seconds of animation) and intensity (5–100, step 5) are prompt inputs, not
 CSS. Do not invent a parallel composition engine: no plate CSS, zoom, font
 size, seek-script geometry, timeline cuts inside `index.html`, or a second
-renderer.
+renderer. Hypit is the renderer.
 
 The main prompt visualizes the host's words. While a phrase is spoken, the
 foreground is a graphic of that thought and the host is a circle; the footage
