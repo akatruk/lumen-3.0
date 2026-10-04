@@ -310,7 +310,12 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             raise HTTPException(422, 'analysis_not_ready')
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
-        edit = Edit(clips=[Clip(start=0, end=duration)], captions=[], subtitles=False, card_motion=body.illustration_percent)
+        from .hypit_prompt import illustration_request
+        prompt = illustration_request(body.illustration_percent)
+        edit = Edit(
+            clips=[Clip(start=0, end=duration)], captions=[], subtitles=False,
+            card_motion=body.illustration_percent, presentation_prompt=prompt,
+        )
         check(edit, duration)
         enqueue(db, pid, 'studio_render', {
             'revision': s['revision'],

@@ -330,6 +330,31 @@ def test_the_sliders_write_one_animation_prompt():
     assert _card_motion({'card_motion': 40}) == 40
 
 
+def test_create_video_without_captions_still_films_the_short_request():
+    """An empty picture used to leave the request unreferenced, so Hypit dropped it."""
+    from backend.hypit_prompt import author_source
+
+    bare = {
+        'clips': [{'start': 0, 'end': 63.466667, 'approved': True}],
+        'captions': [],
+    }
+    full = author_source({**bare, 'card_motion': 100}, 720, 1280, duration=63.466667)
+    half = author_source({**bare, 'card_motion': 50}, 720, 1280, duration=63.466667)
+    quiet = author_source({**bare, 'card_motion': 0}, 720, 1280, duration=63.466667)
+    request = (
+        'analyze the style of both reference video and reference video 2, make edit to\n'
+        'src video 2. focus on adding the appropriate visuals to make it more\n'
+        'illustrative. make ilustration 100% from all time video'
+    )
+    assert request in full and 'comment={request}' in full and 'during="program"' in full
+    assert 'source={request-cards.track}' in full
+    assert 'Будет добавлена анимация' not in full and 'без склейки из кусков' not in full
+    assert 'make ilustration 50% from all time video' in half and 'comment={request}' in half
+    assert 'at="0s" for="30s"' in half
+    assert 'make ilustration 0% from all time video' in quiet and 'comment={request}' not in quiet
+    assert 'comment:Sticker' not in quiet
+
+
 def test_card_motion_changes_the_svml_window():
     """40% and 80% name different seconds, and Hypit gets those windows."""
     from backend.hypit_prompt import author_source
