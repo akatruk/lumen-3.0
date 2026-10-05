@@ -445,21 +445,51 @@ def test_partial_minute_window_stays_inside_program_frames():
     assert 'make ilustration 100% from all time video' in full
 
 
+def _color_clip(path, seconds, color):
+    ffmpeg(
+        '-f', 'lavfi', '-i', f'color=c={color}:s=64x64:r=30:d={seconds}',
+        '-f', 'lavfi', '-i', f'sine=frequency=440:duration={seconds}',
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest',
+        '-f', 'mp4', path,
+    )
+
+
+@pytest.mark.skipif(not shutil.which('ffmpeg') or not shutil.which('ffprobe'), reason='FFmpeg required')
 def test_uploaded_videos_keep_the_working_input_names(tmp_path):
+    """Seedance names stay, and each staged mp4 is between 2 and 30 seconds."""
     from backend.hypit_picture import stage_prompt_inputs
 
     project = tmp_path / 'project'
     project.mkdir()
     source = project / 'source'
-    source.write_bytes(b'x' * 64)
-    (project / 'reference_source').write_bytes(b'r' * 64)
+    _color_clip(source, 4, 'red')
+    _color_clip(project / 'reference_source', 8, 'green')
     nested = project / 'references' / '7680801661580741926'
     nested.mkdir(parents=True)
-    (nested / 'source').write_bytes(b'q' * 64)
+    _color_clip(nested / 'source', 36, 'blue')
+    short = project / 'references' / 'short'
+    short.mkdir()
+    _color_clip(short / 'source', 1, 'yellow')
+    kept = {
+        path: path.read_bytes()
+        for path in (source, project / 'reference_source', nested / 'source', short / 'source')
+    }
     work = tmp_path / 'hypit'
     work.mkdir()
-    (work / 'source.mp4').write_bytes(b'p' * 64)
+    _color_clip(work / 'source.mp4', 40, 'white')
+    footage = (work / 'source.mp4').read_bytes()
     stage_prompt_inputs(source, work)
-    assert (work / 'reference video').read_bytes() == b'r' * 64
-    assert (work / 'reference video 2').read_bytes() == b'q' * 64
-    assert (work / 'src video 2').read_bytes() == (work / 'source.mp4').read_bytes()
+    assert kept[source] == source.read_bytes()
+    assert kept[project / 'reference_source'] == (project / 'reference_source').read_bytes()
+    assert kept[nested / 'source'] == (nested / 'source').read_bytes()
+    assert kept[short / 'source'] == (short / 'source').read_bytes()
+    assert (work / 'source.mp4').read_bytes() == footage
+    assert (work / 'reference video').read_bytes() == kept[project / 'reference_source']
+    for name in ('reference video', 'reference video 2', 'reference video 3', 'src video 2'):
+        meta = probe(work / name)
+        assert 2 <= meta['duration'] <= 30
+        assert meta['codec'] == 'h264'
+    assert probe(work / 'reference video')['duration'] == pytest.approx(8, abs=0.3)
+    assert probe(work / 'reference video 2')['duration'] == pytest.approx(30, abs=0.5)
+    assert probe(work / 'src video 2')['duration'] == pytest.approx(30, abs=0.5)
+    assert probe(work / 'reference video 3')['duration'] >= 2
