@@ -168,7 +168,7 @@ def _software_chrome(work, chrome):
 
 
 def _runtime_profile(work):
-    """Local picture and alignment only. A hosted key is not part of this prompt."""
+    """Local capture plus the HypiHub route that runs the generation prompt."""
     chrome = _chrome()
     # This host has no GPU. Hardware ANGLE/EGL closed the target. Software
     # SwiftShader is selected, and the wrapper drops ``--disable-gpu`` and
@@ -192,6 +192,9 @@ def _runtime_profile(work):
     profile = {
         'format': 'hypit.runtime-local@1',
         'dataRoot': '.hypit/runtimes/local',
+        'credentials': {
+            'platform': {'use': '@hypit/credential-store-platform'},
+        },
         'endpoints': {
             'media.local': {'use': '@hypit/provider-media-local'},
             'hyperframes.local': picture,
@@ -199,6 +202,19 @@ def _runtime_profile(work):
                 'use': '@hypit/provider-whisperx-local',
                 'config': {'alignmentLanguages': ['zh', 'en', 'ru']},
             },
+            'hypihub.default': {
+                'use': '@hypit/provider-hypihub',
+                'pool': 'hypihub.default',
+                'config': {
+                    'baseUrl': 'https://hypit.ai',
+                    'apiKey': {'store': 'platform', 'key': 'hypihub.oauth'},
+                    'defaultConcurrency': 1,
+                    'pollIntervalMs': 10000,
+                },
+            },
+        },
+        'bindings': {
+            '@hypit/whisperx@1#whisperx-alignment': 'whisperx.local',
         },
     }
     path = Path(work) / 'hypit.runtime.json'
@@ -348,18 +364,73 @@ def _video_program_seconds(path):
         return 0.0
 
 
+def _audio_stream(path):
+    out, _ = run([
+        'ffprobe', '-v', 'error', '-select_streams', 'a',
+        '-show_entries', 'stream=index', '-of', 'json', str(path),
+    ], 30)
+    try:
+        return bool((json.loads(out or '{}').get('streams') or []))
+    except (TypeError, ValueError):
+        return False
+
+
+def _encode_seedance_span(src, dest, seconds, pad=0.0):
+    """Write an mp4 Seedance can open. The project upload is only read."""
+    args = ['-i', src, '-t', f'{seconds:.3f}', '-map', '0:v:0']
+    if pad > 0:
+        args += ['-vf', f'tpad=stop_mode=clone:stop_duration={pad:.3f}']
+    if _audio_stream(src):
+        args += ['-map', '0:a:0']
+        if pad > 0:
+            args += ['-af', f'apad=pad_dur={pad:.3f}']
+        args += ['-c:a', 'aac', '-b:a', '128k']
+    args += [
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
+        '-movflags', '+faststart', '-f', 'mp4', dest,
+    ]
+    ffmpeg(*args, timeout=600)
+
+
+def _fit_seedance_clip(src, dest):
+    """First 30 seconds, or the whole file when it is already between 2 and 30.
+
+    A shorter clip is held on its last frame until it reaches 2 seconds.
+    HypiHub rejects a reference outside that range.
+    """
+    duration = _piece_duration(src)
+    if 2.0 <= duration <= 30.0:
+        shutil.copyfile(src, dest)
+        return
+    if duration > 30.0:
+        _encode_seedance_span(src, dest, 30.0)
+        if _piece_duration(dest) > 30.0:
+            _encode_seedance_span(src, dest, 29.8)
+        if _piece_duration(dest) > 30.0 or _piece_duration(dest) < 2.0:
+            raise RuntimeError('media_processing_failed')
+        return
+    if duration <= 0:
+        raise RuntimeError('media_processing_failed')
+    target = 2.05
+    _encode_seedance_span(src, dest, target, pad=target - duration)
+    fitted = _piece_duration(dest)
+    if fitted < 2.0 or fitted > 30.0:
+        raise RuntimeError('media_processing_failed')
+
+
 def stage_prompt_inputs(source, work):
-    """Copy the project's uploads to the names in the working Hypit request.
+    """Stage the working names Seedance reads, each as a 2–30 second mp4.
 
     ``reference_source`` is ``reference video``. Each ``references/*/source``
     follows as ``reference video 2`` and so on. The picture Hypit films, already
-    written as ``source.mp4``, is also ``src video 2``.
+    written as ``source.mp4``, is also ``src video 2``. A long upload contributes
+    its first 30 seconds. The project file itself is not rewritten.
     """
     project = Path(source).resolve().parent
     work = Path(work)
     reference = project / 'reference_source'
     if reference.is_file() and reference.stat().st_size >= 32:
-        shutil.copyfile(reference, work / 'reference video')
+        _fit_seedance_clip(reference, work / 'reference video')
     numbered = []
     folder = project / 'references'
     if folder.is_dir():
@@ -371,10 +442,10 @@ def stage_prompt_inputs(source, work):
     for offset, path in enumerate(numbered):
         index = start + offset
         name = 'reference video' if index == 1 else f'reference video {index}'
-        shutil.copyfile(path, work / name)
+        _fit_seedance_clip(path, work / name)
     footage = work / 'source.mp4'
     if footage.is_file():
-        shutil.copyfile(footage, work / 'src video 2')
+        _fit_seedance_clip(footage, work / 'src video 2')
 
 
 def render_picture(source, folder, manual, width, height, metadata, asset_paths=None, language='en', board=None, voiceover=False):
