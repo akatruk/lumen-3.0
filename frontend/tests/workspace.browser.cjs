@@ -183,7 +183,7 @@ const baseURL = process.env.WORKSPACE_URL || "http://127.0.0.1:5192";
         );
         await page.locator('.render-summary').waitFor();
         assert.match(await page.locator('.render-summary').innerText(), /Неприменённые предложения AI: 3/);
-        assert.match(await page.locator('.render-summary').innerText(), /Движение камеры/);
+        assert.doesNotMatch(await page.locator('.render-summary').innerText(), /Сначала таймкод в новом видео/);
         const manualSaves = writes.filter((row) => row.method === "PUT" && row.path.endsWith("/manual"));
         assert.equal(manualSaves[0].body.edit.clips[0].zoom_end, 1);
         assert.equal(manualSaves.at(-1).body.edit.subtitles, false);

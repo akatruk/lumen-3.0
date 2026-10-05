@@ -17,7 +17,6 @@ import {MediaLibrary,AssetPlacement,type Asset,type ExternalBroll,type MediaLibr
 import type {Cutaway} from './CutawayEditor';
 import type {VisualCard} from './VisualCardEditor';
 import {TimelineRegenerate} from './TimelineRegenerate';
-import {TimelineTracks} from './TimelineTracks';
 import {ClipLayerTracks} from './ClipLayerTracks';
 import { useEffect, useRef, useState } from "react";
 import type { Lang, ContentLang } from "./types";
@@ -968,8 +967,6 @@ export function ManualEditor({
       <div hidden={task!=="materials"}>
       <StockLibrary onMatch={ids=>{if(!clip.id||blocked||dirty||clip.locked)return;workspace?.setTask('effects');setMatchRequest({clipId:clip.id,assetIds:ids,instruction:t('Choose a visually relevant sampled moment for this scene and its narration. Preserve original speech. If none fits, propose no replacement.','为当前场景与旁白选择视觉相关的样本片段，保留原声。如无合适素材，请勿替换。'),nonce:Date.now()})}} pid={pid} lang={lang} onChanged={loadAssets} assets={assets} revision={revision} scene={{id:clip.id,label:`${selected+1} · ${clip.start.toFixed(1)}–${clip.end.toFixed(1)}s`,context:[clip.text,...edit.captions.filter(c=>c.end>clip.start&&c.start<clip.end).map(c=>c[contentLanguage(lang)]||c.original)].filter(Boolean).join(' ').slice(0,1000),disabled:blocked||dirty||!!clip.locked}} onPlace={id=>{const asset=assets.find(a=>a.id===id);if(!asset||blocked||clip.locked)return;const length=Math.min(clip.end-clip.start,asset.metadata.duration,4);if(length<=0)return;clipChange(selected,{external_broll:{asset_id:id,start:0,end:length,source_start:0},cutaway:null,approved:false});}}/>
       </div>
-      {portal(<section className="ws-scene-list"><details><summary>{w('Дорожки таймлайна','Timeline tracks','时间轴轨道')}</summary>      <TimelineTracks hasAudio={hasAudio} key={pid} musicAsset={assets.find(a=>a.id===edit.music?.asset_id)} music={edit.music} clips={edit.clips} captions={edit.captions} subtitles={edit.subtitles} lang={lang} onSelect={i=>{setSelected(i);workspace?.showDraft()}} />
-</details></section>,workspace?.scenesTarget)}
       <div hidden={task!=='edit'&&task!=='effects'}>
       {task==='effects'&&<section className="presentation-share" aria-label={w('Процент добавляемой анимации','Added animation percent','添加动画的百分比')}>
         <h3>{w('Язык эффектов','Effects language','效果语言')}</h3>
@@ -1003,9 +1000,9 @@ export function ManualEditor({
         ] as const).map(([key, label, name, value]) => (
           <label className="inspector-slider" key={key}>
             <span>{label}</span>
+            <small className="animation-prompt">{w('В промпт уйдёт: ','The prompt will say: ','提示词将写入：')}{sliderPhrase(key, value??100)}</small>
             <input type="range" min={0} max={100} step={5} value={value??100} aria-label={name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value??100} aria-valuetext={`${value??100}%`} onChange={e=>setAnimation(key, Number(e.target.value))} />
             <output>{value??100}%</output>
-            <small className="animation-prompt">{w('В промпт уйдёт: ','The prompt will say: ','提示词将写入：')}{sliderPhrase(key, value??100)}</small>
           </label>
         ))}
         {cardNote&&<p role="status">{cardNote}</p>}

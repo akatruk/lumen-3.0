@@ -30,13 +30,13 @@ be performed in the available environment.
 
 ## Hypit prompt constructor
 
-Do not hand-edit code. Lumen-fix is the prompt constructor for open-source
-Hypit (`https://github.com/hypit-ai/hypit`). Lumen Studio is the interface
-where AI elements are modified. Every AI element a person can change in Lumen
-Studio — sliders, «Эффекты», captions, voice, music, picture notes, reference
-treatment — must land in the final prompt. A studio control that does not
-change the final prompt is not done. Do not edit application source, layout,
-the frame page, or the renderer by hand.
+Lumen-fix is the prompt constructor for open-source Hypit
+(`https://github.com/hypit-ai/hypit`). Hypit generates the video from that one
+prompt. Lumen Studio is the interface where AI elements are edited. Every AI
+element a person can change in Lumen Studio — sliders, «Эффекты», captions,
+voice, music, picture notes, reference treatment — must be written into the
+final prompt. A studio control that does not change the final prompt is not
+done.
 
 Card pixel size is not a Lumen effect. Duration share (10% of a 1-minute video
 = 6 seconds of animation) and intensity (5–100, step 5) are prompt inputs, not

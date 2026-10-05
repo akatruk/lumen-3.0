@@ -92,8 +92,9 @@ await test('cleanup render requires actual plan summary and confirmation',async(
  await tool('Review');await expand();await button('Review and render approved plan').click();await page.locator('dialog[open] .render-summary').waitFor();assert.equal(writes.length,0);assert.match(await page.locator('dialog[open]').innerText(),/Manual visual effects and the editor timeline are not included/);await button('Back to editing',page.locator('dialog[open]')).click();assert.equal(writes.length,0);
  await button('Review and render approved plan').click();await page.locator('dialog[open] .render-summary').waitFor();await button('Create video with these changes',page.locator('dialog[open]')).click();await page.waitForTimeout(100);assert(writes.some(w=>w.path.endsWith('/render')&&!w.path.includes('/manual/')));
 });
-await test('timeline view switches and scene activation',async({page,button})=>{
- await page.locator('.ws-scene-list > details > summary').click();await button('Approved output').click();assert.equal(await button('Approved output').getAttribute('aria-pressed'),'true');await button('Proposed timeline').click();assert.equal(await button('Proposed timeline').getAttribute('aria-pressed'),'true');
+await test('director shot list is not on the page',async({page})=>{
+ assert.equal(await page.locator('.timeline-tracks').count(),0);
+ assert.equal(await page.getByText('Output time first, then the source range.').count(),0);
 });
 await test('save failure preserves draft and exposes retry',async({page,button,tool,draft,writes})=>{
  await tool('Effects');await page.locator('.manual-clip:visible').getByRole('slider',{name:'Zoom (1–3×)'}).fill('1.4');await page.route('**/manual',async r=>r.request().method()==='PUT'?r.fulfill({status:409,json:{detail:'plan_changed'}}):r.fallback());await button('Save manual edits').click();await page.getByRole('alert').filter({hasText:'The plan changed. Reload saved edits before continuing.'}).waitFor();assert.equal((await draft()).clips[0].zoom,1.4);assert(await button('Save manual edits').isEnabled());

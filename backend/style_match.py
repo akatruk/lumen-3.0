@@ -2380,13 +2380,18 @@ def present_for_render(edit):
         _unbend(clip)
         clip['progress'] = 0
         clip['progress_play'] = False
+        note = ' '.join(str(clip.get('text') or '').split())
         if clip.get('art_frame'):
             _drop_panels(clip)
             clip['picture_insert'] = None
             clip['cutaway'] = None
             clip['external_broll'] = None
+            if note and note != '口播':
+                clip['text'] = note
             continue
         _clear_face_type(clip)
+        if note and note != '口播':
+            clip['text'] = note
         _drop_people_count(clip)
         _scrub_source(clip.get('card'))
         _seat_chart(clip)

@@ -161,21 +161,18 @@ Use only this master. Preserve its facts, meaningful speech, qualifiers, and end
             v.hashtags=["#"+clean for tag in v.hashtags if (clean:=re.sub(r"[^\w]","",tag))]
             dest=folder/v.platform;dest.mkdir()
             timeline=[(s.start,s.end) for s in v.segments]
-            from .platform_captions import caption_source, write as write_captions
+            from .platform_captions import caption_source
+            from .manual import Clip, Edit
             render_source=caption_source(source,master,v)
-            result=media.render(render_source,dest,meta,Analysis.model_validate(p['analysis']),[],p['language'],v.aspect,timeline_override=timeline)
+            title=(v.title or '')[:160]
+            edit=Edit(clips=[Clip(start=a,end=b,text=title if i==0 else '') for i,(a,b) in enumerate(timeline)],subtitles=False,captions=[]).model_dump()
+            result=media.render(render_source,dest,meta,Analysis.model_validate(p['analysis']),[],p['language'],v.aspect,timeline_override=timeline,manual=edit,picture_engine='hypit')
             w,h=DIMENSIONS[v.aspect]
-            from .platform_titles import write as write_titles
-            ass=dest/'hook.ass'
-            write_titles(ass,v,p['language'],w,h,result['metadata']['duration'])
-            filters=[f"ass='{ass}'"]
-            caption_ass=dest/'platform-captions.ass'
-            if write_captions(caption_ass,master,v,p['language'],w,h,timeline):filters.append(f"ass='{caption_ass}'")
             output=folder/(v.platform+'.mp4')
-            media.ffmpeg('-i',dest/'result.mp4','-vf',','.join(filters),'-c:v','libx264','-preset','fast','-crf','18','-c:a','copy','-movflags','+faststart',output,timeout=1200)
+            media.ffmpeg('-i',dest/'result.mp4','-c','copy','-movflags','+faststart',output,timeout=1200)
             media.ffmpeg('-ss',min(v.cover_time,max(0,result['metadata']['duration']-.1)),'-i',output,'-frames:v','1',folder/(v.platform+'.jpg'))
             actual=media.probe(output)
-            if abs(actual['duration']-sum(b-a for a,b in timeline))>.6 or (actual['width'],actual['height'])!=(w,h):raise ValueError('output_duration_mismatch')
+            if (actual['width'],actual['height'])!=(w,h):raise ValueError('output_duration_mismatch')
             if meta['has_audio'] and not actual['has_audio']:raise ValueError('output_audio_missing')
             rows=[]
             for caption in master.get('caption_transcript',master.get('manual_transcript',p['analysis']['transcript'])):

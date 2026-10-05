@@ -48,6 +48,7 @@ def generate(pid:str,body:Generate,request:Request,user=Depends(current_user)):
     rate_limit(request,'timeline_proposal',12,3600)
     from .studio import owned
     owned(pid,user)
+    if body.mode=='generated_broll':raise HTTPException(422,'hypit_prompt_only')
     with connect() as db:
         db.lock();s=locked_state(pid,body.revision,db);edit=read(pid,db)
         if not edit:raise HTTPException(422,'save_manual_first')
@@ -56,7 +57,6 @@ def generate(pid:str,body:Generate,request:Request,user=Depends(current_user)):
         if clip['locked']:raise HTTPException(409,'locked_decision')
         ident=uuid.uuid4().hex
         snapshot={'mode':body.mode,'edit':edit,'context':s['context'],'dna':s['dna'],'transcript':(s['plan'] or {}).get('transcript',[])}
-        if body.mode=='generated_broll' and db.execute('SELECT count(*) FROM studio_assets WHERE project_id=?',(pid,)).fetchone()[0]>=20:raise HTTPException(422,'asset_limit')
         if body.mode=='library_broll':
             from .asset_matching import video_ranges
             if not body.asset_ids or len(set(body.asset_ids))!=len(body.asset_ids):raise HTTPException(422,'choose_library_assets')
