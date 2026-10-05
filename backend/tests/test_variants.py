@@ -1,14 +1,14 @@
 import json
+import shutil
 import pytest
 from backend.tests.test_studio import client,create,seed_plan
 from backend import variants
 from backend.db import connect,update,project
 from backend.schemas import Text
 from backend import media
-from backend.media import ass_available
 REAL_PROBE=media.probe
 
-@pytest.mark.skipif(not ass_available(),reason='FFmpeg ass filter required')
+@pytest.mark.skipif(not shutil.which('ffmpeg'),reason='FFmpeg required')
 @pytest.mark.parametrize('clean_captions',[False,True])
 def test_five_platforms_render_and_download(client,tmp_path,monkeypatch,clean_captions):
     from backend.config import settings
@@ -29,6 +29,14 @@ def test_five_platforms_render_and_download(client,tmp_path,monkeypatch,clean_ca
     planned=variants.Plans(variants=[variants.Variant(hook_seconds=.5,cta_seconds=.7,title_style='panel',aspect={'douyin':'9:16','instagram_reels':'4:5','youtube_shorts':'1:1','tiktok':'16:9','xiaohongshu':'9:16'}[p],platform=p,rationale=Text(en='Specific',zh='具体'),title='测试标题',description='测试说明',hashtags=[],cta='保存',segments=[{'start':0,'end':2}]) for p in variants.PLATFORMS])
     if clean_captions:
         for v in planned.variants:v.caption_mode='custom';v.caption_color='yellow'
+    def fake_deliver(work):
+        from pathlib import Path
+        work=Path(work)
+        assert '测试标题' in (work/'main.svml').read_text()
+        assert not (work/'index.html').exists()
+        media.ffmpeg('-i', work/'cut.mp4', '-c', 'copy', work/'visual.mp4')
+        return work/'visual.mp4'
+    monkeypatch.setattr('backend.hypit_picture.deliver', fake_deliver)
     monkeypatch.setattr(variants.ai,'json_call',lambda *a,**k:planned)
     url=f'/api/studio/projects/{pid}/variants'
     assert client.post(url,json={'master_id':'a'*32,'reviewed':True}).status_code==200

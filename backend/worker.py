@@ -120,6 +120,14 @@ def render_job(p,payload):
             progress(pid,'drawing_graphics',22)
             manual=animate_for_render(manual)
             manual=present_for_render(manual)
+        if payload.get('illustration'):
+            from .hypit_prompt import illustration_request
+            manual=dict(manual)
+            manual['presentation_prompt']=illustration_request()
+            manual['card_motion']=40
+            manual['animation_intensity']=60
+            manual['animation_motion']=80
+            manual['animation_density']=70
         picture_engine=engine_for((current or {}).get('context') if current else None)
     spoken=(delivery or {}).get('voice') or {}
     result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,presentation_language=spoken.get('language'),effect_board=effect_board if manual else None,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))

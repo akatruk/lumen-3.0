@@ -10,13 +10,9 @@ type StudioState = {
   };
 };
 
-export function illustrationRequest(percent: number) {
-  return (
-    "analyze the style of both reference video and reference video 2, make edit to\n" +
-    "src video 2. focus on adding the appropriate visuals to make it more\n" +
-    `illustrative. make ilustration ${percent}% from all time video`
-  );
-}
+/** The same sentence create-video stores. The page does not build another one. */
+export const filmedPrompt =
+  "Один ролик, без склейки. Анимация 40%  ведущий в кружке, передний план — 3D графика и move анимация сказанного. Интенсивность 60%, движение 80%, плотность 70%. Только сказанные слова. Эффекты: color, glow, shadow, blur по краю, kinetic, progress, speed на коротких акцентах, stabilize, split на сравнении, screen, zoom на цифре. Переходы: растворение, шторка, круг. Голос очистить, громкость выровнять, лицо и исходный кадр резкие. Музыка −24 дБ, тише под речь. Звуковые акценты: щелчок, свист, колокольчик.";
 
 export function CreateVideo({
   pid,
@@ -94,12 +90,12 @@ export function CreateVideo({
           max={100}
           step={5}
           value={percent}
-          aria-valuetext={illustrationRequest(percent)}
+          aria-valuetext={percent + "%"}
           onChange={(event) => setPercent(Number(event.target.value))}
         />
         <strong>{percent}%</strong>
       </label>
-      <pre>{illustrationRequest(percent)}</pre>
+      <pre>{filmedPrompt}</pre>
       <button className="primary" type="button" disabled={working || busy} onClick={() => void create()}>
         {working || busy ? <Loader2 className="spin" size={17} /> : <Sparkles size={17} />}
         {w("Создать видео", "Create video", "创建视频")}

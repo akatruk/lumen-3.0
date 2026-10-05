@@ -1,17 +1,14 @@
-"""Versioned handoff from a Lumen project to Hypit's local HyperFrames capture.
+"""Versioned handoff from a property plan to one Hypit author prompt.
 
 Hypit stays in ``HYPIT_ROOT``. This module does not vendor it, does not start
 its CLI UI, and does not put secrets or reference media in the package.
-License: Apache 2.0 with Hypit's additional conditions. The capture subprocess
-does not surface the Hypit CLI, so the logo clause does not apply.
+The picture is ``main.svml``. License: Apache 2.0 with Hypit's additional
+conditions.
 """
 import hashlib
-import html
 import json
-import os
 import re
 import shutil
-import subprocess
 from pathlib import Path
 
 from .config import settings
@@ -78,101 +75,6 @@ def _revision(root: Path):
         return ''
 
 
-def programme(work, width, height, frames, scenes, brand, show_location, logo=False, photo_span=None):
-    """HyperFrames HTML. Only supplied captions are drawn on the owned picture."""
-    seconds = f'{frames / FPS:.3f}'
-    layers = []
-    if brand:
-        layers.append(
-            f'<aside class="hf-brand" data-hypit-start-frame="0" data-hypit-end-frame="{frames}">{html.escape(brand)}</aside>'
-        )
-    for scene in scenes:
-        start = max(0, int(round(float(scene['start']) * FPS)))
-        end = max(start + 1, min(frames, int(round(float(scene['end']) * FPS))))
-        kind = scene['role']
-        layers.append(
-            f'<aside class="hf-caption hf-{kind}" data-hypit-kind="{kind}" data-hypit-start-frame="{start}" '
-            f'data-hypit-end-frame="{end}">{html.escape(scene["caption"])}</aside>'
-        )
-        if kind == 'hook' and show_location and scene.get('location'):
-            layers.append(
-                f'<aside class="hf-location" data-hypit-kind="location" data-hypit-start-frame="{start}" '
-                f'data-hypit-end-frame="{end}">{html.escape(scene["location"])}</aside>'
-            )
-    body = '\n    '.join(layers)
-    logo_tag = '<img class="hf-brand hf-logo" src="logo.png" alt="">' if logo else ''
-    photo = ''
-    if photo_span:
-        start = max(0, int(round(float(photo_span[0]) * FPS)))
-        end = max(start + 1, min(frames, int(round(float(photo_span[1]) * FPS))))
-        photo = (
-            f'<img class="hf-photo" src="photo.png" alt="" data-hypit-kind="photo" '
-            f'data-hypit-start-frame="{start}" data-hypit-end-frame="{end}">'
-        )
-    page = f'''<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <style>
-    html,body{{margin:0;background:#111}}
-    [data-composition-id]{{position:relative;width:{width}px;height:{height}px;overflow:hidden;background:#111}}
-    video{{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}}
-    .hf-brand{{position:absolute;z-index:5;top:4%;left:5%;color:#fff;font:700 {max(18, height // 28)}px/1.1 sans-serif;letter-spacing:.04em;text-shadow:0 2px 10px #000}}
-    .hf-logo{{position:absolute;z-index:6;top:4%;right:5%;left:auto;height:12%;width:auto;object-fit:contain}}
-    .hf-photo{{position:absolute;z-index:3;inset:0;width:100%;height:100%;object-fit:cover;opacity:0}}
-    .hf-caption{{position:absolute;z-index:4;left:6%;right:6%;bottom:8%;padding:14px 16px;border-radius:16px;background:rgba(8,12,16,.78);color:#fff;font:700 {max(22, height // 22)}px/1.25 sans-serif;opacity:0}}
-    .hf-location{{position:absolute;z-index:4;left:6%;top:12%;color:#fff;font:600 {max(16, height // 32)}px/1.2 sans-serif;text-shadow:0 2px 8px #000;opacity:0}}
-  </style>
-</head>
-<body>
-  <div data-composition-id="lumen" data-start="0" data-no-timeline data-width="{width}" data-height="{height}" data-duration="{seconds}" data-fps="{FPS}/1" data-hypit-frame-count="{frames}">
-    <video id="picture" src="cut.mp4" muted playsinline preload="none" data-has-audio="false" data-start="0.000" data-end="{seconds}" data-media-start="0.000" data-hypit-start-frame="0" data-hypit-end-frame="{frames}" data-hypit-source-frame="0/1" data-hypit-source-rate="1/1" data-hypit-source-fps="{FPS}/1"></video>
-    {photo}
-    {logo_tag}
-    {body}
-  </div>
-  <script>
-    const fps = {FPS};
-    const layers = [...document.querySelectorAll('[data-hypit-start-frame]')];
-    const apply = (time) => {{
-      const frame = Math.max(0, Math.round(Number(time || 0) * fps));
-      for (const el of layers) {{
-        if (el.classList.contains('hf-brand')) continue;
-        const start = Number(el.getAttribute('data-hypit-start-frame'));
-        const end = Number(el.getAttribute('data-hypit-end-frame'));
-        el.style.opacity = frame >= start && frame < end ? '1' : '0';
-      }}
-    }};
-    apply(0);
-    window.addEventListener('hf-seek', (event) => apply(event.detail && event.detail.time));
-  </script>
-</body>
-</html>
-'''
-    (work / 'index.html').write_text(page)
-    return page
-
-
-def invoke(work: Path, job: dict):
-    """Run the existing capture script. Raises hypit_unavailable when it cannot."""
-    job_path = work / 'job.json'
-    job_path.write_text(json.dumps(job))
-    from .hypit_picture import SCRIPT, command, spawn
-    argv, root, tsx = command(job_path)
-    if not tsx.is_file() or not SCRIPT.is_file():
-        raise RuntimeError('hypit_unavailable')
-    env = os.environ.copy()
-    env['HYPIT_ROOT'] = str(root)
-    try:
-        spawn(argv, env)
-    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        raise RuntimeError('hypit_unavailable') from exc
-    visual = work / 'visual.mp4'
-    if not visual.is_file() or visual.stat().st_size < 32:
-        raise RuntimeError('hypit_unavailable') from RuntimeError('capture_output_missing')
-    return visual
-
-
 def _music(pid, asset_id, db):
     if not asset_id:
         return None
@@ -210,18 +112,33 @@ def render_package(p, prop, folder: Path):
     if work.exists():
         shutil.rmtree(work)
     work.mkdir(parents=True)
-    ffmpeg('-i', source, '-an', '-vf', f'scale={width}:{height}', '-r', str(FPS), '-frames:v', str(frames),
-           '-c:v', 'libx264', '-pix_fmt', 'yuv420p', work / 'cut.mp4', timeout=600)
     logo_id = plan.get('logo_asset_id') or ''
     photo_ids = list(plan.get('photo_asset_ids') or [])
     if logo_id:
         shutil.copyfile(_owned(pid, f'assets/{logo_id}'), work / 'logo.png')
-    photo_span = None
     if photo_ids:
         shutil.copyfile(_owned(pid, f'assets/{photo_ids[0]}'), work / 'photo.png')
-        shown = next((scene for scene in plan['scenes'] if scene['role'] == 'highlight'), plan['scenes'][0])
-        photo_span = (shown['start'], shown['end'])
-    page = programme(work, width, height, frames, plan['scenes'], plan.get('brand') or '', plan.get('show_location'), bool(logo_id), photo_span)
+    clips = []
+    captions = []
+    for scene in plan['scenes']:
+        start = float(scene['start'])
+        end = float(scene['end'])
+        caption = str(scene.get('caption') or '').strip()
+        note = caption
+        if logo_id:
+            note = f'{note} logo.png'.strip()
+        if photo_ids and scene.get('role') == 'highlight':
+            note = f'{note} photo.png'.strip()
+        clips.append({'start': start, 'end': end, 'text': note[:160], 'approved': True})
+        if caption:
+            captions.append({'start': start, 'end': end, 'original': caption, 'en': caption, 'zh': caption})
+    brand = str(plan.get('brand') or '').strip()
+    if brand and clips:
+        clips[0]['text'] = f'{brand} {clips[0]["text"]}'.strip()[:160]
+    manual = {'clips': clips, 'captions': captions, 'subtitles': True, 'normalize': False}
+    from .hypit_picture import render_picture
+    assembled = render_picture(source, folder, manual, width, height, meta, language=p.get('language') or 'en')
+    page = (work / 'main.svml').read_text()
     from .db import connect
     with connect() as db:
         music = _music(pid, plan.get('music_asset_id') or '', db)
@@ -245,7 +162,7 @@ def render_package(p, prop, folder: Path):
         'package_id': package_id,
         'project_id': pid,
         'plan_revision': prop['plan_revision'],
-        'engine': 'provider-hyperframes-local',
+        'engine': 'hypit',
         'hypit_version': _revision(root),
         'notices': [
             'Hypit is Apache License 2.0 with additional conditions: https://github.com/hypit-ai/hypit',
@@ -260,31 +177,26 @@ def render_package(p, prop, folder: Path):
             'hypit_license_fee_usd': 0,
             'external_model_usd': 0,
             'metered': False,
-            'note': 'Local HyperFrames capture. This package calls no generation provider.',
+            'note': 'One Hypit author prompt. This package calls no generation provider.',
         },
     }
     encoded = json.dumps(package, ensure_ascii=False)
     if _SECRET.search(encoded):
         raise ValueError('invalid_media_path')
     (folder / 'package.json').write_text(encoded)
-    job = {'directory': str(work), 'width': width, 'height': height, 'fpsNum': FPS, 'fpsDen': 1, 'frameCount': frames}
-    invoke(work, job)
-    visual = work / 'visual.mp4'
     dest = folder / 'result.mp4'
     audio_args = ['-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-shortest', '-movflags', '+faststart']
     if music and meta['has_audio']:
         music_path = _owned(pid, music['path'])
-        ffmpeg('-i', visual, '-i', source, '-i', music_path, '-filter_complex',
-               '[1:a]volume=1[a1];[2:a]volume=0.18[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[a]',
+        ffmpeg('-i', assembled, '-i', music_path, '-filter_complex',
+               '[0:a]volume=1[a1];[1:a]volume=0.18[a2];[a1][a2]amix=inputs=2:duration=first:dropout_transition=0[a]',
                '-map', '0:v:0', '-map', '[a]', *audio_args, dest, timeout=600)
     elif music:
-        ffmpeg('-i', visual, '-i', _owned(pid, music['path']), '-map', '0:v:0', '-map', '1:a:0', *audio_args, dest, timeout=600)
-    elif meta['has_audio']:
-        ffmpeg('-i', visual, '-i', source, '-map', '0:v:0', '-map', '1:a:0', *audio_args, dest, timeout=600)
+        ffmpeg('-i', assembled, '-i', _owned(pid, music['path']), '-map', '0:v:0', '-map', '1:a:0', *audio_args, dest, timeout=600)
     else:
-        ffmpeg('-i', visual, '-c', 'copy', '-movflags', '+faststart', dest, timeout=600)
+        ffmpeg('-i', assembled, '-c', 'copy', '-movflags', '+faststart', dest, timeout=600)
     checked = probe(dest)
-    if abs(checked['duration'] - frames / FPS) > 0.45:
+    if abs(checked['duration'] - float(plan['duration'])) > 0.45:
         raise ValueError('output_duration_mismatch')
     if (meta['has_audio'] or music) and not checked['has_audio']:
         raise ValueError('output_audio_missing')

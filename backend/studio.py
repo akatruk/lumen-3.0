@@ -228,7 +228,7 @@ def save_effect_board(pid:str,body:EffectBoard,user=Depends(current_user)):
 def _refresh_picture_prompt(pid, db, board):
     """Rewrite the stored Hypit prompt when the effect recipe changes. The revision stays."""
     from .manual import Edit, read
-    from .presentation_graphics import plan
+    from .hypit_prompt import plan
     raw = read(pid, db)
     if not raw:
         return
@@ -311,10 +311,34 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
         from .hypit_prompt import illustration_request
-        prompt = illustration_request(body.illustration_percent)
+        from .schemas import Caption
+        from .sound_effects import DURATIONS, SoundEffect
+        prompt = illustration_request()
+        captions = []
+        for row in (s.get('plan') or {}).get('transcript') or []:
+            try:
+                caption = Caption.model_validate(row)
+            except ValidationError:
+                continue
+            if caption.end <= duration + 0.05:
+                captions.append(caption)
+        accents = []
+        for kind, at in (('click', 1.0), ('whoosh', 8.0), ('chime', 19.5)):
+            if at + DURATIONS[kind] < duration:
+                accents.append(SoundEffect(kind=kind, at=at, gain_db=-24))
+        music = None
+        from .music import Music
+        for row in db.execute('SELECT id, metadata FROM studio_assets WHERE project_id=?', (pid,)):
+            meta = json.loads(row['metadata'] or '{}')
+            if meta.get('kind') == 'music':
+                music = Music(asset_id=row['id'], gain_db=-24, fade_in=0.8, fade_out=1.2, duck=True)
+                break
         edit = Edit(
-            clips=[Clip(start=0, end=duration)], captions=[], subtitles=False,
-            card_motion=body.illustration_percent, presentation_prompt=prompt,
+            clips=[Clip(start=0, end=duration, sound_effects=accents)],
+            captions=captions, subtitles=bool(captions), font_size='medium', position='bottom', color='white',
+            normalize=True, voice_cleanup=True, picture_quality=True,
+            card_motion=40, animation_intensity=60, animation_motion=80, animation_density=70,
+            presentation_prompt=prompt, music=music,
         )
         check(edit, duration)
         enqueue(db, pid, 'studio_render', {

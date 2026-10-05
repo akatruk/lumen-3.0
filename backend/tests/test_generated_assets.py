@@ -17,15 +17,5 @@ def test_generation_is_reviewable_private_asset_and_not_applied(client,monkeypat
     monkeypatch.setattr(ai,'generate_broll',generate)
     base=f'/api/studio/projects/{pid}/timeline-proposals'
     response=client.post(base,json={'revision':revision,'clip_id':edit['clips'][0]['id'],'instruction':'Illustrate the narrated scene','mode':'generated_broll'})
-    assert response.status_code==202,response.text
-    ident=response.json()['id'];timeline_proposals.run_job(project(pid),{'id':ident})
-    proposal=client.get(base).json()[0]
-    assert proposal['status']=='ready'
-    assert client.get(url).json()['edit']['clips'][0]['external_broll'] is None
-    asset=proposal['result']['clip']['external_broll']['asset_id']
-    assert (settings.data_dir/pid/'assets'/asset).read_bytes()==b'synthetic-provider-output'
-    assert client.get(f'/api/studio/projects/{pid}/assets').json()[0]['metadata']['generated']
-    with connect() as db:db.execute("UPDATE jobs SET status='complete' WHERE project_id=?",(pid,))
-    assert client.post(base+'/'+ident+'/accept',json={'revision':revision}).status_code==200
-    clip=client.get(url).json()['edit']['clips'][0]
-    assert not clip['approved'] and clip['external_broll']['asset_id']==asset
+    assert response.status_code==422 and response.json()['detail']=='hypit_prompt_only'
+    assert calls==[]

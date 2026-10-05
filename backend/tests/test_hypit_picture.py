@@ -139,7 +139,7 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     result = render(src, tmp_path, probe(src), analysis, [], 'zh', 'original', manual=edit, picture_engine='hypit')
     prompt = seen['prompt']
     assert '<render:Video id="final"' in prompt and 'src="./source.mp4"' in prompt
-    assert 'analyze the style of both reference video and reference video 2, make edit to\nsrc video 2. focus on adding the appropriate visuals to make it more\nillustrative. make ilustration 100% from all time video' in prompt
+    assert 'Анимация 40%  ведущий' in prompt
     assert 'Будет добавлена анимация' not in prompt
     assert '三名股东开会' in prompt and '法人代表' in prompt and '董事权限' in prompt
     assert '口播' not in prompt and 'Shareholders' not in prompt and 'Governance logic also differs' not in prompt
@@ -150,16 +150,16 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert not (tmp_path / 'hypit' / 'index.html').exists()
     assert (tmp_path / 'hypit' / 'recipes.svs').is_file() and (tmp_path / 'hypit' / 'build.svrun').is_file()
     assert (tmp_path / 'hypit' / 'source.mp4').is_file()
-    assert (tmp_path / 'hypit' / 'src video 2').read_bytes() == (tmp_path / 'hypit' / 'source.mp4').read_bytes()
+    assert not (tmp_path / 'hypit' / 'src video 2').exists()
     assert 'concat=' not in seen['picture'] and 'trim=' not in seen['picture']
     assert seen['picture'].count('[0:v]') == 1
     assert not list((tmp_path / 'hypit').glob('part-*.mp4'))
     assert (tmp_path / 'animation-share.txt').read_text() == '100'
     from backend.hypit_prompt import author_source
     quiet = author_source({**edit, 'card_motion': 0}, 160, 240)
-    assert 'make ilustration 0% from all time video' in quiet and 'make ilustration 50% from all time video' not in quiet
+    assert 'Анимация 40%  ведущий' in quiet and 'for="24s"' in quiet and 'prompt={request}' in quiet
     mid = author_source({**edit, 'card_motion': 10}, 160, 240)
-    assert 'make ilustration 10% from all time video' in mid and 'Будет добавлена анимация' not in mid
+    assert 'Анимация 40%  ведущий' in mid and 'Будет добавлена анимация' not in mid
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
@@ -257,49 +257,9 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
     assert {item['codec_type'] for item in streams} == {'video', 'audio'}
 
 
-def test_spoken_words_become_a_matching_picture():
-    from backend.presentation_graphics import speech_visuals, visual_kind
-    assert visual_kind('利润一直在增长') == 'up'
-    assert visual_kind('风险在下降') == 'down'
-    assert visual_kind('外资比例 49%') == 'figure'
-    assert visual_kind('首先注册公司') == 'steps'
-    assert visual_kind('三个月内截止') == 'deadline'
-    assert visual_kind('口播') == ''
-    beats = speech_visuals({'captions': [
-        {'start': 1, 'end': 3, 'zh': '利润一直在增长', 'original': '利润一直在增长'},
-        {'start': 4, 'end': 6, 'zh': '风险在下降', 'original': '风险在下降'},
-    ]})
-    assert [beat['kind'] for beat in beats] == ['up', 'down']
-    compared = speech_visuals({'captions': [
-        {'start': 47, 'end': 56, 'zh': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限', 'original': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限'},
-        {'start': 26, 'end': 34, 'zh': '外资比例一般是不超过49%', 'original': '外资比例一般是不超过49%'},
-    ]})
-    assert compared[0]['kind'] == 'compare'
-    assert compared[0]['left'] == '法人代表' and compared[0]['right'] == '董事权限'
-    assert compared[1]['kind'] == 'figure' and compared[1]['figure'] == '49%' and compared[1]['title'] == '外资比例'
-    captions = [
-        {'start': 47, 'end': 56, 'zh': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限', 'original': '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限'},
-        {'start': 26, 'end': 34, 'zh': '外资比例一般是不超过49%', 'original': '外资比例一般是不超过49%'},
-    ]
-    english = speech_visuals({'effects_language': 'en', 'captions': captions})
-    assert english[0]['left'] == 'Legal representative' and english[0]['right'] == 'Director authority'
-    assert english[1]['title'] == 'Foreign share' and english[1]['figure'] == '49%'
-    russian = speech_visuals({'effects_language': 'ru', 'captions': captions})
-    assert russian[0]['left'] == 'Законный представитель' and russian[0]['right'] == 'Полномочия директора'
-    assert russian[0]['line'] == 'Законный представитель · Полномочия директора'
-    assert russian[1]['line'] == 'Доля иностранного капитала не выше 49%'
-    from backend.hypit_prompt import picture_prompt
-    voiced_captions = [dict(captions[1], ru='Доля иностранного капитала обычно не выше 49%.')]
-    filmed = picture_prompt({'clips': [{'start': 0, 'end': 20}], 'host_language': 'ru', 'subtitle_language': 'ru', 'subtitles': True, 'captions': voiced_captions})
-    assert filmed == 'analyze the style of both reference video and reference video 2, make edit to\nsrc video 2. focus on adding the appropriate visuals to make it more\nillustrative. make ilustration 50% from all time video'
-    assert 'Речь ведущего' not in filmed and 'Будет добавлена анимация' not in filmed
-    followed = speech_visuals({'host_language': 'ru', 'captions': captions})
-    assert followed[0]['left'] == 'Законный представитель'
-    assert russian[1]['title'] == 'Доля иностранного капитала'
-
-def test_the_sliders_write_one_animation_prompt():
+def test_the_hand_prompt_ignores_sliders_and_a_stored_brief():
+    from backend.hypit_prompt import illustration_request, picture_prompt, plan
     from backend.manual import Edit
-    from backend.presentation_graphics import animation_brief, plan
 
     edit = Edit.model_validate({
         'clips': [{'start': 0, 'end': 60}],
@@ -307,31 +267,20 @@ def test_the_sliders_write_one_animation_prompt():
         'animation_depth': 40,
         'animation_motion': 60,
         'animation_density': 80,
+        'presentation_prompt': 'make ilustration 50% from all time video',
+        'animation_prompt': 'Будет добавлена анимация',
     })
-    brief = animation_brief(edit)
-    assert 'Будет добавлена анимация на 20% длины ролика — это 12 секунд на каждую минуту.' in brief
-    assert 'Ведущий в кружке' in brief and 'Интенсивность 40%' in brief
-    assert 'Движение 60%' in brief and 'Плотность 80% слоёв' in brief
-    assert 'стрелка вверх' in brief and 'крупная цифра' in brief
-    assert 'площад' not in brief
-    full = animation_brief(Edit.model_validate({'clips': [{'start': 0, 'end': 60}]}))
-    assert '100% длины ролика' in full and '60 секунд на каждую минуту' in full
-    assert 'Интенсивность 100%' in full
-    assert plan(edit).animation_prompt == brief
+    assert picture_prompt(edit.model_dump()) == illustration_request()
+    stored = plan(edit)
+    assert stored.presentation_prompt == illustration_request()
+    assert stored.animation_prompt == ''
+    assert stored.presentation == []
     with pytest.raises(Exception):
         Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_intensity': 7})
-    with pytest.raises(Exception):
-        Edit.model_validate({'clips': [{'start': 0, 'end': 20}], 'animation_intensity': 0})
-    from backend.hypit_picture import _card_motion
-
-    assert _card_motion({}) == 100
-    assert _card_motion({'presentation_share': 0}) == 100
-    assert _card_motion({'card_motion': 0}) == 0
-    assert _card_motion({'card_motion': 40}) == 40
 
 
 def test_create_video_without_captions_still_films_the_short_request():
-    """An empty picture used to leave the request unreferenced, so Hypit dropped it."""
+    """The sentence is an input Seedance reads. A lone text value is not the film."""
     from backend.hypit_prompt import author_source
 
     bare = {
@@ -341,125 +290,73 @@ def test_create_video_without_captions_still_films_the_short_request():
     full = author_source({**bare, 'card_motion': 100}, 720, 1280, duration=63.466667)
     half = author_source({**bare, 'card_motion': 50}, 720, 1280, duration=63.466667)
     quiet = author_source({**bare, 'card_motion': 0}, 720, 1280, duration=63.466667)
-    request = (
-        'analyze the style of both reference video and reference video 2, make edit to\n'
-        'src video 2. focus on adding the appropriate visuals to make it more\n'
-        'illustrative. make ilustration 100% from all time video'
-    )
-    assert request in full and 'prompt={request}' in full and 'seedance:ReferenceVideo' in full
-    prologue, body = full.split('<script', 1)
-    assert '<import as="seedance" from="@hypit/seedance@1"/>' in prologue
-    assert '<import' not in body and 'prompt={request}' in body
+    from backend.hypit_prompt import illustration_request
+    request = illustration_request()
+    assert request in full and 'source={footage}' in full
+    assert 'seedance:ReferenceVideo' in full and 'prompt={request}' in full
     assert 'comment={request}' not in full and 'comment:Sticker' not in full
-    assert 'source={edited.video}' in full and 'src="./src video 2"' in full
-    assert 'src="./reference video"' in full and 'src="./reference video 2"' in full
+    assert 'src="./source.mp4" media-type="video/mp4"' in full
+    assert 'duration="30"' not in full and 'media-type="video"' not in full
     assert 'Будет добавлена анимация' not in full and 'без склейки из кусков' not in full
-    assert 'make ilustration 50% from all time video' in half and 'prompt={request}' in half
-    assert 'duration="30"' in half and 'comment={request}' not in half
-    assert 'make ilustration 0% from all time video' in quiet and 'seedance:ReferenceVideo' not in quiet
+    assert 'Субтитры средние' not in full and 'Рост — стрелка вверх' not in full
+    assert request in half and 'source={footage}' in half
+    assert 'duration="30"' not in half and 'comment={request}' not in half
+    assert request in quiet and 'prompt={request}' in quiet
     assert 'comment:Sticker' not in quiet and 'source={footage}' in quiet
 
 
-def test_card_motion_changes_the_svml_window():
-    """40% and 80% name different seconds, and Hypit gets those windows."""
-    from backend.hypit_prompt import author_source
+def test_stored_english_prompt_cannot_override_the_filmed_sentence():
+    """A manual that still carries the old English sentence is not what Hypit films."""
+    from backend.hypit_prompt import author_source, illustration_request, picture_prompt
 
-    base = {
-        'clips': [{'start': 0, 'end': 120, 'approved': True}],
+    english = (
+        "analyze the style of both reference video and reference video 2, make edit to\n"
+        "src video 2. focus on adding the appropriate visuals to make it more\n"
+        "illustrative. make ilustration 50% from all time video"
+    )
+    edit = {
+        'clips': [{'start': 0, 'end': 63.4, 'approved': True}],
+        'card_motion': 40,
+        'presentation_prompt': english,
+        'animation_prompt': english,
         'captions': [
-            {'start': 2, 'end': 8, 'zh': '利润一直在增长', 'original': '利润一直在增长'},
-            {'start': 30, 'end': 40, 'zh': '风险在下降', 'original': '风险在下降'},
+            {'start': 8.5, 'end': 19.5, 'zh': '注册资本', 'original': '注册资本'},
         ],
     }
-    low = author_source({**base, 'card_motion': 40}, 720, 1280, duration=120)
-    high = author_source({**base, 'card_motion': 80}, 720, 1280, duration=120)
-    assert 'make ilustration 40% from all time video' in low
-    assert 'make ilustration 80% from all time video' in high
-    assert 'Будет добавлена анимация' not in low and 'Будет добавлена анимация' not in high
-    assert 'at="0s" for="24s"' in low and 'at="60s" for="24s"' in low
-    assert 'at="0s" for="48s"' in high and 'at="60s" for="48s"' in high
-    assert 'for="48s"' not in low and 'for="24s"' not in high
-    assert 'source={spoken-line.track}' in low and 'source={spoken-line.track}' in high
-    assert 'source={thought-cards.track}' in high
-    assert 'at="30s" for="10s"' in high and '风险在下降' in high
-    assert 'at="30s"' not in low
-    assert '利润一直在增长' in low and ' || ' in low
-    assert 'caption-fine:Track' in low and 'index.html' not in low
-    quiet = author_source({**base, 'card_motion': 0}, 720, 1280, duration=120)
-    assert 'make ilustration 0% from all time video' in quiet and 'for="' not in quiet
-    assert 'comment:Sticker' not in quiet and 'source={performance.visual}' in quiet
-    russian = {
-        'clips': [{'start': 0, 'end': 120, 'approved': True}],
-        'captions': [{'start': 1, 'end': 5, 'original': 'Прибыль растёт', 'ru': 'Прибыль растёт'}],
-    }
-    low_ru = author_source({**russian, 'card_motion': 40}, 720, 1280, duration=120)
-    high_ru = author_source({**russian, 'card_motion': 80}, 720, 1280, duration=120)
-    assert 'at="0s" for="24s"' in low_ru and 'at="0s" for="48s"' in high_ru
-    assert 'Прибыль растёт' in low_ru and 'language="ru"' in low_ru
-    assert 'comment:Sticker' not in low_ru
+    assert picture_prompt(edit) == illustration_request()
+    assert 'make ilustration' not in picture_prompt(edit)
+    text = author_source(edit, 720, 1280, duration=63.4)
+    start = text.find('id="request">')
+    value = text[start + len('id="request">'):text.find('</text:Value>', start)]
+    assert value == illustration_request()
+    assert 'Анимация 40%  ведущий' in value
+    assert 'Эффекты: color, glow, shadow' in value
+    assert 'Переходы: растворение, шторка, круг' in value
+    assert 'Музыка −24 дБ' in value
+    assert 'make ilustration' not in text
+    assert 'prompt={request}' in text and 'seedance:ReferenceVideo' in text
+    assert 'графика сказанного.' not in value and 'Субтитры средние' not in text
+    assert 'Рост — стрелка вверх' not in text
+    assert 'Один ролик' not in text.split('</text:Value>', 1)[-1]
+    assert 'comment:Sticker' not in text and 'ColorWash' not in text
+    assert 'hypit.ai' not in text
+    assert 'src="./source.mp4"' in text and 'frame-rate="30"' in text
+    assert edit['presentation_prompt'] == english
 
 
-def test_author_clock_matches_the_source_rate():
-    """Hypit captures round(duration * clock) at 30fps for the whole program."""
-    from backend.hypit_prompt import author_source
+def test_the_hand_sentence_is_referenced_by_generation():
+    """Fails when the sentence sits in a text value that nothing reads."""
+    from backend.hypit_prompt import author_source, illustration_request
 
-    duration = 1901 / 30
-    base = {
-        'clips': [{'start': 0, 'end': 64, 'approved': True}],
-        'captions': [{'start': 1.0, 'end': 8.5, 'zh': '开场', 'original': '开场'}],
-    }
-    text = author_source({**base, 'card_motion': 40}, 720, 1280, duration=duration)
-    assert 'frame-rate="30"' in text
-    assert 'at="0s" for="24s"' in text
-    short = author_source({**base, 'card_motion': 100}, 720, 1280, duration=2)
-    assert 'frame-rate="30"' in short
-    assert 'during="program"' in short
-
-
-def test_partial_minute_window_stays_inside_program_frames():
-    """A remainder rounded up used to end one millisecond past the last frame."""
-    from backend.hypit_prompt import author_source
-
-    duration = 1901 / 30
-    base = {
-        'clips': [{'start': 0, 'end': 64, 'approved': True}],
-        'captions': [
-            {'start': 1.0, 'end': 8.5, 'zh': '开场', 'original': '开场'},
-            {'start': 60.0, 'end': 61.8, 'zh': '结构', 'original': '结构'},
-        ],
-    }
-    text = author_source({**base, 'card_motion': 75}, 720, 1280, duration=duration)
-    assert 'at="0s" for="45s"' in text
-    assert 'at="60s" for="3.366s"' in text
-    assert 'for="3.467s"' not in text
-    assert 'at="60s" for="1.8s"' in text
-    assert 'index.html' not in text
-    low = author_source({**base, 'card_motion': 40}, 720, 1280, duration=duration)
-    high = author_source({**base, 'card_motion': 80}, 720, 1280, duration=duration)
-    assert 'at="0s" for="24s"' in low and 'at="60s" for="3.366s"' in low
-    assert 'at="0s" for="48s"' in high and 'at="60s" for="3.366s"' in high
-    quiet = author_source({**base, 'card_motion': 0}, 720, 1280, duration=duration)
-    assert 'make ilustration 0% from all time video' in quiet and 'for="' not in quiet
-    full = author_source({**base, 'card_motion': 100}, 720, 1280, duration=duration)
-    assert 'during="program"' in full and 'minute0-' not in full
-    assert 'make ilustration 100% from all time video' in full
-
-
-def test_uploaded_videos_keep_the_working_input_names(tmp_path):
-    from backend.hypit_picture import stage_prompt_inputs
-
-    project = tmp_path / 'project'
-    project.mkdir()
-    source = project / 'source'
-    source.write_bytes(b'x' * 64)
-    (project / 'reference_source').write_bytes(b'r' * 64)
-    nested = project / 'references' / '7680801661580741926'
-    nested.mkdir(parents=True)
-    (nested / 'source').write_bytes(b'q' * 64)
-    work = tmp_path / 'hypit'
-    work.mkdir()
-    (work / 'source.mp4').write_bytes(b'p' * 64)
-    stage_prompt_inputs(source, work)
-    assert (work / 'reference video').read_bytes() == b'r' * 64
-    assert (work / 'reference video 2').read_bytes() == b'q' * 64
-    assert (work / 'src video 2').read_bytes() == (work / 'source.mp4').read_bytes()
+    sentence = illustration_request()
+    text = author_source({
+        'clips': [{'start': 0, 'end': 63.466667, 'approved': True}],
+        'captions': [],
+    }, 720, 1280, duration=63.466667)
+    assert sentence in text
+    assert 'prompt={request}' in text
+    assert '3D графика и move анимация сказанного' in sentence
+    assert 'make ilustration' not in text
+    assert 'Субтитры средние' not in text
+    assert 'Рост — стрелка вверх' not in text
+    assert sentence not in text.split('</text:Value>', 1)[-1]

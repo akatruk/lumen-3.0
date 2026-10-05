@@ -110,7 +110,7 @@ def spawn(argv, env):
     work = str(Path(argv[-1]).resolve().parent)
     try:
         subprocess.run(
-            argv, check=True, env=env, timeout=45 * 60, cwd=work,
+            argv, check=True, env=env, timeout=70 * 60, cwd=work,
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, errors='replace',
         )
@@ -168,7 +168,7 @@ def _software_chrome(work, chrome):
 
 
 def _runtime_profile(work):
-    """Local picture and alignment only. A hosted key is not part of this prompt."""
+    """Local capture, plus hosted Seedance for the graphic that reads the prompt."""
     chrome = _chrome()
     # This host has no GPU. Hardware ANGLE/EGL closed the target. Software
     # SwiftShader is selected, and the wrapper drops ``--disable-gpu`` and
@@ -183,6 +183,7 @@ def _runtime_profile(work):
             'workers': 1,
             'defaultConcurrency': 1,
             'browserGpu': 'software',
+            'processTimeoutMs': 55 * 60 * 1000,
             'maxDecodedSourceBytes': 64 * 1024 * 1024,
             'maxPendingFrameBytes': 32 * 1024 * 1024,
         },
@@ -192,6 +193,9 @@ def _runtime_profile(work):
     profile = {
         'format': 'hypit.runtime-local@1',
         'dataRoot': '.hypit/runtimes/local',
+        'credentials': {
+            'platform': {'use': '@hypit/credential-store-platform'},
+        },
         'endpoints': {
             'media.local': {'use': '@hypit/provider-media-local'},
             'hyperframes.local': picture,
@@ -199,6 +203,20 @@ def _runtime_profile(work):
                 'use': '@hypit/provider-whisperx-local',
                 'config': {'alignmentLanguages': ['zh', 'en', 'ru']},
             },
+            'hypihub.default': {
+                'use': '@hypit/provider-hypihub',
+                'pool': 'hypihub.default',
+                'config': {
+                    'baseUrl': 'https://hypit.ai',
+                    'apiKey': {'store': 'platform', 'key': 'hypihub.oauth'},
+                    'defaultConcurrency': 1,
+                    'pollIntervalMs': 10000,
+                },
+            },
+        },
+        'bindings': {
+            '@hypit/whisperx@1#whisperx-alignment': 'whisperx.local',
+            '@hypit/seedance@1#seedance-2.5': 'hypihub.default',
         },
     }
     path = Path(work) / 'hypit.runtime.json'
@@ -242,7 +260,7 @@ def deliver(work):
         try:
             return subprocess.run(
                 [node, str(binary), *args, '--workspace', str(work)],
-                check=True, cwd=str(work), env=env, timeout=45 * 60,
+                check=True, cwd=str(work), env=env, timeout=70 * 60,
                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True, errors='replace',
             )
@@ -294,25 +312,6 @@ def _card_motion(manual):
     except (TypeError, ValueError):
         return 100
 
-def _cyrillic_face(work):
-    """Copy the installed Cyrillic face next to the author source.
-
-    The open catalog ships Noto Sans as a Latin subset. The Cyrillic file is
-    already in the local Hypit install, so the bottom line can draw Russian
-    without a hosted key.
-    """
-    found = sorted(_root().glob(
-        'node_modules/.pnpm/@fontsource-variable+noto-sans@*/'
-        'node_modules/@fontsource-variable/noto-sans/files/noto-sans-cyrillic-wght-normal.woff2'
-    ))
-    if not found:
-        return None
-    dest = Path(work) / 'fonts'
-    dest.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(found[-1], dest / 'noto-sans-cyrillic.woff2')
-    return './fonts/noto-sans-cyrillic.woff2'
-
-
 def _piece_duration(path):
     out, _ = run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'json', str(path)], 30)
     try:
@@ -348,79 +347,43 @@ def _video_program_seconds(path):
         return 0.0
 
 
-def stage_prompt_inputs(source, work):
-    """Copy the project's uploads to the names in the working Hypit request.
-
-    ``reference_source`` is ``reference video``. Each ``references/*/source``
-    follows as ``reference video 2`` and so on. The picture Hypit films, already
-    written as ``source.mp4``, is also ``src video 2``.
-    """
-    project = Path(source).resolve().parent
-    work = Path(work)
-    reference = project / 'reference_source'
-    if reference.is_file() and reference.stat().st_size >= 32:
-        shutil.copyfile(reference, work / 'reference video')
-    numbered = []
-    folder = project / 'references'
-    if folder.is_dir():
-        numbered = [
-            path for path in sorted(folder.glob('*/source'))
-            if path.is_file() and path.stat().st_size >= 32
-        ]
-    start = 2 if (work / 'reference video').is_file() else 1
-    for offset, path in enumerate(numbered):
-        index = start + offset
-        name = 'reference video' if index == 1 else f'reference video {index}'
-        shutil.copyfile(path, work / name)
-    footage = work / 'source.mp4'
-    if footage.is_file():
-        shutil.copyfile(footage, work / 'src video 2')
+def _seedance_reference(source, dest):
+    """First 24 seconds of picture, video only, inside the 2–30 second reference window."""
+    duration = _video_program_seconds(source)
+    if duration <= 0:
+        raise RuntimeError('media_processing_failed')
+    span = min(24.0, duration)
+    if span < 2.05:
+        ffmpeg(
+            '-i', source, '-an', '-map', '0:v:0',
+            '-vf', f'tpad=stop_mode=clone:stop_duration={2.05 - span:.3f}',
+            '-t', '2.05',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart', dest, timeout=180,
+        )
+        return
+    ffmpeg(
+        '-i', source, '-an', '-map', '0:v:0', '-t', f'{span:.3f}',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
+        '-movflags', '+faststart', dest, timeout=180,
+    )
 
 
 def render_picture(source, folder, manual, width, height, metadata, asset_paths=None, language='en', board=None, voiceover=False):
-    """Hand the constructor prompt to Hypit. The page of cards is not filmed."""
+    """Film the source. Hosted Seedance reads the hand prompt for the first 24 seconds."""
     clips = [dict(clip) for clip in manual['clips'] if clip.get('approved', True)]
     if not clips:
         raise RuntimeError('hypit_unavailable')
+    for clip in clips:
+        broll = clip.get('external_broll') or {}
+        if broll.get('asset_id') and not (asset_paths or {}).get(broll.get('asset_id')):
+            raise ValueError('asset_not_found')
     work = Path(folder) / 'hypit'
     work.mkdir(parents=True, exist_ok=True)
-    from .media import _art_file, _licensed_still, _reference_clip
-    shaped = []
-    for clip in clips:
-        item = dict(clip)
-        broll = item.get('external_broll') or {}
-        found = (asset_paths or {}).get(broll.get('asset_id')) if broll.get('asset_id') else None
-        if broll.get('asset_id') and not found:
-            raise ValueError('asset_not_found')
-        if found:
-            item['_hypit_broll'] = found
-        insert = _reference_clip(source, item.get('picture_insert'))
-        if insert:
-            item['_hypit_insert'] = insert
-        still = _licensed_still(item, asset_paths) or _art_file(source, item.get('art'))
-        if still and not item.get('cutout') and not item.get('mask'):
-            item['_hypit_still'] = still
-        shaped.append(item)
-    saved = dict(manual)
-    manual = dict(manual)
-    manual['clips'] = shaped
-    from .style_match import reference_video
-    from .style_vision import read_style
-    reference = reference_video(Path(source).resolve().parent)
-    try:
-        style = read_style(reference) if reference else None
-    except Exception:
-        style = None
-    from .hypit_prompt import author_source, reference_shots, write_author
-    shots = reference_shots(source)
+    from .hypit_prompt import author_source, write_author
     duration = _picture_cut(source, work, clips, width, height)[1]
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
-    face = None
-    try:
-        face = _cyrillic_face(work)
-    except OSError:
-        face = None
     if metadata.get('has_audio'):
         ffmpeg(
             '-i', work / 'cut.mp4', '-i', str(source),
@@ -430,14 +393,11 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
         )
     else:
         shutil.copyfile(work / 'cut.mp4', work / 'source.mp4')
-    stage_prompt_inputs(source, work)
     program = _video_program_seconds(work / 'source.mp4')
     if program <= 0:
         program = duration
-    write_author(work, author_source(
-        saved, width, height, board, language, voiceover=voiceover, reference=shots, style=style,
-        duration=program, cyrillic_font=face,
-    ))
+    _seedance_reference(work / 'source.mp4', work / 'host-reference.mp4')
+    write_author(work, author_source(manual, width, height, board, language, voiceover=voiceover, duration=program))
     page = work / 'index.html'
     if page.is_file():
         page.unlink()

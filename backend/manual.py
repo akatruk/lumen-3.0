@@ -8,9 +8,33 @@ from .schemas import Strict,Span,Caption
 from .auth import current_user
 from .db import connect,enqueue
 from .visuals import VisualCard
-from .presentation_graphics import PresentationBeat, plan as plan_presentation
+from .hypit_prompt import plan as plan_presentation
 from .sound_effects import SoundEffect,DURATIONS
 from .music import Music
+
+class PresentationLine(Strict):
+    en: str = Field(min_length=1, max_length=48)
+    zh: str = Field(min_length=1, max_length=48)
+    ru: str = Field(min_length=1, max_length=48)
+
+class PresentationBeat(Strict):
+    kind: Literal['window', 'mini']
+    start: float = Field(ge=0, le=86400)
+    end: float = Field(gt=0, le=86400)
+    title: PresentationLine
+    body: PresentationLine | None = None
+    x: float = Field(ge=0.12, le=0.88)
+    y: float = Field(ge=0.12, le=0.88)
+
+    @model_validator(mode='after')
+    def span(self):
+        if self.end <= self.start:
+            raise ValueError('presentation_range')
+        if self.kind == 'mini' and self.body is None:
+            raise ValueError('mini_needs_body')
+        if self.kind == 'window':
+            self.body = None
+        return self
 
 router=APIRouter(prefix='/api/studio')
 class Cutaway(Span):
