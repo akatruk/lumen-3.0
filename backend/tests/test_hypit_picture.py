@@ -346,13 +346,18 @@ def test_create_video_without_captions_still_films_the_short_request():
         'src video 2. focus on adding the appropriate visuals to make it more\n'
         'illustrative. make ilustration 100% from all time video'
     )
-    assert request in full and 'comment={request}' in full and 'during="program"' in full
-    assert 'source={request-cards.track}' in full
+    assert request in full and 'prompt={request}' in full and 'seedance:ReferenceVideo' in full
+    prologue, body = full.split('<script', 1)
+    assert '<import as="seedance" from="@hypit/seedance@1"/>' in prologue
+    assert '<import' not in body and 'prompt={request}' in body
+    assert 'comment={request}' not in full and 'comment:Sticker' not in full
+    assert 'source={edited.video}' in full and 'src="./src video 2"' in full
+    assert 'src="./reference video"' in full and 'src="./reference video 2"' in full
     assert 'Будет добавлена анимация' not in full and 'без склейки из кусков' not in full
-    assert 'make ilustration 50% from all time video' in half and 'comment={request}' in half
-    assert 'at="0s" for="30s"' in half
-    assert 'make ilustration 0% from all time video' in quiet and 'comment={request}' not in quiet
-    assert 'comment:Sticker' not in quiet
+    assert 'make ilustration 50% from all time video' in half and 'prompt={request}' in half
+    assert 'duration="30"' in half and 'comment={request}' not in half
+    assert 'make ilustration 0% from all time video' in quiet and 'seedance:ReferenceVideo' not in quiet
+    assert 'comment:Sticker' not in quiet and 'source={footage}' in quiet
 
 
 def test_card_motion_changes_the_svml_window():
