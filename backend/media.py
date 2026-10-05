@@ -552,16 +552,22 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         from .schemas import Caption
         manual=Edit.model_validate(manual).model_dump()
         check(Edit.model_validate(manual),metadata['duration'])
-        manual['clips']=[c for c in manual['clips'] if c['approved']]
-        if not manual['clips']:raise ValueError('no_approved_changes')
-        timeline_override=[(c['start'],c['end']) for c in manual['clips']]
+        approved=[c for c in manual['clips'] if c['approved']]
+        if not approved:raise ValueError('no_approved_changes')
+        timeline_override=[(c['start'],c['end']) for c in approved]
+        if picture_engine != 'hypit':
+            manual['clips']=approved
     timeline=timeline_override if timeline_override is not None else build_timeline(metadata['duration'],recommendations)
     from .manual import ranges_fit, snap_ranges
     if not ranges_fit(timeline, metadata['duration']): raise ValueError('analysis_timestamps_invalid')
     timeline=snap_ranges(timeline, metadata['duration'])
     if manual:
-        for clip, (_start, end) in zip(manual['clips'], timeline):
-            clip['end']=end
+        index=0
+        for clip in manual['clips']:
+            if picture_engine == 'hypit' and not clip.get('approved', True):
+                continue
+            clip['end']=timeline[index][1]
+            index+=1
     if aspect=='original':
         scale=min(1,1920/max(metadata['width'],metadata['height']),1080/min(metadata['width'],metadata['height']))
         w=int(metadata['width']*scale)//2*2; h=int(metadata['height']*scale)//2*2
@@ -809,18 +815,15 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
             ffmpeg('-i',input_path,'-i',item['path'],'-filter_complex_threads','1','-filter_complex',vf,'-map','[v]','-map','0:a:0?',
                    '-c:v','libx264','-preset','fast','-crf','18','-c:a','copy',overlay,timeout=900)
             input_path=overlay
-    if manual and manual.get('presentation') and picture_engine != 'hypit':
-        from .hypit_picture import apply_presentation
-        from .presentation_graphics import shown_language
-        input_path=apply_presentation(input_path, folder, manual, w, h, shown_language(language, presentation_language))
     # A Hypit picture already cleaned the host stem inside that render.
     if picture_engine != 'hypit':
         from .voice_cleanup import prepare_track
         input_path=prepare_track(input_path, folder, manual, metadata.get('has_audio'))
     original_audio_input=input_path
+    output_span=probe(input_path)['duration'] if picture_engine=='hypit' else sum(b-a for a,b in timeline)
     if voice_audio:
         from .render_audio import replace_picture_audio
-        input_path=replace_picture_audio(input_path,voice_audio,folder,sum(b-a for a,b in timeline))
+        input_path=replace_picture_audio(input_path,voice_audio,folder,output_span)
     if manual:
         effects=[];cursor=0
         for clip in manual['clips']:
@@ -835,7 +838,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
         from .music import mix as mix_music
         track=(asset_paths or {}).get(manual['music']['asset_id'])
         if track is None:raise ValueError('asset_not_found')
-        input_path=mix_music(input_path,track,folder,manual['music'],sum(b-a for a,b in timeline),probe(input_path)['has_audio'])
+        input_path=mix_music(input_path,track,folder,manual['music'],output_span,probe(input_path)['has_audio'])
     filters=[]
     if captions:
         caption_face, caption_heavy = None, None
@@ -877,9 +880,9 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                '-c:v','copy','-c:a','aac','-movflags','+faststart',folder/'music-free.mp4',timeout=1200)
     if voice_audio:
         from .render_audio import preserve_original_audio
-        preserve_original_audio(folder/'result.mp4',original_audio_input,folder,sum(b-a for a,b in timeline),manual,asset_paths or {},normalize)
+        preserve_original_audio(folder/'result.mp4',original_audio_input,folder,output_span,manual,asset_paths or {},normalize)
     output=probe(folder/'result.mp4')
-    expected=sum(b-a for a,b in timeline)
+    expected=output_span
     if abs(output['duration']-expected)>0.6: raise ValueError('output_duration_mismatch')
     if preserve_caption_master and captions:
         clean=probe(folder/'caption-free.mp4')

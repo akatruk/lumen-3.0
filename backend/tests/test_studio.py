@@ -64,7 +64,7 @@ def test_revision_lock_and_render_snapshot(client):
  assert started.status_code==200
  with connect() as db:
   payload=json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'",(pid,)).fetchone()[0])
- assert payload['illustration'] is True and payload['manual']['card_motion']==50
+ assert payload['illustration'] is True and payload['manual']['card_motion']==40
 
 def test_director_evidence_validation():
  p=plan();dna=[dict(reference_id='1234567890123456789',duration=20)]

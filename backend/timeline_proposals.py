@@ -54,6 +54,7 @@ def generate(pid:str,body:Generate,request:Request,user=Depends(current_user)):
         clip=next((c for c in edit['clips'] if c['id']==body.clip_id),None)
         if not clip:raise HTTPException(422,'invalid_decision')
         if clip['locked']:raise HTTPException(409,'locked_decision')
+        if body.mode=='generated_broll':raise HTTPException(422,'hypit_prompt_only')
         ident=uuid.uuid4().hex
         snapshot={'mode':body.mode,'edit':edit,'context':s['context'],'dna':s['dna'],'transcript':(s['plan'] or {}).get('transcript',[])}
         if body.mode=='generated_broll' and db.execute('SELECT count(*) FROM studio_assets WHERE project_id=?',(pid,)).fetchone()[0]>=20:raise HTTPException(422,'asset_limit')

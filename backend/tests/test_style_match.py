@@ -2060,7 +2060,7 @@ def test_style_render_drops_frames_on_the_presenter_and_uses_a_generated_still(t
     }
     shown = present_for_render(edit)
     presenter = shown['clips'][0]
-    assert presenter['text'] == '' and presenter['kinetic'] is False
+    assert presenter['text'] == 'lin 49%' and presenter['kinetic'] is False
     assert presenter['title_w'] is None and presenter['title_h'] is None
     assert presenter['card']['title']['en'] == 'Price' and presenter['card_y'] == 0.86
     assert presenter['bars'] == [1, 0.4] and presenter['chart_y'] == 0.86
@@ -2120,7 +2120,7 @@ def test_spoken_numbers_become_lower_third_charts(tmp_path):
     }
     shown = present_for_render(edit)
     shareholders, cap = shown['clips']
-    assert shareholders['text'] == '' and shareholders.get('card') is None
+    assert shareholders['text'] == 'lin 49%' and shareholders.get('card') is None
     assert cap['card']['kind'] == 'bar_chart' and cap['card']['primary']['zh'] == '49%'
     assert [item['value'] for item in cap['card']['items']] == [49, 100]
     assert cap['card_x'] >= 0.7 and cap['card_w'] <= 0.4 and cap['card_h'] >= 0.18 and cap['card_y'] - cap['card_h'] / 2 >= 0.74

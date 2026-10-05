@@ -17,12 +17,4 @@ def test_real_generated_asset_can_be_previewed(client,monkeypatch):
     revision=client.put(url,json={'revision':1,'edit':edit}).json()['revision']
     base=f'/api/studio/projects/{pid}/timeline-proposals'
     response=client.post(base,json={'revision':revision,'clip_id':edit['clips'][0]['id'],'instruction':'An abstract blue ocean-like wave, gentle motion, no people, no buildings, no text. Clearly illustrative.','mode':'generated_broll'})
-    assert response.status_code==202,response.text
-    timeline_proposals.run_job(project(pid),response.json())
-    result=client.get(base).json()[0]
-    assert result['status']=='ready'
-    aid=result['result']['clip']['external_broll']['asset_id']
-    metadata=REAL_PROBE(settings.data_dir/pid/'assets'/aid)
-    assert metadata['duration']>=3.5
-    preview=client.get(f'/api/studio/projects/{pid}/assets/{aid}/media')
-    assert preview.status_code==200 and len(preview.content)>1000
+    assert response.status_code==422 and response.json()['detail']=='hypit_prompt_only'

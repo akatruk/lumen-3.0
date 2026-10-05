@@ -1,39 +1,39 @@
 ---
 name: lumen-hypit-prompt
 description: >-
-  Lumen-fix is the prompt constructor for open-source Hypit
-  (https://github.com/hypit-ai/hypit). Use when changing Lumen Studio, AI
-  elements, effects, sliders, captions, voice, music, the Hypit prompt, or a
-  video in lumen-fix. Do not hand-edit application code.
+  Build the Lumen-fix prompt constructor for open-source Hypit
+  (https://github.com/hypit-ai/hypit). Use when changing Lumen Studio, the
+  Hypit prompt, AI elements, effects, sliders, captions, voice, music, or a
+  video render in lumen-fix.
 ---
 
-# Конструктор промпта Lumen-fix
+# Lumen-fix prompt constructor
 
-Код руками не правим. Lumen-fix — конструктор промпта для открытого Hypit
-(`https://github.com/hypit-ai/hypit`). В интерфейсе Lumen Studio
-модифицируются AI-элементы. Каждый такой элемент попадает в финальный промпт.
-Hypit собирает видео из этого промпта.
+Lumen-fix develops the prompt constructor for open-source Hypit
+(`https://github.com/hypit-ai/hypit`). Hypit generates the video from that one
+prompt. Lumen Studio is the interface where AI elements are edited. Every AI
+element a person can change in Lumen Studio must land in the final prompt.
 
-## Что делать
+## What to change
 
-- Менять AI-элемент в Studio: ползунок, «Эффекты», субтитры, голос, музыку,
-  замечание к монтажу, приём референса.
-- Этот элемент записать предложением в финальный промпт. Сохранённое значение
-  и фраза в промпте совпадают.
-- Элемент, которого нет в финальном промпте, не сделан.
+- Put a new or edited studio control into the constructor
+  (`backend/hypit_prompt.py` and the call that writes the prompt for Hypit).
+- The saved value on the project and the sentence in the final prompt must
+  match. Sliders, «Эффекты», captions, voice, music, picture notes, and the
+  reference treatment are all prompt inputs.
+- A control that only changes local CSS, a seek script, or a second renderer
+  is not finished. Hypit renders the prompt.
 
-## Чего не делать
+## What stays out of Lumen
 
-- Не править исходники, вёрстку, страницу кадра и рендерер руками.
-- Не собирать картинку отдельно от промпта: ни plate CSS, ни zoom, ни размер
-  шрифта, ни seek-script, ни нарезка таймлайна внутри `index.html`, ни второй
-  рендерер.
-- Не выдумывать факты. Не копировать кадры, лица и музыку референса.
+- Do not add a parallel composition engine: no plate CSS, zoom, font size,
+  seek-script geometry, or timeline cuts inside `index.html` as the picture.
+- Do not invent facts the host did not say. Do not copy reference footage,
+  faces, or music into the output.
+- Card pixel size is not an effect. Duration share and intensity are words in
+  the prompt.
 
-Доля длины и интенсивность — слова промпта. Размер карточки в пикселях — не
-элемент.
+## Done when
 
-## Готово
-
-В финальном промпте есть фраза изменённого AI-элемента, и готовое видео Hypit
-её показывает. Успешная задача или включённая кнопка этого не заменяют.
+The final prompt text contains the studio change, and the finished Hypit video
+shows it. A successful job or an enabled button is not enough.
