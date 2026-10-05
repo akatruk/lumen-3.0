@@ -117,16 +117,17 @@ def test_property_render_keeps_the_selected_file(client, monkeypatch):
     assert client.post(f'/api/studio/projects/{pid}/property/approve', json={'revision': revision}).status_code == 200
     request_id = uuid.uuid4().hex
 
-    def fake_invoke(work, job):
-        assert job['frameCount'] > 0
-        page = (work / 'index.html').read_text()
+    def fake_deliver(work):
+        page = (work / 'main.svml').read_text()
         assert 'Спальни: 3' in page
-        assert 'data-hypit-source-fps="30/1"' in page
-        assert 'desk@example.com' in (work / 'index.html').read_text()
-        assert 'reference_source' not in (work / 'index.html').read_text()
+        assert 'desk@example.com' in page
+        assert 'reference_source' not in page
+        assert 'data-hypit-start-frame' not in page
+        assert not (work / 'index.html').exists()
         ffmpeg('-i', work / 'cut.mp4', '-c', 'copy', work / 'visual.mp4')
+        return work / 'visual.mp4'
 
-    monkeypatch.setattr('backend.hypit_package.invoke', fake_invoke)
+    monkeypatch.setattr('backend.hypit_picture.deliver', fake_deliver)
     queued = client.post(f'/api/studio/projects/{pid}/property/render', json={'revision': revision, 'request_id': request_id})
     assert queued.status_code == 200, queued.text
     render_id = queued.json()['render_id']
@@ -168,10 +169,10 @@ def test_property_render_keeps_the_selected_file(client, monkeypatch):
     next_revision = changed.json()['plan_revision']
     assert client.post(f'/api/studio/projects/{pid}/property/approve', json={'revision': next_revision}).status_code == 200
 
-    def fail_invoke(work, job):
+    def fail_deliver(work):
         raise RuntimeError('hypit_unavailable')
 
-    monkeypatch.setattr('backend.hypit_package.invoke', fail_invoke)
+    monkeypatch.setattr('backend.hypit_picture.deliver', fail_deliver)
     failed = client.post(f'/api/studio/projects/{pid}/property/render', json={'revision': next_revision, 'request_id': uuid.uuid4().hex})
     assert failed.status_code == 200, failed.text
     failed_id = failed.json()['render_id']
@@ -245,15 +246,17 @@ def test_owned_music_logo_and_photo_reach_the_picture_and_an_illustration_does_n
     revision = planned.json()['plan_revision']
     assert client.post(f'/api/studio/projects/{pid}/property/approve', json={'revision': revision}).status_code == 200
 
-    def fake_invoke(work, job):
-        page = (work / 'index.html').read_text()
+    def fake_deliver(work):
+        page = (work / 'main.svml').read_text()
         assert 'logo.png' in page and 'photo.png' in page
         assert drawing not in page and 'Sketch' not in page
         assert (work / 'logo.png').is_file() and (work / 'photo.png').is_file()
         assert not (work / drawing).exists()
+        assert not (work / 'index.html').exists()
         ffmpeg('-i', work / 'cut.mp4', '-c', 'copy', work / 'visual.mp4')
+        return work / 'visual.mp4'
 
-    monkeypatch.setattr('backend.hypit_package.invoke', fake_invoke)
+    monkeypatch.setattr('backend.hypit_picture.deliver', fake_deliver)
     queued = client.post(f'/api/studio/projects/{pid}/property/render', json={'revision': revision, 'request_id': uuid.uuid4().hex})
     assert queued.status_code == 200, queued.text
     render_id = queued.json()['render_id']
