@@ -663,50 +663,39 @@ def _graphic_markup(manual, duration, cyrillic_font):
     return imports, frames, spoken + '\n' + cards, film
 
 
-def _bound_request(manual, duration):
-    """Put the short request on the film when the picture has no spoken script.
+def _edit_seconds(duration):
+    """Seedance 2.5 takes a whole-second duration from 4 through 30."""
+    try:
+        seconds = int(round(float(duration)))
+    except (TypeError, ValueError):
+        seconds = 30
+    return max(4, min(30, seconds))
 
-    An unreferenced ``text:Value`` is dropped by the build, and the video is
-    then only the source footage. Create video sends no captions, so this
-    binding is what carries the request into the picture.
+
+def _prompt_edit(manual, duration):
+    """The request is the generation prompt. It is not a caption on the frame.
+
+    Seedance reads ``prompt={request}`` and the uploaded videos. A comment
+    sticker would draw that sentence across the host. The package import
+    belongs in the leading Import Prologue; Hypit rejects an import that
+    follows the script body.
     """
     if _cue_script(manual) or illustration_percent(manual) <= 0:
-        return '', '', '', ''
-    _coverage, span = _presence_seconds(manual)
-    windows = _graphic_windows(span, duration)
-    if not windows:
-        return '', '', '', ''
-    imports = (
-        '  <import as="fonts" from="@hypit/fonts-open@1"/>\n'
-        '  <import as="comment" from="@hypit/comment-sticker@1"/>\n'
+        return '', '', '{footage}'
+    seconds = _edit_seconds(duration)
+    package = '  <import as="seedance" from="@hypit/seedance@1"/>\n'
+    markup = (
+        '  <media:Video id="edit-source" src="./src video 2"/>\n'
+        '  <media:Video id="style-reference" src="./reference video"/>\n'
+        '  <media:Video id="style-reference-2" src="./reference video 2"/>\n'
+        f'  <seedance:ReferenceVideo id="edited" model="2.5" prompt={{request}} '
+        f'duration="{seconds}" resolution="720p" aspect-ratio="9:16" generate-audio="false">\n'
+        '    <seedance:Reference video={edit-source} person-reference="true"/>\n'
+        '    <seedance:Reference video={style-reference} person-reference="true"/>\n'
+        '    <seedance:Reference video={style-reference-2} person-reference="true"/>\n'
+        '  </seedance:ReferenceVideo>\n'
     )
-    frames = (
-        '  <space:Frame id="request-frame" within={vertical} '
-        'left="8%" top="14%" right="86%" bottom="42%"/>\n'
-    )
-    if windows == 'program':
-        stickers = (
-            '    <comment:Sticker id="request-card" comment={request} '
-            'frame={request-frame} style={request-style} during="program"/>'
-        )
-    else:
-        stickers = '\n'.join(
-            f'    <comment:Sticker id="request-card-{index}" comment={{request}} '
-            f'frame={{request-frame}} style={{request-style}} '
-            f'at="{_clock_ms(start_ms)}" for="{_clock_ms(length_ms)}"/>'
-            for index, (start_ms, length_ms) in enumerate(windows, start=1)
-        )
-    graphic = (
-        '  <fonts:Stack id="caption-font" family="noto-sans" weight="700" style="normal">\n'
-        '    <fonts:Fallback family="noto-sans-sc" weight="700" style="normal"/>\n'
-        '  </fonts:Stack>\n'
-        '  <comment:Style id="request-style" recipe={recipes.comment.card} font={caption-font}/>\n'
-        '  <comment:Track id="request-cards" canvas={vertical} timeline={speech.timeline}>\n'
-        f'{stickers}\n'
-        '  </comment:Track>\n'
-    )
-    film = '    <film:Track source={request-cards.track}/>\n'
-    return imports, frames, graphic, film
+    return package, markup, '{edited.video}'
 
 
 def author_source(edit, width, height, board=None, language=None, voiceover=False, reference=None, style=None, duration=None, cyrillic_font=None):
@@ -721,12 +710,7 @@ def author_source(edit, width, height, board=None, language=None, voiceover=Fals
     program = _program_seconds(manual, duration)
     clock = _capture_rate(program)
     imports, frames, graphic, film_graphic = _graphic_markup(manual, program, cyrillic_font)
-    if not script:
-        bound_imports, bound_frames, bound_graphic, bound_film = _bound_request(manual, program)
-        imports += bound_imports
-        frames += bound_frames
-        graphic += bound_graphic
-        film_graphic += bound_film
+    edit_import, edit, picture = _prompt_edit(manual, program)
     svml = f'''{_MARKUP}
 
 <svml>
@@ -742,20 +726,19 @@ def author_source(edit, width, height, board=None, language=None, voiceover=Fals
   <import as="film" from="@hypit/film@1"/>
   <import as="render" from="@hypit/render-hyperframes@1"/>
   <import as="recipes" source="./recipes.svs"/>
-{imports}
-
+{imports}{edit_import}
   <script id="story">
     <picture>{script}</picture>
   </script>
   <text:Value id="request">{request}</text:Value>
 
-  <media:Video id="footage" src="./source.mp4"/>
+{edit}  <media:Video id="footage" src="./source.mp4"/>
   <space:Canvas id="vertical" width="{width}" height="{height}"/>
   <program:Clock id="clock" frame-rate="{clock}"/>
   <space:Frame id="speech-frame" within={{vertical}} left="0%" top="0%" right="100%" bottom="100%"/>
 {frames}
 
-  <pipeline:Normalize id="footage-media" source={{footage}}
+  <pipeline:Normalize id="footage-media" source={picture}
     video="primary-moving" audio="default" span-authority="video" clock={{clock}}/>
   <whisperx:SemanticTake id="picture-semantic" narrative={{story}}
     segment={{story.segment.picture}} media={{footage-media.media}}{language_attr}/>
