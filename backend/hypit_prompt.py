@@ -69,6 +69,15 @@ def _spoken_script(manual):
         text = text.replace('<', '').replace('>', '')
         if text and text != '口播':
             lines.append(text)
+    for clip in (manual or {}).get('clips') or []:
+        if not isinstance(clip, dict):
+            clip = clip.model_dump() if hasattr(clip, 'model_dump') else {}
+        if clip.get('approved', True) is False:
+            continue
+        text = ' '.join(str(clip.get('text') or '').split()).replace('{', '').replace('}', '')
+        text = text.replace('<', '').replace('>', '')
+        if text and text != '口播' and text not in lines:
+            lines.append(text)
     return ' || '.join(lines)
 
 
