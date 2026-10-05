@@ -40,7 +40,7 @@ _RETIRED_SURFACE = re.compile(
     r'projects/[^/]+/render|'
     r'studio/soundtracks/[^/]+/favorite|'
     r'studio/projects/[^/]+/(?:'
-    r'manual(?:/.*)?|effect-board|plan|render|property(?:/.*)?|'
+    r'manual(?:/.*)?|effect-board|plan|render|'
     r'creative-plans(?:/.*)?|dubbing(?:/.*)?|music-plans(?:/.*)?|'
     r'final-music(?:/.*)?|stock(?:/.*)?|alternatives(?:/.*)?|style-match(?:/.*)?|'
     r'soundtracks/[^/]+|assets/[^/]+/rhythm'
