@@ -17,6 +17,9 @@ from pathlib import Path
 from .media import ffmpeg, run
 
 log = logging.getLogger('lumen.hypit')
+# A 63-second software-Chrome film with a full sticker pass was still
+# encoding past one hour. Three hours is the local capture ceiling.
+LOCAL_RENDER_TIMEOUT_S = 3 * 60 * 60
 FPS = 30
 SCRIPT = Path(__file__).resolve().parent / 'hypit_render.mjs'
 _LEAK = re.compile(
@@ -110,7 +113,7 @@ def spawn(argv, env):
     work = str(Path(argv[-1]).resolve().parent)
     try:
         subprocess.run(
-            argv, check=True, env=env, timeout=70 * 60, cwd=work,
+            argv, check=True, env=env, timeout=LOCAL_RENDER_TIMEOUT_S, cwd=work,
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, errors='replace',
         )
@@ -168,7 +171,7 @@ def _software_chrome(work, chrome):
 
 
 def _runtime_profile(work):
-    """Local capture, plus hosted Seedance for the graphic that reads the prompt."""
+    """Local capture. The graphic is drawn on this machine."""
     chrome = _chrome()
     # This host has no GPU. Hardware ANGLE/EGL closed the target. Software
     # SwiftShader is selected, and the wrapper drops ``--disable-gpu`` and
@@ -183,7 +186,7 @@ def _runtime_profile(work):
             'workers': 1,
             'defaultConcurrency': 1,
             'browserGpu': 'software',
-            'processTimeoutMs': 55 * 60 * 1000,
+            'processTimeoutMs': LOCAL_RENDER_TIMEOUT_S * 1000,
             'maxDecodedSourceBytes': 64 * 1024 * 1024,
             'maxPendingFrameBytes': 32 * 1024 * 1024,
         },
@@ -203,20 +206,9 @@ def _runtime_profile(work):
                 'use': '@hypit/provider-whisperx-local',
                 'config': {'alignmentLanguages': ['zh', 'en', 'ru']},
             },
-            'hypihub.default': {
-                'use': '@hypit/provider-hypihub',
-                'pool': 'hypihub.default',
-                'config': {
-                    'baseUrl': 'https://hypit.ai',
-                    'apiKey': {'store': 'platform', 'key': 'hypihub.oauth'},
-                    'defaultConcurrency': 1,
-                    'pollIntervalMs': 10000,
-                },
-            },
         },
         'bindings': {
             '@hypit/whisperx@1#whisperx-alignment': 'whisperx.local',
-            '@hypit/seedance@1#seedance-2.5': 'hypihub.default',
         },
     }
     path = Path(work) / 'hypit.runtime.json'
@@ -238,6 +230,12 @@ def _alignment_ready():
 def deliver(work):
     """Build the one prompt and write visual.mp4. The source is not spliced."""
     work = Path(work)
+    if os.environ.get('LUMEN_HYPIT_GPU') == '1':
+        from .hypit_gpu import film
+        visual = film(work)
+        if not visual.is_file() or visual.stat().st_size < 32:
+            raise RuntimeError('hypit_unavailable')
+        return visual
     binary = _root() / 'bin' / 'hypit.mjs'
     if not binary.is_file():
         raise RuntimeError('hypit_unavailable')
@@ -245,7 +243,7 @@ def deliver(work):
     env = os.environ.copy()
     env['HYPIT_ROOT'] = str(_root())
     from .config import settings
-    home = Path(settings.data_dir) / 'hypit-home'
+    home = Path(settings.data_dir).parent / 'hypit-home'
     home.mkdir(parents=True, exist_ok=True)
     env['HOME'] = str(home)
     env['XDG_CACHE_HOME'] = str(home / '.cache')
@@ -260,7 +258,7 @@ def deliver(work):
         try:
             return subprocess.run(
                 [node, str(binary), *args, '--workspace', str(work)],
-                check=True, cwd=str(work), env=env, timeout=70 * 60,
+                check=True, cwd=str(work), env=env, timeout=LOCAL_RENDER_TIMEOUT_S,
                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True, errors='replace',
             )
@@ -347,30 +345,8 @@ def _video_program_seconds(path):
         return 0.0
 
 
-def _seedance_reference(source, dest):
-    """First 24 seconds of picture, video only, inside the 2–30 second reference window."""
-    duration = _video_program_seconds(source)
-    if duration <= 0:
-        raise RuntimeError('media_processing_failed')
-    span = min(24.0, duration)
-    if span < 2.05:
-        ffmpeg(
-            '-i', source, '-an', '-map', '0:v:0',
-            '-vf', f'tpad=stop_mode=clone:stop_duration={2.05 - span:.3f}',
-            '-t', '2.05',
-            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
-            '-movflags', '+faststart', dest, timeout=180,
-        )
-        return
-    ffmpeg(
-        '-i', source, '-an', '-map', '0:v:0', '-t', f'{span:.3f}',
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
-        '-movflags', '+faststart', dest, timeout=180,
-    )
-
-
 def render_picture(source, folder, manual, width, height, metadata, asset_paths=None, language='en', board=None, voiceover=False):
-    """Film the source. Hosted Seedance reads the hand prompt for the first 24 seconds."""
+    """Film the source. LUMEN_HYPIT_GPU sends the capture to the RTX 4090."""
     clips = [dict(clip) for clip in manual['clips'] if clip.get('approved', True)]
     if not clips:
         raise RuntimeError('hypit_unavailable')
@@ -380,7 +356,7 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
             raise ValueError('asset_not_found')
     work = Path(folder) / 'hypit'
     work.mkdir(parents=True, exist_ok=True)
-    from .hypit_prompt import author_source, write_author
+    from .hypit_prompt import animation_shots, author_source, write_author
     duration = _picture_cut(source, work, clips, width, height)[1]
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
@@ -396,8 +372,15 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     program = _video_program_seconds(work / 'source.mp4')
     if program <= 0:
         program = duration
-    _seedance_reference(work / 'source.mp4', work / 'host-reference.mp4')
     write_author(work, author_source(manual, width, height, board, language, voiceover=voiceover, duration=program))
+    motion = work / 'motion'
+    motion.mkdir(exist_ok=True)
+    (motion / 'plan.json').write_text(json.dumps({
+        'width': width,
+        'height': height,
+        'shots': animation_shots(manual, program),
+    }, ensure_ascii=False))
+    shutil.copy(Path(__file__).resolve().parent / 'hypit_figures.py', work / 'hypit_figures.py')
     page = work / 'index.html'
     if page.is_file():
         page.unlink()

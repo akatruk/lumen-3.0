@@ -2,6 +2,7 @@
 import inspect
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -17,6 +18,25 @@ from backend.worker import render_job
 T = {'en': 'Synthetic fixture, not AI analysis', 'zh': '合成测试素材，非 AI 分析'}
 
 
+def test_gpu_flag_films_on_the_remote_runtime(tmp_path, monkeypatch):
+    """The web capture leaves this machine only when the worker flag is set."""
+    monkeypatch.setenv('LUMEN_HYPIT_GPU', '1')
+    seen = {}
+
+    def film(work):
+        seen['work'] = Path(work)
+        visual = Path(work) / 'visual.mp4'
+        visual.write_bytes(b'x' * 64)
+        return visual
+
+    monkeypatch.setattr('backend.hypit_gpu.film', film)
+    from backend.hypit_picture import deliver
+    out = deliver(tmp_path)
+    assert seen['work'] == tmp_path
+    assert out == tmp_path / 'visual.mp4'
+    assert out.stat().st_size == 64
+
+
 def test_picture_runtime_asks_for_software_gpu(tmp_path, monkeypatch):
     """A GPU-less host must not inherit HyperFrames' hardware default."""
     monkeypatch.delenv('HYPIT_CHROME', raising=False)
@@ -29,6 +49,7 @@ def test_picture_runtime_asks_for_software_gpu(tmp_path, monkeypatch):
     assert picture['config']['defaultConcurrency'] == 1
     assert picture['config']['maxDecodedSourceBytes'] == 64 * 1024 * 1024
     assert picture['config']['maxPendingFrameBytes'] == 32 * 1024 * 1024
+    assert picture['config']['processTimeoutMs'] == 3 * 60 * 60 * 1000
 
 
 def test_software_chrome_strips_blank_screenshot_flags(tmp_path, monkeypatch):
@@ -139,7 +160,7 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     result = render(src, tmp_path, probe(src), analysis, [], 'zh', 'original', manual=edit, picture_engine='hypit')
     prompt = seen['prompt']
     assert '<render:Video id="final"' in prompt and 'src="./source.mp4"' in prompt
-    assert 'Анимация 40%  ведущий' in prompt
+    assert 'Доля анимации — 60%' in prompt
     assert 'Будет добавлена анимация' not in prompt
     assert '三名股东开会' in prompt and '法人代表' in prompt and '董事权限' in prompt
     assert '口播' not in prompt and 'Shareholders' not in prompt and 'Governance logic also differs' not in prompt
@@ -157,9 +178,10 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert (tmp_path / 'animation-share.txt').read_text() == '100'
     from backend.hypit_prompt import author_source
     quiet = author_source({**edit, 'card_motion': 0}, 160, 240)
-    assert 'Анимация 40%  ведущий' in quiet and 'for="24s"' in quiet and 'prompt={request}' in quiet
+    assert 'Доля анимации — 0%' in quiet and 'seedance' not in quiet and '三名股东开会' in quiet
     mid = author_source({**edit, 'card_motion': 10}, 160, 240)
-    assert 'Анимация 40%  ведущий' in mid and 'Будет добавлена анимация' not in mid
+    assert 'Доля анимации — 10%' in mid and 'Будет добавлена анимация' not in mid
+    assert '3–5 секунд' in mid and 'фигурами профессиональной анимации' in mid
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
@@ -257,7 +279,7 @@ def test_picture_quality_keeps_the_speech_on_an_assembled_piece(tmp_path, monkey
     assert {item['codec_type'] for item in streams} == {'video', 'audio'}
 
 
-def test_the_hand_prompt_ignores_sliders_and_a_stored_brief():
+def test_the_hand_prompt_uses_the_sliders_and_ignores_a_stored_brief():
     from backend.hypit_prompt import illustration_request, picture_prompt, plan
     from backend.manual import Edit
 
@@ -270,9 +292,14 @@ def test_the_hand_prompt_ignores_sliders_and_a_stored_brief():
         'presentation_prompt': 'make ilustration 50% from all time video',
         'animation_prompt': 'Будет добавлена анимация',
     })
-    assert picture_prompt(edit.model_dump()) == illustration_request()
+    sentence = picture_prompt(edit.model_dump())
+    assert sentence == illustration_request(edit.model_dump())
+    assert 'Доля анимации — 20%' in sentence
+    assert 'Движение — 60%' in sentence
+    assert 'Визуальная плотность — 80%' in sentence
+    assert 'make ilustration' not in sentence
     stored = plan(edit)
-    assert stored.presentation_prompt == illustration_request()
+    assert stored.presentation_prompt == illustration_request(edit)
     assert stored.animation_prompt == ''
     assert stored.presentation == []
     with pytest.raises(Exception):
@@ -280,7 +307,7 @@ def test_the_hand_prompt_ignores_sliders_and_a_stored_brief():
 
 
 def test_create_video_without_captions_still_films_the_short_request():
-    """The sentence is an input Seedance reads. A lone text value is not the film."""
+    """The sentence stays in the text value. Local cards film the spoken lines."""
     from backend.hypit_prompt import author_source
 
     bare = {
@@ -291,17 +318,19 @@ def test_create_video_without_captions_still_films_the_short_request():
     half = author_source({**bare, 'card_motion': 50}, 720, 1280, duration=63.466667)
     quiet = author_source({**bare, 'card_motion': 0}, 720, 1280, duration=63.466667)
     from backend.hypit_prompt import illustration_request
-    request = illustration_request()
-    assert request in full and 'source={footage}' in full
-    assert 'seedance:ReferenceVideo' in full and 'prompt={request}' in full
-    assert 'comment={request}' not in full and 'comment:Sticker' not in full
+    assert illustration_request({**bare, 'card_motion': 100}) in full and 'source={footage}' in full
+    assert 'Доля анимации — 100%' in full and 'for="60s"' in full
+    assert 'seedance' not in full and 'comment:Sticker' not in full
+    assert 'фигурами профессиональной анимации' in full and '3–5 секунд' in full
     assert 'src="./source.mp4" media-type="video/mp4"' in full
-    assert 'duration="30"' not in full and 'media-type="video"' not in full
+    assert 'media-type="video"' not in full
     assert 'Будет добавлена анимация' not in full and 'без склейки из кусков' not in full
     assert 'Субтитры средние' not in full and 'Рост — стрелка вверх' not in full
-    assert request in half and 'source={footage}' in half
-    assert 'duration="30"' not in half and 'comment={request}' not in half
-    assert request in quiet and 'prompt={request}' in quiet
+    assert illustration_request({**bare, 'card_motion': 50}) in half and 'source={footage}' in half
+    assert 'Доля анимации — 50%' in half and 'for="30s"' in half
+    assert 'seedance' not in half and 'comment={request}' not in half
+    assert illustration_request({**bare, 'card_motion': 0}) in quiet and 'seedance' not in quiet
+    assert 'Доля анимации — 0%' in quiet and 'ColorWash' not in quiet
     assert 'comment:Sticker' not in quiet and 'source={footage}' in quiet
 
 
@@ -323,29 +352,34 @@ def test_stored_english_prompt_cannot_override_the_filmed_sentence():
             {'start': 8.5, 'end': 19.5, 'zh': '注册资本', 'original': '注册资本'},
         ],
     }
-    assert picture_prompt(edit) == illustration_request()
+    assert picture_prompt(edit) == illustration_request(edit)
     assert 'make ilustration' not in picture_prompt(edit)
     text = author_source(edit, 720, 1280, duration=63.4)
     start = text.find('id="request">')
     value = text[start + len('id="request">'):text.find('</text:Value>', start)]
-    assert value == illustration_request()
-    assert 'Анимация 40%  ведущий' in value
-    assert 'Эффекты: color, glow, shadow' in value
-    assert 'Переходы: растворение, шторка, круг' in value
-    assert 'Музыка −24 дБ' in value
+    assert value.startswith('Исходное видео и лицо остаются резкими')
+    assert 'На графике только эти сказанные фразы' not in value
+    assert '注册资本' not in value
+    assert 'Доля анимации — 40%' in value
+    assert 'for="24s"' in text
+    assert 'каждый отрезок в разных углах' in value
+    assert 'ведущий на весь кадр' in value
+    assert 'в итоге: кинематографичную моушн-графика' in value
     assert 'make ilustration' not in text
-    assert 'prompt={request}' in text and 'seedance:ReferenceVideo' in text
+    assert 'seedance' not in text and '注册资本' in text
+    assert 'src="./motion/1.mp4"' in text
+    assert '3–5 секунд' in value and 'фигурами профессиональной анимации' in value
     assert 'графика сказанного.' not in value and 'Субтитры средние' not in text
     assert 'Рост — стрелка вверх' not in text
-    assert 'Один ролик' not in text.split('</text:Value>', 1)[-1]
-    assert 'comment:Sticker' not in text and 'ColorWash' not in text
+    assert 'Сними один' not in text.split('</text:Value>', 1)[-1]
+    assert 'media-track:Item' in text and 'ColorWash' in text
     assert 'hypit.ai' not in text
     assert 'src="./source.mp4"' in text and 'frame-rate="30"' in text
     assert edit['presentation_prompt'] == english
 
 
-def test_the_hand_sentence_is_referenced_by_generation():
-    """Fails when the sentence sits in a text value that nothing reads."""
+def test_the_hand_sentence_stays_in_the_author_source():
+    """The sentence is the text value. Local Hypit films the source and the cards."""
     from backend.hypit_prompt import author_source, illustration_request
 
     sentence = illustration_request()
@@ -354,9 +388,191 @@ def test_the_hand_sentence_is_referenced_by_generation():
         'captions': [],
     }, 720, 1280, duration=63.466667)
     assert sentence in text
-    assert 'prompt={request}' in text
-    assert '3D графика и move анимация сказанного' in sentence
+    assert 'seedance' not in text and '3–5 секунд' in sentence
+    assert 'в углу (каждый отрезок в разных углах)' in sentence
     assert 'make ilustration' not in text
     assert 'Субтитры средние' not in text
     assert 'Рост — стрелка вверх' not in text
     assert sentence not in text.split('</text:Value>', 1)[-1]
+
+
+_CHINA = (
+    '再看出资节奏，中国认缴时间弹性很大，泰国则要求实缴部分资本，'
+    '银行开户、工作证、签证申请都会盯着资金到位情况'
+)
+
+
+def _density_markup(density, line=_CHINA, captions=None, motion=100, duration=40):
+    from backend.hypit_prompt import author_source
+
+    manual = {
+        'clips': [{'start': 0, 'end': duration}],
+        'captions': captions or [{'start': 1.0, 'end': 18.0, 'zh': line}],
+        'card_motion': motion,
+        'animation_density': density,
+    }
+    return author_source(manual, 720, 1280, duration=duration)
+
+
+def _sticker_bodies(markup):
+    return re.findall(r'<comment:Sticker\b[^>]*>(.*?)</comment:Sticker>', markup)
+
+
+def _motion_parts(markup):
+    import html
+    import json
+    parts = []
+    for raw in re.findall(r'<text:Value id="motion-\d+">(.*?)</text:Value>', markup):
+        parts.extend(json.loads(html.unescape(raw)))
+    return parts
+
+
+def test_every_phrase_keeps_every_figure_and_a_short_fragment():
+    """Commas do not drop the arrow, the scale, or the link. The digit is a spoken number or a step count."""
+    from backend.hypit_figures import scene_state
+    from backend.hypit_prompt import animation_shots, illustration_request
+
+    sentence = illustration_request()
+    assert 'На каждую сказанную фразу, пока она в доле анимации, ставь всё сразу' in sentence
+    assert 'Это не выбор одного пункта' in sentence
+    assert 'Запятые во фразе не отменяют стрелку, шкалу и связь' in sentence
+    assert 'шкала считает сами шаги и ничего не выдумывает' in sentence
+    assert '3\u20135 секунд' in sentence
+    assert 'ведущий — в углу' in sentence
+    assert 'Не придумывай цену, площадь, этаж, доходность' in sentence
+    line = '再看出资节奏，中国认缴时间弹性很大，泰国则要求实缴部分资本，银行开户、工作证、签证申请都会盯着资金到位情况'
+    shots = animation_shots({
+        'captions': [{'start': 1, 'end': 18, 'zh': line}],
+        'card_motion': 100,
+        'animation_density': 70,
+    }, 40)
+    shot = shots[0]
+    assert shot['format'] == 'type' and shot['kind'] == 'type' and abs(shot['span'] - 17) < 0.05
+    assert shot['fragment_s'] == 5 and shot['number'] == ''
+    assert shot['motif'] in {'documents', 'path', 'stamp', 'doorway'}
+    early = scene_state(shot, 0.5)
+    mid = scene_state(shot, 3)
+    late = scene_state(shot, 5)
+    assert early['format'] == 'type'
+    assert scene_state(shot, 1.0)['travel'] < 0.55
+    assert late['travel'] > mid['travel'] > early['travel']
+    assert late['travel'] < 1
+    assert '%' not in early['figure'] and '%' not in ''.join(early['ticks'])
+    numbered = animation_shots({
+        'captions': [{'start': 1, 'end': 8, 'zh': '外资比例一般是不超过49%'}],
+        'card_motion': 100,
+    }, 40)[0]
+    marked = scene_state(numbered, 0.5)
+    assert numbered['format'] == 'number'
+    assert numbered['number'] == '49%' and marked['figure'] == '49%' and marked['ticks'] == ['49%']
+
+
+def test_neighboring_phrases_change_the_scene():
+    """The next phrase is not another copy of the same card stack."""
+    from backend.hypit_prompt import _SCENE_FORMATS, animation_shots
+
+    shots = animation_shots({
+        'captions': [
+            {'start': 1, 'end': 6, 'zh': '移居、第二居留权'},
+            {'start': 7, 'end': 12, 'zh': '目标和预算'},
+            {'start': 13, 'end': 18, 'zh': '文件准备'},
+        ],
+        'card_motion': 100,
+    }, 40)
+    formats = [shot['format'] for shot in shots]
+    assert len(formats) == 3
+    assert all(left != right for left, right in zip(formats, formats[1:]))
+    assert set(formats) <= set(_SCENE_FORMATS)
+
+
+def test_steps_keep_moving_until_the_phrase_ends():
+    """The arrow between steps is still traveling at the middle of the phrase."""
+    from backend.hypit_figures import _reveal
+    assert _reveal(1, 180, 0, 4) > 0
+    assert _reveal(1, 180, 3, 4) == 0
+    assert _reveal(90, 180, 3, 4) < 1
+    assert _reveal(179, 180, 3, 4) == 1
+
+
+def test_each_spoken_line_in_the_window_gets_its_own_figure():
+    """Two phrases become two new clips. The number on the figure is one the host said."""
+    from backend.hypit_prompt import author_source
+    markup = author_source({
+        'clips': [{'start': 0, 'end': 40}],
+        'captions': [
+            {'start': 1, 'end': 8, 'zh': '外资比例一般是不超过49%'},
+            {'start': 10, 'end': 18, 'zh': '至少三名股东'},
+        ],
+        'card_motion': 100,
+    }, 720, 1280, duration=40)
+    assert 'src="./motion/1.mp4"' in markup and 'src="./motion/2.mp4"' in markup
+    assert '49%' in markup and '三' in markup
+    assert 'seedance' not in markup
+    assert 'media={motion-1-media.media}' in markup
+    assert 'appearance={recipes.media.motion}' in markup
+
+
+def test_density_films_more_spoken_clause_cards():
+    """A higher density films more clauses of the same line. Seventy is past the old cap of three."""
+    low = _density_markup(20)
+    high = _density_markup(70)
+    packed = _density_markup(100)
+    low_bodies = _motion_parts(low)
+    high_bodies = _motion_parts(high)
+    packed_bodies = _motion_parts(packed)
+    assert low_bodies == ['再看出资节奏']
+    assert len(high_bodies) > len(low_bodies)
+    assert len(high_bodies) > 3
+    assert high_bodies[:2] == ['中国认缴时间弹性很大', '泰国则要求实缴部分资本']
+    assert '再看出资节奏' in high_bodies and '银行开户' in high_bodies
+    assert '工作证' not in high_bodies and '签证申请都会盯着资金到位情况' not in high_bodies
+    assert len(packed_bodies) > len(high_bodies)
+    assert len(packed_bodies) == 6
+    assert 'Визуальная плотность — 20%' in low
+    assert 'Визуальная плотность — 70%' in high
+    assert 'seedance' not in high and '3–5 секунд' in high
+    assert 'Сними один' not in high.split('</text:Value>', 1)[-1]
+    assert '↑' not in ''.join(high_bodies) and '↓' not in ''.join(high_bodies)
+    assert 'src="./motion/1.mp4"' in high and 'media-track:Item' in high
+    short = _motion_parts(_density_markup(70, '注册资本认缴，股东责任分开'))
+    assert len(short) == 2
+    repeated = _motion_parts(_density_markup(70, '银行开户单独办，银行开户单独办，签证随后办理'))
+    assert repeated == ['银行开户单独办', '签证随后办理']
+
+
+def test_graphic_window_keeps_the_late_phrase_off_the_cards():
+    """Animation 60% films the first 36s of the minute. The later phrase stays the host."""
+    line = '管理逻辑也不同，中国强调法人代表，泰国更看重的是董事权限，很多法律文件只认董事签字不看公章。'
+    markup = _density_markup(70, captions=[
+        {'start': 1.0, 'end': 18.0, 'zh': _CHINA},
+        {'start': 47.0, 'end': 56.5, 'zh': line},
+    ], motion=60, duration=63.4)
+    bodies = _motion_parts(markup)
+    assert len(bodies) > 3
+    assert not any('管理逻辑' in body for body in bodies)
+    assert 'for="36s"' in markup
+    assert 'кинематографичную моушн-графика' in markup
+    assert 'stack-order: 48' in markup
+
+
+def test_two_cinematic_cards_land_on_host_only_lines_before_the_source_card():
+    """The closing host-only line keeps the source card. The two lines before it get the same dark card."""
+    markup = _density_markup(70, captions=[
+        {'start': 39.0, 'end': 44.5, 'zh': '很多人所说的直通泳池，是中间有一段公共的距离的'},
+        {'start': 44.5, 'end': 50.5, 'zh': '这种的话，其实我觉得直通泳池反而不是个优点'},
+        {'start': 50.5, 'end': 58.5, 'zh': '而且你也不能这种直接跳进泳池'},
+        {'start': 96.0, 'end': 103.0, 'zh': '其中的话亚马逊它有一个弱点，就是它没有地下层，没有地下停车库'},
+        {'start': 103.0, 'end': 110.0, 'zh': '所以它相对杜斯特来说它会更潮湿一点。但是这个杜斯特它有地下停车库'},
+        {'start': 110.0, 'end': 118.0, 'zh': '这是直通泳池非常重要的一点，所以这也是它在市场上放租放卖比较少的原因，因为很多人都惜售'},
+    ], motion=60, duration=162.2)
+    bodies = _sticker_bodies(markup)
+    assert '就是它没有地下层，没有地下停车库' in ''.join(bodies) or '其中的话亚马逊它有一个弱点，就是它没有地下层，没有地下停车库' in bodies
+    assert any('地下停车库' in body and '潮湿' in body for body in bodies)
+    assert not any('惜售' in body for body in bodies)
+    assert 'scene-style' in markup and 'comment.scene' in markup
+    assert 'кинематографичную моушн-графика' in markup
+    assert 'seedance' not in markup
+    assert '#7DFFC3' in markup
+    assert 'seedance' not in markup and '3–5 секунд' in markup
+    assert markup.split('id="request">', 1)[1].startswith('Исходное видео и лицо остаются резкими')
+    assert 'Сними один' not in markup.split('</text:Value>', 1)[-1]

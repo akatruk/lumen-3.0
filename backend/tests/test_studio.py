@@ -60,11 +60,11 @@ def test_revision_lock_and_render_snapshot(client):
  assert client.post('/api/studio/projects/'+pid+'/render',json={'revision':1}).status_code==409
  ds[0].update(approved=True,locked=True)
  assert client.put('/api/studio/projects/'+pid+'/plan',json={'revision':1,'decisions':ds}).status_code==409
- started=client.post('/api/studio/projects/'+pid+'/create-video',json={'illustration_percent':50})
+ started=client.post('/api/studio/projects/'+pid+'/create-video',json={'animation_percent':50,'intensity_percent':60,'motion_percent':80,'density_percent':70})
  assert started.status_code==200
  with connect() as db:
   payload=json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'",(pid,)).fetchone()[0])
- assert payload['illustration'] is True and payload['manual']['card_motion']==40
+ assert payload['illustration'] is True and payload['manual']['card_motion']==50
 
 def test_director_evidence_validation():
  p=plan();dna=[dict(reference_id='1234567890123456789',duration=20)]
@@ -158,3 +158,15 @@ def test_analysis_publishes_each_step_and_keeps_the_video_metadata(client,monkey
  assert item['status']=='ready' and item['progress']==100
  assert item['metadata']['duration']==40 and item['metadata']['preview_ready'] is True
  assert item['metadata']['activity']['step']=='director'
+
+
+def test_density_seventy_films_more_china_thailand_figures_than_twenty():
+    from backend.tests.test_hypit_picture import _density_markup, _motion_parts
+
+    line = '再看出资节奏，中国认缴时间弹性很大，泰国则要求实缴部分资本，银行开户、工作证、签证申请都会盯着资金到位情况'
+    low = _motion_parts(_density_markup(20, line))
+    high = _motion_parts(_density_markup(70, line))
+    assert len(low) == 1
+    assert len(high) > len(low)
+    assert len(high) > 3
+    assert '中国认缴时间弹性很大' in high and '泰国则要求实缴部分资本' in high

@@ -1959,7 +1959,7 @@ def attach_recommended_bed(pid, edit, studio):
 
 _ANIMATION_KEYS = (
     'card_motion', 'animation_intensity', 'animation_depth', 'animation_motion', 'animation_density', 'animation_inserts',
-    'host_language', 'subtitle_language', 'effects_language',
+    'language', 'host_language', 'subtitle_language', 'effects_language',
 )
 
 def _keep_animation(saved, edit):

@@ -649,7 +649,10 @@ dialog h2 {
 .create-video ul { list-style: none; margin: 8px 0 0; padding: 0; }
 .create-video li { padding: 8px 0; border-bottom: 1px solid #00000010; }
 .create-video label { display: flex; flex-direction: column; gap: 8px; font-weight: 600; }
-.create-video pre { white-space: pre-wrap; margin: 0; padding: 12px; border-radius: 12px; background: var(--soft); font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.create-video .create-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.create-video .language-switch { display: inline-flex; border: 1px solid #1d1d1f; border-radius: 999px; overflow: hidden; }
+.create-video .language-switch button { border: 0; border-radius: 0; background: transparent; color: #1d1d1f; min-height: 44px; padding: 10px 14px; font-weight: 600; }
+.create-video .language-switch button[aria-checked="true"] { background: #1d1d1f; color: #fff; }
 .ws-create-only .ws-grid { grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.9fr); }
 .project-workspace .ws-grid,
 .project-workspace .ws-inspector,

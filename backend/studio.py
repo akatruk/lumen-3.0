@@ -102,7 +102,11 @@ class RenderPlan(Strict):
     revision: int=Field(ge=1)
 
 class CreateVideo(Strict):
-    illustration_percent: int = Field(default=50, ge=0, le=100)
+    animation_percent: int = Field(default=60, ge=0, le=100)
+    intensity_percent: int = Field(default=60, ge=5, le=100)
+    motion_percent: int = Field(default=80, ge=0, le=100)
+    density_percent: int = Field(default=70, ge=0, le=100)
+    language: Literal['ru', 'en', 'zh'] | None = None
 
 def init(db):
     from .uploads import init as init_uploads
@@ -291,13 +295,53 @@ def render(pid:str,body:RenderPlan,request:Request,user=Depends(current_user)):
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?",(pid,))
     return {'ok':True}
 
+def _prompt_levels(body: CreateVideo):
+    """The four shares the create-video page sends. Each step is five."""
+    for name in ('animation_percent', 'intensity_percent', 'motion_percent', 'density_percent'):
+        if getattr(body, name) % 5:
+            raise HTTPException(422, 'animation_step')
+    return {
+        'card_motion': body.animation_percent,
+        'animation_intensity': body.intensity_percent,
+        'animation_motion': body.motion_percent,
+        'animation_density': body.density_percent,
+    }
+
+
+@router.get('/picture-prompt')
+def picture_prompt_preview(
+    animation_percent: int = 60,
+    intensity_percent: int = 60,
+    motion_percent: int = 80,
+    density_percent: int = 70,
+    language: Literal['ru', 'en', 'zh'] | None = None,
+    user=Depends(current_user),
+):
+    """The sentence the sliders will store. The page does not write another one."""
+    del user
+    try:
+        body = CreateVideo(
+            animation_percent=animation_percent,
+            intensity_percent=intensity_percent,
+            motion_percent=motion_percent,
+            density_percent=density_percent,
+            language=language,
+        )
+    except ValidationError:
+        raise HTTPException(422, 'animation_step') from None
+    levels = _prompt_levels(body)
+    if body.language:
+        levels['language'] = body.language
+    from .hypit_prompt import illustration_request
+    return {'prompt': illustration_request(levels)}
+
+
 @router.post('/projects/{pid}/create-video')
 def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(current_user)):
     """Enqueue one Hypit picture from the uploads already on the project."""
     from .app import rate_limit
     from .manual import Clip, Edit, check
-    if body.illustration_percent % 5:
-        raise HTTPException(422, 'illustration_percent_step')
+    levels = _prompt_levels(body)
     rate_limit(request, 'render', 12, 3600)
     p = owned(pid, user)
     duration = float((p.get('metadata') or {}).get('duration') or 0)
@@ -313,7 +357,6 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         from .hypit_prompt import illustration_request
         from .schemas import Caption
         from .sound_effects import DURATIONS, SoundEffect
-        prompt = illustration_request()
         captions = []
         for row in (s.get('plan') or {}).get('transcript') or []:
             try:
@@ -337,9 +380,18 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             clips=[Clip(start=0, end=duration, sound_effects=accents)],
             captions=captions, subtitles=bool(captions), font_size='medium', position='bottom', color='white',
             normalize=True, voice_cleanup=True, picture_quality=True,
-            card_motion=40, animation_intensity=60, animation_motion=80, animation_density=70,
-            presentation_prompt=prompt, music=music,
+            card_motion=levels['card_motion'],
+            animation_intensity=levels['animation_intensity'],
+            animation_motion=levels['animation_motion'],
+            animation_density=levels['animation_density'],
+            language=body.language,
+            host_language=body.language,
+            subtitle_language=body.language,
+            effects_language=body.language,
+            presentation_prompt='', music=music,
         )
+        prompt = illustration_request(edit)
+        edit = edit.model_copy(update={'presentation_prompt': prompt})
         check(edit, duration)
         enqueue(db, pid, 'studio_render', {
             'revision': s['revision'],
@@ -348,6 +400,7 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             'manual': edit.model_dump(),
             'quality_review': True,
             'illustration': True,
+            'language': body.language,
         })
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
     return {'ok': True}

@@ -172,7 +172,7 @@ class Edit(Strict):
     voice_cleanup: bool=False
     picture_quality: bool=False
     presentation_share: int=Field(default=0, ge=0, le=100)
-    presentation_prompt: str=Field(default='', max_length=12000)
+    presentation_prompt: str=Field(default='', max_length=200000)
     presentation: list[PresentationBeat]=Field(default_factory=list, max_length=16)
     card_motion: int=Field(default=100, ge=0, le=100)
     animation_intensity: int=Field(default=100, ge=5, le=100)
@@ -181,9 +181,12 @@ class Edit(Strict):
     animation_density: int=Field(default=100, ge=0, le=100)
     animation_inserts: int=Field(default=100, ge=0, le=100)
     animation_prompt: str=Field(default='', max_length=1200)
+    translate_all: bool=False
+    language: Literal['zh', 'ru', 'en'] | None=None
     host_language: Literal['zh', 'ru', 'en'] | None=None
     subtitle_language: Literal['zh', 'ru', 'en'] | None=None
     effects_language: Literal['zh', 'ru', 'en'] | None=None
+    host_frame: bool=False
     font_size: Literal['small','medium','large']='medium'
     position: Literal['bottom','top']='bottom'
     color: Literal['white','yellow']='white'
