@@ -16,6 +16,31 @@ def progress(pid,stage,value):
     update(pid,stage=stage,progress=value)
     event(pid,'stage',stage)
 
+def _dub_for_job(pid, payload, folder):
+    """Target-language speech for this rendition. The source recording stays untouched."""
+    from .dubbing_audio import localize_for_speech, synthesize
+    from .language import rendition_dir
+    from .rendition import materialize_speech, semantic_segments, store_rendition, translations_from_rows
+    locale = payload.get('target_language')
+    transcript = (payload.get('plan') or {}).get('transcript') or []
+    translations = translations_from_rows(transcript, locale)
+    if not translations:
+        translations = localize_for_speech(pid, semantic_segments(transcript), locale)
+
+    record = materialize_speech(
+        rendition_dir(settings.data_dir, pid, locale),
+        transcript,
+        locale,
+        synthesize,
+        translations=translations,
+        voice=payload.get('voice'),
+    )
+    store_rendition(rendition_dir(settings.data_dir, pid, locale), record)
+    if not (record.get('audio') or {}).get('file') and record.get('audioMode') != 'original':
+        raise ValueError('VOICE_SETUP_REQUIRED')
+    del folder
+    return record
+
 def analyze_job(p):
     pid=p['id']; folder=settings.data_dir/pid; source=folder/'source'
     update(pid,status='analyzing',error=None)
@@ -120,6 +145,18 @@ def render_job(p,payload):
             progress(pid,'drawing_graphics',22)
             manual=animate_for_render(manual)
             manual=present_for_render(manual)
+        if payload.get('dubbed'):
+            progress(pid,'preparing_voice',18)
+            record=_dub_for_job(pid, payload, render_folder)
+            manual=dict(manual)
+            if (record.get('audio') or {}).get('file'):
+                manual['dub_audio']=record['audio']['file']
+            code=payload.get('language') or 'en'
+            manual['captions']=[
+                {'start': segment['start'], 'end': segment['end'], 'original': segment['text'], code: segment['text']}
+                for segment in (record.get('alignment') or {}).get('segments') or []
+            ]
+            manual['subtitles']=bool(manual['captions'])
         if payload.get('illustration'):
             from .hypit_prompt import illustration_request
             manual=dict(manual)
@@ -165,7 +202,7 @@ def safe_error(exc):
     'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
-    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready',
+    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready','VOICE_SETUP_REQUIRED',
     'unverified_claim','property_not_approved','property_plan_changed','property_workflow','property_too_short','property_delivery_missing','reference_media_blocked','invalid_media_path','asset_not_found'}
     return str(exc) if str(exc) in allowed else 'processing_failed'
 

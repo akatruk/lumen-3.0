@@ -175,12 +175,19 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     pending = client.post(f'/api/studio/projects/{other_language}/create-video', json={
         'animation_percent': 60, 'language': 'en-US',
     })
-    assert pending.status_code == 422 and pending.json()['detail'] == 'target_voice_not_ready'
+    assert pending.status_code == 200 and pending.json()['ok'] is True
     with connect() as db:
-        assert db.execute(
-            "SELECT 1 FROM jobs WHERE project_id=? AND kind='studio_render'",
+        queued = db.execute(
+            "SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render'",
             (other_language,),
-        ).fetchone() is None
+        ).fetchone()
+    assert queued is not None
+    body = json.loads(queued[0])
+    assert body['dubbed'] is True
+    assert body['voice'] == 'en-male'
+    assert body['voice_resolution']['mode'] == 'dubbed'
+    assert body['voice_resolution']['path'] == 'project_default'
+    assert 'Выберите язык исходника' not in json.dumps(body, ensure_ascii=False)
 
 
 def test_effect_board_cannot_change_the_picture(client):

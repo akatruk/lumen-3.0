@@ -96,7 +96,7 @@ def test_source_transcript_is_not_replaced(tmp_path: Path):
 
 
 def test_voice_preview_needs_a_provider(monkeypatch):
-    monkeypatch.setattr("backend.config.settings.openrouter_api_key", "")
+    monkeypatch.delenv("RUNPOD_API_KEY", raising=False)
     with pytest.raises(LanguageError) as caught:
         preview_request("zh-CN")
     assert caught.value.code == "provider_not_configured"
@@ -111,3 +111,30 @@ def test_language_leak_in_the_spoken_script():
         prepare(ROWS, "ru-RU", {"segment_001": "Property Price stays in English here", "segment_002": "Цена"}, durations=[1, 1])
     assert caught.value.code == "language_leak"
     assert script_hash([{"id": "segment_001", "text": "a"}], "ru-male") == script_hash([{"id": "segment_001", "text": "a"}], "ru-male")
+
+
+def test_a_dub_follows_measured_speech_and_russian_stays_original(tmp_path):
+    from backend.media import ffmpeg
+    from backend.rendition import materialize_speech
+    calls = []
+
+    def synthesize(text, voice, dest):
+        calls.append((text, voice))
+        ffmpeg("-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-t", "1.25", "-c:a", "libmp3lame", dest)
+
+    rows = [{"start": 0.0, "end": 4.0, "original": "При покупке квартиры в первую очередь смотрите на локацию."}]
+    english = materialize_speech(
+        tmp_path / "en",
+        rows,
+        "en-US",
+        synthesize,
+        translations={"segment_001": "When buying a property, look at the location first."},
+    )
+    assert calls == [("When buying a property, look at the location first.", "en-male")]
+    assert english["audioMode"] == "tts"
+    assert english["alignment"]["segments"][0]["timing"] == "measured-duration"
+    assert english["alignment"]["segments"][0]["end"] < 3
+    assert english["voiceResolution"]["cloned"] is False
+    same = materialize_speech(tmp_path / "ru", rows, "ru-RU", synthesize)
+    assert same["audioMode"] == "original"
+    assert len(calls) == 1

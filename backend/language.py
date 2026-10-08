@@ -248,6 +248,78 @@ def voice_for(locale):
     return voice_id
 
 
+# Qwen3-TTS on lumen-web-gpu can clone from a reference clip. This app does not.
+CLONE_SUPPORTED = False
+
+
+def resolve_voice(*, speaker=None, source_language=None, target_language=None, voice=None):
+    """The voice for project.language. A different source language is a dub, not an error.
+
+    Speech is recorded on the RunPod pod lumen-web-gpu with Qwen3-TTS CustomVoice.
+    The speaker names are Ryan, Serena, Uncle_Fu and Vivian. A voice id belongs to
+    one language. Nothing here clones the source speaker or calls OpenRouter for audio.
+    """
+    from .dubbing_audio import VOICES
+    target = resolve_locale(target_language)
+    if not target:
+        raise LanguageError("unsupported_language", target_language)
+    try:
+        source = resolve_locale(source_language) if source_language else None
+    except LanguageError:
+        source = None
+    if source == target or not source:
+        return {
+            "status": "resolved",
+            "mode": "original",
+            "path": "original",
+            "voiceId": None,
+            "providerVoice": None,
+            "label": "Original speaker",
+            "cloned": False,
+        }
+    code = short_code(target)
+
+    def usable(voice_id):
+        item = VOICES.get(voice_id)
+        return bool(item and item["language"] == code)
+
+    chosen = None
+    path = None
+    mapped = ((speaker or {}).get("voices") or {}).get(target) or {}
+    explicit = voice or mapped.get("voiceId")
+    if usable(explicit):
+        chosen, path = explicit, "explicit"
+    elif CLONE_SUPPORTED and usable(((speaker or {}).get("clone") or {}).get(target)):
+        chosen, path = speaker["clone"][target], "clone"
+    elif usable(LANGUAGE_CONFIG[target]["voice"]):
+        chosen, path = LANGUAGE_CONFIG[target]["voice"], "project_default"
+    else:
+        for voice_id, item in VOICES.items():
+            if item["language"] == code:
+                chosen, path = voice_id, "application_default"
+                break
+    if not chosen:
+        return {
+            "status": "VOICE_SETUP_REQUIRED",
+            "mode": "dubbed",
+            "path": "VOICE_SETUP_REQUIRED",
+            "voiceId": None,
+            "providerVoice": None,
+            "label": None,
+            "cloned": False,
+        }
+    item = VOICES[chosen]
+    return {
+        "status": "resolved",
+        "mode": "dubbed",
+        "path": path,
+        "voiceId": chosen,
+        "providerVoice": item["voice"],
+        "label": item["name"],
+        "cloned": path == "clone",
+    }
+
+
 MOTION_IDS = (
     "kinetic_hook", "big_number", "progress_steps", "speaker_focus", "broll_caption",
     "timeline", "comparison", "split_screen", "checklist", "stat_reveal",

@@ -21,6 +21,23 @@ HOOKS = {
 }
 
 
+def test_a_different_language_is_a_dub_not_an_error():
+    from backend.language import resolve_voice
+    same = resolve_voice(source_language="ru-RU", target_language="ru-RU")
+    assert same["mode"] == "original" and same["voiceId"] is None
+    english = resolve_voice(source_language="ru-RU", target_language="en-US")
+    assert english["status"] == "resolved"
+    assert english["mode"] == "dubbed"
+    assert english["voiceId"] == "en-male"
+    assert english["providerVoice"] == "Ryan"
+    assert english["cloned"] is False
+    chinese = resolve_voice(source_language="ru-RU", target_language="zh-CN")
+    assert chinese["voiceId"] == "zh-male"
+    assert chinese["providerVoice"] == "Uncle_Fu"
+    missing = resolve_voice(source_language="ru-RU", target_language="en-US", voice="ru-male")
+    assert missing["voiceId"] == "en-male" and missing["path"] == "project_default"
+
+
 def test_the_prompt_names_library_files_and_not_the_spoken_line():
     from backend.hypit_prompt import animation_shots
     spoken = "Планируете переезд"

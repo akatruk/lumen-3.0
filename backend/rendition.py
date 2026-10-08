@@ -18,9 +18,9 @@ STATUSES = ("not_generated", "script_ready", "audio_ready", "aligned", "ready", 
 GAP = 0.12
 
 PREVIEW_LINE = {
-    "en-US": "Location matters more than most buyers think.",
-    "ru-RU": "Расположение влияет на покупку сильнее, чем думают многие.",
-    "zh-CN": "地段的重要性，往往比很多买家想象的更高。",
+    "en-US": "This property is worth looking at more closely.",
+    "ru-RU": "Этот объект стоит посмотреть внимательнее.",
+    "zh-CN": "这个房子值得再仔细看看。",
 }
 
 SPOKEN_MONEY = {
@@ -40,7 +40,7 @@ def speaker_profile(locale):
         "id": "main-presenter",
         "voices": {
             locale: {
-                "provider": "openrouter",
+                "provider": "lumen-web-gpu",
                 "voiceId": voice_id,
                 "providerVoice": voice["voice"],
                 "name": voice["name"],
@@ -54,8 +54,8 @@ def validate_voice(locale, *, need_provider=False):
     locale = resolve_locale(locale)
     profile = speaker_profile(locale)["voices"][locale]
     if need_provider:
-        from .config import settings
-        if not settings.openrouter_api_key:
+        import os
+        if not os.environ.get("RUNPOD_API_KEY"):
             raise LanguageError("provider_not_configured", locale)
     return profile
 
@@ -431,6 +431,87 @@ def lip_sync_video(audio_path, video_path):
     """A later provider can replace this. This phase does not invent mouth movement."""
     del audio_path, video_path
     raise LanguageError("lip_sync_unavailable")
+
+
+def window_rows(rows, max_seconds):
+    """The opening of the source, used for a short preview. None keeps the whole transcript."""
+    if not max_seconds:
+        return list(rows or [])
+    kept = []
+    for row in rows or []:
+        kept.append(row)
+        end = float(row.get("end") or 0)
+        if end >= float(max_seconds):
+            break
+    return kept
+
+
+def materialize_speech(folder, rows, locale, synthesize, translations=None, max_seconds=None, voice=None):
+    """Write target speech and a timeline measured from that audio.
+
+    Same language keeps the source words and does not call the synthesizer.
+    A dub does not squeeze the new lines back onto the source timestamps.
+    """
+    from pathlib import Path
+    locale = resolve_locale(locale)
+    from .language import resolve_voice
+    window = window_rows(rows, max_seconds)
+    source = source_record(window)
+    resolved = resolve_voice(source_language=source["sourceLanguage"], target_language=locale, voice=voice)
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    if resolved["mode"] == "original":
+        record = prepare(window, locale)
+        record["voiceResolution"] = resolved
+        return record
+    if resolved["status"] != "resolved":
+        raise LanguageError("VOICE_SETUP_REQUIRED", locale)
+    translated = translations or translations_from_rows(window, locale)
+    if not translated:
+        raise LanguageError("localized_script_missing", locale)
+    spoken_preview = localize_script(source["segments"], locale, source["sourceLanguage"], translated)
+    jobs = []
+    for index, line in enumerate(spoken_preview):
+        jobs.append((line["text"], resolved["voiceId"], folder / f"line-{index}.mp3"))
+    batch = getattr(synthesize, "lines", None)
+    if batch:
+        batch(jobs)
+    else:
+        for text, voice, dest in jobs:
+            synthesize(text, voice, dest)
+    from .music import probe_audio
+    durations = []
+    paths = []
+    for _text, _voice, dest in jobs:
+        durations.append(float(probe_audio(dest)["duration"]))
+        paths.append(dest)
+    combined = folder / "speech.m4a"
+    _concat_speech(paths, combined)
+    record = prepare(window, locale, translated, durations)
+    record["status"] = "audio_ready"
+    record["voiceResolution"] = resolved
+    record["audio"] = {"mode": "tts", "file": str(combined), "segments": [line["id"] for line in spoken_preview]}
+    return record
+
+
+def _concat_speech(paths, dest, gap=GAP):
+    from .media import ffmpeg
+    folder = dest.parent
+    silence = folder / "gap.wav"
+    ffmpeg("-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-t", f"{gap:.3f}", silence)
+    wavs = []
+    for index, path in enumerate(paths):
+        wav = folder / f"line-{index}.wav"
+        ffmpeg("-y", "-i", path, "-ar", "48000", "-ac", "1", wav)
+        wavs.append(wav)
+    listing = folder / "speech-list.txt"
+    lines = []
+    for index, wav in enumerate(wavs):
+        lines.append(f"file '{wav}'")
+        if index != len(wavs) - 1:
+            lines.append(f"file '{silence}'")
+    listing.write_text("\n".join(lines), encoding="utf-8")
+    ffmpeg("-y", "-f", "concat", "-safe", "0", "-i", listing, "-c:a", "aac", "-b:a", "192k", dest)
 
 
 def _token_spans(text, start, end):

@@ -361,9 +361,20 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
     from .language import keep_source_audio
-    if metadata.get('has_audio') and not keep_source_audio(manual):
+    dub_audio = manual.get('dub_audio')
+    dub_path = Path(dub_audio) if dub_audio else None
+    if dub_path and dub_path.is_file():
+        ffmpeg(
+            '-i', work / 'cut.mp4', '-i', dub_path,
+            '-filter_complex', '[0:v]tpad=stop_mode=clone:stop_duration=600[v]',
+            '-map', '[v]', '-map', '1:a:0',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest',
+            '-movflags', '+faststart', work / 'source.mp4', timeout=600,
+        )
+    elif metadata.get('has_audio') and not keep_source_audio(manual):
         raise ValueError('target_voice_not_ready')
-    if metadata.get('has_audio') and keep_source_audio(manual):
+    elif metadata.get('has_audio') and keep_source_audio(manual):
         ffmpeg(
             '-i', work / 'cut.mp4', '-i', str(source),
             '-map', '0:v:0', '-map', '1:a:0',
@@ -402,9 +413,10 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     if not visual.is_file() or visual.stat().st_size < 32:
         raise RuntimeError('hypit_unavailable')
     assembled = Path(folder) / 'assembled.mp4'
-    if metadata.get('has_audio'):
-        audio = source
-        if manual.get('voice_cleanup'):
+    speech = dub_path if dub_path and dub_path.is_file() else None
+    if speech or metadata.get('has_audio'):
+        audio = speech or source
+        if manual.get('voice_cleanup') and not speech:
             from .hypit_controls import clean_host
             audio = clean_host(audio, work)
         ffmpeg('-i', visual, '-i', audio, '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', '-movflags', '+faststart', assembled, timeout=600)

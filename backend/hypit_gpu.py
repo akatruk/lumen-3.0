@@ -1,9 +1,11 @@
 """Film one Hypit workspace on the RunPod RTX 4090.
 
 The worker sets LUMEN_HYPIT_GPU=1. Tests leave it unset and keep the software
-profile on this machine. The pod starts on demand and stops after visual.mp4
-is back. A later click starts it again. The other GPU pod is left alone.
+profile on this machine. The pod starts on demand and stops when the last
+holder finishes. Speech uses the same pod. The other GPU pod is left alone.
 """
+import contextvars
+import fcntl
 import json
 import logging
 import os
@@ -11,6 +13,7 @@ import shlex
 import subprocess
 import time
 import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
 
 from .hypit_picture import LOCAL_RENDER_TIMEOUT_S, _note_failure
@@ -38,18 +41,52 @@ CHROME_LIBS = (
 )
 
 
+_pod = contextvars.ContextVar('lumen_gpu_pod', default=None)
+
+
+@contextmanager
+def pod_session():
+    """Start lumen-web-gpu, or reuse the holder already running in this process.
+
+    The pod stops when the outermost holder exits. A nested speech call does
+    not shut the machine down in the middle of a picture.
+    """
+    current = _pod.get()
+    if current is not None:
+        yield current
+        return
+    from .config import settings
+    lock_path = Path(settings.data_dir) / 'gpu' / 'session.lock'
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock = lock_path.open('a+')
+    try:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        pods = _ours(_pods())
+        already = any(pod.get('desiredStatus') not in ('EXITED', 'TERMINATED') for pod in pods)
+        ip, port, pod_id = _ensure_pod()
+        token = _pod.set((ip, port, pod_id))
+        try:
+            yield ip, port, pod_id
+        finally:
+            _pod.reset(token)
+            if not already:
+                _stop_pod(pod_id)
+    finally:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        lock.close()
+
+
 def film(work):
-    """Capture work/visual.mp4 on the GPU. Voice and music stay on this host."""
+    """Capture work/visual.mp4 on lumen-web-gpu. Speech uses that same pod."""
     work = Path(work)
     _hardware_runtime(work)
-    pod_id = None
     ip = port = None
     try:
-        ip, port, pod_id = _ensure_pod()
-        _prepare_machine(ip, port)
-        _sync(work, ip, port)
-        _capture(ip, port)
-        return _fetch(work, ip, port)
+        with pod_session() as (ip, port, _pod_id):
+            _prepare_machine(ip, port)
+            _sync(work, ip, port)
+            _capture(ip, port)
+            return _fetch(work, ip, port)
     except RuntimeError as exc:
         extra = _tail_logs(ip, port) if ip and port else ''
         if extra:
@@ -67,9 +104,6 @@ def film(work):
         raise
     except Exception as exc:
         raise _note_failure(RuntimeError('hypit_unavailable'), f'{type(exc).__name__}: {exc}') from exc
-    finally:
-        if pod_id:
-            _stop_pod(pod_id)
 
 
 def _hardware_runtime(work):

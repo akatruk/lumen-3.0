@@ -139,7 +139,7 @@ def create(pid: str, body: Create, request: Request, user=Depends(current_user))
         # Completed voice samples are reusable; videos must still target the current master.
         if body.kind == 'video' and (not p['result'] or p['result'].get('render_id') != master_id):
             raise HTTPException(409, 'master_changed')
-        if cached and json.loads(cached['snapshot']).get('model') == settings.dubbing_model:
+        if cached and json.loads(cached['snapshot']).get('model') == audio.SPEECH_MODEL:
             if body.kind == 'video':
                 from .final_music import promote_voice
                 if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')",(pid,)).fetchone():raise HTTPException(409,'job_already_running')
@@ -147,7 +147,7 @@ def create(pid: str, body: Create, request: Request, user=Depends(current_user))
             return {'id': cached['id']}
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
-        snapshot = {'model': settings.dubbing_model}
+        snapshot = {'model': audio.SPEECH_MODEL}
         if body.kind == 'video':
             try:
                 snapshot['phrases'] = audio.mapped_speech(p['result'], p['analysis'] or {})
@@ -218,11 +218,14 @@ def run_job(p, payload):
             advance(ident, 'translating', 5)
             phrases = audio.translate(p['id'], source_phrases, row['language'])
             reserve(p['id'], audio.speech_reservation(sum(len(x['text']) for x in phrases)), 'dubbing_speech')
+            advance(ident, 'synthesizing', 20)
+            audio.synthesize_lines(
+                [(phrase['text'], row['voice'], folder / f'{i}.mp3') for i, phrase in enumerate(phrases)],
+                snapshot['model'],
+            )
             for i, phrase in enumerate(phrases):
                 advance(ident, 'synthesizing', 15 + int(i / len(phrases) * 65))
-                mp3 = folder / f'{i}.mp3'
-                audio.synthesize(phrase['text'], row['voice'], mp3, snapshot['model'])
-                audio.fit_phrase(mp3, folder / f'{i}.wav', phrase['end'] - phrase['start'])
+                audio.fit_phrase(folder / f'{i}.mp3', folder / f'{i}.wav', phrase['end'] - phrase['start'])
             advance(ident, 'muxing', 85)
             result = audio.assemble(master_path, folder, phrases, master['metadata']['duration'])
             audio.write_vtt(folder / 'subtitles.vtt', phrases)

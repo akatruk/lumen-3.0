@@ -650,6 +650,8 @@ dialog h2 {
 .create-video li { padding: 8px 0; border-bottom: 1px solid #00000010; }
 .create-video label { display: flex; flex-direction: column; gap: 8px; font-weight: 600; }
 .create-video .create-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.create-video .create-actions .error-box { flex: 1 0 100%; margin: 0; }
+.ws-inspector .create-video .error-box { color: #a35643; }
 .create-video .language-switch { display: inline-flex; border: 1px solid #1d1d1f; border-radius: 999px; overflow: hidden; }
 .create-video .language-switch button { border: 0; border-radius: 0; background: transparent; color: #1d1d1f; min-height: 44px; padding: 10px 14px; font-weight: 600; }
 .create-video .language-switch button[aria-checked="true"] { background: #1d1d1f; color: #fff; }

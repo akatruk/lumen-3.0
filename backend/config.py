@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     google_sso_only: bool = False
     openrouter_api_key: str = ''
     analysis_model: str = 'google/gemini-3.8-flash'
-    dubbing_model: str = 'minimax/speech-2.8-hd'
+    dubbing_model: str = 'qwen/qwen3-tts-12hz-1.7b-customvoice'
     dubbing_price_per_million: float = 100.0
     generation_model: str = 'google/veo-3.1-fast'
     image_model: str = 'google/gemini-2.5-flash-image'

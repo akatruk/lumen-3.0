@@ -107,6 +107,7 @@ class CreateVideo(Strict):
     motion_percent: int = Field(default=80, ge=0, le=100)
     density_percent: int = Field(default=70, ge=0, le=100)
     language: str | None = None
+    voice: str | None = None
 
 class VideoLanguage(Strict):
     language: str = Field(min_length=2, max_length=16)
@@ -481,16 +482,16 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         code = None
         source_locale = None
         voice_id = None
+        resolved = {'mode': 'original', 'status': 'resolved', 'voiceId': None}
         if locale:
-            from .language import detect_source_locale, rendition_dir, short_code, voice_for, LanguageError
+            from .language import detect_source_locale, rendition_dir, resolve_voice, short_code, LanguageError
             code = short_code(locale)
             spoken = ' '.join((row.get('original') or row.get('en') or row.get('ru') or row.get('zh') or '') for row in (s.get('plan') or {}).get('transcript') or [])
             source_locale = detect_source_locale(spoken)
-            if source_locale and source_locale != locale:
-                try:
-                    voice_id = voice_for(locale)
-                except LanguageError:
-                    raise HTTPException(422, 'MISSING_TARGET_LANGUAGE_VOICE') from None
+            resolved = resolve_voice(source_language=source_locale, target_language=locale, voice=body.voice)
+            voice_id = resolved.get('voiceId')
+            if resolved['status'] == 'VOICE_SETUP_REQUIRED':
+                raise HTTPException(422, 'VOICE_SETUP_REQUIRED')
             _remember_language(db, pid, locale)
             folder = rendition_dir(settings.data_dir, pid, locale)
             folder.mkdir(parents=True, exist_ok=True)
@@ -521,10 +522,14 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             try:
                 record = prepare_rendition(transcript, locale, translations_from_rows(transcript, locale))
             except LanguageError as exc:
-                record = {'locale': locale, 'status': 'error', 'error': exc.code, 'sourceLanguage': source_locale}
-            if source_locale and source_locale != locale and record.get('status') not in ('audio_ready', 'aligned', 'ready', 'rendered'):
+                if exc.code == 'localized_script_missing' and resolved['mode'] == 'dubbed':
+                    record = {'locale': locale, 'status': 'script_pending', 'sourceLanguage': source_locale, 'audioMode': 'tts'}
+                else:
+                    record = {'locale': locale, 'status': 'error', 'error': exc.code, 'sourceLanguage': source_locale}
+            if resolved['status'] == 'VOICE_SETUP_REQUIRED':
                 store_rendition(folder, record)
-                raise HTTPException(422, 'target_voice_not_ready')
+                raise HTTPException(422, 'VOICE_SETUP_REQUIRED')
+            record['voiceResolution'] = resolved
             store_rendition(folder, record)
             (folder / 'audio.json').write_text(json.dumps({
                 'sourceLanguage': source_locale,
@@ -543,6 +548,8 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             'target_language': locale,
             'source_language': source_locale,
             'voice': voice_id,
+            'dubbed': resolved['mode'] == 'dubbed',
+            'voice_resolution': resolved,
         })
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
     return {'ok': True}

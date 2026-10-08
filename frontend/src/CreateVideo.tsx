@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import type { Lang } from "./types";
 import { workspaceText } from "./ProjectWorkspace";
@@ -14,6 +14,21 @@ type StudioState = {
     reference_file?: boolean;
     references?: { aweme_id?: string; title?: string; author?: string }[];
   };
+};
+
+const VOICE_CHOICES: Record<Speech, { id: string; label: string }[]> = {
+  "en-US": [
+    { id: "en-male", label: "Male — gentle" },
+    { id: "en-female", label: "Female — warm" },
+  ],
+  "ru-RU": [
+    { id: "ru-male", label: "Мужской — спокойный" },
+    { id: "ru-female", label: "Женский — выразительный" },
+  ],
+  "zh-CN": [
+    { id: "zh-male", label: "男声 — 温和" },
+    { id: "zh-female", label: "女声 — 亲切" },
+  ],
 };
 
 const LANGUAGES: { id: Speech; label: string; voice: string }[] = [
@@ -74,6 +89,8 @@ export function CreateVideo({
   const [uploads, setUploads] = useState<StudioState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [voiceChoice, setVoiceChoice] = useState<string | null>(null);
+  const notice = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     let cancelled = false;
     fetch("/api/studio/projects/" + pid, { credentials: "same-origin" })
@@ -101,6 +118,9 @@ export function CreateVideo({
   const voiceLabel = originalVoice
     ? w("Оригинальный голос ведущего", "Original speaker audio", "原声")
     : (LANGUAGES.find((item) => item.id === speech)?.voice ?? speech);
+  useEffect(() => {
+    notice.current?.scrollIntoView({ block: "nearest" });
+  }, [error, speech]);
   async function choose(next: Speech) {
     setLanguage(next);
     setError("");
@@ -174,11 +194,13 @@ export function CreateVideo({
           motion_percent: levels.motion,
           density_percent: levels.density,
           language: speech,
+          voice: voiceChoice,
         }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" ? "voice" : body?.detail === "target_voice_not_ready" ? "voice_pending" : "failed");
+        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" || body?.detail === "VOICE_SETUP_REQUIRED" ? "voice" : "failed");
+        notice.current?.scrollIntoView({ block: "nearest" });
         return;
       }
       await onStarted();
@@ -243,6 +265,13 @@ export function CreateVideo({
         <p>
           {w("Голос:", "Voice:", "声音：")} {voiceLabel}
         </p>
+        {sourceSpeech && sourceSpeech !== speech && (
+          <p>
+            {speech === "en-US" && w("Английская озвучка", "Dubbed English", "英语配音")}
+            {speech === "ru-RU" && w("Русская озвучка", "Dubbed Russian", "俄语配音")}
+            {speech === "zh-CN" && w("Китайская озвучка", "Dubbed Chinese", "中文配音")}
+          </p>
+        )}
         <button type="button" disabled={working || busy} onClick={() => void preview()}>
           {w("Прослушать голос", "Preview voice", "试听声音")}
         </button>
@@ -250,6 +279,51 @@ export function CreateVideo({
           {working || busy ? <Loader2 className="spin" size={17} /> : <Sparkles size={17} />}
           {w("Создать видео", "Create video", "创建视频")}
         </button>
+        {(error === "voice" || error === "provider" || error === "failed") && (
+          <p className="error-box" role="alert" ref={notice}>
+            {error === "voice" &&
+              (speech === "zh-CN"
+                ? w(
+                    "Выберите китайский голос для создания этой версии.",
+                    "Choose a Chinese voice to create this version.",
+                    "请选择中文配音以创建此版本。",
+                  )
+                : speech === "ru-RU"
+                  ? w(
+                      "Выберите русский голос для создания этой версии.",
+                      "Choose a Russian voice to create this version.",
+                      "请选择俄语配音以创建此版本。",
+                    )
+                  : w(
+                      "Выберите английский голос для создания этой версии.",
+                      "Choose an English voice to create this version.",
+                      "请选择英文配音以创建此版本。",
+                    ))}
+            {error === "provider" &&
+              w(
+                "Голос для этого языка не настроен. Другой язык не подставляется.",
+                "The voice provider is not configured. Another language is not substituted.",
+                "这个语言的声音服务未配置，不会改用其他语言。",
+              )}
+            {error === "failed" &&
+              w(
+                "Не удалось поставить видео в очередь. Дождитесь текущей задачи или обновите страницу.",
+                "Could not queue the video. Wait for the current task or reload.",
+                "无法加入视频队列。请等待当前任务或刷新页面。",
+              )}
+          </p>
+        )}
+        {error === "voice" &&
+          VOICE_CHOICES[speech].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={voiceChoice === item.id}
+              onClick={() => setVoiceChoice(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
       </div>
       <details
         onToggle={(event) => {
@@ -259,43 +333,6 @@ export function CreateVideo({
         <summary>{w("Проверка языка", "Language debug", "语言检查")}</summary>
         <pre>{debug}</pre>
       </details>
-      {error === "voice" && (
-        <p role="alert">
-          {w(
-            "Для этого языка видео нет голоса. Другой язык не подставляется.",
-            "This video language has no voice. Another language is not substituted.",
-            "这个视频语言没有可用的声音，不会改用其他语言。",
-          )}{" "}
-          MISSING_TARGET_LANGUAGE_VOICE ({speech})
-        </p>
-      )}
-      {error === "provider" && (
-        <p role="alert">
-          {w(
-            "Голос для этого языка не настроен. Другой язык не подставляется.",
-            "The voice provider is not configured. Another language is not substituted.",
-            "这个语言的声音服务未配置，不会改用其他语言。",
-          )}
-        </p>
-      )}
-      {error === "voice_pending" && (
-        <p role="alert">
-          {w(
-            "Для этого языка видео ещё нет готовой речи. Голос исходника не подставляется. Выберите язык исходника, чтобы собрать ролик с его голосом.",
-            "This video language has no finished voice yet. The source voice is not substituted. Choose the source language to build with that voice.",
-            "这个视频语言还没有成品语音，不会改用原片的声音。请选择原片语言，用原声合成。",
-          )}
-        </p>
-      )}
-      {error === "failed" && (
-        <p role="alert">
-          {w(
-            "Не удалось поставить видео в очередь. Дождитесь текущей задачи или обновите страницу.",
-            "Could not queue the video. Wait for the current task or reload.",
-            "无法加入视频队列。请等待当前任务或刷新页面。",
-          )}
-        </p>
-      )}
     </section>
   );
 }
