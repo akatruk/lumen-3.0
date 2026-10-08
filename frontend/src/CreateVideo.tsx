@@ -178,7 +178,7 @@ export function CreateVideo({
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" ? "voice" : "failed");
+        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" ? "voice" : body?.detail === "target_voice_not_ready" ? "voice_pending" : "failed");
         return;
       }
       await onStarted();
@@ -275,6 +275,15 @@ export function CreateVideo({
             "Голос для этого языка не настроен. Другой язык не подставляется.",
             "The voice provider is not configured. Another language is not substituted.",
             "这个语言的声音服务未配置，不会改用其他语言。",
+          )}
+        </p>
+      )}
+      {error === "voice_pending" && (
+        <p role="alert">
+          {w(
+            "Для этого языка видео ещё нет готовой речи. Голос исходника не подставляется. Выберите язык исходника, чтобы собрать ролик с его голосом.",
+            "This video language has no finished voice yet. The source voice is not substituted. Choose the source language to build with that voice.",
+            "这个视频语言还没有成品语音，不会改用原片的声音。请选择原片语言，用原声合成。",
           )}
         </p>
       )}

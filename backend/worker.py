@@ -165,7 +165,7 @@ def safe_error(exc):
     'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
-    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable',
+    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready',
     'unverified_claim','property_not_approved','property_plan_changed','property_workflow','property_too_short','property_delivery_missing','reference_media_blocked','invalid_media_path','asset_not_found'}
     return str(exc) if str(exc) in allowed else 'processing_failed'
 

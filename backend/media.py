@@ -543,6 +543,16 @@ def _mask_axes(clip):
         return 0.38, 0.42
     return rx, ry
 
+def picture_frame(metadata, aspect, picture_engine=None):
+    """Vertical Hypit films a 1080×1920 frame. A small source is scaled up into it."""
+    if aspect == 'original' and picture_engine == 'hypit' and metadata['height'] > metadata['width']:
+        return 1080, 1920
+    if aspect == 'original':
+        scale = min(1, 1920 / max(metadata['width'], metadata['height']), 1080 / min(metadata['width'], metadata['height']))
+        return int(metadata['width'] * scale) // 2 * 2, int(metadata['height'] * scale) // 2 * 2
+    return {'9:16': (1080, 1920), '16:9': (1920, 1080), '1:1': (1080, 1080), '4:5': (1080, 1350)}[aspect]
+
+
 def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None,presentation_language=None,effect_board=None):
     def beat(stage, value):
         if on_progress:
@@ -568,10 +578,7 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
                 continue
             clip['end']=timeline[index][1]
             index+=1
-    if aspect=='original':
-        scale=min(1,1920/max(metadata['width'],metadata['height']),1080/min(metadata['width'],metadata['height']))
-        w=int(metadata['width']*scale)//2*2; h=int(metadata['height']*scale)//2*2
-    else: w,h={'9:16':(1080,1920),'16:9':(1920,1080),'1:1':(1080,1080),'4:5':(1080,1350)}[aspect]
+    w,h=picture_frame(metadata,aspect,picture_engine)
     captions=any(r.action=='captions' for r in recommendations)
     normalize=any(r.action=='normalize_audio' for r in recommendations)
     if manual:

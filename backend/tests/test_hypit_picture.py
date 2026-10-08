@@ -18,6 +18,12 @@ from backend.worker import render_job
 T = {'en': 'Synthetic fixture, not AI analysis', 'zh': '合成测试素材，非 AI 分析'}
 
 
+def test_vertical_hypit_frame_is_a_full_phone_picture():
+    from backend.media import picture_frame
+    assert picture_frame({'width': 464, 'height': 848}, 'original', 'hypit') == (1080, 1920)
+    assert picture_frame({'width': 464, 'height': 848}, 'original') == (464, 848)
+
+
 def test_gpu_flag_films_on_the_remote_runtime(tmp_path, monkeypatch):
     """The web capture leaves this machine only when the worker flag is set."""
     monkeypatch.setenv('LUMEN_HYPIT_GPU', '1')
@@ -181,7 +187,7 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'Доля анимации — 0%' in quiet and 'seedance' not in quiet and '三名股东开会' in quiet
     mid = author_source({**edit, 'card_motion': 10}, 160, 240)
     assert 'Доля анимации — 10%' in mid and 'Будет добавлена анимация' not in mid
-    assert '3–5 секунд' in mid and 'фигурами профессиональной анимации' in mid
+    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in mid and 'PATTERN INTERRUPTS' in mid
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
@@ -318,18 +324,22 @@ def test_create_video_without_captions_still_films_the_short_request():
     half = author_source({**bare, 'card_motion': 50}, 720, 1280, duration=63.466667)
     quiet = author_source({**bare, 'card_motion': 0}, 720, 1280, duration=63.466667)
     from backend.hypit_prompt import illustration_request
-    assert illustration_request({**bare, 'card_motion': 100}) in full and 'source={footage}' in full
+    import html
+    request = html.unescape(full.split('id="request">', 1)[1].split('</text:Value>', 1)[0])
+    assert illustration_request({**bare, 'card_motion': 100}) == request and 'source={footage}' in full
     assert 'Доля анимации — 100%' in full and 'for="60s"' in full
     assert 'seedance' not in full and 'comment:Sticker' not in full
-    assert 'фигурами профессиональной анимации' in full and '3–5 секунд' in full
+    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in full and 'PATTERN INTERRUPTS' in full
     assert 'src="./source.mp4" media-type="video/mp4"' in full
     assert 'media-type="video"' not in full
     assert 'Будет добавлена анимация' not in full and 'без склейки из кусков' not in full
     assert 'Субтитры средние' not in full and 'Рост — стрелка вверх' not in full
-    assert illustration_request({**bare, 'card_motion': 50}) in half and 'source={footage}' in half
+    half_request = html.unescape(half.split('id="request">', 1)[1].split('</text:Value>', 1)[0])
+    assert illustration_request({**bare, 'card_motion': 50}) == half_request and 'source={footage}' in half
     assert 'Доля анимации — 50%' in half and 'for="30s"' in half
     assert 'seedance' not in half and 'comment={request}' not in half
-    assert illustration_request({**bare, 'card_motion': 0}) in quiet and 'seedance' not in quiet
+    quiet_request = html.unescape(quiet.split('id="request">', 1)[1].split('</text:Value>', 1)[0])
+    assert illustration_request({**bare, 'card_motion': 0}) == quiet_request and 'seedance' not in quiet
     assert 'Доля анимации — 0%' in quiet and 'ColorWash' not in quiet
     assert 'comment:Sticker' not in quiet and 'source={footage}' in quiet
 
@@ -357,18 +367,18 @@ def test_stored_english_prompt_cannot_override_the_filmed_sentence():
     text = author_source(edit, 720, 1280, duration=63.4)
     start = text.find('id="request">')
     value = text[start + len('id="request">'):text.find('</text:Value>', start)]
-    assert value.startswith('Исходное видео и лицо остаются резкими')
+    assert value.startswith('Run a FULL END-TO-END LUMEN VIDEO TEST')
     assert 'На графике только эти сказанные фразы' not in value
     assert '注册资本' not in value
     assert 'Доля анимации — 40%' in value
     assert 'for="24s"' in text
-    assert 'каждый отрезок в разных углах' in value
-    assert 'ведущий на весь кадр' in value
-    assert 'в итоге: кинематографичную моушн-графика' in value
+    assert 'SPEAKER MUST REMAIN THE PROTAGONIST' in value
+    assert '40–60% speaker-visible time' in value
+    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in value
     assert 'make ilustration' not in text
     assert 'seedance' not in text and '注册资本' in text
     assert 'src="./motion/1.mp4"' in text
-    assert '3–5 секунд' in value and 'фигурами профессиональной анимации' in value
+    assert '1.5–4 seconds' in value and 'CURATED MEDIA LIBRARY' in value
     assert 'графика сказанного.' not in value and 'Субтитры средние' not in text
     assert 'Рост — стрелка вверх' not in text
     assert 'Сними один' not in text.split('</text:Value>', 1)[-1]
@@ -387,13 +397,15 @@ def test_the_hand_sentence_stays_in_the_author_source():
         'clips': [{'start': 0, 'end': 63.466667, 'approved': True}],
         'captions': [],
     }, 720, 1280, duration=63.466667)
-    assert sentence in text
-    assert 'seedance' not in text and '3–5 секунд' in sentence
-    assert 'в углу (каждый отрезок в разных углах)' in sentence
+    import html
+    request = html.unescape(text.split('id="request">', 1)[1].split('</text:Value>', 1)[0])
+    assert request == sentence
+    assert 'seedance' not in text and "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in sentence
+    assert 'SPEAKER MUST REMAIN THE PROTAGONIST' in sentence
     assert 'make ilustration' not in text
     assert 'Субтитры средние' not in text
     assert 'Рост — стрелка вверх' not in text
-    assert sentence not in text.split('</text:Value>', 1)[-1]
+    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." not in text.split('</text:Value>', 1)[-1]
 
 
 _CHINA = (
@@ -433,13 +445,11 @@ def test_every_phrase_keeps_every_figure_and_a_short_fragment():
     from backend.hypit_prompt import animation_shots, illustration_request
 
     sentence = illustration_request()
-    assert 'На каждую сказанную фразу, пока она в доле анимации, ставь всё сразу' in sentence
-    assert 'Это не выбор одного пункта' in sentence
-    assert 'Запятые во фразе не отменяют стрелку, шкалу и связь' in sentence
-    assert 'шкала считает сами шаги и ничего не выдумывает' in sentence
-    assert '3\u20135 секунд' in sentence
-    assert 'ведущий — в углу' in sentence
-    assert 'Не придумывай цену, площадь, этаж, доходность' in sentence
+    assert 'PATTERN INTERRUPTS' in sentence
+    assert 'Do NOT invent facts.' in sentence
+    assert '1.5–4 seconds' in sentence
+    assert '40–60% speaker-visible time' in sentence
+    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in sentence
     line = '再看出资节奏，中国认缴时间弹性很大，泰国则要求实缴部分资本，银行开户、工作证、签证申请都会盯着资金到位情况'
     shots = animation_shots({
         'captions': [{'start': 1, 'end': 18, 'zh': line}],
@@ -530,7 +540,7 @@ def test_density_films_more_spoken_clause_cards():
     assert len(packed_bodies) == 6
     assert 'Визуальная плотность — 20%' in low
     assert 'Визуальная плотность — 70%' in high
-    assert 'seedance' not in high and '3–5 секунд' in high
+    assert 'seedance' not in high and 'PATTERN INTERRUPTS' in high
     assert 'Сними один' not in high.split('</text:Value>', 1)[-1]
     assert '↑' not in ''.join(high_bodies) and '↓' not in ''.join(high_bodies)
     assert 'src="./motion/1.mp4"' in high and 'media-track:Item' in high
@@ -551,7 +561,7 @@ def test_graphic_window_keeps_the_late_phrase_off_the_cards():
     assert len(bodies) > 3
     assert not any('管理逻辑' in body for body in bodies)
     assert 'for="36s"' in markup
-    assert 'кинематографичную моушн-графика' in markup
+    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in markup
     assert 'stack-order: 48' in markup
 
 
@@ -570,9 +580,9 @@ def test_two_cinematic_cards_land_on_host_only_lines_before_the_source_card():
     assert any('地下停车库' in body and '潮湿' in body for body in bodies)
     assert not any('惜售' in body for body in bodies)
     assert 'scene-style' in markup and 'comment.scene' in markup
-    assert 'кинематографичную моушн-графика' in markup
+    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in markup
     assert 'seedance' not in markup
     assert '#7DFFC3' in markup
-    assert 'seedance' not in markup and '3–5 секунд' in markup
-    assert markup.split('id="request">', 1)[1].startswith('Исходное видео и лицо остаются резкими')
+    assert 'seedance' not in markup and 'PATTERN INTERRUPTS' in markup
+    assert markup.split('id="request">', 1)[1].startswith('Run a FULL END-TO-END LUMEN VIDEO TEST')
     assert 'Сними один' not in markup.split('</text:Value>', 1)[-1]

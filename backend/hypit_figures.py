@@ -573,6 +573,9 @@ def render(folder):
     for shot in plan.get('shots') or []:
         if shot.get('format') == 'speaker' or not shot.get('file'):
             continue
+        placed = os.path.join(out, shot['file'])
+        if shot.get('library') and os.path.isfile(placed) and os.path.getsize(placed) > 32:
+            continue
         _save(out, shot['file'], _frames(shot, width, height))
 
 

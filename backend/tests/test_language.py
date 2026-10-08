@@ -21,6 +21,28 @@ HOOKS = {
 }
 
 
+def test_the_prompt_names_library_files_and_not_the_spoken_line():
+    from backend.hypit_prompt import animation_shots
+    spoken = "Планируете переезд"
+    prompt = illustration_request({
+        "language": "ru-RU",
+        "captions": [{"start": 0, "end": 6, "original": spoken, "ru": spoken}],
+    })
+    assert "--- MEDIA LIBRARY ---" in prompt
+    assert "global_route_001 ./motion/global/global_route_001.webm" in prompt
+    assert "people_door_001 ./static/people/people_door_001.png" in prompt
+    assert spoken not in prompt
+    shots = animation_shots({
+        "language": "ru",
+        "captions": [{"start": 1, "end": 8, "original": spoken, "ru": spoken}],
+        "card_motion": 100,
+    }, 40)
+    assert shots[0]["library_id"] == "people_door_001"
+    assert shots[0]["file"] == "1.mp4"
+    assert shots[0]["library_path"].endswith("static/people/people_door_001.png")
+    assert spoken not in shots[0]["library_path"]
+
+
 def test_one_base_prompt_carries_each_directive():
     manual = {
         "captions": [{"original": "Планируете переезд"}],

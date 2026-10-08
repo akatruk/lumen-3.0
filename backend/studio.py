@@ -522,6 +522,9 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 record = prepare_rendition(transcript, locale, translations_from_rows(transcript, locale))
             except LanguageError as exc:
                 record = {'locale': locale, 'status': 'error', 'error': exc.code, 'sourceLanguage': source_locale}
+            if source_locale and source_locale != locale and record.get('status') not in ('audio_ready', 'aligned', 'ready', 'rendered'):
+                store_rendition(folder, record)
+                raise HTTPException(422, 'target_voice_not_ready')
             store_rendition(folder, record)
             (folder / 'audio.json').write_text(json.dumps({
                 'sourceLanguage': source_locale,

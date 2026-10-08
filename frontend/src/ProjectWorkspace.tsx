@@ -55,6 +55,14 @@ const jobErrors: Record<string, [string, string]> = {
     "Processing could not finish. Your original is safe.",
     "处理未能完成，原视频已保留。",
   ],
+  target_voice_not_ready: [
+    "This video language has no finished voice yet. The source voice is not substituted.",
+    "这个视频语言还没有成品语音，不会改用原片的声音。",
+  ],
+  hypit_unavailable: [
+    "The picture build stopped. Your original is safe.",
+    "画面合成已停止，原视频已保留。",
+  ],
   media_processing_failed: [
     "This media could not be processed.",
     "无法处理此媒体文件。",

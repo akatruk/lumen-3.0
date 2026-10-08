@@ -1,0 +1,1400 @@
+Run a FULL END-TO-END LUMEN VIDEO TEST using the current production pipeline.
+
+This is a REAL VIDEO ASSEMBLY TEST.
+
+Do NOT create demo cards.
+Do NOT create synthetic showcase scenes.
+Do NOT redesign the architecture.
+Do NOT generate another media library.
+Do NOT modify working components unless the test exposes a real defect.
+
+Use the CURRENT production systems:
+
+- user's original source video
+- project.language
+- multilingual Director prompt
+- multilingual voice/timeline pipeline
+- 25 multilingual cards
+- Motion Component Library
+- current media library
+- media/library/search.py
+- manifest.json
+- approved photography
+- approved I2V clips
+- icons
+- hero objects
+- backgrounds
+- deterministic motion
+- Remotion renderer
+- existing audio/render pipeline
+
+The objective is to prove that these systems work together to transform the USER'S ORIGINAL VIDEO into a polished, high-retention short-form video.
+
+
+==================================================
+MOST IMPORTANT RULE
+==================================================
+
+THE USER'S ORIGINAL VIDEO IS THE VIDEO.
+
+The media library ENHANCES it.
+
+The Motion Library EXPLAINS it.
+
+The card library VISUALIZES information.
+
+The Director EDITS it.
+
+The language pipeline LOCALIZES it.
+
+Do NOT replace the user's video with:
+
+- slideshow
+- stock-footage montage
+- generated presenter
+- endless B-roll
+- presentation animation
+
+
+==================================================
+1. READ PROJECT LANGUAGE
+==================================================
+
+Before doing anything:
+
+read:
+
+project.language
+
+Supported:
+
+en-US
+ru-RU
+zh-CN
+
+DO NOT assume English.
+
+Print/log:
+
+PROJECT LANGUAGE:
+<resolved locale>
+
+All downstream language-dependent systems MUST use this locale.
+
+
+==================================================
+2. VERIFY LANGUAGE PIPELINE
+==================================================
+
+Verify:
+
+Director language
+card locale
+typography profile
+spoken script
+voice
+captions
+timeline
+
+all resolve from the SAME:
+
+project.language
+
+If any component resolves to another locale:
+
+STOP with:
+
+LANGUAGE_PIPELINE_MISMATCH
+
+
+==================================================
+3. SOURCE VIDEO
+==================================================
+
+Use the CURRENT USER SOURCE VIDEO associated with the project.
+
+Inspect the COMPLETE video.
+
+Do not analyze only the beginning.
+
+Determine:
+
+duration
+source language
+speaker
+speech
+visual quality
+orientation
+audio quality
+natural pauses
+strong statements
+weak sections
+mistakes/repetition
+potential hook
+
+
+==================================================
+4. TRANSCRIPT
+==================================================
+
+Use the existing source transcript if valid.
+
+Otherwise use the existing transcription pipeline.
+
+Preserve:
+
+sourceTranscript
+
+Do NOT overwrite it with localization.
+
+
+==================================================
+5. STORY ANALYSIS
+==================================================
+
+Analyze what the speaker ACTUALLY says.
+
+Identify:
+
+HOOK
+
+WHY SHOULD VIEWER CARE?
+
+PROBLEM
+
+INSIGHT
+
+EXAMPLE / PROOF
+
+KEY INFORMATION
+
+PAYOFF
+
+CTA / CONCLUSION
+
+
+Do NOT invent facts.
+
+Do NOT change the speaker's meaning.
+
+
+==================================================
+6. VIRAL EDIT
+==================================================
+
+Transform the source into a stronger short-form edit.
+
+Allowed:
+
+remove dead air
+remove filler
+remove repeated phrases
+remove obvious mistakes
+tighten pauses
+use authentic later sentence as cold open
+reorder COMPLETE semantic beats when meaning remains accurate
+
+Not allowed:
+
+fabricating speech
+changing claims
+creating fake quotes
+changing property facts
+creating deceptive sentence combinations
+
+
+==================================================
+7. HOOK
+==================================================
+
+Find the strongest authentic hook in the source.
+
+The first 1–3 seconds must immediately create:
+
+curiosity
+value
+tension
+surprise
+or a strong question.
+
+Do NOT automatically use the first sentence.
+
+If a stronger authentic statement exists later:
+
+use that complete semantic beat as the cold open.
+
+
+==================================================
+8. DIRECTOR PLAN
+==================================================
+
+Create a semantic Director plan BEFORE rendering.
+
+The Director chooses:
+
+- source-video segment
+- treatment
+- Motion Component
+- card type
+- asset search intent
+- emphasis
+- B-roll opportunity
+- transition
+
+The Director does NOT choose:
+
+- raw CSS
+- arbitrary x/y coordinates
+- arbitrary fonts
+- generated text inside media
+
+
+==================================================
+9. VISUAL TREATMENTS
+==================================================
+
+Use a healthy mixture of:
+
+FULL SPEAKER
+
+SPEAKER PUNCH-IN
+
+SPEAKER + KINETIC TEXT
+
+SPEAKER + ICON / OBJECT
+
+SPEAKER + CARD
+
+SPLIT SCREEN
+
+FULL B-ROLL
+
+PHOTO WITH MOTION
+
+I2V CLIP
+
+BIG NUMBER
+
+PROCESS
+
+COMPARISON
+
+DOCUMENT VISUAL
+
+LOCATION VISUAL
+
+PROPERTY VISUAL
+
+KEY TAKEAWAY
+
+CTA
+
+
+==================================================
+10. SPEAKER MUST REMAIN THE PROTAGONIST
+==================================================
+
+Target roughly:
+
+40–60% speaker-visible time
+
+when appropriate for the source.
+
+This is not a rigid quota.
+
+But FAIL if the final video becomes mostly stock/B-roll with the user's voice underneath.
+
+
+==================================================
+11. PATTERN INTERRUPTS
+==================================================
+
+Create a meaningful visual change approximately every:
+
+1.5–4 seconds
+
+based on speech rhythm.
+
+Possible change:
+
+speaker crop
+punch-in
+asset
+card
+B-roll
+photo
+I2V
+diagram
+number
+comparison
+kinetic phrase
+motion graphic
+
+Changing only subtitle text does NOT count.
+
+
+==================================================
+12. USE THE NEW MEDIA LIBRARY
+==================================================
+
+This is a critical part of the test.
+
+Do NOT ignore the media library.
+
+For every important semantic beat ask:
+
+WOULD A SUPPORTING VISUAL IMPROVE THIS MOMENT?
+
+If yes:
+
+search the existing library using:
+
+media/library/search.py
+
+
+==================================================
+13. SEARCH BY MEANING
+==================================================
+
+Search semantically.
+
+Examples:
+
+"couple planning property purchase"
+
+"modern condo interior"
+
+"property investment rental yield"
+
+"legal property documents"
+
+"family moving into new home"
+
+"Bangkok condominium lifestyle"
+
+"property location value"
+
+"real estate consultation"
+
+
+Do NOT search primarily by filename.
+
+
+==================================================
+14. SEARCH IN PROJECT LANGUAGE
+==================================================
+
+The semantic search must work from the current project language.
+
+Example equivalent queries:
+
+EN:
+
+family planning international relocation
+
+RU:
+
+семья планирует международный переезд
+
+ZH:
+
+家庭计划国际搬迁
+
+
+All should be capable of retrieving semantically relevant language-neutral media.
+
+
+==================================================
+15. MULTIPLE CANDIDATES
+==================================================
+
+Never blindly accept search result #1.
+
+Retrieve approximately:
+
+3–5 candidates.
+
+Evaluate:
+
+semantic relevance
+qualityScore
+composition
+textSafeAreas
+visual family
+neighboring scene variety
+
+
+==================================================
+16. ASSET SELECTION LOG
+==================================================
+
+For every scene using media record:
+
+query
+
+candidate IDs
+
+candidate quality scores
+
+selected asset
+
+selection reason
+
+
+Example:
+
+query:
+"couple planning property purchase"
+
+candidates:
+
+couple_planning_004
+consultation_012
+family_planning_008
+
+selected:
+
+couple_planning_004
+
+reason:
+
+best semantic match,
+high quality score,
+subjects positioned right,
+left text-safe area,
+not previously used.
+
+
+==================================================
+17. MEDIA PRIORITY
+==================================================
+
+When semantically appropriate prefer:
+
+1. approved existing I2V clip
+
+2. approved photography
+
+3. hero object
+
+4. deterministic SVG/motion
+
+5. icon
+
+6. background
+
+
+BUT:
+
+Do not use video just because video exists.
+
+A strong still + excellent Remotion motion is preferable to irrelevant B-roll.
+
+
+==================================================
+18. USE APPROVED I2V CLIPS
+==================================================
+
+Actively test existing approved motion media.
+
+Known library categories include assets such as:
+
+condo exterior
+living room
+empty apartment
+balcony
+couple planning
+target
+globe route
+location pins
+document approval
+drifting background
+
+Use only when semantically relevant.
+
+Retrieve them through the library.
+
+Do NOT hardcode filenames.
+
+
+==================================================
+19. PHOTO MOTION
+==================================================
+
+When using approved photography:
+
+animate with Remotion.
+
+Use subtle:
+
+push-in
+pull-out
+pan
+parallax
+mask reveal
+crop movement
+
+Typical scale:
+
+1.00 → approximately 1.04–1.08
+
+Do NOT make still images look like cheap Ken Burns slides.
+
+
+==================================================
+20. MULTILINGUAL CARDS
+==================================================
+
+The Director may use ONLY cards returned by:
+
+getAvailableCards(project.language)
+
+All 25 multilingual cards are available for:
+
+en-US
+ru-RU
+zh-CN
+
+Use cards based on semantic need.
+
+Do NOT insert cards merely because they exist.
+
+
+==================================================
+21. CARD SELECTION
+==================================================
+
+Examples:
+
+price
+→ PropertyPrice / BigNumber
+
+rental yield
+→ RentalYield
+
+ROI
+→ ROI
+
+cash flow
+→ CashFlow
+
+comparison
+→ PropertyComparison
+
+buy vs rent
+→ BuyVsRent
+
+process
+→ ProgressSteps
+
+documents
+→ DocumentCheck
+
+property features
+→ PropertyFeatures
+
+location
+→ Location
+
+amenities
+→ Amenities
+
+timeline
+→ Timeline
+
+before/after
+→ BeforeAfter
+
+investment
+→ InvestmentCard
+
+listing
+→ PropertyListing
+
+legal
+→ LegalDocumentCard
+
+conclusion
+→ KeyTakeaway / CTA
+
+
+==================================================
+22. DO NOT OVERUSE CARDS
+==================================================
+
+This is critical.
+
+Cards are one visual tool.
+
+Do NOT produce:
+
+card
+→ card
+→ card
+→ card
+
+Try to separate card scenes with:
+
+speaker
+media
+B-roll
+photography
+motion graphic
+kinetic typography
+
+
+==================================================
+23. MOTION LIBRARY
+==================================================
+
+Use existing deterministic motion where it communicates information better than media.
+
+Examples:
+
+target
+route
+progress
+location
+documents
+checklist
+process
+price
+yield
+comparison
+timeline
+approval
+
+
+==================================================
+24. TEXT
+==================================================
+
+ALL viewer-facing text must follow:
+
+project.language.
+
+No accidental English in Russian version.
+
+No accidental English/Russian in Chinese version except allowed:
+
+brand names
+proper nouns
+official terminology
+international abbreviations
+
+
+==================================================
+25. TYPOGRAPHY
+==================================================
+
+Use the existing multilingual typography system.
+
+en-US:
+latin
+
+ru-RU:
+cyrillic
+
+zh-CN:
+cjk
+
+Use multilingual AutoFitText.
+
+Never split English or Russian words.
+
+Use correct Chinese line breaking.
+
+Never allow:
+
+missing glyph
+overflow
+clipping
+broken word
+
+
+==================================================
+26. CAPTIONS
+==================================================
+
+Captions must come from the TARGET-LANGUAGE AUDIO ALIGNMENT.
+
+Do NOT use source-language timestamps for dubbed renditions.
+
+Use existing language-aware caption grouping.
+
+
+==================================================
+27. VOICE
+==================================================
+
+If:
+
+project.language === project.sourceLanguage
+
+use:
+
+ORIGINAL SPEAKER AUDIO.
+
+
+If:
+
+project.language !== project.sourceLanguage
+
+use:
+
+the mapped voice for project.language.
+
+
+Never silently fall back to English.
+
+
+==================================================
+28. LANGUAGE-SPECIFIC TIMING
+==================================================
+
+The target-language audio is the timing authority.
+
+Do NOT squeeze translated speech into original timestamps.
+
+If Russian speech takes longer:
+
+extend/recompose the scene.
+
+If Chinese speech is shorter:
+
+tighten/recompose the scene.
+
+Preserve natural speech.
+
+
+==================================================
+29. NO LIP-SYNC ASSUMPTION
+==================================================
+
+There is currently no lip-sync implementation.
+
+Do NOT fake one.
+
+For dubbed sections:
+
+avoid long obvious close-ups of mismatched mouth movement.
+
+Prefer:
+
+B-roll
+cards
+motion graphics
+property footage
+split compositions
+short speaker shots
+speaker shots where mouth visibility is less dominant
+
+
+==================================================
+30. AUDIO
+==================================================
+
+Speech is primary.
+
+Normalize levels.
+
+Use existing music if configured.
+
+Music must remain under speech.
+
+Use subtle sound design for:
+
+important reveal
+check
+number
+transition
+impact
+
+Do NOT add SFX to every movement.
+
+
+==================================================
+31. VISUAL RHYTHM
+==================================================
+
+Good example:
+
+HOOK / SPEAKER CLOSE-UP
+↓
+KINETIC WORD
+↓
+SPEAKER + PROPERTY VISUAL
+↓
+I2V INTERIOR
+↓
+SPEAKER
+↓
+INFORMATION CARD
+↓
+PHOTO + MOTION
+↓
+BIG NUMBER
+↓
+SPEAKER
+↓
+B-ROLL
+↓
+KEY TAKEAWAY
+
+
+Bad:
+
+speaker circle
+→ speaker circle
+→ speaker circle
+
+Bad:
+
+photo
+→ photo
+→ photo
+→ photo
+
+Bad:
+
+card
+→ card
+→ card
+
+Bad:
+
+B-roll
+→ B-roll
+→ B-roll
+→ B-roll
+
+
+==================================================
+32. DO NOT CALL NEW MEDIA GENERATION BY DEFAULT
+==================================================
+
+This test exists to evaluate our CURRENT media library.
+
+First use existing assets.
+
+If no ideal asset exists:
+
+use:
+
+speaker
+deterministic motion
+existing icon
+existing object
+typography
+
+Do NOT automatically generate new images/videos.
+
+Record missing media as:
+
+LIBRARY_GAP
+
+for later.
+
+
+==================================================
+33. LIBRARY GAP REPORTING
+==================================================
+
+Example:
+
+LIBRARY_GAP:
+
+concept:
+"mortgage approval"
+
+reason:
+No strong photographic or motion asset.
+
+fallback used:
+DocumentApproval + Mortgage icon.
+
+This is valuable.
+
+It tells us what to generate next.
+
+
+==================================================
+34. TEST MODE
+==================================================
+
+DO NOT immediately render a full long video.
+
+First create:
+
+15–20 SECOND E2E PREVIEW.
+
+It must use the REAL:
+
+source video
+source audio / localized voice
+Director
+media search
+cards
+motion
+captions
+timing
+
+
+==================================================
+35. PREVIEW MUST INCLUDE
+==================================================
+
+At minimum:
+
+1. original speaker scene
+
+2. speaker punch-in or reframe
+
+3. media-library photograph
+
+4. approved I2V clip if semantically relevant
+
+5. multilingual card
+
+6. deterministic motion component
+
+7. kinetic typography
+
+8. captions
+
+Do not force irrelevant content solely to satisfy a checkbox.
+
+If one category is genuinely irrelevant, document why.
+
+
+==================================================
+36. DIRECTOR TIMELINE
+==================================================
+
+Create:
+
+output/e2e-test/<locale>/director-timeline.json
+
+
+Each scene should contain:
+
+{
+  "id": "...",
+
+  "locale": "...",
+
+  "semanticSegmentIds": [],
+
+  "sourceStart": 0,
+
+  "sourceEnd": 0,
+
+  "start": 0,
+
+  "end": 0,
+
+  "purpose": "...",
+
+  "treatment": "...",
+
+  "motionComponent": "...",
+
+  "card": null,
+
+  "assetQuery": "...",
+
+  "candidateAssets": [],
+
+  "selectedAsset": "...",
+
+  "captionIds": [],
+
+  "transition": "..."
+}
+
+
+==================================================
+37. PREVIEW OUTPUT
+==================================================
+
+Render:
+
+output/e2e-test/<locale>/preview.mp4
+
+
+Also produce:
+
+contact-sheet.jpg
+
+director-timeline.json
+
+asset-selection.json
+
+library-gaps.json
+
+qa-report.md
+
+
+==================================================
+38. CONTACT SHEET
+==================================================
+
+Export representative frames from every scene.
+
+Prefer:
+
+early settled frame
+middle frame
+late frame
+
+Create one contact sheet.
+
+This is required for visual QA.
+
+
+==================================================
+39. QA — SOURCE VIDEO
+==================================================
+
+Check:
+
+Is the original speaker still clearly the protagonist?
+
+Does the edit feel like THEIR video?
+
+Does the edit preserve their meaning?
+
+
+==================================================
+40. QA — MEDIA
+==================================================
+
+Check:
+
+Are assets semantically relevant?
+
+Are we using the new media library meaningfully?
+
+Are images cropped correctly?
+
+Are text-safe areas respected?
+
+Is media varied?
+
+
+==================================================
+41. QA — MOTION
+==================================================
+
+Check:
+
+Is meaningful motion visible?
+
+Do scenes feel alive?
+
+Are we using multiple motion patterns?
+
+Does anything feel like PowerPoint?
+
+
+==================================================
+42. QA — CARDS
+==================================================
+
+Check:
+
+correct locale
+
+correct content
+
+no clipping
+
+no broken words
+
+not overused
+
+
+==================================================
+43. QA — VOICE
+==================================================
+
+Check:
+
+correct language
+
+correct mapped voice
+
+natural speech
+
+no missing segments
+
+no fallback language
+
+no clipping
+
+
+==================================================
+44. QA — TIMING
+==================================================
+
+Check:
+
+speech finishes before scene ends
+
+captions align
+
+motion aligns
+
+transitions do not cut speech
+
+no excessive dead air
+
+
+==================================================
+45. QA — RETENTION
+==================================================
+
+Evaluate the first:
+
+3 seconds
+
+5 seconds
+
+10 seconds
+
+15 seconds
+
+
+Ask:
+
+Would the viewer have a reason to continue?
+
+Is there visual progression?
+
+Is the hook immediate?
+
+Are there dead moments?
+
+
+==================================================
+46. FAIL CONDITIONS
+==================================================
+
+FAIL the test if:
+
+original video is replaced by a slideshow
+
+speaker disappears excessively
+
+media is irrelevant
+
+cards dominate the video
+
+same composition repeats excessively
+
+motion is effectively absent
+
+wrong language appears
+
+wrong voice appears
+
+captions use old timestamps
+
+words break
+
+text clips
+
+audio gets cut
+
+Director ignores media library
+
+video feels like PowerPoint
+
+
+==================================================
+47. FIX USING EXISTING SYSTEM FIRST
+==================================================
+
+If preview fails:
+
+DO NOT immediately create new components.
+
+Try first:
+
+different existing asset
+different card
+different motion variant
+different crop
+different scene treatment
+different timing
+different scene order
+shorter on-screen copy
+
+
+==================================================
+48. TEST ONE LANGUAGE FIRST
+==================================================
+
+Use the CURRENT project.language first.
+
+Do NOT immediately generate EN + RU + ZH.
+
+We need one excellent rendition before comparing languages.
+
+
+==================================================
+49. AFTER FIRST LANGUAGE PASSES
+==================================================
+
+Then run the SAME semantic edit in the other two languages.
+
+Keep:
+
+semantic scene identity
+media where appropriate
+overall visual story
+
+Allow:
+
+speech duration
+caption grouping
+text layout
+scene timing
+
+to change.
+
+
+==================================================
+50. MULTILINGUAL COMPARISON
+==================================================
+
+After all three previews pass create:
+
+output/e2e-test/multilingual-comparison.jpg
+
+Show representative corresponding scenes:
+
+EN | RU | ZH
+
+
+Also create:
+
+multilingual-comparison.md
+
+Compare:
+
+duration
+voice
+scene timing
+caption density
+card layout
+media selection
+language leakage
+
+
+==================================================
+51. FULL VIDEO
+==================================================
+
+Only after the preview passes:
+
+render the COMPLETE edited video for the selected locale.
+
+Do not automatically render all three full videos unless explicitly requested.
+
+
+==================================================
+52. TEST REPORT
+==================================================
+
+Create:
+
+output/e2e-test/<locale>/qa-report.md
+
+Include:
+
+source duration
+
+preview duration
+
+source language
+
+target language
+
+voice used
+
+speaker-visible percentage
+
+number of scenes
+
+unique media assets used
+
+I2V clips used
+
+photos used
+
+cards used
+
+motion components used
+
+semantic searches performed
+
+library gaps
+
+language validation
+
+caption validation
+
+render errors
+
+warnings
+
+
+==================================================
+53. DO NOT HIDE FAILURES
+==================================================
+
+If something is bad:
+
+report it.
+
+Do not call the test successful merely because:
+
+Remotion rendered an MP4.
+
+Rendering successfully is NOT the quality bar.
+
+
+==================================================
+54. SUCCESS CRITERIA
+==================================================
+
+PASS only if:
+
+- user's source video remains the foundation
+- edit feels materially more dynamic than raw source
+- media library is meaningfully used
+- visuals correspond to speech
+- motion is clearly visible
+- cards are useful but not dominant
+- language is consistent
+- voice is correct
+- target-language timing works
+- captions align with target audio
+- typography is correct
+- first 15 seconds feel like professionally edited short-form content
+
+
+==================================================
+55. FINAL OBJECTIVE
+==================================================
+
+We are testing the COMPLETE Lumen hypothesis:
+
+RAW USER VIDEO
+        +
+AI DIRECTOR
+        +
+CURATED MEDIA LIBRARY
+        +
+MULTILINGUAL CARDS

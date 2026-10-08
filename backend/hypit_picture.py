@@ -361,6 +361,8 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
     from .language import keep_source_audio
+    if metadata.get('has_audio') and not keep_source_audio(manual):
+        raise ValueError('target_voice_not_ready')
     if metadata.get('has_audio') and keep_source_audio(manual):
         ffmpeg(
             '-i', work / 'cut.mp4', '-i', str(source),
@@ -376,10 +378,13 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     write_author(work, author_source(manual, width, height, board, language, voiceover=voiceover, duration=program))
     motion = work / 'motion'
     motion.mkdir(exist_ok=True)
+    shots = animation_shots(manual, program)
+    from .library_clips import stage
+    stage(motion, shots, width, height, ffmpeg)
     (motion / 'plan.json').write_text(json.dumps({
         'width': width,
         'height': height,
-        'shots': animation_shots(manual, program),
+        'shots': shots,
     }, ensure_ascii=False))
     shutil.copy(Path(__file__).resolve().parent / 'hypit_figures.py', work / 'hypit_figures.py')
     page = work / 'index.html'

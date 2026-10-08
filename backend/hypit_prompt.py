@@ -18,19 +18,7 @@ RUN = '''<?svml using="@hypit/run-markup@1"?>
 
 _MARKUP = '<?svml using="@hypit/markup@1"?>'
 
-_PROMPT = (
-    "Исходное видео и лицо остаются резкими. "
-    "Пока идёт фраза, на переднем плане — графика этой мысли, ведущий — в углу (каждый отрезок в разных углах). "
-    "В тему сказанной фразы вставляй динамическую анимацию с фигурами профессиональной анимации сделанную предварительно на этом-же сервере или фрагмент профессионального видео на 3–5 секунд: место, предмет или действие из сказанной фразы. "
-    "Не придумывай цену, площадь, этаж, доходность и любые факты, которых нет в этих фразах. "
-    "Доля анимации — {animation}% каждой минуты, остальное — ведущий на весь кадр. Интенсивность — {intensity}. "
-    "Движение — {motion}%. Визуальная плотность — {density}%. "
-    "в итоге: кинематографичную моушн-графика с кинетической типографикой, плавными переходами форм, 3D-элементами и бесшовным движением камеры. "
-    "На каждую сказанную фразу, пока она в доле анимации, ставь всё сразу: движущуюся стрелку, шкалу, две колонки, крупную цифру, шаги по очереди и линию со стрелкой между карточками. "
-    "Вместе с этим — фрагмент видео на 3–5 секунд: место, предмет или действие из этой же фразы. "
-    "Это не выбор одного пункта. Запятые во фразе не отменяют стрелку, шкалу и связь. "
-    "Крупную цифру и деления шкалы бери только из числа, которое сказано; если числа нет, шкала считает сами шаги и ничего не выдумывает."
-)
+_ASSEMBLY = Path(__file__).resolve().parent / 'assembly_prompt.txt'
 
 _RECIPES = '''<?svml using="@hypit/svs@1"?>
 
@@ -181,7 +169,15 @@ def _levels(manual):
 
 
 def _sentence(levels):
-    return _PROMPT.format(**levels)
+    """The assembly brief, plus the studio sliders. The brief file has no format fields."""
+    brief = _ASSEMBLY.read_text(encoding='utf-8').strip()
+    levels_line = (
+        f"Доля анимации — {levels['animation']}% каждой минуты. "
+        f"Интенсивность — {levels['intensity']}. "
+        f"Движение — {levels['motion']}%. "
+        f"Визуальная плотность — {levels['density']}%."
+    )
+    return f"{brief}\n\n--- STUDIO LEVELS ---\n{levels_line}\n--- END STUDIO LEVELS ---"
 
 
 def _output_language(manual):
@@ -217,6 +213,10 @@ def illustration_request(manual=None):
     except LanguageError:
         return sentence
     cards, motion, media, context = director_context_blocks(locale)
+    from .library_clips import media_block
+    listed = media_block()
+    if listed:
+        media = listed
     return "\n\n".join((
         sentence,
         build_language_directive(locale),
@@ -597,7 +597,9 @@ def animation_shots(manual, duration):
         return []
     levels = _levels(manual)
     windows = _graphic_windows(duration, levels['animation'] / 100)
+    from .library_clips import pick
     shots = []
+    used = []
     for start, end, display, source in _phrase_rows(manual):
         slot = _overlap(start, end, windows)
         if not slot:
@@ -615,9 +617,15 @@ def animation_shots(manual, duration):
         previous = shots[-1]['format'] if shots else ''
         fmt = _scene_format(len(shots), previous, number)
         filmed = sum(1 for item in shots if item.get('file'))
+        chosen = None if fmt == 'speaker' else pick(source or display, used)
+        if chosen:
+            used.append(chosen['id'])
         shots.append({
             'id': f'motion-{len(shots) + 1}',
             'file': '' if fmt == 'speaker' else f'{filmed + 1}.mp4',
+            'library_id': chosen['id'] if chosen else '',
+            'library_path': str(chosen['path']) if chosen else '',
+            'library': bool(chosen),
             'kind': fmt,
             'format': fmt,
             'at': slot[0],

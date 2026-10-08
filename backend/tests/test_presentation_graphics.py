@@ -68,10 +68,10 @@ def test_create_video_enqueues_the_short_prompt(client):
     assert preview.status_code == 200 and preview.json()['prompt'] == text
     assert 'Доля анимации — 50%' in text
     assert 'Интенсивность — 40' in text
-    assert 'каждый отрезок в разных углах' in text
-    assert 'в итоге: кинематографичную моушн-графика с кинетической типографикой, плавными переходами форм, 3D-элементами и бесшовным движением камеры.' in text
-    assert 'фигурами профессиональной анимации' in text
-    assert 'фрагмент профессионального видео на 3–5 секунд' in text
+    assert 'SPEAKER MUST REMAIN THE PROTAGONIST' in text
+    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in text
+    assert 'CURATED MEDIA LIBRARY' in text
+    assert '1.5–4 seconds' in text
     assert client.post(f'/api/studio/projects/{pid}/create-video', json={'animation_percent': 80}).status_code == 409
     other = create(client).json()['id']
     seed_plan(other)
@@ -91,11 +91,7 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     from backend.db import connect
     from backend.hypit_prompt import author_source, illustration_request
 
-    sentence = (
-        'В тему сказанной фразы вставляй динамическую анимацию с фигурами профессиональной анимации '
-        'сделанную предварительно на этом-же сервере или фрагмент профессионального видео на 3–5 секунд: '
-        'место, предмет или действие из сказанной фразы'
-    )
+    sentence = "THE USER'S ORIGINAL VIDEO IS THE VIDEO."
     line = {
         'start': 1.0, 'end': 8.0,
         'original': 'Планируете переезд, второй вид на жительство',
@@ -137,7 +133,7 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     assert 'Планируете переезд' in filmed and '您是否正在计划移居' not in filmed.split('id="motion-1">', 1)[1].split('</text:Value>', 1)[0]
     kept = author_source({**bare, 'language': 'zh'}, 464, 848, duration=40)
     assert '您是否正在计划移居' in kept and 'Планируете переезд' not in kept
-    assert 'src="./motion/1.mp4"' in filmed and 'На каждую сказанную фразу' in value
+    assert 'src="./motion/1.mp4"' in filmed and 'PATTERN INTERRUPTS' in value
 
     pid = create(client).json()['id']
     seed_plan(pid)
@@ -170,6 +166,21 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
         'animation_percent': 60, 'translate_all': True,
     })
     assert refused.status_code == 422
+    other_language = create(client).json()['id']
+    seed_plan(other_language)
+    with connect() as db:
+        stored = json.loads(db.execute('SELECT plan FROM studio_projects WHERE project_id=?', (other_language,)).fetchone()[0])
+        stored['transcript'] = [line]
+        db.execute('UPDATE studio_projects SET plan=? WHERE project_id=?', (json.dumps(stored, ensure_ascii=False), other_language))
+    pending = client.post(f'/api/studio/projects/{other_language}/create-video', json={
+        'animation_percent': 60, 'language': 'en-US',
+    })
+    assert pending.status_code == 422 and pending.json()['detail'] == 'target_voice_not_ready'
+    with connect() as db:
+        assert db.execute(
+            "SELECT 1 FROM jobs WHERE project_id=? AND kind='studio_render'",
+            (other_language,),
+        ).fetchone() is None
 
 
 def test_effect_board_cannot_change_the_picture(client):

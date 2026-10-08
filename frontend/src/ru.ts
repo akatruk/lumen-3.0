@@ -593,6 +593,8 @@ export const ru: Record<string, string> = {
   "Processing": "Обработка",
   "Processing connections": "Подключённые сервисы",
   "Processing could not finish. Your original is safe.": "Обработка не завершена. Исходник сохранён.",
+  "This video language has no finished voice yet. The source voice is not substituted.": "Для этого языка видео ещё нет готовой речи. Голос исходника не подставляется.",
+  "The picture build stopped. Your original is safe.": "Сборка картины остановилась. Исходник сохранён.",
   "Processing is already running.": "Обработка уже выполняется.",
   "Processing paused": "Обработка приостановлена",
   "Processing this package… You can leave this page and return later.": "Пакет обрабатывается… Можно уйти со страницы и вернуться позже.",
