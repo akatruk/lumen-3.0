@@ -3,33 +3,44 @@ import { Loader2, Sparkles } from "lucide-react";
 import type { Lang } from "./types";
 import { workspaceText } from "./ProjectWorkspace";
 
-type Speech = "ru" | "en" | "zh";
+type Speech = "ru-RU" | "en-US" | "zh-CN";
 
 type StudioState = {
   plan?: {
     transcript?: { original?: string; zh?: string; en?: string; ru?: string }[];
   } | null;
   context?: {
+    video_language?: string;
     reference_file?: boolean;
     references?: { aweme_id?: string; title?: string; author?: string }[];
   };
 };
 
-const LANGUAGES: { id: Speech; label: string }[] = [
-  { id: "ru", label: "русский" },
-  { id: "en", label: "English" },
-  { id: "zh", label: "中文" },
+const LANGUAGES: { id: Speech; label: string; voice: string }[] = [
+  { id: "ru-RU", label: "Русский", voice: "Мужской — спокойный" },
+  { id: "en-US", label: "English", voice: "Male — gentle" },
+  { id: "zh-CN", label: "中文", voice: "男声 — 温和" },
 ];
+
+function detectSpeech(text: string): Speech | null {
+  if (/[\u4e00-\u9fff]/.test(text)) return "zh-CN";
+  if (/[\u0400-\u04FF]/.test(text)) return "ru-RU";
+  if (/[A-Za-z]/.test(text)) return "en-US";
+  return null;
+}
 
 function spokenLanguage(data: StudioState | null): Speech {
   const lines = data?.plan?.transcript ?? [];
-  const shown = lines
-    .map((line) => line.zh || line.original || line.en || line.ru || "")
-    .join(" ");
-  if (/[\u4e00-\u9fff]/.test(shown)) return "zh";
-  if (/[\u0400-\u04FF]/.test(shown)) return "ru";
-  if (/[A-Za-z]/.test(shown)) return "en";
-  return "zh";
+  const original = lines.map((line) => line.original || "").join(" ");
+  const rest = lines.map((line) => line.en || line.ru || line.zh || "").join(" ");
+  return detectSpeech(original) || detectSpeech(rest) || "en-US";
+}
+
+function savedLanguage(value: unknown): Speech | null {
+  if (value === "ru" || value === "ru-RU") return "ru-RU";
+  if (value === "en" || value === "en-US") return "en-US";
+  if (value === "zh" || value === "zh-CN") return "zh-CN";
+  return null;
 }
 
 type Share = {
@@ -59,6 +70,7 @@ export function CreateVideo({
   const w = (ru: string, en: string, zh: string) => workspaceText(lang, ru, en, zh);
   const [levels, setLevels] = useState({ animation: 60, intensity: 60, motion: 80, density: 70 });
   const [language, setLanguage] = useState<Speech | null>(null);
+  const [debug, setDebug] = useState("");
   const [uploads, setUploads] = useState<StudioState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -82,7 +94,71 @@ export function CreateVideo({
     ...(uploads?.context?.reference_file ? [w("Референс", "Reference video", "参考视频")] : []),
     ...references.map((item) => item.title || item.author || item.aweme_id || w("Референс", "Reference video", "参考视频")),
   ];
-  const speech = language ?? spokenLanguage(uploads);
+  const speech = language ?? savedLanguage(uploads?.context?.video_language) ?? spokenLanguage(uploads);
+  const speechLabel = LANGUAGES.find((item) => item.id === speech)?.label ?? speech;
+  const sourceSpeech = detectSpeech((uploads?.plan?.transcript ?? []).map((line) => line.original || "").join(" "));
+  const originalVoice = sourceSpeech === speech;
+  const voiceLabel = originalVoice
+    ? w("Оригинальный голос ведущего", "Original speaker audio", "原声")
+    : (LANGUAGES.find((item) => item.id === speech)?.voice ?? speech);
+  async function choose(next: Speech) {
+    setLanguage(next);
+    setError("");
+    try {
+      const response = await fetch("/api/studio/projects/" + pid + "/language", {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: next }),
+      });
+      if (!response.ok) setError("failed");
+    } catch {
+      setError("failed");
+    }
+  }
+  async function showDebug() {
+    const params = new URLSearchParams({
+      animation_percent: String(levels.animation),
+      intensity_percent: String(levels.intensity),
+      motion_percent: String(levels.motion),
+      density_percent: String(levels.density),
+      language: speech,
+    });
+    const response = await fetch("/api/studio/picture-prompt?" + params.toString(), { credentials: "same-origin" });
+    if (!response.ok) {
+      setDebug("");
+      return;
+    }
+    const body = await response.json();
+    setDebug(
+      [
+        "project.language: " + (body.language || speech),
+        "typography: " + (body.typographyProfile || ""),
+        "voice locale: " + (body.voiceLocale || ""),
+        "directive locale: " + (String(body.directive || "").includes(speech) ? speech : "missing"),
+        "prompt locale: " + (String(body.prompt || "").includes(speech) ? speech : "missing"),
+      ].join("\n"),
+    );
+  }
+  async function preview() {
+    setError("");
+    try {
+      const response = await fetch("/api/studio/projects/" + pid + "/voice-preview", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: speech }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" ? "voice" : body?.detail === "provider_not_configured" ? "provider" : "failed");
+        return;
+      }
+      setDebug([body?.voiceName || "", body?.text || ""].filter(Boolean).join("\n"));
+    } catch {
+      setError("failed");
+    }
+  }
   async function create() {
     if (working || busy) return;
     setBusy(true);
@@ -101,7 +177,8 @@ export function CreateVideo({
         }),
       });
       if (!response.ok) {
-        setError("failed");
+        const body = await response.json().catch(() => null);
+        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" ? "voice" : "failed");
         return;
       }
       await onStarted();
@@ -142,7 +219,7 @@ export function CreateVideo({
         <div
           className="language-switch"
           role="radiogroup"
-          aria-label={w("Язык", "Language", "语言")}
+          aria-label={w("Язык видео", "Video language", "视频语言")}
         >
           {LANGUAGES.map((item) => (
             <button
@@ -151,18 +228,57 @@ export function CreateVideo({
               role="radio"
               aria-checked={speech === item.id}
               disabled={working || busy}
-              onClick={() => setLanguage(item.id)}
+              onClick={() => void choose(item.id)}
             >
               {item.label}
             </button>
           ))}
         </div>
+        <p>
+          {working || busy
+            ? w("Собираем видео:", "Generating video in:", "正在生成视频：")
+            : w("Язык видео:", "Video language:", "视频语言：")}{" "}
+          {speechLabel}
+        </p>
+        <p>
+          {w("Голос:", "Voice:", "声音：")} {voiceLabel}
+        </p>
+        <button type="button" disabled={working || busy} onClick={() => void preview()}>
+          {w("Прослушать голос", "Preview voice", "试听声音")}
+        </button>
         <button className="primary" type="button" disabled={working || busy} onClick={() => void create()}>
           {working || busy ? <Loader2 className="spin" size={17} /> : <Sparkles size={17} />}
           {w("Создать видео", "Create video", "创建视频")}
         </button>
       </div>
-      {error && (
+      <details
+        onToggle={(event) => {
+          if ((event.currentTarget as HTMLDetailsElement).open) void showDebug();
+        }}
+      >
+        <summary>{w("Проверка языка", "Language debug", "语言检查")}</summary>
+        <pre>{debug}</pre>
+      </details>
+      {error === "voice" && (
+        <p role="alert">
+          {w(
+            "Для этого языка видео нет голоса. Другой язык не подставляется.",
+            "This video language has no voice. Another language is not substituted.",
+            "这个视频语言没有可用的声音，不会改用其他语言。",
+          )}{" "}
+          MISSING_TARGET_LANGUAGE_VOICE ({speech})
+        </p>
+      )}
+      {error === "provider" && (
+        <p role="alert">
+          {w(
+            "Голос для этого языка не настроен. Другой язык не подставляется.",
+            "The voice provider is not configured. Another language is not substituted.",
+            "这个语言的声音服务未配置，不会改用其他语言。",
+          )}
+        </p>
+      )}
+      {error === "failed" && (
         <p role="alert">
           {w(
             "Не удалось поставить видео в очередь. Дождитесь текущей задачи или обновите страницу.",

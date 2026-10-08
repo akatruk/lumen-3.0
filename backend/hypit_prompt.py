@@ -32,36 +32,6 @@ _PROMPT = (
     "Крупную цифру и деления шкалы бери только из числа, которое сказано; если числа нет, шкала считает сами шаги и ничего не выдумывает."
 )
 
-_PROMPT_EN = (
-    "The source video and the face stay sharp. "
-    "While a phrase is spoken, the foreground is a graphic of that thought, and the host is in the corner (each segment in a different corner). "
-    "Into the subject of the spoken phrase, insert dynamic animation with figures of professional animation prepared in advance on this same server, or a fragment of professional video for 3\u20135 seconds: "
-    "a place, an object, or an action from the spoken phrase. "
-    "Do not invent a price, an area, a floor, a yield, or any facts that are not in these phrases. "
-    "The animation share is {animation}% of each minute, and the rest is the host full frame. Intensity \u2014 {intensity}. "
-    "Motion \u2014 {motion}%. Visual density \u2014 {density}%. "
-    "In the end: cinematic motion graphics with kinetic typography, smooth shape transitions, 3D elements, and seamless camera movement. "
-    "For every spoken phrase, while it is inside the animation share, place all of these at once: a moving arrow, a scale, two columns, a large figure, steps in order, and a line with an arrow between the cards. "
-    "Together with that, a video fragment of 3\u20135 seconds: a place, an object, or an action from that same phrase. "
-    "This is not a choice of one item. Commas in the phrase do not cancel the arrow, the scale, or the link. "
-    "Take the large digit and the scale ticks only from a number that was spoken; if there is no number, the scale counts the steps themselves and invents nothing."
-)
-
-_PROMPT_ZH = (
-    "原始视频和脸部保持清晰。"
-    "在说出短语的同时，前景是这一想法的图形，主持人在角落里（每一段换不同的角落）。"
-    "在所说短语的主题中加入预先在同一台服务器上做好的专业动画图形，或一段3\u20135秒的专业视频片段："
-    "该短语中的地点、物体或动作。"
-    "不要编造价格、面积、楼层、收益率，以及这些短语中没有的任何事实。"
-    "动画占比为每分钟的{animation}%，其余时间主持人占满画面。强度\u2014{intensity}。"
-    "运动\u2014{motion}%。视觉密度\u2014{density}%。"
-    "最终：带有动态字体、平滑形体过渡、3D元素和无缝运镜的电影感动效。"
-    "对每一句落在动画占比内的口播，同时放上全部：移动的箭头、刻度、两列、大号数字、依次出现的步骤，以及卡片之间带箭头的连线。"
-    "与此同时，一段3\u20135秒的视频片段：同一句话中的地点、物体或动作。"
-    "这不是只选一项。短语中的逗号不会取消箭头、刻度和连线。"
-    "大号数字和刻度分划只取口播中说过的数字；如果没有数字，刻度就按步骤本身计数，不编造任何内容。"
-)
-
 _RECIPES = '''<?svml using="@hypit/svs@1"?>
 
 <sheet version="1">
@@ -214,19 +184,16 @@ def _sentence(levels):
     return _PROMPT.format(**levels)
 
 
-_LANGUAGE_LINE = {
-    'ru': 'Язык субтитров, карточек и надписей — русский.',
-    'en': 'The language of the subtitles, cards, and labels is English.',
-    'zh': '字幕、卡片和标注的语言是中文。',
-}
-
-
 def _output_language(manual):
-    """The one language switch. Absent means the constructor sentence stays in Russian."""
+    """The one language switch, as the existing ru/en/zh code. Absent keeps the base sentence alone."""
+    from .language import LanguageError, resolve_locale, short_code
     language = _as_dict(manual).get('language')
-    if language in ('ru', 'en', 'zh'):
-        return language
-    return None
+    if not language:
+        return None
+    try:
+        return short_code(resolve_locale(language))
+    except LanguageError:
+        return None
 
 
 def _has_script(text, script):
@@ -238,18 +205,27 @@ def _has_script(text, script):
 
 
 def illustration_request(manual=None):
-    """The sentence Hypit films. One language, never three translations at once."""
+    """The sentence Hypit films. One base prompt, plus the project language and its cards."""
+    from .language import LanguageError, audio_instruction, build_language_directive, director_context_blocks, resolve_locale
     levels = _levels(manual)
-    language = _output_language(manual)
-    if language == 'en':
-        sentence = _PROMPT_EN.format(**levels)
-    elif language == 'zh':
-        sentence = _PROMPT_ZH.format(**levels)
-    else:
-        sentence = _sentence(levels)
-    if language:
-        return sentence + ' ' + _LANGUAGE_LINE[language]
-    return sentence
+    sentence = _sentence(levels)
+    language = _as_dict(manual).get('language')
+    if not language:
+        return sentence
+    try:
+        locale = resolve_locale(language)
+    except LanguageError:
+        return sentence
+    cards, motion, media, context = director_context_blocks(locale)
+    return "\n\n".join((
+        sentence,
+        build_language_directive(locale),
+        audio_instruction(manual, locale),
+        cards,
+        motion,
+        media,
+        context,
+    ))
 
 
 def picture_prompt(edit, board=None, voiceover=False, reference=None, style=None):

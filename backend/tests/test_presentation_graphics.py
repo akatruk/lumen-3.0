@@ -122,13 +122,13 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     assert sentence in dumped
     russian = illustration_request({**bare, 'language': 'ru'})
     chinese = illustration_request({**bare, 'language': 'zh'})
-    assert sentence in russian and 'Язык субтитров, карточек и надписей — русский.' in russian
+    assert sentence in russian and '--- PROJECT LANGUAGE ---' in russian and '"locale": "ru-RU"' in russian
     assert 'Планируете переезд' not in russian and '您是否正在计划移居' not in russian
-    assert '原始视频和脸部保持清晰' in chinese and '字幕、卡片和标注的语言是中文。' in chinese
-    assert sentence not in chinese
+    assert sentence in chinese and '"locale": "zh-CN"' in chinese and '简体中文' in chinese
+    assert '原始视频和脸部保持清晰' not in chinese
     filmed = author_source({**bare, 'language': 'ru'}, 464, 848, duration=40)
     value = filmed.split('id="request">', 1)[1].split('</text:Value>', 1)[0]
-    assert sentence in value and 'русский.' in value
+    assert sentence in value and 'ru-RU' in value
     assert 'Планируете переезд' not in value and '您是否正在计划移居' not in value
     assert 'русский:' not in filmed and 'English:' not in filmed and '中文:' not in filmed
     picture = filmed.split('<picture>', 1)[1].split('</picture>', 1)[0]

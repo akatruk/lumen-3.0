@@ -360,7 +360,8 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     duration = _picture_cut(source, work, clips, width, height)[1]
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
-    if metadata.get('has_audio'):
+    from .language import keep_source_audio
+    if metadata.get('has_audio') and keep_source_audio(manual):
         ffmpeg(
             '-i', work / 'cut.mp4', '-i', str(source),
             '-map', '0:v:0', '-map', '1:a:0',

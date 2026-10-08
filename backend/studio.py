@@ -106,7 +106,13 @@ class CreateVideo(Strict):
     intensity_percent: int = Field(default=60, ge=5, le=100)
     motion_percent: int = Field(default=80, ge=0, le=100)
     density_percent: int = Field(default=70, ge=0, le=100)
-    language: Literal['ru', 'en', 'zh'] | None = None
+    language: str | None = None
+
+class VideoLanguage(Strict):
+    language: str = Field(min_length=2, max_length=16)
+
+class VoicePreview(Strict):
+    language: str = Field(min_length=2, max_length=16)
 
 def init(db):
     from .uploads import init as init_uploads
@@ -308,32 +314,127 @@ def _prompt_levels(body: CreateVideo):
     }
 
 
+def _locale_or_422(value):
+    from .language import LanguageError, resolve_locale
+    try:
+        return resolve_locale(value) if value else None
+    except LanguageError:
+        raise HTTPException(422, 'unsupported_language') from None
+
+
+def _remember_language(db, pid, locale):
+    """Keep the chosen video language on the project without touching the source transcript."""
+    from .language import LANGUAGE_CONFIG, short_code
+    current = state(pid, db)
+    if not current:
+        return
+    context = current['context']
+    context['video_language'] = locale
+    renditions = context.setdefault('renditions', {})
+    renditions.setdefault(locale, {'status': 'pending'})
+    db.execute('UPDATE studio_projects SET context=? WHERE project_id=?', (json.dumps(context, ensure_ascii=False), pid))
+    db.execute('UPDATE projects SET language=? WHERE id=?', (short_code(locale), pid))
+    return LANGUAGE_CONFIG[locale]
+
+
+@router.put('/projects/{pid}/language')
+def save_video_language(pid: str, body: VideoLanguage, user=Depends(current_user)):
+    """Persist the video language. Other renditions stay on disk."""
+    owned(pid, user)
+    locale = _locale_or_422(body.language)
+    with connect() as db:
+        db.lock()
+        saved = _remember_language(db, pid, locale)
+    return {'language': locale, 'label': saved['label'], 'typographyProfile': saved['typographyProfile'], 'voiceLocale': saved['voiceLocale']}
+
+
+@router.get('/projects/{pid}/rendition')
+def rendition_board(pid: str, user=Depends(current_user)):
+    """Status of each spoken rendition. Switching language does not delete the others."""
+    owned(pid, user)
+    from .language import LANGUAGE_CONFIG, LOCALES
+    from .rendition import speaker_profile
+    root = settings.data_dir / pid / 'localization'
+    source_path = root / 'source-transcript.json'
+    source = json.loads(source_path.read_text(encoding='utf-8')) if source_path.is_file() else {}
+    board = []
+    for locale in LOCALES:
+        path = root / locale / 'rendition.json'
+        saved = json.loads(path.read_text(encoding='utf-8')) if path.is_file() else {'status': 'not_generated'}
+        voice = speaker_profile(locale)['voices'][locale]
+        original = saved.get('audioMode') == 'original'
+        board.append({
+            'locale': locale,
+            'label': LANGUAGE_CONFIG[locale]['label'],
+            'status': saved.get('status') or 'not_generated',
+            'audioMode': saved.get('audioMode'),
+            'voiceName': None if original else voice['name'],
+            'duration': (saved.get('timeline') or {}).get('duration'),
+        })
+    return {'sourceLanguage': source.get('sourceLanguage'), 'renditions': board}
+
+
+@router.post('/projects/{pid}/voice-preview')
+def voice_preview(pid: str, body: VoicePreview, user=Depends(current_user)):
+    """One spoken sentence. It does not render the film or replace another language."""
+    owned(pid, user)
+    locale = _locale_or_422(body.language)
+    from .language import LanguageError, rendition_dir
+    from .rendition import preview_request
+    try:
+        requested = preview_request(locale)
+    except LanguageError as exc:
+        status = 422 if exc.code == 'MISSING_TARGET_LANGUAGE_VOICE' else 503
+        raise HTTPException(status, exc.code) from None
+    folder = rendition_dir(settings.data_dir, pid, locale)
+    folder.mkdir(parents=True, exist_ok=True)
+    from .dubbing_audio import synthesize
+    try:
+        synthesize(requested['text'], requested['voice']['voiceId'], folder / 'preview.mp3', settings.dubbing_model)
+    except ValueError as exc:
+        raise HTTPException(502, str(exc)) from None
+    return {'locale': locale, 'text': requested['text'], 'voiceName': requested['voice']['name'], 'voiceId': requested['voice']['voiceId']}
+
+
 @router.get('/picture-prompt')
 def picture_prompt_preview(
     animation_percent: int = 60,
     intensity_percent: int = 60,
     motion_percent: int = 80,
     density_percent: int = 70,
-    language: Literal['ru', 'en', 'zh'] | None = None,
+    language: str | None = None,
     user=Depends(current_user),
 ):
     """The sentence the sliders will store. The page does not write another one."""
     del user
+    locale = _locale_or_422(language)
     try:
         body = CreateVideo(
             animation_percent=animation_percent,
             intensity_percent=intensity_percent,
             motion_percent=motion_percent,
             density_percent=density_percent,
-            language=language,
+            language=locale,
         )
     except ValidationError:
         raise HTTPException(422, 'animation_step') from None
     levels = _prompt_levels(body)
-    if body.language:
-        levels['language'] = body.language
+    if locale:
+        levels['language'] = locale
     from .hypit_prompt import illustration_request
-    return {'prompt': illustration_request(levels)}
+    from .language import build_language_directive, config_for
+    prompt = illustration_request(levels)
+    debug = {'prompt': prompt, 'language': locale}
+    if locale:
+        chosen = config_for(locale)
+        from .language import available_card_ids
+        debug.update({
+            'directive': build_language_directive(locale),
+            'typographyProfile': chosen['typographyProfile'],
+            'voiceLocale': chosen['voiceLocale'],
+            'cardCount': len(available_card_ids(locale)),
+        })
+    return debug
 
 
 @router.post('/projects/{pid}/create-video')
@@ -376,6 +477,23 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             if meta.get('kind') == 'music':
                 music = Music(asset_id=row['id'], gain_db=-24, fade_in=0.8, fade_out=1.2, duck=True)
                 break
+        locale = _locale_or_422(body.language)
+        code = None
+        source_locale = None
+        voice_id = None
+        if locale:
+            from .language import detect_source_locale, rendition_dir, short_code, voice_for, LanguageError
+            code = short_code(locale)
+            spoken = ' '.join((row.get('original') or row.get('en') or row.get('ru') or row.get('zh') or '') for row in (s.get('plan') or {}).get('transcript') or [])
+            source_locale = detect_source_locale(spoken)
+            if source_locale and source_locale != locale:
+                try:
+                    voice_id = voice_for(locale)
+                except LanguageError:
+                    raise HTTPException(422, 'MISSING_TARGET_LANGUAGE_VOICE') from None
+            _remember_language(db, pid, locale)
+            folder = rendition_dir(settings.data_dir, pid, locale)
+            folder.mkdir(parents=True, exist_ok=True)
         edit = Edit(
             clips=[Clip(start=0, end=duration, sound_effects=accents)],
             captions=captions, subtitles=bool(captions), font_size='medium', position='bottom', color='white',
@@ -384,15 +502,33 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             animation_intensity=levels['animation_intensity'],
             animation_motion=levels['animation_motion'],
             animation_density=levels['animation_density'],
-            language=body.language,
-            host_language=body.language,
-            subtitle_language=body.language,
-            effects_language=body.language,
+            language=code,
+            host_language=code,
+            subtitle_language=code,
+            effects_language=code,
             presentation_prompt='', music=music,
         )
         prompt = illustration_request(edit)
         edit = edit.model_copy(update={'presentation_prompt': prompt})
         check(edit, duration)
+        if locale:
+            (folder / 'director-prompt.txt').write_text(prompt, encoding='utf-8')
+            (folder / 'source-language.txt').write_text(source_locale or '', encoding='utf-8')
+            from .rendition import prepare as prepare_rendition, store_rendition, store_source, translations_from_rows
+            from .language import LanguageError
+            transcript = (s.get('plan') or {}).get('transcript') or []
+            store_source(settings.data_dir / pid / 'localization', transcript)
+            try:
+                record = prepare_rendition(transcript, locale, translations_from_rows(transcript, locale))
+            except LanguageError as exc:
+                record = {'locale': locale, 'status': 'error', 'error': exc.code, 'sourceLanguage': source_locale}
+            store_rendition(folder, record)
+            (folder / 'audio.json').write_text(json.dumps({
+                'sourceLanguage': source_locale,
+                'targetLanguage': locale,
+                'keepSourceAudio': not source_locale or source_locale == locale,
+                'voice': voice_id,
+            }, ensure_ascii=False), encoding='utf-8')
         enqueue(db, pid, 'studio_render', {
             'revision': s['revision'],
             'plan': s['plan'],
@@ -400,7 +536,10 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             'manual': edit.model_dump(),
             'quality_review': True,
             'illustration': True,
-            'language': body.language,
+            'language': code,
+            'target_language': locale,
+            'source_language': source_locale,
+            'voice': voice_id,
         })
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
     return {'ok': True}
