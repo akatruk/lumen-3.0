@@ -71,18 +71,30 @@ const SHARES: Share[] = [
   { key: "density", label: ["Плотность, %", "Density, %", "密度，%"], min: 0 },
 ];
 
+function durationLimit(sourceSeconds: number) {
+  const whole = Math.floor(sourceSeconds);
+  const max = Math.max(10, Math.floor(whole / 5) * 5);
+  return { min: 10, max, step: 5 };
+}
+
 export function CreateVideo({
   pid,
   lang,
   working,
+  sourceSeconds,
   onStarted,
 }: {
   pid: string;
   lang: Lang;
   working: boolean;
+  sourceSeconds: number;
   onStarted: () => Promise<void>;
 }) {
   const w = (ru: string, en: string, zh: string) => workspaceText(lang, ru, en, zh);
+  const limit = durationLimit(sourceSeconds);
+  const [length, setLength] = useState(limit.max >= 20 ? 20 : limit.max);
+  const [variation, setVariation] = useState<"automatic" | "keep" | "remix">("automatic");
+  const [energy, setEnergy] = useState<"calm" | "balanced" | "dynamic">("balanced");
   const [levels, setLevels] = useState({ animation: 60, intensity: 60, motion: 80, density: 70 });
   const [language, setLanguage] = useState<Speech | null>(null);
   const [debug, setDebug] = useState("");
@@ -193,6 +205,9 @@ export function CreateVideo({
           intensity_percent: levels.intensity,
           motion_percent: levels.motion,
           density_percent: levels.density,
+          duration_seconds: length,
+          visual_variation: variation,
+          visual_energy: energy,
           language: speech,
           voice: voiceChoice,
         }),
@@ -219,6 +234,48 @@ export function CreateVideo({
             <li key={index}>{name}</li>
           ))}
         </ul>
+      </div>
+      <label>
+        {w("Длительность, с", "Duration, s", "时长，秒")}
+        <input
+          type="range"
+          min={limit.min}
+          max={limit.max}
+          step={limit.step}
+          value={length}
+          aria-valuetext={length + "s"}
+          onChange={(event) => setLength(Number(event.target.value))}
+        />
+        <strong>
+          {length}
+          {w(" с", "s", " 秒")}
+        </strong>
+      </label>
+      <div className="language-switch" role="radiogroup" aria-label={w("Вариация картинки", "Visual variation", "画面变化")}>
+        {(
+          [
+            ["automatic", w("Авто", "Automatic", "自动")],
+            ["keep", w("Тот же стиль", "Keep style", "保持风格")],
+            ["remix", w("Новая", "New variation", "新变化")],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} type="button" role="radio" aria-checked={variation === id} onClick={() => setVariation(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="language-switch" role="radiogroup" aria-label={w("Энергия картинки", "Visual energy", "画面能量")}>
+        {(
+          [
+            ["calm", w("Спокойно", "Calm", "平静")],
+            ["balanced", w("Баланс", "Balanced", "平衡")],
+            ["dynamic", w("Динамика", "Dynamic", "动感")],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} type="button" role="radio" aria-checked={energy === id} onClick={() => setEnergy(id)}>
+            {label}
+          </button>
+        ))}
       </div>
       {SHARES.map((share) => (
         <label key={share.key}>

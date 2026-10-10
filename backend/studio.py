@@ -108,6 +108,9 @@ class CreateVideo(Strict):
     density_percent: int = Field(default=70, ge=0, le=100)
     language: str | None = None
     voice: str | None = None
+    duration_seconds: int | None = None
+    visual_variation: str | None = None
+    visual_energy: str | None = None
 
 class VideoLanguage(Strict):
     language: str = Field(min_length=2, max_length=16)
@@ -456,6 +459,30 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             raise HTTPException(422, 'analysis_not_ready')
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
+        from .director_v3 import PROJECT_ID, output_seconds
+        if pid == PROJECT_ID:
+            try:
+                chosen = output_seconds(body.duration_seconds, duration)
+            except ValueError:
+                raise HTTPException(422, 'duration_step') from None
+            from .visual_variation import plan_for_request
+            try:
+                visual = plan_for_request(
+                    settings.data_dir, pid,
+                    body.visual_variation or 'automatic',
+                    body.visual_energy or 'balanced',
+                    body.language,
+                )
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from None
+            enqueue(db, pid, 'director_v3', {
+                'revision': s['revision'],
+                'composition': 'DirectorV3Preview',
+                'duration_seconds': chosen,
+                'visual_plan': visual,
+            })
+            db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
+            return {'ok': True}
         from .hypit_prompt import illustration_request
         from .schemas import Caption
         from .sound_effects import DURATIONS, SoundEffect
@@ -754,6 +781,9 @@ def validate_director(result,dna):
         if t.reference_id not in refs or not 0<=t.reference_start<t.reference_end<=refs[t.reference_id]:raise ValueError('analysis_timestamps_invalid')
 
 def render_job(p,payload):
+    from .director_v3 import PROJECT_ID
+    if p['id'] == PROJECT_ID:
+        raise ValueError('director_v3_required')
     if payload.get('manual'):
         try:
             current = state(p['id'])
@@ -775,6 +805,9 @@ def render_job(p,payload):
         handed['manual'] = payload['manual']
     if payload.get('illustration'):
         handed['illustration'] = True
+    for key in ('dubbed', 'language', 'target_language', 'source_language', 'voice', 'voice_resolution', 'plan'):
+        if key in payload:
+            handed[key] = payload[key]
     legacy_render(p|{'analysis': analysis.model_dump()}, handed)
     if state(p['id']).get('context',{}).get('style_match'):
         try:

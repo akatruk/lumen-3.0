@@ -16,16 +16,83 @@ def progress(pid,stage,value):
     update(pid,stage=stage,progress=value)
     event(pid,'stage',stage)
 
+def fit_caption_ends(rows, audio):
+    """Keep caption times inside the speech file. Alignment can run a little past it."""
+    from pathlib import Path
+    if not audio or not Path(audio).is_file():
+        return rows
+    from .music import probe_audio
+    spoken = float((probe_audio(audio) or {}).get('duration') or 0)
+    if spoken <= 0:
+        return rows
+    fitted = []
+    for row in rows:
+        start = float(row['start'])
+        end = min(float(row['end']), spoken)
+        if start >= spoken or end - start < 0.08:
+            continue
+        fitted.append({**row, 'end': end})
+    return fitted
+
+
+def dub_captions(segments, code):
+    """Captions follow the dubbed lines. The schema still requires every language field."""
+    rows = []
+    language = code if code in ('en', 'zh', 'ru') else 'en'
+    for segment in segments or []:
+        text = segment['text']
+        row = {
+            'start': segment['start'],
+            'end': segment['end'],
+            'original': text,
+            'en': '',
+            'zh': '',
+            'ru': '',
+        }
+        row[language] = text
+        rows.append(row)
+    return rows
+
+
+def _ready_speech(folder, expected, voice):
+    """Reuse speech already recorded for these lines. Do not call a translator again."""
+    from pathlib import Path
+    path = Path(folder) / 'rendition.json'
+    if not path.is_file():
+        return None
+    saved = json.loads(path.read_text(encoding='utf-8'))
+    audio = (saved.get('audio') or {}).get('file')
+    if not audio or not Path(audio).is_file():
+        return None
+    if saved.get('status') not in {'audio_ready', 'aligned', 'ready', 'rendered'}:
+        return None
+    if voice and saved.get('voiceId') not in (None, voice):
+        return None
+    spoken = [(line.get('text') or '').strip() for line in saved.get('localizedScript') or []]
+    if spoken != [text.strip() for text in expected]:
+        return None
+    return saved
+
+
 def _dub_for_job(pid, payload, folder):
     """Target-language speech for this rendition. The source recording stays untouched."""
     from .dubbing_audio import localize_for_speech, synthesize
     from .language import rendition_dir
-    from .rendition import materialize_speech, semantic_segments, store_rendition, translations_from_rows
+    from .rendition import localize_script, materialize_speech, semantic_segments, source_record, store_rendition, translations_from_rows
     locale = payload.get('target_language')
     transcript = (payload.get('plan') or {}).get('transcript') or []
     translations = translations_from_rows(transcript, locale)
     if not translations:
-        translations = localize_for_speech(pid, semantic_segments(transcript), locale)
+        segments = semantic_segments(transcript)
+        if not segments:
+            raise ValueError('localized_script_missing')
+        translations = localize_for_speech(pid, segments, locale)
+    source = source_record(transcript)
+    spoken = localize_script(source['segments'], locale, source['sourceLanguage'], translations)
+    saved = _ready_speech(rendition_dir(settings.data_dir, pid, locale), [line['text'] for line in spoken], payload.get('voice'))
+    if saved:
+        del folder
+        return saved
 
     record = materialize_speech(
         rendition_dir(settings.data_dir, pid, locale),
@@ -78,6 +145,9 @@ def analyze_job(p):
             enqueue(db,pid,'render',{'recommendations':selected})
 
 def render_job(p,payload):
+    from .director_v3 import PROJECT_ID
+    if p['id'] == PROJECT_ID:
+        raise ValueError('director_v3_required')
     pid=p['id']; folder=settings.data_dir/pid
     analysis=Analysis.model_validate(p['analysis'])
     selected=[r for r in analysis.recommendations if r.id in payload['recommendations']]
@@ -152,10 +222,10 @@ def render_job(p,payload):
             if (record.get('audio') or {}).get('file'):
                 manual['dub_audio']=record['audio']['file']
             code=payload.get('language') or 'en'
-            manual['captions']=[
-                {'start': segment['start'], 'end': segment['end'], 'original': segment['text'], code: segment['text']}
-                for segment in (record.get('alignment') or {}).get('segments') or []
-            ]
+            manual['captions']=fit_caption_ends(
+                dub_captions((record.get('alignment') or {}).get('segments') or [], code),
+                (record.get('audio') or {}).get('file'),
+            )
             manual['subtitles']=bool(manual['captions'])
         if payload.get('illustration'):
             from .hypit_prompt import illustration_request
@@ -202,7 +272,7 @@ def safe_error(exc):
     'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
-    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready','VOICE_SETUP_REQUIRED',
+    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready','VOICE_SETUP_REQUIRED','localized_script_missing','director_v3_required','director_v3_renderer_missing','director_v3_render_failed','duration_step','visual_energy','visual_variation',
     'unverified_claim','property_not_approved','property_plan_changed','property_workflow','property_too_short','property_delivery_missing','reference_media_blocked','invalid_media_path','asset_not_found'}
     return str(exc) if str(exc) in allowed else 'processing_failed'
 
@@ -225,6 +295,9 @@ def run_once():
         elif job['kind']=='studio_analyze':
             from .studio import analyze
             analyze(p)
+        elif job['kind']=='director_v3':
+            from .director_v3 import run_job as director_v3_job
+            director_v3_job(p,json.loads(job['payload']))
         elif job['kind']=='studio_render':
             from .studio import render_job as studio_render
             studio_render(p,json.loads(job['payload']))
