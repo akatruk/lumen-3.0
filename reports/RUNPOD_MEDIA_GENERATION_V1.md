@@ -1,14 +1,10 @@
 # RunPod media generation v1
 
-Date: 2026-10-10. Still images only. No new pod. `lumen-picture` was not touched. OpenRouter, Gemini image, and Veo were not called.
-
-## What was stopped
-
-On `lumen-web-gpu` (`wk5d9kjveiqn6l`) the process `python3 main.py --listen 127.0.0.1 --port 8188` (pid 1376) was killed. That process was ComfyUI from another project. After the pod was resumed to copy files, port 8188 was still closed, no ComfyUI process was running, and the GPU was idle at 1 MiB. No speech or render process was killed. Nothing under `/workspace/ComfyUI` or `/workspace/comfyui` was edited, and those checkpoints were not loaded or copied out.
+Date: 2026-10-10; library close-out 2026-10-11. Still images only for V1+V4. No new pod. `lumen-picture` was not touched. OpenRouter, Gemini image, and Veo were not called. ComfyUI was not started.
 
 ## Model
 
-Lumen-owned Diffusers 0.32.2 on the pod, script `scripts/lumen_media_image.py`, weights at `/workspace/lumen-media-v1/models/sd_xl_base_1.0.safetensors` (6,938,078,334 bytes).
+Lumen-owned Diffusers on pod `lumen-web-gpu` (`wk5d9kjveiqn6l`), script `scripts/lumen_media_image.py`, weights at `/workspace/lumen-media-v1/models/sd_xl_base_1.0.safetensors` (6,938,078,334 bytes).
 
 | Item | Value |
 | --- | --- |
@@ -19,34 +15,63 @@ Lumen-owned Diffusers 0.32.2 on the pod, script `scripts/lumen_media_image.py`, 
 | Steps | 30 |
 | Guidance | 6.0 |
 | dtype | float16 |
-| Peak VRAM | 14898 MiB |
-| Warm time | 3.87–4.39 s per still, median 4.0 s |
-| Batch GPU time | 300 s for 75 stills |
-
-The negative prompt is applied. It asks for no text, letters, numbers, logos, watermarks, passport imagery, signage, or malformed hands. FLUX.1-schnell is gated. The FLUX and LTX files already on the volume belong to the other project and were not used.
+| Peak VRAM | ~14898 MiB |
+| Warm time | ~3.9–4.4 s per still (median ~4.0 s) |
 
 ## Approved assets
 
-75 stills approved, 0 rejected. 30 photographs, 20 details, 15 objects, 10 foregrounds. Seeds start at 51000. Contact sheets: `contact-sheets/runpod-images.jpg`, `runpod-details.jpg`, `runpod-objects.jpg`, `runpod-foreground.jpg`.
+| Batch | Still count | Seeds | Breakdown |
+| --- | ---: | --- | --- |
+| V1 | 75 | from 51000 | 30 photo / 20 detail / 15 object / 10 foreground |
+| V4 batch 1 | 75 | from 52000 | same mix |
+| V4 batch 2 | 75 | from 53000 | same mix |
+| **Total RunPod** | **225** | | **90 / 60 / 45 / 30** |
 
-Reviewed on the contact sheets and on `rp_photo_001`, `rp_photo_012`, and `rp_photo_029`. Frames are photographic, with blank paper and no readable passport text. Family prompts sometimes draw four people when the wording asked for three. That was kept as a known limit, not a rejection.
+Approved 225, rejected 0. Files under `static/runpod/{photographs,details,objects,foreground}/`. Contact sheets:
 
-No image-to-video clips were made. The only LTX checkpoint on the volume belongs to the other project. A public LTX-Video 2B file is about 6.3 GB and the lumen directory is 11 GB, so a later download can fit the remaining volume, but it was not started in this pass.
+- V1: `contact-sheets/runpod-images.jpg`, `runpod-details.jpg`, `runpod-objects.jpg`, `runpod-foreground.jpg`
+- V4: `contact-sheets/v4/v4-photos.jpg`, `v4-details.jpg`, `v4-objects.jpg`, `v4-foreground.jpg`, plus `v4-batch2-*.jpg`
 
-## Library
+## Library (live lumen-fix)
 
-Copied into `/opt/lumen-rebuild/media/library/out` with `media/library/runpod_assets.py`. Existing rows were left in place. Manifest went from 411 assets to 486. Each new row has `source: runpod`, a sha256, and descriptions in English, Russian, and Chinese. Files live under `static/runpod/`.
+Path: `/opt/lumen-rebuild/media/library/out` → `/mnt/volume_nyc1_1791446889637/app-library`.
 
-Search on that manifest returns `rp_photo_001` for “family planning international relocation”, “семья планирует международный переезд”, and “家庭计划移居国外”.
+| Item | Count |
+| --- | ---: |
+| Manifest assets | **636** |
+| `source=runpod` | **225** |
+| Prior baseline (pre–V1 stills) | 411 |
+| After V1 only | 486 |
+| After V4 (+150) | 636 |
+
+Existing rows were left in place. No duplicate ids re-appended. Each RunPod row has `source: runpod`, sha256, and `description` en/ru/zh. Multilingual search via `media/library/search.py` + concepts: V4 coverage report 60/60.
+
+## I2V
+
+**Skipped.** No lumen-owned I2V / LTX weights under `/workspace/lumen-media-v1`. The LTX checkpoint on the shared volume belongs to another project and must not be loaded through ComfyUI. Prefer a future lumen-native 4s subtle motion path if weights are installed under `/workspace/lumen-media-v1` without starting ComfyUI. Pod was not resumed for I2V.
 
 ## Queue and endpoint
 
-`POST /internal/media/generate-image` stays authenticated. The `media_gpu_jobs` queue still yields when a production speech or render job is queued or running. The plan is an SDXL inference spec. It does not build a ComfyUI graph. The live lumen-fix process was not restarted.
+`POST /internal/media/generate-image` is authenticated (`current_user`). Plans are SDXL Diffusers specs (`image_plan` → `StableDiffusionXLPipeline` / `sd_xl_base_1.0.safetensors`). The `media_gpu_jobs` queue yields when production `jobs` are `queued`/`running`. `finish()` calls `index_generated_before_stage` before marking complete so Director cannot stage unindexed stills.
+
+Deployed to lumen-test (`/opt/lumen-rebuild`) with `backend/media_gpu.py` and `app.include_router(media_gpu_router)`. Verified 2026-10-11 after `lumen-web` restart with empty production queue: health `ok`; unauthenticated `POST /internal/media/generate-image` returns **401** `unauthorized` (route present, auth required). `lumen-worker` was not restarted.
 
 ## Cost
 
-Account balance at the first resume this task was $59.99. After `podStop` it was $58.19, so about $1.80. While the pod was running the account reported $0.911 per hour. After the stop, spend fell to $0.015 per hour. Inference itself was about five minutes. The $20 cap was not reached. The lumen-fix job queue was empty (`JOBS []`). `podStop` left `wk5d9kjveiqn6l` as `EXITED`. It was not terminated. `lumen-picture` was not changed.
+| Phase | Notes |
+| --- | --- |
+| V1 first resume | balance ~$59.99 → ~$58.19 after stop (~$1.80) |
+| V4 expansion session | ~$0.59 batch spend (user-confirmed); idle after stop ~$0.015/hr |
+| Hourly while RUNNING | ~$0.89–$0.91 |
+| Cap | $20 — not reached |
+| Final pod | `wk5d9kjveiqn6l` **EXITED** (not terminated) |
+| `lumen-picture` | untouched |
 
 ## Git
 
-Code commit `a6f3c8e8c130b9698281251aac6ecbb81d52ee6e` on `fix/seedance-import-prologue`.
+Branch `fix/seedance-import-prologue`:
+
+- V1 stills + endpoint module: `a6f3c8e`
+- V4 expansion: `619b011`
+- V4 counts / spend notes: `129ed74` … `4fd5233`
+- V1 report close-out (this file + GPU audit): tip of branch after the docs commit below
