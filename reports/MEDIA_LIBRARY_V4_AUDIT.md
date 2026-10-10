@@ -1,39 +1,45 @@
 # Media library V4 audit
 
-Counted from `media/library/out/manifest.json` on 10 October 2026. The old figure of 248 is out of date.
+Counted from the live lumen-test library at `/opt/lumen-rebuild/media/library/out` → `/mnt/volume_nyc1_1791446889637/app-library` on 10 October 2026.
 
-## Inventory
+Starting inventory (after RunPod SDXL V1, before V4 batches). Final after V4: **636** rows, **225** RunPod stills — see `MEDIA_LIBRARY_V4_REPORT.md`.
+
+## Inventory (server, start of V4 expansion)
 
 | | Count |
 | --- | ---: |
-| Approved manifest rows | 411 |
-| Images | 389 |
+| Approved manifest rows | 486 |
+| Images | 464 |
 | Video files | 17 |
-| Remotion motion presets (`.tsx`, file not a media master) | 5 |
+| Remotion motion presets (`.tsx`) | 5 |
 | SVG | 341 |
-| PNG | 48 |
+| PNG | 123 |
 | MP4 | 12 |
 | WebM | 5 |
-| Photography | 40 |
+| Photography (`visualFamily`) | 70 |
+| Editorial objects | 50 |
 | Line drawings | 168 |
+| Backgrounds (family) | 26 |
 | Rows with no visual family | 150 |
-| Backgrounds (family or category) | 26 family / 44 category |
-| Hero-role rows | 70 |
-| Layered ids | 21 |
-| Motion clips that are real video | 17 |
-| Files missing on disk | 5 (the real-estate Remotion presets point at `scenes.tsx`, not a video file) |
+| RunPod SDXL stills (`source=runpod`) | 75 |
+| Rows with `conceptId` | 75 (the RunPod set) |
+| Files missing on disk | 5 (Remotion presets point at `scenes.tsx`) |
 
-Domain field: immigration 116, real estate 60, relocation 47, unset 188.
+RunPod breakdown at start: `rp_photo_` 30, `rp_detail_` 20, `rp_object_` 15, `rp_fg_` 10.
 
-Photographs: 29 real estate, 10 people, 1 city still.
+Volume free: ~80 GB on `/mnt/volume_nyc1_1791446889637`. Root free: ~13 GB.
 
-No asset has `conceptId`. No description or tag field is a per-language object. Search has been matching English tags, with a short alias list for some Russian and Chinese words.
+## Provider status
 
-Library size on this machine: `media/library/out` is 82 MB. Server volume `/mnt/volume_nyc1_1791446889637` has 83 GB free. Root disk has 13 GB free.
+- OpenRouter image/video: account already past credit balance (HTTP 402). Do not use.
+- RunPod `lumen-web-gpu` (`wk5d9kjveiqn6l`): existing pod, resume-only. SDXL at `/workspace/lumen-media-v1`.
+- ComfyUI / hgpoint checkpoints on the same volume: do not start or load.
+- `lumen-picture` (`h2v7b8z2szwlv6`): leave EXITED / untouched.
+- I2V: no lumen-owned video checkpoint under `/workspace/lumen-media-v1`. LTX on the volume belongs to another project. Motion deferred unless a lumen-native path appears after stills.
 
 ## Why the same pictures kept winning
 
-The last three comparable edits are the visual-randomization previews, seeds 839204, 120011, and 103. Each one only had two library picks (the document beat and the proof beat). The other beats stay on the speaker.
+Last three comparable edits (visual-randomization previews, seeds 839204 / 120011 / 103) each used two library picks:
 
 | | Document beat | Proof beat |
 | --- | --- | --- |
@@ -41,21 +47,22 @@ The last three comparable edits are the visual-randomization previews, seeds 839
 | B `gen_120011` | `document_approval_001` | `people_consult_001` |
 | C `gen_103` | `re_agent_docs` | `people_phone_001` |
 
-Five unique assets across six slots. `document_approval_001` was used twice. `people_consult_001` and `i2v_consult_001` are the same meeting, one still and one clip.
+Five unique assets across six slots. Causes: fixed English queries, quality-weight sticky top hits, no recent-id memory (fixed in code), and weak multilingual alias coverage for some phrases.
 
-Causes, from the code and the queries, not from filenames:
+## Coverage gaps (addressed by V4 batches)
 
-1. Both scenes used one fixed English query (`passport document`, `consultation meeting`).
-2. Search returned a short list and quality weight kept the top still.
-3. Nothing remembered the previous generation.
-4. A Russian or Chinese phrase that did not hit an alias became an empty token list. Search then returned the highest `qualityScore` rows, which are decorative arrows. That is a retrieval bug, not a missing photograph.
+RunPod V1 heavily covered family planning, packing, new apartment, arrival, key handover. V4 batches target:
 
-There is no separate AI Engineering Memory database in this repo.
+- `immigration.citizenship_planning`, `immigration.second_passport`
+- `immigration.residency_application`, `immigration.approval`
+- `immigration.country_comparison`
+- `relocation.remote_work`, `relocation.couple`, `relocation.family_home`
+- `travel.city_arrival`
+- `real_estate.investor_meeting`
+- more `property_investment` / `property_viewing` / `business` relocation
 
-## Coverage gaps
+Batch plan: 2 × (30 photos + 20 details + 15 objects + 10 layered) = 150 stills. Estimated GPU cost well under $2; hard cap $20.
 
-Photographs are the scarce layer: 40 against a long-term aim near 350. Motion video is 17 against an aim near 150. Useful human scenes exist for consultation, a couple, document review, a doorway, a phone call, two property viewings, packing, an apartment, and travel. They do not cover investor immigration, an interview, a family with children, affordable versus luxury as separate people scenes, or a true citizenship still.
+## Jobs / safety
 
-Hero objects are mostly one gold-line SVG family. More globes would not add a new idea.
-
-Remote-work and citizenship-planning queries still land on a route graphic or a buyer-at-a-desk still. Those concepts need a photograph before search can do better.
+At audit time: `jobs` table empty (`queued`/`running`/`processing` = 0). `lumen-web` and `lumen-worker` active. Do not restart worker while a job runs. Do not overwrite published player `d3fbb40fe25a4bb2adf74a32635df28b`. Project «е» is Director V3 Remotion, not Hypit.

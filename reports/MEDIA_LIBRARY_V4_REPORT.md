@@ -1,70 +1,90 @@
 # Media library V4 report
 
-## What changed
-
-Search now expands Russian and Chinese phrases onto the shared English tags, and it refuses to dump the icon set when a phrase does not match. A recent asset is ranked down when another relevant hit exists. A new generation reads asset ids from stored visual plans and avoids them. The document and proof beats rotate among different queries (residence application, document review, consultation, phone consult) instead of one fixed sentence.
-
-No new image or video file was added. The paid batch did not run.
+Date: 10 October 2026. Multilingual media library expansion on lumen-fix. OpenRouter / Gemini image / Veo were not used. ComfyUI was not started. `lumen-picture` (`h2v7b8z2szwlv6`) was left EXITED. No app rebuild. Published player `d3fbb40fe25a4bb2adf74a32635df28b` was not overwritten. strom-v2 was not touched.
 
 ## Counts
 
 | | |
 | --- | ---: |
-| Starting approved rows | 411 |
-| New approved assets | 0 |
-| Final approved rows | 411 |
-| Photographs | 40 |
-| Motion video | 17 |
-| SVG | 341 |
+| Starting approved rows (server) | 486 |
+| Batch 1 approved | 75 |
+| Batch 2 approved | 75 |
 | Rejected this pass | 0 |
-| New duplicates | 0 |
+| New duplicates skipped | 0 |
+| Final approved rows | 636 |
+| RunPod SDXL stills total | 225 |
+| Photographs (`visualFamily`) | 130 |
+| Motion video (unchanged) | 17 |
+| SVG (unchanged) | 341 |
 
-## Credits and models
+Batch 1: `rp_photo_031–060`, `rp_detail_021–040`, `rp_object_016–030`, `rp_fg_011–020` (seeds 52000+).  
+Batch 2: `rp_photo_061–090`, `rp_detail_041–060`, `rp_object_031–045`, `rp_fg_021–030` (seeds 53000+).
 
-Configured, not invented:
+Files live under the existing library path:
 
-- Still image: `google/gemini-2.5-flash-image` through OpenRouter.
-- Motion: `google/veo-3.1-fast`.
-- Daily budget in config: 20 USD.
+`/opt/lumen-rebuild/media/library/out` → `/mnt/volume_nyc1_1791446889637/app-library`
 
-Production key check on 10 October 2026: `total_credits` 20, `total_usage` 20.327. The account is already past the credit balance. Batch 1 (30 photographs, 20 details, 15 hero objects, 10 motion clips, 10 layered assets) was not submitted. A retry would be another HTTP 402. Estimated cost was not spent. Actual cost this pass: 0.
+RunPod masters staged then indexed via `media/library/runpod_assets.py` (anti-dupe by id / checksum). Contact sheets: `contact-sheets/v4/`.
 
-Prompt templates for a later batch, when credits exist, are the four sentences in the task (photography, hero object, detail insert, image-to-video). They were not sent to a provider.
+## Provider / GPU
 
-## Cross-generation picks
+| Item | Value |
+| --- | --- |
+| Pod | `lumen-web-gpu` `wk5d9kjveiqn6l` (resume / stop only) |
+| Model | SDXL base 1.0, Diffusers 0.32.2, `/workspace/lumen-media-v1` |
+| Size | 768×1344 photos/details/fg; 1024×1024 objects |
+| Steps / guidance | 30 / 6.0 |
+| Peak VRAM | ~14880 MiB |
+| Warm still | ~4.0 s |
 
-Previous three previews, six library slots, five unique ids, `document_approval_001` twice, and the consultation still/clip pair.
+I2V deferred: no lumen-owned video checkpoint under `/workspace/lumen-media-v1`. LTX on the volume belongs to another project and was not loaded. Wan not promised.
 
-Same three seeds after the memory pass, each plan told about the assets already chosen:
+## Cost
+
+| | USD |
+| --- | ---: |
+| Balance before first resume | ~58.14 |
+| Balance after final stop | ~57.61 |
+| Approximate session spend | **~$0.53** |
+| Hard cap | 20.00 |
+
+Idle spend returned to ~$0.015/hr after `podStop`. Pod status at end: `EXITED`. Jobs table was empty throughout generation.
+
+## Multilingual search
+
+`reports/MULTILINGUAL_MEDIA_COVERAGE.md`: 20 concepts × 3 languages = 60 queries. All returned hits; 0 decorative arrows as top hit; 19/20 share the same top id across locales. Gap concepts from the audit (citizenship, second passport, remote work, residency, investor meeting, couple, family home, city arrival) now resolve to RunPod stills with `conceptId`.
+
+## Cross-generation picks (expanded library)
+
+Seeds 839204 / 120011 / 103 with `recent_ids` memory:
 
 | Seed | Document beat | Proof beat |
 | --- | --- | --- |
-| 839204 | `people_door_001` | `document_approval_001` |
-| 120011 | `i2v_review_001` | `i2v_phone_001` |
-| 103 | `people_review_001` | `i2v_consult_001` |
+| A 839204 | `rp_photo_066` | `document_approval_001` |
+| B 120011 | `rp_photo_087` | `i2v_phone_001` |
+| C 103 | `rp_photo_035` | `i2v_consult_001` |
 
-Overlap across those three plans: none. Meaning of the six beats is unchanged. Speaker scenes still do not swap the host for a random plate.
-
-Previews rendered from these plans: `output/media-library-v4/variant-a.mp4`, `variant-b.mp4`, `variant-c.mp4`. Each is 1080×1920, 20.05 s, H.264 + AAC. At 8 s the proof beats differ (mean absolute difference 40–69). At 5 s, B and C are close (1.5): `i2v_review_001` is the moving version of the same review still as `people_review_001`. The ids differ; the photograph does not. A at that second is the doorway still (difference about 33).
+Plans: `output/media-library-v4/variant-*.v4.json`. Prior 20 s mp4s remain; new plans pick V4 stills for the document beat. Published player untouched.
 
 ## Tests
 
-`media/library/search.test.py`: 11 tests, including the 60-query set.
+- `media/library/search.test.py`: 12 passed (60-query set + RunPod row + passport concept match).
+- `backend/tests/test_media_gpu.py` + `test_visual_variation.py`: 11 passed.
 
-`backend/tests/test_visual_variation.py` and `backend/tests/test_director_v3.py`: 10 tests. The same seed still rebuilds the same plan. A repeated asset id is left behind when another qualified file exists.
+## Deployed to lumen-fix
 
-## Not done
+- Indexed 150 stills into the live manifest (486 → 636).
+- Synced `search.py`, `concepts.py`, `runpod_assets.py`, `search.test.py`, `media_gpu.py`, `visual_variation.py`.
+- No `lumen-web` / `lumen-worker` restart (queue empty; code paths read library files from disk).
+- Full “перенесём на диск” relocation deferred: assets already on the volume-backed library symlink; no second storage layout invented.
 
-- AI Engineering Memory is not in this repository. Decisions are in this report and in git, not in a second database.
-- Contact sheets for a new batch were not made, because there is no new batch.
-- `conceptId` was not written into all 411 manifest rows.
-- English, Russian, and Chinese voice was not re-generated. The previews keep the existing Russian speaker track. A missing target-language voice is not replaced.
-- Photographs for citizenship, a company move, and remote work are still missing. Search cannot invent them.
+## Deferred
+
+- I2V / motion expansion (no lumen-owned I2V weights).
+- Optional second volume copy or macOS mirror of PNG masters (server library is authoritative).
+- Remotion re-render of variant mp4s from the new `.v4.json` plans (plans ready; prior mp4s kept).
+- Writing `conceptId` onto the pre-RunPod 411 rows (225 RunPod rows already have it).
 
 ## Git
 
-Code commit: `253c4887766eee422480f36c7154f04b2b329e2a` on `fix/seedance-import-prologue`.
-
-## Disk
-
-`media/library/out` is 82 MB. Server volume 83 GB free. Root 13 GB free. This pass did not copy new masters.
+Commit SHA filled after push on `fix/seedance-import-prologue`.

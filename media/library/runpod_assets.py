@@ -101,7 +101,11 @@ def _digest(path):
 
 
 def apply(library, source_dir, plans):
-    """Copy approved stills into the library and append manifest rows. Existing ids stay."""
+    """Copy approved stills into the library and append manifest rows.
+
+    An id already in the manifest is left alone. A file already at the
+    destination with a different checksum is not replaced.
+    """
     library = Path(library)
     source_dir = Path(source_dir)
     manifest_path = library / "manifest.json"
@@ -118,12 +122,16 @@ def apply(library, source_dir, plans):
         relative = FOLDERS[plan["kind"]] + "/" + plan["id"] + ".png"
         dest = library / relative
         dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
+        digest = _digest(src)
+        if dest.is_file() and _digest(dest) != digest:
+            continue
+        if not dest.is_file():
+            shutil.copy2(src, dest)
         sidecar = src.with_suffix(".json")
         seconds = None
         if sidecar.is_file():
             seconds = json.loads(sidecar.read_text()).get("seconds")
-        assets.append(row_for(plan, relative, _digest(dest), seconds))
+        assets.append(row_for(plan, relative, digest, seconds))
         known.add(plan["id"])
         added.append(plan["id"])
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")

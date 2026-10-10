@@ -361,20 +361,37 @@ def plan_for_request(data_dir, project_id, variation, energy, language=None):
     return plan
 
 
-def stage_backgrounds(plan, public_dir: Path):
-    """Copy chosen stills next to the Remotion public files. Missing files are dropped."""
+def _manifest_ids(library: Path):
+    path = library / 'manifest.json'
+    if not path.is_file():
+        return set()
+    manifest = json.loads(path.read_text(encoding='utf-8'))
+    return {item.get('id') for item in manifest.get('assets') or []}
+
+
+def stage_backgrounds(plan, public_dir: Path, library: Path | None = None):
+    """Copy chosen stills next to the Remotion public files.
+
+    A still is staged only when its id is already in the library manifest.
+    Newly generated files have to be indexed first.
+    """
+    root = Path(library) if library is not None else LIBRARY
+    indexed = _manifest_ids(root)
     picked = public_dir / 'picked'
     picked.mkdir(parents=True, exist_ok=True)
     for scene in plan.get('scenes') or []:
         background = scene.get('background') or {}
         relative = background.get('file')
-        if not relative:
+        asset_id = background.get('assetId')
+        if not relative or not asset_id or asset_id not in indexed:
+            if relative:
+                background['staged'] = None
             continue
-        source = LIBRARY / relative
+        source = root / relative
         if not source.is_file():
             background['staged'] = None
             continue
-        dest = picked / f"{background.get('assetId')}{source.suffix.lower()}"
+        dest = picked / f"{asset_id}{source.suffix.lower()}"
         if not dest.exists() or dest.stat().st_size != source.stat().st_size:
             dest.write_bytes(source.read_bytes())
         background['staged'] = f"picked/{dest.name}"

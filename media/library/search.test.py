@@ -31,8 +31,21 @@ class SearchTest(unittest.TestCase):
     def test_second_passport_is_found_in_three_languages(self):
         for query in ("second passport", "второй паспорт", "第二护照"):
             hits = search_assets(query, limit=5, path=MANIFEST)
-            ids = " ".join(hit["id"] for hit in hits)
-            self.assertIn("passport", ids)
+            self.assertTrue(hits, query)
+            blob = " ".join(
+                hit["id"]
+                + " "
+                + str(hit.get("conceptId") or "")
+                + " "
+                + " ".join(hit.get("tags") or [])
+                + " "
+                + " ".join((hit.get("description") or {}).values() if isinstance(hit.get("description"), dict) else [])
+                for hit in hits
+            ).lower()
+            self.assertTrue(
+                "passport" in blob or "second_passport" in blob,
+                query + " -> " + blob,
+            )
 
     def test_immigration_domain_stays_in_the_same_manifest(self):
         hits = search_assets("relocation", domain="immigration", limit=5, path=MANIFEST)

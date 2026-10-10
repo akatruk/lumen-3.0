@@ -7,6 +7,7 @@ load an image model and a video model at the same time.
 import json
 import time
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -175,7 +176,43 @@ def claim_next():
         return job
 
 
+def _library_indexer():
+    import importlib.util
+
+    path = Path(__file__).resolve().parent.parent / "media" / "library" / "runpod_assets.py"
+    spec = importlib.util.spec_from_file_location("lumen_runpod_assets", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def library_dir():
+    """The manifest Director reads. The volume holds it on lumen-fix."""
+    from .library_clips import library_root
+    return library_root()
+
+
+def index_generated_before_stage(plans, source_dir, library=None):
+    """Copy newly generated stills into the server library and append manifest rows.
+
+    A render or Director selection may stage one of these stills only after
+    this returns. Files that stay only on the GPU volume are not in the manifest.
+    """
+    if not plans:
+        return []
+    root = Path(library) if library is not None else library_dir()
+    return _library_indexer().apply(root, source_dir, plans)
+
+
 def finish(job_id, result):
+    """Mark the job complete. Generated stills are indexed before that status is stored."""
+    result = dict(result or {})
+    plans = result.get("plans")
+    source = result.get("sourceDir")
+    if plans and source:
+        library = result.get("library")
+        added = index_generated_before_stage(plans, source, library)
+        result["indexedIds"] = added
     with connect() as db:
         db.execute(
             "UPDATE media_gpu_jobs SET status='complete', result=?, updated=? WHERE id=?",
