@@ -1,0 +1,26 @@
+{
+  "name": "lumen-motion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable Remotion motion-graphics library. Sits beside Hypit; it does not render the Lumen delivery.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "still": "remotion still src/index.ts MotionLibraryShowcase",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/utils/*.test.ts src/registry/*.test.ts src/typography/*.test.ts src/showcase/*.test.ts src/localization/*.test.ts src/cards/*.test.ts src/concepts/*.test.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.524",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.524"
+  },
+  "devDependencies": {
+    "@types/node": "24.5.2",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "tsx": "4.20.5",
+    "typescript": "5.9.3"
+  }
+}

@@ -85,6 +85,10 @@ def normalize_query(text):
         from concepts import PHRASES
     except ImportError:
         from media.library.concepts import PHRASES
+    try:
+        from concept_triggers import expand_query as _expand_concept
+    except ImportError:
+        from media.library.concept_triggers import expand_query as _expand_concept
     # Case-fold Latin/Cyrillic so «ВНЖ» still hits the «внж» phrase.
     folded = query.casefold()
     for source, english in list(PHRASES) + list(_QUERY_ALIASES):
@@ -97,7 +101,7 @@ def normalize_query(text):
             query = query[:at] + f" {english} " + query[at + len(source):]
             folded = query.casefold()
             start = at + len(english) + 2
-    return query
+    return _expand_concept(query)
 
 
 _STOP = frozenset({
@@ -238,17 +242,23 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
     return score
 
 
+# Manifest status values hidden from default search (cleanup V1). Ids preserved.
+_HIDDEN_STATUS = frozenset({"quarantined", "rejected"})
+
+
 def search_assets(
     query, type=None, category=None, aspect_ratio=None, composition=None, limit=5,
     path=None, text_safe=None, domain=None, exclude_ids=(), preferred_scene_role=None,
     preferred_energy=None, locale=None, preferred_composition=None, recent_ids=(),
     scene_role=None, text_position=None, excluded_asset_ids=(),
+    include_hidden=False,
 ):
     """Rank assets by meaning, quality, role, and whether type can sit on them.
 
     text_safe prefers assets whose textSafeAreas include that side, without
     dropping a strong semantic match that has no composition note yet.
     exclude_ids drops files already used in the current video.
+    include_hidden=True keeps quarantined/rejected rows (default: skip them).
     """
     words = _query_words(query)
     if (query or "").strip() and not words:
@@ -260,6 +270,8 @@ def search_assets(
     del locale
     for asset in load(path):
         if asset.get("id") in skipped:
+            continue
+        if not include_hidden and asset.get("status") in _HIDDEN_STATUS:
             continue
         if type and asset.get("type") != type:
             continue

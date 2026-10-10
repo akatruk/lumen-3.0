@@ -1,0 +1,11 @@
+node_modules/
+.cache/
+out/
+output/
+preview-frames/
+public/director-v3/
+*.tsbuildinfo
+*.mp4
+*.webm
+*.mp3
+

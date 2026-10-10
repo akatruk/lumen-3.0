@@ -111,6 +111,8 @@ class CreateVideo(Strict):
     duration_seconds: int | None = None
     visual_variation: str | None = None
     visual_energy: str | None = None
+    # Opt-in Remotion path when settings.remotion_engine_enabled. Default keeps Hypit.
+    picture_engine: str | None = None
 
 class VideoLanguage(Strict):
     language: str = Field(min_length=2, max_length=16)
@@ -460,6 +462,9 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
         from .director_v3 import PROJECT_ID, output_seconds
+        from . import remotion_engine
+        # Project «e» always Remotion. REMOTION_ENGINE_ENABLED reserves expansion;
+        # non-«e» create-video keeps Hypit until speaker staging is generalized.
         if pid == PROJECT_ID:
             try:
                 chosen = output_seconds(body.duration_seconds, duration)
@@ -475,11 +480,14 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 )
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
+            if remotion_engine.enabled():
+                visual = {**visual, 'conceptTriggers': True}
             enqueue(db, pid, 'director_v3', {
                 'revision': s['revision'],
                 'composition': 'DirectorV3Preview',
                 'duration_seconds': chosen,
                 'visual_plan': visual,
+                'picture_engine': 'remotion',
             })
             db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
             return {'ok': True}

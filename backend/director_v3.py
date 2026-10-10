@@ -120,7 +120,18 @@ def run_job(p, payload):
     folder.mkdir(parents=True)
     dest = folder / 'result.mp4'
     visual_plan = (payload or {}).get('visual_plan')
-    digest = render_assembly(dest, seconds, speaker_for(seconds, settings.data_dir / p['id'] / 'source'), visual_plan)
+    speaker = speaker_for(seconds, settings.data_dir / p['id'] / 'source')
+    from . import remotion_engine
+    render_plan = remotion_engine.resolve_scene_plan(
+        visual_plan=visual_plan,
+        locale=(visual_plan or {}).get('language'),
+        duration_seconds=seconds,
+        speaker_file=speaker,
+        source_ref=str(settings.data_dir / p['id'] / 'source'),
+        generation_id=(visual_plan or {}).get('generationId'),
+    )
+    remotion_engine.store_render_plan(settings.data_dir, p['id'], render_plan)
+    digest = remotion_engine.render_with_plan(dest, render_plan)
     meta = _accept(dest, seconds)
     from .db import event, update
     from .studio import state
@@ -129,12 +140,13 @@ def run_job(p, payload):
         'render_id': render_id,
         'metadata': meta,
         'timeline': [[0.0, meta['duration']]],
-        'applied': ['director_v3'],
+        'applied': ['director_v3', 'remotion_engine_v1'],
         'picture_engine': 'remotion',
         'composition': COMPOSITION,
         'duration_seconds': seconds,
-        'visual_seed': (visual_plan or {}).get('visualSeed'),
-        'art_direction': (visual_plan or {}).get('artDirection'),
+        'visual_seed': render_plan.get('visualSeed'),
+        'art_direction': render_plan.get('artDirection'),
+        'render_plan_id': render_plan.get('generationId'),
         'delivery_sha256': digest,
         'assembled': True,
         'qa': None,

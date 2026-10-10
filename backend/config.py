@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     max_upload_mb: int = 250
     max_duration_seconds: int = 420
     max_storage_gb: int = 8
+    # When true, create-video may use Remotion for non-«e» projects that request it.
+    # Project «e» always uses Director V3 Remotion. Hypit remains the default fallback.
+    remotion_engine_enabled: bool = False
 
 settings = Settings()
 settings.data_dir.mkdir(parents=True, exist_ok=True)

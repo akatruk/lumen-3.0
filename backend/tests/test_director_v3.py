@@ -89,7 +89,12 @@ def test_director_v3_job_renders_a_new_assembly_and_skips_hypit(client, monkeypa
     monkeypatch.setattr('backend.hypit_picture.render_picture', lambda *_a, **_k: called.append('hypit'))
     result = director_v3.run_job(project(pid), {'composition': 'DirectorV3Preview'})
     video = settings.data_dir / pid / 'renders' / result['render_id'] / 'result.mp4'
-    assert seen == [(video, 20, 'speaker.mp4', None)]
+    assert len(seen) == 1
+    assert seen[0][0] == video
+    assert seen[0][1] == 20
+    assert seen[0][2] == 'speaker.mp4'
+    assert isinstance(seen[0][3], dict)
+    assert seen[0][3].get('conceptTriggers') is True
     assert video.read_bytes() == body
     assert called == []
     saved = project(pid)
@@ -99,8 +104,10 @@ def test_director_v3_job_renders_a_new_assembly_and_skips_hypit(client, monkeypa
     assert saved['result']['composition'] == 'DirectorV3Preview'
     assert saved['result']['duration_seconds'] == 20
     assert saved['result']['delivery_sha256'] == 'fresh-digest'
+    assert 'remotion_engine_v1' in saved['result']['applied']
     assert saved['result']['metadata']['width'] == 1080
     assert saved['result']['metadata']['height'] == 1920
+    assert (settings.data_dir / pid / 'remotion-plans' / 'latest.json').is_file()
 
 
 def test_director_v3_source_does_not_copy_the_frozen_preview():

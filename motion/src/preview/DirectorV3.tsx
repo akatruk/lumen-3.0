@@ -5,6 +5,8 @@ import { LocaleProvider } from "../typography/locale";
 import { AutoFitText } from "../typography/AutoFitText";
 import { normalizeScene } from "../registry/validateScene";
 import { renderScene } from "../registry/motionRegistry";
+import { ConceptViz, syncConceptTriggers, type SyncedConceptTrigger } from "../concepts";
+import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 const media = (name: string) => staticFile(`director-v3/${name}`);
@@ -28,6 +30,10 @@ export type VisualPlan = {
   visualSeed: number;
   artDirection: string;
   scenes: SceneLook[];
+  /** When true (default), spoken captions drive concept viz overlays. */
+  conceptTriggers?: boolean;
+  backgroundPlate?: "ink_lift" | "paper_grain" | "navy_grid" | "gold_veil" | "soft_vignette" | null;
+  heroObject?: "passport" | "key" | "globe" | "house" | null;
 };
 
 export type DirectorV3Props = {
@@ -175,14 +181,16 @@ function Speaker({
   startFrom,
   zoomTo,
   crop,
+  circle = false,
 }: {
   file: string;
   startFrom: number;
   frames?: number;
   zoomTo: number;
   crop?: string;
+  circle?: boolean;
 }) {
-  return (
+  const video = (
     <AbsoluteFill style={{ ...(crop ? { clipPath: crop } : {}), transform: `scale(${zoomTo})` }}>
       <OffthreadVideo
         src={media(file)}
@@ -190,6 +198,23 @@ function Speaker({
         volume={0}
         style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 22%" }}
       />
+    </AbsoluteFill>
+  );
+  if (!circle) return video;
+  return (
+    <AbsoluteFill style={{ alignItems: "flex-end", justifyContent: "flex-end", padding: "0 48px 360px 0" }}>
+      <div
+        style={{
+          width: 220,
+          height: 220,
+          borderRadius: "50%",
+          overflow: "hidden",
+          border: `3px solid ${theme.color.lineStrong}`,
+          boxShadow: theme.shadow.soft,
+        }}
+      >
+        {video}
+      </div>
     </AbsoluteFill>
   );
 }
@@ -430,13 +455,26 @@ export function DirectorV3({ durationSeconds = 20, speakerFile = "speaker.mp4", 
       animate,
     };
   });
+  const conceptOn = visualPlan?.conceptTriggers !== false;
+  const concepts: SyncedConceptTrigger[] = conceptOn ? syncConceptTriggers(CAPTIONS, scale) : [];
+  const plate = visualPlan?.backgroundPlate ?? null;
+  const hero = visualPlan?.heroObject ?? null;
   return (
     <AbsoluteFill style={{ background: theme.color.bg, fontFamily: theme.font.sans }}>
       <LocaleProvider locale="ru-RU">
       <Audio src={media(speakerFile)} volume={1.6} />
       <Audio src={media("bed.mp3")} volume={(frame) => bedVolume(frame, frames)} />
+      {plate ? (
+        <Sequence from={0} durationInFrames={frames} name="plate">
+          <BackgroundPlate treatment={plate} frames={frames} intensity={1} />
+        </Sequence>
+      ) : null}
       <Sequence from={hook.from} durationInFrames={hook.duration} name="hook">
-        <Hook file={speakerFile} from={hook.from} frames={hook.duration} look={looks.hook} />
+        <ParallaxLayers
+          frames={hook.duration}
+          intensity={looks.hook.motionIntensity === "high" ? 1.2 : 0.85}
+          layers={[{ depth: 0.4, children: <Hook file={speakerFile} from={hook.from} frames={hook.duration} look={looks.hook} /> }]}
+        />
       </Sequence>
       <Sequence from={residency.from} durationInFrames={residency.duration} name="residency">
         <Residency file={speakerFile} from={residency.from} frames={residency.duration} look={looks.residency} />
@@ -455,6 +493,19 @@ export function DirectorV3({ durationSeconds = 20, speakerFile = "speaker.mp4", 
       <Sequence from={ret.from} durationInFrames={ret.duration} name="return">
         <Return file={speakerFile} from={ret.from} frames={ret.duration} look={looks.return} />
       </Sequence>
+      {concepts.map((hit) => (
+        <Sequence key={`concept-${hit.fromFrame}-${hit.presetId}`} from={hit.fromFrame} durationInFrames={hit.durationInFrames} name={`concept-${hit.presetId}`}>
+          <ConceptViz hit={hit} frames={hit.durationInFrames} />
+          <Speaker file={speakerFile} startFrom={hit.fromFrame} zoomTo={1.2} circle />
+        </Sequence>
+      ))}
+      {hero ? (
+        <Sequence from={residency.from} durationInFrames={residency.duration} name="hero-object">
+          <AbsoluteFill style={{ pointerEvents: "none", opacity: 0.92 }}>
+            <HeroObject kind={hero} frames={residency.duration} />
+          </AbsoluteFill>
+        </Sequence>
+      ) : null}
       {captions.map((row) => (
         <Sequence key={row.from} from={row.from} durationInFrames={row.duration} name={`cap-${row.from}`}>
           <Caption text={row.text} emphasis={row.emphasis} animate={row.animate} />
