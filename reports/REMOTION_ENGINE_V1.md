@@ -4,7 +4,7 @@ Date: 2026-10-11. Repo: `lumen-3.0`.
 
 ## Verdict
 
-**PARTIAL PASS** — architecture, skills, engine module, Director integration, tests, and a real 20s MP4 are done. DO app health verified. Media volume path not mounted on the VM at audit time. Remotion is **not** the default for every project (flag off; Hypit fallback preserved). Full multilingual create-video → Remotion for arbitrary projects is reserved.
+**PARTIAL PASS** — architecture, skills, engine, Director integration, tests, local 20s MP4, and **lumen-test deploy** (`142.93.248.163`) are done with flag **off**. Remotion is **not** default for every project. Remaining: non-«e» Remotion create-video, EN/ZH create-video → Remotion.
 
 ## Architecture
 
@@ -75,15 +75,23 @@ Render plans: `data/<pid>/remotion-plans/<generationId>.json`.
 | `motion` typecheck | **pass** |
 | `backend/tests/test_remotion_engine.py` + `test_director_v3.py` | **9 pass** |
 
-## Deployment / DO
+## Deployment / DO (lumen-test follow-up)
 
 | Check | Result |
 | --- | --- |
-| `ssh lumen` prod `:3001/api/health` | **200** |
-| testing `:3003/api/health` | **200** |
-| `/mnt/volume_nyc1_1791446889637/app-library` | **not mounted** on host at verify time (library count ~811 from prior V2 report; local mirror **636**) |
-| RunPod | **not touched** (hard rule) |
-| Code on DO testing | requires CI deploy after push — not claimed live until pipeline runs |
+| Host | `root@142.93.248.163` (`lumen-test`) — **not** strom-v2 `Host lumen` |
+| Method | `git archive` of tip → `/opt/lumen-rebuild/` (backend/motion/docs/skills/report) |
+| Services restarted | **`lumen-web` + `lumen-worker` only** |
+| RunPod / GPU | **not touched** |
+| Prod flag / prod containers | **not changed** |
+| Health `http://127.0.0.1:8018/api/health` | **200** |
+| `from backend import remotion_engine` | **OK** |
+| `settings.remotion_engine_enabled` | **`False`** (`.env` has no `REMOTION_ENGINE_ENABLED`; default off) |
+| `remotion_engine.enabled()` | **`False`** |
+| Library `/mnt/volume_nyc1_1791446889637/app-library` | **reachable** — manifest **811** assets |
+| Server deploy marker | `/opt/lumen-rebuild/DEPLOY_SHA.txt` → see Git below |
+
+`REMOTION_ENGINE_ENABLED` was **not** set to `true`. Project «e» Remotion path remains available via existing Director V3 wiring; Hypit remains the create-video fallback for everyone else.
 
 ## Success criteria
 
@@ -93,29 +101,30 @@ Render plans: `data/<pid>/remotion-plans/<generationId>.json`.
 | 2 | Agent skills | **PASS** |
 | 3 | Remotion in real pipeline | **PASS** (project «e» + `remotion_engine`) |
 | 4 | User video central | **PASS** |
-| 5 | Media library usable | **PASS** (search additive; DO volume path missing on host) |
+| 5 | Media library usable | **PASS** (811 on lumen-test volume) |
 | 6 | Motion components | **PASS** |
 | 7 | Deterministic typography | **PASS** (AutoFitText) |
 | 8 | Captions readable | **PASS** (frame QA) |
-| 9 | RU/EN/ZH | **PARTIAL** (locale stack + cards; create-video Remotion still RU Director V3 demo) |
+| 9 | RU/EN/ZH | **PARTIAL** — cards/locale stack exist; **create-video Remotion path still Director V3 RU demo**; EN/ZH create-video → Remotion not shipped |
 | 10 | Director motion presets | **PASS** (registry + visual plan) |
-| 11 | Real 20s MP4 | **PASS** |
-| 12 | No regression (Hypit fallback) | **PASS** (flag default off) |
-| 13 | Deployment verified | **PARTIAL** (health OK; new SHA not asserted on testing containers) |
-| 14 | Git commit + push | **PASS** — tip `fa34446` (engine `005cca6`) on `fix/seedance-import-prologue` |
+| 11 | Real 20s MP4 | **PASS** (local preview) |
+| 12 | No regression (Hypit fallback) | **PASS** (flag default / server **false**) |
+| 13 | Deployment verified | **PASS** on lumen-test (health + import + library); not deployed to strom-v2 prod |
+| 14 | Git commit + push | **PASS** — see Git |
 
 ## Git
 
 | Item | Value |
 | --- | --- |
 | Branch | `fix/seedance-import-prologue` |
-| Engine commit | `005cca6caeb7afc2bfb788ef37c250198b343fdf` |
-| Tip (report pin) | `fa34446` |
+| Engine feature commit | `005cca6caeb7afc2bfb788ef37c250198b343fdf` |
+| SHA on lumen-test (`DEPLOY_SHA.txt`) | `08c5ea20257c977ccc4d90e3b8060aca8ed1116a` (branch tip at deploy; includes engine + later cleanup docs) |
 | Remote | `origin` pushed |
 
-## Known limitations
+## Remaining gaps (honest)
 
-- Non-«e» Remotion create-video not generalized (speaker staging).
-- DO volume mount path absent on current VM layout — use prior indexed library / local mirror.
-- I2V / GPU batches deferred (out of scope).
-- Another agent may touch media cleanup — `search.py` only gained additive `concept_triggers.expand_query`.
+1. **Non-«e» projects** — create-video still Hypit; Remotion not generalized (speaker staging / composition).
+2. **EN/ZH create-video → Remotion** — not wired; Director V3 preview captions/locale remain RU-centric.
+3. **Flag stays off** — do not enable `REMOTION_ENGINE_ENABLED=true` until non-e path is safe or scoped explicitly to project «e» only in ops docs.
+4. **strom-v2 DO** (`188.166.244.242` / test.lumen…) — this follow-up deployed **lumen-test** rebuild host only, not that compose stack.
+5. I2V / GPU batches still deferred.
