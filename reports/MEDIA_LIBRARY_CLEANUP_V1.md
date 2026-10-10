@@ -130,6 +130,11 @@ On DO: `/opt/lumen-rebuild/scripts/…` + Pillow in `/opt/lumen-rebuild/venv`.
 # 9 passed
 ```
 
+## Git
+
+Branch: `feat/media-library-cleanup-v1`  
+Commit: `5aa437e3571729637fa60d4594f623f17cd0347d`
+
 ## Explicit non-actions
 
 - No `rm` / quarantine directory moves on production media  
