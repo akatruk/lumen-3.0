@@ -1,6 +1,6 @@
 # RunPod GPU audit
 
-Date: 2026-10-10 (updated 2026-10-11 after V4 stills). Pod `lumen-web-gpu` (`wk5d9kjveiqn6l`) was already in the account and was resumed only for generation. No new pod was created. `lumen-picture` (`h2v7b8z2szwlv6`) was left EXITED / untouched.
+Date: 2026-10-10 (updated 2026-10-11 close-out). Pod `lumen-web-gpu` (`wk5d9kjveiqn6l`) was already in the account and was resumed only for generation / I2V proof. No new pod was created. `lumen-picture` (`h2v7b8z2szwlv6`) was left EXITED / untouched.
 
 ## Machine
 
@@ -30,12 +30,12 @@ Left in place and **not** used by Lumen:
 - ComfyUI at `/workspace/ComfyUI`, models at `/workspace/comfyui/models` (hgpoint project — do not start)
 - `flux1-dev-fp8.safetensors` (17 GB) and `flux1-dev-fp8-e4m3fn.safetensors` (12 GB)
 - `clip_l.safetensors`, `t5xxl_fp8_e4m3fn.safetensors`, `ae.safetensors`
-- `ltxv-2b-0.9.8-distilled-fp8.safetensors` (4.4 GB) — other project; not loaded
+- `ltxv-2b-0.9.8-distilled-fp8.safetensors` (4.2 GB under `/workspace/comfyui/models/checkpoints/`) — other project; not loaded
 - existing LoRAs, SD1.5 checkpoints, background-removal weights
 
 ## Process that was stopped (V1)
 
-A local ComfyUI server on `127.0.0.1:8188` from `/workspace/ComfyUI` was stopped during the first V1 pass. Later resumes left port 8188 closed, no ComfyUI process, GPU idle. Nothing under `/workspace/ComfyUI` or `/workspace/comfyui` was edited.
+A local ComfyUI server on `127.0.0.1:8188` from `/workspace/ComfyUI` was stopped during the first V1 pass. Close-out resume 2026-10-11: port 8188 closed, no ComfyUI process, GPU idle (1 MiB / 24564 MiB). Nothing under `/workspace/ComfyUI` or `/workspace/comfyui` was edited.
 
 ## Model choice (Lumen-owned)
 
@@ -55,10 +55,16 @@ Image generation uses Diffusers under `/workspace/lumen-media-v1`, script `scrip
 
 Negative prompt applied (no text/letters/logos/passport imagery/malformed hands). FLUX and LTX on the volume belong to another project and are not loaded.
 
-## I2V
+## I2V (close-out proof)
 
-Deferred. No lumen-owned video checkpoint under `/workspace/lumen-media-v1`. The LTX file under the ComfyUI tree must not be used via ComfyUI. Pod was left EXITED; no resume for I2V in this close-out.
+Deferred. On 2026-10-11, `podResume` → SSH inventory → `podStop`:
+
+- `/workspace/lumen-media-v1` ≈ 11G
+- Only weight under `models/`: `sd_xl_base_1.0.safetensors`
+- No lumen-owned `*ltx*`, `*svd*`, or other I2V checkpoint under `/workspace/lumen-media-v1`
+- Foreign LTX under ComfyUI tree noted only; not copied, not loaded, ComfyUI not started
+- No new video weights downloaded (budget + ownership)
 
 ## Current pod status
 
-`wk5d9kjveiqn6l` (`lumen-web-gpu`): **EXITED** after V4 Batch 2 when the lumen-fix jobs queue was empty. Not terminated. See `reports/RUNPOD_MEDIA_GENERATION_V1.md` for library counts and cost.
+`wk5d9kjveiqn6l` (`lumen-web-gpu`): **EXITED** after close-out proof when the lumen-fix jobs queue was empty. Not terminated. Balance ≈ **$57.45**, idle spend ≈ **$0.015/hr**. Close-out resume cost ≈ **$0.026**. See `reports/RUNPOD_MEDIA_GENERATION_V1.md` for library counts.
