@@ -116,9 +116,10 @@ Render plans: `data/<pid>/remotion-plans/<generationId>.json`.
 
 | Item | Value |
 | --- | --- |
-| Branch | `fix/seedance-import-prologue` |
+| Branch (report push) | `feat/media-library-cleanup-v1` |
 | Engine feature commit | `005cca6caeb7afc2bfb788ef37c250198b343fdf` |
-| SHA on lumen-test (`DEPLOY_SHA.txt`) | `08c5ea20257c977ccc4d90e3b8060aca8ed1116a` (branch tip at deploy; includes engine + later cleanup docs) |
+| Code archive deployed to lumen-test | `08c5ea20257c977ccc4d90e3b8060aca8ed1116a` |
+| Report tip (`DEPLOY_SHA.txt` after sync) | `b9b9a346f345445770d073576352c1b63e7b1893` |
 | Remote | `origin` pushed |
 
 ## Remaining gaps (honest)
