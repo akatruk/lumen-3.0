@@ -32,3 +32,6 @@ onboarding-video/voice-candidates/
 onboarding-video/public/guide-v5/*.wav
 
 !backend/data/soundtracks.json
+
+# V5 Director validation renders (keep JSON/docs; omit large mp4s)
+output/library-validation/*.mp4

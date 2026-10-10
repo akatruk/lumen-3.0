@@ -3,11 +3,27 @@
 Meaning stays fixed. A seed chooses compatible treatments inside one
 art-direction profile. The renderer does not roll dice.
 """
+from __future__ import annotations
+
 import json
 import random
 from pathlib import Path
 
 LIBRARY = Path(__file__).resolve().parent.parent / 'media' / 'library' / 'out'
+
+# Still plates the Director may put behind or beside the host.
+_PLATE_FAMILIES = frozenset({
+    'photography',
+    'editorial_object',
+    'generative_motion',
+    'deterministic_motion',
+})
+_FOREGROUND_QUERIES = (
+    'passport document object',
+    'residence permit document',
+    'approval stamp document',
+    'keys handover object',
+)
 
 PROFILES = (
     'cinematic_editorial',
@@ -141,32 +157,69 @@ def _intensity(base, energy):
     return order[min(cap, max(floor, index))]
 
 
-def _candidates(query, exclude, recent=()):
+def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8):
     import sys
-    folder = str(LIBRARY.parent)
+    # Search module lives next to the real library package, not next to a
+    # monkeypatched LIBRARY path used in tests.
+    folder = str(Path(__file__).resolve().parent.parent / 'media' / 'library')
     if folder not in sys.path:
         sys.path.insert(0, folder)
     from search import search_assets
+    blocked = set(exclude or ())
     found = []
     for asset in search_assets(
-        query, limit=12, preferred_scene_role='explanation', path=LIBRARY / 'manifest.json', recent_ids=recent,
+        query,
+        limit=24,
+        preferred_scene_role='explanation',
+        path=LIBRARY / 'manifest.json',
+        recent_ids=recent,
+        exclude_ids=blocked,
     ):
-        if asset.get('id') in exclude:
+        if asset.get('id') in blocked:
             continue
         family = asset.get('visualFamily')
-        if family not in ('photography', 'generative_motion', 'deterministic_motion'):
+        if family not in families:
             continue
         file_name = str(asset.get('file') or '')
-        if file_name.endswith('.svg'):
+        if file_name.endswith('.svg') or file_name.endswith('.tsx'):
             continue
         found.append(asset)
-        if len(found) == 8:
+        if len(found) == limit:
             break
     fresh = [asset for asset in found if asset.get('id') not in set(recent or ())]
     return fresh or found
 
 
-def _background(rng, scene, exclude, recent=()):
+def _weight_asset(asset, recent_set, used_concepts, used_prefixes):
+    weight = max(1, int((asset.get('qualityScore') or 1) * 10))
+    if asset.get('id') in recent_set:
+        weight = 1
+    concept = asset.get('conceptId')
+    if concept and concept in used_concepts:
+        weight = max(1, weight // 3)
+    prefix = (asset.get('id') or '').split('_')[0] + '_'
+    if prefix in used_prefixes:
+        weight = max(1, weight // 2)
+    # Prefer indexed RunPod stills when they match; they were unused for details/objects.
+    if asset.get('source') == 'runpod':
+        weight += 2
+    if asset.get('visualFamily') == 'editorial_object' and asset.get('category') in ('details', 'objects', 'foreground'):
+        weight += 1
+    return weight
+
+
+def _choose_asset(rng, found, recent=(), used_concepts=(), used_prefixes=()):
+    if not found:
+        return None
+    recent_set = set(recent or ())
+    concepts = set(used_concepts or ())
+    prefixes = set(used_prefixes or ())
+    weights = [_weight_asset(asset, recent_set, concepts, prefixes) for asset in found]
+    bag = [asset for asset, weight in zip(found, weights) for _ in range(weight)]
+    return rng.choice(bag)
+
+
+def _background(rng, scene, exclude, recent=(), used_concepts=(), used_prefixes=()):
     if not scene.get('query'):
         return None, None
     options = scene['query']
@@ -174,15 +227,28 @@ def _background(rng, scene, exclude, recent=()):
     found = _candidates(query, exclude, recent)
     if not found:
         return None, query
-    recent_set = set(recent or ())
-    weights = []
-    for asset in found:
-        weight = max(1, int((asset.get('qualityScore') or 1) * 10))
-        if asset.get('id') in recent_set:
-            weight = 1
-        weights.append(weight)
-    bag = [asset for asset, weight in zip(found, weights) for _ in range(weight)]
-    return rng.choice(bag), query
+    return _choose_asset(rng, found, recent, used_concepts, used_prefixes), query
+
+
+def _foreground_asset(rng, exclude, recent=(), used_concepts=(), used_prefixes=()):
+    query = _pick(rng, _FOREGROUND_QUERIES)
+    found = _candidates(
+        query,
+        exclude,
+        recent,
+        families=frozenset({'editorial_object', 'photography'}),
+        limit=10,
+    )
+    # Prefer object / foreground / detail plates for the residency card.
+    preferred = [
+        asset for asset in found
+        if asset.get('category') in ('objects', 'foreground', 'details')
+        or (asset.get('id') or '').endswith(('_obj',))
+        or 'object' in (asset.get('action') or '')
+        or 'detail' in (asset.get('action') or '')
+        or 'foreground' in (asset.get('action') or '')
+    ]
+    return _choose_asset(rng, preferred or found, recent, used_concepts, used_prefixes), query
 
 
 def _motion_file(asset):
@@ -205,7 +271,7 @@ def _budget(kind, text, background, foreground, motion_file=False):
     return background, foreground, rejected
 
 
-def recent_asset_ids(data_dir, limit=6):
+def recent_asset_ids(data_dir, limit=12):
     """Asset ids from the newest stored plans. Missing history is an empty set."""
     root = Path(data_dir)
     if not root.is_dir():
@@ -221,9 +287,10 @@ def recent_asset_ids(data_dir, limit=6):
         except (OSError, json.JSONDecodeError):
             continue
         for scene in plan.get('scenes') or []:
-            asset_id = (scene.get('background') or {}).get('assetId')
-            if asset_id and asset_id not in seen:
-                seen.append(asset_id)
+            for key in ('background', 'foreground'):
+                asset_id = (scene.get(key) or {}).get('assetId')
+                if asset_id and asset_id not in seen and asset_id != 'passport.png':
+                    seen.append(asset_id)
     return seen
 
 
@@ -236,7 +303,9 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
     rng = _rng(seed)
     profile = _weighted_profile(rng, energy)
     scenes = []
-    used_backgrounds = []
+    used_assets = []
+    used_concepts = []
+    used_prefixes = []
     used_layouts = []
     used_text = []
     used_transitions = []
@@ -245,9 +314,19 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
         kind = scene['kind']
         layout = _pick(rng, SPEAKER[kind], blocked=used_layouts[-2:])
         if scene.get('query'):
-            asset, chosen_query = _background(rng, scene, used_backgrounds[-1:], recent_ids)
+            asset, chosen_query = _background(
+                rng, scene, used_assets, recent_ids, used_concepts, used_prefixes,
+            )
         else:
             asset, chosen_query = None, None
+        fg_asset, fg_query = (None, None)
+        if kind == 'speaker_object':
+            blocked = list(used_assets)
+            if asset:
+                blocked.append(asset.get('id'))
+            fg_asset, fg_query = _foreground_asset(
+                rng, blocked, recent_ids, used_concepts, used_prefixes,
+            )
         motion_file = _motion_file(asset)
         if motion_file:
             media_kind = 'motion'
@@ -277,9 +356,15 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
             'background': {
                 'assetId': asset.get('id') if asset else None,
                 'file': asset.get('file') if asset else None,
+                'conceptId': asset.get('conceptId') if asset else None,
                 'treatment': background,
             },
-            'foreground': {'treatment': foreground, 'assetId': 'passport.png' if kind == 'speaker_object' else None},
+            'foreground': {
+                'treatment': foreground,
+                'assetId': (fg_asset.get('id') if fg_asset else None) or ('passport.png' if kind == 'speaker_object' else None),
+                'file': fg_asset.get('file') if fg_asset else None,
+                'query': fg_query,
+            },
             'typography': {'treatment': text, 'animate': TEXT_TO_ANIMATE.get(text, 'fade')},
             'transition': transition,
             'motionIntensity': _intensity(scene['base'], energy),
@@ -290,8 +375,18 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
         used_text.append(text)
         used_transitions.append(transition)
         used_camera.append(background)
-        if asset:
-            used_backgrounds.append(asset.get('id'))
+        for picked in (asset, fg_asset):
+            if not picked:
+                continue
+            asset_id = picked.get('id')
+            if asset_id:
+                used_assets.append(asset_id)
+                prefix = asset_id.split('_')[0] + '_'
+                if prefix not in used_prefixes:
+                    used_prefixes.append(prefix)
+            concept = picked.get('conceptId')
+            if concept and concept not in used_concepts:
+                used_concepts.append(concept)
     return {
         'visualSeed': int(seed),
         'visualStyle': profile,
@@ -369,6 +464,23 @@ def _manifest_ids(library: Path):
     return {item.get('id') for item in manifest.get('assets') or []}
 
 
+def _stage_one(root: Path, picked: Path, indexed: set, slot: dict):
+    relative = slot.get('file')
+    asset_id = slot.get('assetId')
+    if not relative or not asset_id or asset_id not in indexed or asset_id == 'passport.png':
+        if relative and asset_id != 'passport.png':
+            slot['staged'] = None
+        return
+    source = root / relative
+    if not source.is_file():
+        slot['staged'] = None
+        return
+    dest = picked / f"{asset_id}{source.suffix.lower()}"
+    if not dest.exists() or dest.stat().st_size != source.stat().st_size:
+        dest.write_bytes(source.read_bytes())
+    slot['staged'] = f"picked/{dest.name}"
+
+
 def stage_backgrounds(plan, public_dir: Path, library: Path | None = None):
     """Copy chosen stills next to the Remotion public files.
 
@@ -380,19 +492,6 @@ def stage_backgrounds(plan, public_dir: Path, library: Path | None = None):
     picked = public_dir / 'picked'
     picked.mkdir(parents=True, exist_ok=True)
     for scene in plan.get('scenes') or []:
-        background = scene.get('background') or {}
-        relative = background.get('file')
-        asset_id = background.get('assetId')
-        if not relative or not asset_id or asset_id not in indexed:
-            if relative:
-                background['staged'] = None
-            continue
-        source = root / relative
-        if not source.is_file():
-            background['staged'] = None
-            continue
-        dest = picked / f"{asset_id}{source.suffix.lower()}"
-        if not dest.exists() or dest.stat().st_size != source.stat().st_size:
-            dest.write_bytes(source.read_bytes())
-        background['staged'] = f"picked/{dest.name}"
+        _stage_one(root, picked, indexed, scene.setdefault('background', {}))
+        _stage_one(root, picked, indexed, scene.setdefault('foreground', {}))
     return plan

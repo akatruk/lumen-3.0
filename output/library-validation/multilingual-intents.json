@@ -1,0 +1,600 @@
+{
+  "count": 54,
+  "empty": 0,
+  "empty_intents": [],
+  "rows": [
+    {
+      "locale": "en",
+      "query": "family relocation planning",
+      "hits": [
+        "rp_photo_001",
+        "rp_photo_002",
+        "rp_photo_016"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "семья планирует переезд",
+      "hits": [
+        "rp_photo_001",
+        "rp_photo_002",
+        "rp_photo_016"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "家庭计划移居",
+      "hits": [
+        "people_door_001",
+        "people_couple_001",
+        "rp_photo_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "consultation meeting",
+      "hits": [
+        "people_consult_001",
+        "re_inv_meeting",
+        "i2v_consult_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "консультация с адвокатом",
+      "hits": [
+        "people_consult_001",
+        "re_inv_meeting",
+        "rp_photo_010"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "顾问咨询会议",
+      "hits": [
+        "people_consult_001",
+        "re_inv_meeting",
+        "i2v_consult_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "passport document approval",
+      "hits": [
+        "document_approval_001",
+        "doc_seal_001",
+        "rp_photo_010"
+      ],
+      "top_source": "remotion",
+      "top_family": "deterministic_motion"
+    },
+    {
+      "locale": "ru",
+      "query": "одобрение документов паспорт",
+      "hits": [
+        "rp_photo_037",
+        "rp_photo_038",
+        "rp_photo_067"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "护照文件批准",
+      "hits": [
+        "rp_photo_033",
+        "rp_photo_034",
+        "rp_photo_063"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "apartment viewing",
+      "hits": [
+        "people_property_001",
+        "re_view_balcony",
+        "re_view_empty_walk"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "просмотр квартиры",
+      "hits": [
+        "people_property_001",
+        "re_view_balcony",
+        "re_view_empty_walk"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "看房公寓",
+      "hits": [
+        "people_property_001",
+        "re_view_balcony",
+        "re_view_empty_walk"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "second passport citizenship",
+      "hits": [
+        "rp_photo_033",
+        "rp_photo_034",
+        "rp_photo_063"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "второй паспорт гражданство",
+      "hits": [
+        "rp_photo_033",
+        "rp_photo_034",
+        "rp_photo_063"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "第二护照公民",
+      "hits": [
+        "rp_photo_033",
+        "rp_photo_034",
+        "rp_photo_063"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "packing suitcase departure",
+      "hits": [
+        "people_packing_001",
+        "people_travel_001",
+        "rp_photo_003"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "чемодан сборы переезд",
+      "hits": [
+        "people_packing_001",
+        "rp_photo_003",
+        "rp_photo_014"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "打包行李箱搬家",
+      "hits": [
+        "people_packing_001",
+        "icon_relocation",
+        "icon_moving"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "city arrival international",
+      "hits": [
+        "still_city_001",
+        "rp_photo_013",
+        "rp_photo_015"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "прибытие в новый город",
+      "hits": [
+        "still_city_001",
+        "rp_photo_050",
+        "rp_photo_051"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "抵达新城市",
+      "hits": [
+        "still_city_001",
+        "rp_photo_050",
+        "rp_photo_051"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "investment property yield",
+      "hits": [
+        "re_inv_laptop",
+        "re_motion_rental_yield",
+        "re_inv_meeting"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "доходность недвижимости",
+      "hits": [
+        "re_inv_laptop",
+        "re_motion_rental_yield",
+        "re_view_balcony"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "房产投资回报",
+      "hits": [
+        "re_inv_laptop",
+        "re_motion_rental_yield",
+        "re_inv_meeting"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "residence permit application",
+      "hits": [
+        "rp_photo_035",
+        "rp_photo_036",
+        "rp_photo_065"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "заявление на ВНЖ",
+      "hits": [
+        "rp_photo_035",
+        "rp_photo_036",
+        "rp_photo_065"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "居留许可申请",
+      "hits": [
+        "rp_photo_035",
+        "rp_photo_036",
+        "rp_photo_065"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "business entrepreneur visa",
+      "hits": [
+        "rp_photo_011",
+        "rp_photo_017",
+        "rp_photo_029"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "виза для бизнеса",
+      "hits": [
+        "rp_photo_011",
+        "rp_photo_017",
+        "rp_photo_029"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "商务签证",
+      "hits": [
+        "icon_visa"
+      ],
+      "top_source": "vector",
+      "top_family": null
+    },
+    {
+      "locale": "en",
+      "query": "digital nomad relocation",
+      "hits": [
+        "imm_icon_digital-nomad",
+        "global_route_001",
+        "location_pins_001"
+      ],
+      "top_source": "vector",
+      "top_family": "line"
+    },
+    {
+      "locale": "ru",
+      "query": "цифровой номад релокация",
+      "hits": [
+        "imm_icon_digital-nomad",
+        "location_pins_001",
+        "re_loc_park"
+      ],
+      "top_source": "vector",
+      "top_family": "line"
+    },
+    {
+      "locale": "zh",
+      "query": "数字游民搬家",
+      "hits": [
+        "people_packing_001",
+        "icon_relocation",
+        "icon_moving"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "document review desk",
+      "hits": [
+        "rp_photo_010",
+        "rp_photo_012",
+        "rp_photo_087"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "проверка документов на столе",
+      "hits": [
+        "rp_photo_010",
+        "rp_photo_012",
+        "rp_photo_087"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "文件审核桌面",
+      "hits": [
+        "rp_photo_010",
+        "rp_photo_012",
+        "rp_photo_087"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "family buyer apartment",
+      "hits": [
+        "re_view_balcony",
+        "re_view_empty_walk",
+        "re_view_couple_right"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "семья покупает квартиру",
+      "hits": [
+        "re_view_balcony",
+        "re_view_empty_walk",
+        "re_view_couple_right"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "家庭购买公寓",
+      "hits": [
+        "re_int_family",
+        "re_buyer_plan_motion",
+        "people_door_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "uncertainty decision planning",
+      "hits": [
+        "re_buyer_plan",
+        "people_review_001",
+        "people_couple_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "неуверенность в решении",
+      "hits": [
+        "re_buyer_plan",
+        "people_review_001",
+        "people_couple_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "不确定的决定",
+      "hits": [
+        "re_buyer_plan",
+        "people_review_001",
+        "people_couple_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "tax residency planning",
+      "hits": [
+        "re_buyer_plan",
+        "people_review_001",
+        "people_couple_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "налоговое резидентство",
+      "hits": [
+        "rp_photo_035",
+        "rp_photo_036",
+        "rp_photo_065"
+      ],
+      "top_source": "runpod",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "税务居民规划",
+      "hits": [
+        "people_consult_001",
+        "rp_photo_035",
+        "rp_photo_036"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "overseas immigration",
+      "hits": [
+        "global_route_001",
+        "document_approval_001",
+        "location_pins_001"
+      ],
+      "top_source": "remotion",
+      "top_family": "deterministic_motion"
+    },
+    {
+      "locale": "ru",
+      "query": "иммиграция за рубеж",
+      "hits": [
+        "global_route_001",
+        "document_approval_001",
+        "location_pins_001"
+      ],
+      "top_source": "remotion",
+      "top_family": "deterministic_motion"
+    },
+    {
+      "locale": "zh",
+      "query": "海外移居",
+      "hits": [
+        "global_route_001",
+        "location_pins_001",
+        "i2v_couple_001"
+      ],
+      "top_source": "remotion",
+      "top_family": "deterministic_motion"
+    },
+    {
+      "locale": "en",
+      "query": "advisor client documents",
+      "hits": [
+        "people_consult_001",
+        "i2v_consult_001",
+        "re_buyer_plan"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "консультация документы",
+      "hits": [
+        "re_agent_docs",
+        "re_buyer_plan",
+        "people_review_001"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "顾问客户文件",
+      "hits": [
+        "people_consult_001",
+        "i2v_consult_001",
+        "re_buyer_plan"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "en",
+      "query": "phone consultation office",
+      "hits": [
+        "re_inv_meeting",
+        "people_phone_001",
+        "re_agent_docs"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "ru",
+      "query": "телефонная консультация",
+      "hits": [
+        "people_consult_001",
+        "re_inv_meeting",
+        "rp_photo_010"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    },
+    {
+      "locale": "zh",
+      "query": "电话咨询办公室",
+      "hits": [
+        "re_inv_meeting",
+        "people_phone_001",
+        "re_agent_docs"
+      ],
+      "top_source": "generated",
+      "top_family": "photography"
+    }
+  ],
+  "note": "post search.py/concepts.py V5 alias + casefold fix"
+}

@@ -30,6 +30,110 @@ def test_recent_generations_move_the_next_plan_off_the_same_assets():
     assert set(used).isdisjoint(set(again)) or len(set(used) - set(again)) >= 1
 
 
+def test_director_can_retrieve_runpod_prefixes(monkeypatch, tmp_path):
+    """hypit_/v2_/rp_ stills must be eligible — editorial_object is not filtered out."""
+    import json
+    from pathlib import Path
+
+    from backend import visual_variation as vv
+
+    manifest = {
+        'assets': [
+            {
+                'id': 'rp_photo_001', 'type': 'image', 'visualFamily': 'photography',
+                'source': 'runpod', 'qualityScore': 0.9, 'file': 'static/runpod/photographs/rp_photo_001.png',
+                'conceptId': 'immigration.approval', 'tags': ['passport', 'document', 'approval'],
+                'description': {'en': 'passport document approval'}, 'sceneRoles': ['explanation'],
+                'category': 'people', 'energy': 'low',
+            },
+            {
+                'id': 'hypit_detail_001', 'type': 'image', 'visualFamily': 'editorial_object',
+                'source': 'runpod', 'qualityScore': 0.9, 'file': 'static/runpod/details/hypit_detail_001.png',
+                'conceptId': 'immigration.document_consultation', 'tags': ['document', 'review', 'desk', 'detail'],
+                'description': {'en': 'document review desk'}, 'sceneRoles': ['explanation'],
+                'category': 'details', 'energy': 'low', 'action': 'detail',
+            },
+            {
+                'id': 'v2_object_001', 'type': 'image', 'visualFamily': 'editorial_object',
+                'source': 'runpod', 'qualityScore': 0.9, 'file': 'static/runpod/objects/v2_object_001.png',
+                'conceptId': 'immigration.second_passport', 'tags': ['passport', 'document', 'object'],
+                'description': {'en': 'passport document object'}, 'sceneRoles': ['explanation'],
+                'category': 'objects', 'energy': 'low', 'action': 'object',
+            },
+            {
+                'id': 'i2v_consult_001', 'type': 'video', 'visualFamily': 'generative_motion',
+                'source': 'generated', 'qualityScore': 0.8, 'file': 'motion/people/i2v_consult_001.mp4',
+                'conceptId': 'immigration.document_consultation',
+                'tags': ['consultation', 'meeting', 'advisor'],
+                'description': {'en': 'consultation meeting'}, 'sceneRoles': ['explanation'],
+                'category': 'people', 'energy': 'medium',
+            },
+        ]
+    }
+    lib = tmp_path / 'out'
+    lib.mkdir()
+    (lib / 'manifest.json').write_text(json.dumps(manifest), encoding='utf-8')
+    for asset in manifest['assets']:
+        path = lib / asset['file']
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'x' * 2048)
+    monkeypatch.setattr(vv, 'LIBRARY', lib)
+    plan = vv.resolve_plan(424242, 'balanced')
+    ids = {
+        (scene.get('background') or {}).get('assetId')
+        for scene in plan['scenes']
+        if (scene.get('background') or {}).get('assetId')
+    }
+    ids |= {
+        (scene.get('foreground') or {}).get('assetId')
+        for scene in plan['scenes']
+        if (scene.get('foreground') or {}).get('assetId') not in (None, 'passport.png')
+    }
+    assert ids & {'rp_photo_001', 'hypit_detail_001', 'v2_object_001', 'i2v_consult_001'}
+    # Same seed stays reproducible after the eligibility fix.
+    assert vv.resolve_plan(424242, 'balanced') == plan
+
+
+def test_cross_seed_plans_diversify_background_assets(monkeypatch, tmp_path):
+    import json
+
+    from backend import visual_variation as vv
+
+    assets = []
+    for i, prefix in enumerate(('rp_photo', 'hypit_photo', 'v2_photo', 'rp_detail', 'v2_object')):
+        for n in range(1, 5):
+            aid = f'{prefix}_{n:03d}'
+            assets.append({
+                'id': aid, 'type': 'image',
+                'visualFamily': 'photography' if 'photo' in prefix else 'editorial_object',
+                'source': 'runpod', 'qualityScore': 0.84,
+                'file': f'static/runpod/{aid}.png',
+                'conceptId': f'concept.{i}.{n}',
+                'tags': ['passport', 'document', 'approval', 'consultation', 'meeting', 'advisor'],
+                'description': {'en': 'passport document approval consultation meeting'},
+                'sceneRoles': ['explanation'],
+                'category': 'objects' if 'object' in prefix else ('details' if 'detail' in prefix else 'people'),
+                'energy': 'low', 'action': 'object' if 'object' in prefix else 'photograph',
+            })
+    lib = tmp_path / 'out'
+    lib.mkdir()
+    (lib / 'manifest.json').write_text(json.dumps({'assets': assets}), encoding='utf-8')
+    for asset in assets:
+        path = lib / asset['file']
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'x' * 2048)
+    monkeypatch.setattr(vv, 'LIBRARY', lib)
+    picked = []
+    for seed in (11, 22, 33, 44, 55, 66):
+        plan = vv.resolve_plan(seed, 'balanced', recent_ids=picked[-8:])
+        for scene in plan['scenes']:
+            for key in ('background', 'foreground'):
+                aid = (scene.get(key) or {}).get('assetId')
+                if aid and aid != 'passport.png':
+                    picked.append(aid)
+    assert len(set(picked)) >= 6
+
+
 def test_same_seed_reproduces_the_plan():
     first = resolve_plan(839204, 'balanced')
     second = resolve_plan(839204, 'balanced')

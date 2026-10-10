@@ -45,6 +45,9 @@ _QUERY_ALIASES = (
     ("налогов", "tax residency"),
     ("第二护照", "second passport"),
     ("移民", "immigration relocation"),
+    ("海外移居", "overseas immigration relocation"),
+    ("海外移民", "overseas immigration relocation"),
+    ("移居", "relocation immigration"),
     ("居留", "residence permit"),
     ("公民", "citizenship"),
     ("签证", "visa"),
@@ -58,6 +61,21 @@ _QUERY_ALIASES = (
     ("租金", "rental"),
     ("回报", "yield"),
     ("房产", "property"),
+    ("顾问咨询会议", "consultation meeting advisor"),
+    ("顾问客户文件", "advisor client documents"),
+    ("顾问", "advisor consultation"),
+    ("咨询", "consultation"),
+    ("电话咨询", "phone consultation"),
+    ("电话咨询办公室", "phone consultation office"),
+    ("抵达新城市", "city arrival"),
+    ("新城市", "city"),
+    ("文件审核桌面", "document review desk"),
+    ("文件审核", "document review"),
+    ("不确定的决定", "uncertainty decision"),
+    ("不确定", "uncertainty"),
+    ("проверка документов", "document review"),
+    ("на столе", "desk"),
+    ("заявление на внж", "residency application residence permit"),
 )
 
 
@@ -67,12 +85,18 @@ def normalize_query(text):
         from concepts import PHRASES
     except ImportError:
         from media.library.concepts import PHRASES
-    for source, english in PHRASES:
-        if source in query:
-            query = query.replace(source, f" {english} ")
-    for source, english in _QUERY_ALIASES:
-        if source in query:
-            query = query.replace(source, f" {english} ")
+    # Case-fold Latin/Cyrillic so «ВНЖ» still hits the «внж» phrase.
+    folded = query.casefold()
+    for source, english in list(PHRASES) + list(_QUERY_ALIASES):
+        needle = source.casefold()
+        start = 0
+        while True:
+            at = folded.find(needle, start)
+            if at < 0:
+                break
+            query = query[:at] + f" {english} " + query[at + len(source):]
+            folded = query.casefold()
+            start = at + len(english) + 2
     return query
 
 
