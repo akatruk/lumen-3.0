@@ -66,4 +66,5 @@ Synced batch planners, `runpod_pod_control.py`, `lumen_media_image.py`, `runpod_
 
 ## Git
 
-Code for planners / indexer / pod control: `619b011`. This docs follow-up commit SHA is recorded below after push.
+- Planners / indexer / pod control: `619b011`
+- Docs follow-up (counts + pod stop): `1a0c77daf56638c67c845f3a6e4077586dc3e153`
