@@ -80,6 +80,42 @@ class SearchTest(unittest.TestCase):
         self.assertTrue(hits)
         self.assertTrue(any("route" in hit["id"] or "global" in hit["id"] for hit in hits))
 
+    def test_runpod_still_is_found_in_three_languages(self):
+        import json
+        import tempfile
+
+        from runpod_assets import row_for
+
+        plan = {
+            "id": "rp_photo_001",
+            "kind": "photograph",
+            "concept": "relocation.family_planning",
+            "prompt": "a family at a clear oak table",
+            "negative_prompt": "text",
+            "seed": 51000,
+            "width": 768,
+            "height": 1344,
+            "num_inference_steps": 30,
+            "guidance_scale": 6.0,
+            "model": "stabilityai/stable-diffusion-xl-base-1.0",
+            "checkpoint": "sd_xl_base_1.0.safetensors",
+            "pipeline": "StableDiffusionXLPipeline",
+            "dtype": "float16",
+        }
+        row = row_for(plan, "static/runpod/photographs/rp_photo_001.png", "abc", 4.0)
+        self.assertEqual(row["generation"]["provider"], "runpod")
+        self.assertNotIn("comfy", json.dumps(row).lower())
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "manifest.json"
+            path.write_text(json.dumps({"version": 1, "assets": [row]}))
+            for query in (
+                "family planning international relocation",
+                "семья планирует международный переезд",
+                "家庭计划移居国外",
+            ):
+                hits = search_assets(query, type="image", limit=3, path=path)
+                self.assertEqual([hit["id"] for hit in hits], ["rp_photo_001"], query)
+
 
 if __name__ == "__main__":
     unittest.main()

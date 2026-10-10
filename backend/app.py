@@ -427,6 +427,8 @@ from .final_music import router as final_music_router
 app.include_router(final_music_router)
 from .studio import router as studio_router
 app.include_router(studio_router)
+from .media_gpu import router as media_gpu_router
+app.include_router(media_gpu_router)
 from .manual import router as manual_router
 app.include_router(manual_router)
 from .creative_plans import router as creative_plans_router
