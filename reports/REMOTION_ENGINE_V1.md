@@ -102,7 +102,15 @@ Render plans: `data/<pid>/remotion-plans/<generationId>.json`.
 | 11 | Real 20s MP4 | **PASS** |
 | 12 | No regression (Hypit fallback) | **PASS** (flag default off) |
 | 13 | Deployment verified | **PARTIAL** (health OK; new SHA not asserted on testing containers) |
-| 14 | Git commit + push | *(filled after push)* |
+| 14 | Git commit + push | **PASS** — `005cca6` on `fix/seedance-import-prologue` |
+
+## Git
+
+| Item | Value |
+| --- | --- |
+| Branch | `fix/seedance-import-prologue` |
+| SHA | `005cca6caeb7afc2bfb788ef37c250198b343fdf` |
+| Remote | `origin` pushed |
 
 ## Known limitations
 
