@@ -61,6 +61,10 @@ Previews rendered from these plans: `output/media-library-v4/variant-a.mp4`, `va
 - English, Russian, and Chinese voice was not re-generated. The previews keep the existing Russian speaker track. A missing target-language voice is not replaced.
 - Photographs for citizenship, a company move, and remote work are still missing. Search cannot invent them.
 
+## Git
+
+Code commit: `253c4887766eee422480f36c7154f04b2b329e2a` on `fix/seedance-import-prologue`.
+
 ## Disk
 
 `media/library/out` is 82 MB. Server volume 83 GB free. Root 13 GB free. This pass did not copy new masters.
