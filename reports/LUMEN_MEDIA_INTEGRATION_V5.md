@@ -114,7 +114,4 @@ Plans: `output/library-validation/variant-{a,b,c}.json`, `v5-render-summary.json
 
 ## SHA
 
-Pinned after the V5 docs/code commit on branch `fix/seedance-import-prologue` (see git log for the commit that adds this file). Prior HEAD before V5 finish: `f9913b4`.
-
-
-V5 commit SHA: .
+V5 commit: `90f1b21bf2773e3ab22a5813e8e952aa8fc23fc4`. Prior HEAD: `f9913b4`.
