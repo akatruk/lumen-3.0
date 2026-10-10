@@ -115,3 +115,5 @@ Plans: `output/library-validation/variant-{a,b,c}.json`, `v5-render-summary.json
 ## SHA
 
 V5 code/docs: `96cc3fb031128a9f4ce74f76e8a1e4471e194eae`. SHA pin: `073ff26322eaee2c53f068c5bd7d935fe92232ca`. Prior HEAD: `f9913b4`.
+
+Report tip commit: `3a148153ca8fa8259660ffaa4ed27bc8fbe3c4ce`.
