@@ -95,4 +95,4 @@ Branch `fix/seedance-import-prologue`:
 - V4 expansion: `619b011`
 - V4 counts / spend notes: `129ed74` … `4fd5233`
 - V1 report close-out: `6e4be96` / tip pin `0999751`
-- This audit close-out: see tip after push
+- This audit close-out: `416ab12`
