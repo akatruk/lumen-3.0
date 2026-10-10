@@ -44,8 +44,8 @@ I2V deferred: no lumen-owned video checkpoint under `/workspace/lumen-media-v1`.
 | | USD |
 | --- | ---: |
 | Balance before first resume | ~58.14 |
-| Balance after final stop | ~57.61 |
-| Approximate session spend | **~$0.53** |
+| Balance after final stop | ~57.55 |
+| Approximate session spend | **~$0.59** |
 | Hard cap | 20.00 |
 
 Idle spend returned to ~$0.015/hr after `podStop`. Pod status at end: `EXITED`. Jobs table was empty throughout generation.
