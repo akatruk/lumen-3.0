@@ -87,4 +87,4 @@ Plans: `output/media-library-v4/variant-*.v4.json`. Prior 20 s mp4s remain; new 
 
 ## Git
 
-Commit SHA filled after push on `fix/seedance-import-prologue`.
+Commit `619b01195470fcdbab8bc617d2fc8c8713eb31d5` on `fix/seedance-import-prologue` (pushed).
