@@ -74,4 +74,4 @@ Branch `fix/seedance-import-prologue`:
 - V1 stills + endpoint module: `a6f3c8e`
 - V4 expansion: `619b011`
 - V4 counts / spend notes: `129ed74` … `4fd5233`
-- V1 report close-out (this file + GPU audit): tip of branch after the docs commit below
+- V1 report close-out (this file + GPU audit): `6e4be96`
