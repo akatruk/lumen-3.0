@@ -7,6 +7,7 @@ mp4 and it does not call Hypit.
 import hashlib
 import json
 import logging
+import os
 import subprocess
 import uuid
 from pathlib import Path
@@ -43,10 +44,20 @@ def output_seconds(requested, source_duration):
 
 
 def _public_director():
+    """Writable director-v3 media folder (volume on lumen-test, else motion/public)."""
     volume = Path('/mnt/volume_nyc1_1791446889637')
     root = volume / 'lumen-motion' / 'public' / 'director-v3' if volume.is_dir() else motion_root() / 'public' / 'director-v3'
     root.mkdir(parents=True, exist_ok=True)
     return root
+
+
+def remotion_public_dir() -> Path:
+    """Remotion ``--public-dir``: parent of ``director-v3/`` (staticFile('director-v3/…')).
+
+    Staging writes to the volume path under ProtectSystem=strict. Remotion must
+    serve that same tree — not the read-only copy under ``motion/public``.
+    """
+    return _public_director().parent
 
 
 def _copy_file(source: Path, dest: Path):
@@ -68,6 +79,27 @@ def speaker_for(seconds, source: Path):
     return 'source-edit.mp4'
 
 
+def _remotion_env(root: Path) -> dict:
+    """Point caches at a writable volume when the repo tree is read-only (systemd)."""
+    env = os.environ.copy()
+    tmp = Path(env.get('TMPDIR') or '/tmp')
+    cache = Path(env.get('XDG_CACHE_HOME') or (tmp / 'remotion-cache'))
+    cache.mkdir(parents=True, exist_ok=True)
+    env.setdefault('XDG_CACHE_HOME', str(cache))
+    env.setdefault('npm_config_cache', str(cache / 'npm'))
+    # Webpack still defaults under node_modules/.cache; prefer a pre-created
+    # writable dir when the worker cannot mutate /opt/.../motion.
+    webpack = root / 'node_modules' / '.cache' / 'webpack'
+    try:
+        webpack.mkdir(parents=True, exist_ok=True)
+        probe = webpack / '.write-probe'
+        probe.write_text('ok', encoding='utf-8')
+        probe.unlink(missing_ok=True)
+    except OSError:
+        log.warning('Remotion webpack cache not writable at %s (ProtectSystem?); bundling may warn', webpack)
+    return env
+
+
 def render_assembly(dest: Path, seconds: int = 20, speaker: str = 'speaker.mp4', visual_plan=None):
     """Render the composition. The destination bytes come from Remotion."""
     root = motion_root()
@@ -75,9 +107,11 @@ def render_assembly(dest: Path, seconds: int = 20, speaker: str = 'speaker.mp4',
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         dest.unlink()
+    public = _public_director()
     if visual_plan:
         from .visual_variation import stage_backgrounds
-        visual_plan = stage_backgrounds(visual_plan, _public_director())
+        visual_plan = stage_backgrounds(visual_plan, public)
+    public_dir = remotion_public_dir()
     command = [
         str(root / 'node_modules' / '.bin' / 'remotion'),
         'render', 'src/index.ts', COMPOSITION, str(dest),
@@ -86,9 +120,17 @@ def render_assembly(dest: Path, seconds: int = 20, speaker: str = 'speaker.mp4',
             'speakerFile': speaker,
             'visualPlan': visual_plan,
         }),
+        f'--public-dir={public_dir}',
         '--concurrency=1',
     ]
-    completed = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=max(900, int(seconds) * 45))
+    completed = subprocess.run(
+        command,
+        cwd=root,
+        env=_remotion_env(root),
+        capture_output=True,
+        text=True,
+        timeout=max(900, int(seconds) * 45),
+    )
     if completed.returncode != 0 or not dest.is_file() or dest.stat().st_size < 100_000:
         tail = (completed.stderr or completed.stdout or '')[-2000:]
         log.error('Director V3 render failed: %s', tail)

@@ -593,6 +593,8 @@ export const ru: Record<string, string> = {
   "Processing": "Обработка",
   "Processing connections": "Подключённые сервисы",
   "Processing could not finish. Your original is safe.": "Обработка не завершена. Исходник сохранён.",
+  "Director picture render failed. Your original is safe — retry Create video.": "Рендер режиссёрской картинки не удался. Исходник сохранён — нажмите «Создать видео» ещё раз.",
+  "Director renderer is not installed on this server. Your original is safe.": "На сервере нет рендерера Director. Исходник сохранён.",
   "This video language has no finished voice yet. The source voice is not substituted.": "Для этого языка видео ещё нет готовой речи. Голос исходника не подставляется.",
   "The picture build stopped. Your original is safe.": "Сборка картины остановилась. Исходник сохранён.",
   "Processing is already running.": "Обработка уже выполняется.",

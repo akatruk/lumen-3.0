@@ -216,6 +216,10 @@ const bilingualWords = {
       "The model returned an incomplete analysis. Your original is safe; you can retry.",
     budget_limit: "This project or workspace reached its AI spending limit.",
     processing_failed: "Processing could not finish. Your original is safe.",
+    director_v3_render_failed:
+      "Director picture render failed. Your original is safe — retry Create video.",
+    director_v3_renderer_missing:
+      "Director renderer is not installed on this server. Your original is safe.",
     worker_interrupted:
       "Processing was interrupted. Retry analysis or create the cut again.",
     media_processing_failed: "This media could not be processed.",
@@ -464,6 +468,9 @@ const bilingualWords = {
     provider_invalid_analysis: "模型返回的分析不完整。原视频已保留，可以重试。",
     budget_limit: "项目或工作空间已达到 AI 费用上限。",
     processing_failed: "处理未能完成，原视频已保留。",
+    director_v3_render_failed:
+      "导演画面渲染失败。原始视频已保留，请重试「创建视频」。",
+    director_v3_renderer_missing: "此服务器未安装导演渲染器。原始视频已保留。",
     worker_interrupted: "处理意外中断，请重新分析或制作新版本。",
     media_processing_failed: "无法处理此媒体文件。",
     ffmpeg_ass_unavailable: "无法烧录字幕，因为 FFmpeg 没有 ass 滤镜。",

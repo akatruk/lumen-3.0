@@ -116,3 +116,18 @@ def test_director_v3_source_does_not_copy_the_frozen_preview():
     assert 'shutil' not in source
     assert 'preview-v3.mp4' not in source
     assert 'render_assembly' in source
+    # Staged stills live on the volume public tree; Remotion must serve that path.
+    assert '--public-dir=' in source or "remotion_public_dir" in source
+
+
+def test_remotion_public_dir_is_parent_of_director_v3(tmp_path, monkeypatch):
+    from backend import director_v3
+    monkeypatch.setattr(director_v3, 'motion_root', lambda: tmp_path)
+    (tmp_path / 'src').mkdir()
+    (tmp_path / 'src' / 'index.ts').write_text('export {}', encoding='utf-8')
+    bin_dir = tmp_path / 'node_modules' / '.bin'
+    bin_dir.mkdir(parents=True)
+    (bin_dir / 'remotion').write_text('#!/bin/sh\n', encoding='utf-8')
+    public = director_v3._public_director()
+    assert public.name == 'director-v3'
+    assert director_v3.remotion_public_dir() == public.parent

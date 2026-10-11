@@ -63,6 +63,14 @@ const jobErrors: Record<string, [string, string]> = {
     "The picture build stopped. Your original is safe.",
     "画面合成已停止，原视频已保留。",
   ],
+  director_v3_render_failed: [
+    "Director picture render failed. Your original is safe — retry Create video.",
+    "导演画面渲染失败。原始视频已保留，请重试「创建视频」。",
+  ],
+  director_v3_renderer_missing: [
+    "Director renderer is not installed on this server. Your original is safe.",
+    "此服务器未安装导演渲染器。原始视频已保留。",
+  ],
   media_processing_failed: [
     "This media could not be processed.",
     "无法处理此媒体文件。",
