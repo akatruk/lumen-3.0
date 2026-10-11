@@ -7,6 +7,9 @@ description: >-
 
 # Lumen Remotion
 
+**MAIN quality-recovery prompt:** `docs/prompts/cinematic-director-v3-quality-recovery.md`  
+(index: `docs/prompts/README.md`).
+
 Package: `motion/` — Remotion 4.x, canvas 1080×1920 @ 30fps.
 
 ## Rules

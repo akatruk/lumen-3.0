@@ -123,27 +123,50 @@ function ComparisonColumns({ frames }: { frames: number }) {
   const { opacity, y } = enter(frame, frames);
   const left = interpolate(frame, [6, 22], [-40, 0], clamp);
   const right = interpolate(frame, [12, 28], [40, 0], clamp);
+  const cols = [
+    { label: "Цели", detail: "какая программа подходит", x: left },
+    { label: "Срок", detail: "когда реально стартовать", x: right },
+  ];
   return (
-    <AbsoluteFill style={{ opacity, transform: `translateY(${y}px)`, padding: "480px 72px 0", flexDirection: "row", gap: 28 }}>
-      {[
-        { label: "Цели", x: left },
-        { label: "Срок", x: right },
-      ].map((col) => (
+    <AbsoluteFill
+      style={{
+        opacity,
+        transform: `translateY(${y}px)`,
+        padding: "520px 56px 0",
+        flexDirection: "row",
+        gap: 24,
+        pointerEvents: "none",
+      }}
+    >
+      {cols.map((col) => (
         <div
           key={col.label}
           style={{
             flex: 1,
-            height: 420,
+            minHeight: 280,
             borderRadius: theme.radius.lg,
-            background: theme.color.bgElevated,
-            border: `1px solid ${theme.color.line}`,
+            background: "rgba(28,26,23,0.9)",
+            border: `1px solid ${theme.color.lineStrong}`,
             transform: `translateX(${col.x}px)`,
-            padding: 32,
+            padding: "28px 26px",
             display: "flex",
-            alignItems: "flex-end",
+            flexDirection: "column",
+            justifyContent: "flex-end",
           }}
         >
-          <AutoFitText text={col.label} maxWidth={360} maxHeight={80} role={theme.type.title} align="left" vertical="end" locale="ru-RU" />
+          <AutoFitText text={col.label} maxWidth={400} maxHeight={64} role={theme.type.title} align="left" vertical="end" locale="ru-RU" />
+          <div style={{ height: 10 }} />
+          <AutoFitText
+            text={col.detail}
+            maxWidth={400}
+            maxHeight={72}
+            role={theme.type.support}
+            align="left"
+            vertical="end"
+            wrapMode="auto"
+            maxLines={2}
+            locale="ru-RU"
+          />
         </div>
       ))}
     </AbsoluteFill>
@@ -169,36 +192,89 @@ function RouteLink({ frames }: { frames: number }) {
   const frame = useCurrentFrame();
   const { opacity } = enter(frame, frames);
   const draw = interpolate(frame, [6, 42], [1, 0], clamp);
+  const rise = interpolate(frame, [4, 20], [36, 0], { ...clamp, easing: Easing.out(Easing.cubic) });
+  // Left shelf under face band — two readable place cards linked by a route.
   return (
-    <AbsoluteFill style={{ opacity, alignItems: "center", justifyContent: "center" }}>
-      <svg width="720" height="420" viewBox="0 0 360 210">
-        <circle cx="50" cy="160" r="22" fill={theme.color.bgElevated} stroke={theme.color.accent} strokeWidth="4" />
-        <circle cx="310" cy="50" r="22" fill={theme.color.bgElevated} stroke={theme.color.accent} strokeWidth="4" />
-        <path
-          d="M70 150 C140 140, 220 90, 290 60"
-          fill="none"
-          stroke={theme.color.accent}
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray="320"
-          strokeDashoffset={320 * draw}
-        />
-      </svg>
+    <AbsoluteFill
+      style={{
+        opacity,
+        alignItems: "flex-start",
+        justifyContent: "flex-end",
+        padding: "0 0 560px 40px",
+        pointerEvents: "none",
+      }}
+    >
+      <div style={{ width: 480, transform: `translateY(${rise}px)` }}>
+        <div style={{ display: "flex", gap: 16, marginBottom: 18 }}>
+          {[
+            { title: "сейчас", detail: "где вы живёте" },
+            { title: "переезд", detail: "куда планируете" },
+          ].map((card) => (
+            <div
+              key={card.title}
+              style={{
+                flex: 1,
+                padding: "18px 16px",
+                borderRadius: theme.radius.md,
+                background: "rgba(28,26,23,0.9)",
+                border: `1px solid ${theme.color.lineStrong}`,
+              }}
+            >
+              <AutoFitText text={card.title} maxWidth={200} maxHeight={40} role={theme.type.title} align="left" vertical="center" locale="ru-RU" />
+              <div style={{ height: 6 }} />
+              <AutoFitText
+                text={card.detail}
+                maxWidth={200}
+                maxHeight={44}
+                role={theme.type.support}
+                align="left"
+                vertical="center"
+                wrapMode="auto"
+                maxLines={2}
+                locale="ru-RU"
+              />
+            </div>
+          ))}
+        </div>
+        <svg width="480" height="90" viewBox="0 0 360 90">
+          <path
+            d="M40 60 C120 20, 240 20, 320 60"
+            fill="none"
+            stroke={theme.color.accent}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray="320"
+            strokeDashoffset={320 * draw}
+          />
+          <circle cx="40" cy="60" r="10" fill={theme.color.accent} />
+          <circle cx="320" cy="60" r="10" fill={theme.color.accent} />
+        </svg>
+      </div>
     </AbsoluteFill>
   );
 }
 
 function DocumentStamp({ frames }: { frames: number }) {
   const frame = useCurrentFrame();
-  const { opacity } = enter(frame, frames);
+  const { opacity, y } = enter(frame, frames);
   const stamp = interpolate(frame, [10, 28], [1.25, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   const ring = interpolate(frame, [24, 48], [0, 1], clamp);
+  // Left mid shelf — never centered over the presenter's face.
   return (
-    <AbsoluteFill style={{ opacity, alignItems: "center", justifyContent: "center" }}>
+    <AbsoluteFill
+      style={{
+        opacity,
+        transform: `translateY(${y}px)`,
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "0 0 140px 56px",
+        pointerEvents: "none",
+      }}
+    >
       <div
         style={{
-          width: 280,
-          height: 360,
+          width: 220,
+          height: 280,
           borderRadius: 24,
           background: theme.color.paper,
           transform: `scale(${stamp})`,
@@ -209,14 +285,36 @@ function DocumentStamp({ frames }: { frames: number }) {
         <div
           style={{
             position: "absolute",
-            left: 48,
-            top: 120,
-            width: 180,
-            height: 180,
+            left: 28,
+            top: 36,
+            width: 160,
+            height: 10,
+            borderRadius: 4,
+            background: theme.color.lineStrong,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: 36,
+            top: 88,
+            width: 140,
+            height: 140,
             borderRadius: "50%",
             border: `6px solid ${theme.color.accent}`,
             opacity: 0.35 + ring * 0.55,
             transform: `rotate(-12deg) scale(${0.85 + ring * 0.15})`,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: 28,
+            bottom: 36,
+            width: 120,
+            height: 8,
+            borderRadius: 4,
+            background: theme.color.line,
           }}
         />
       </div>
@@ -227,25 +325,42 @@ function DocumentStamp({ frames }: { frames: number }) {
 function FamilyCluster({ frames }: { frames: number }) {
   const frame = useCurrentFrame();
   const { opacity } = enter(frame, frames);
-  const words = ["Цели", "Семья", "Бюджет"];
+  const cards = [
+    { title: "Цели", explanation: "куда и зачем вы переезжаете" },
+    { title: "Семья", explanation: "кто едет с вами и какие сроки" },
+    { title: "Бюджет", explanation: "что реально потянуть по программе" },
+  ];
   return (
-    <AbsoluteFill style={{ opacity, padding: "520px 96px 0" }}>
-      {words.map((word, index) => {
+    <AbsoluteFill style={{ opacity, padding: "420px 72px 0 72px", pointerEvents: "none" }}>
+      {cards.map((card, index) => {
         const shown = interpolate(frame, [6 + index * 12, 20 + index * 12], [0, 1], clamp);
         return (
           <div
-            key={word}
+            key={card.title}
             style={{
               opacity: shown,
               transform: `translateY(${(1 - shown) * 20}px)`,
-              marginBottom: 20,
-              padding: "18px 26px",
+              marginBottom: 16,
+              padding: "16px 22px",
               borderRadius: theme.radius.md,
-              background: theme.color.bgElevated,
+              background: "rgba(28,26,23,0.88)",
               border: `1px solid ${theme.color.line}`,
+              maxWidth: 520,
             }}
           >
-            <AutoFitText text={word} maxWidth={800} maxHeight={56} role={theme.type.title} align="left" vertical="center" locale="ru-RU" />
+            <AutoFitText text={card.title} maxWidth={460} maxHeight={40} role={theme.type.title} align="left" vertical="center" locale="ru-RU" />
+            <div style={{ height: 4 }} />
+            <AutoFitText
+              text={card.explanation}
+              maxWidth={460}
+              maxHeight={44}
+              role={theme.type.support}
+              align="left"
+              vertical="center"
+              wrapMode="auto"
+              maxLines={2}
+              locale="ru-RU"
+            />
           </div>
         );
       })}
@@ -296,10 +411,11 @@ export function ConceptViz({
   const Renderer = RENDERERS[hit.presetId];
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
+      {/* Soft side veil — keep face band readable; do not black out center. */}
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(ellipse at 50% 42%, rgba(18,17,15,0.15) 0%, rgba(18,17,15,0.55) 70%, rgba(18,17,15,0.78) 100%)",
+            "linear-gradient(90deg, rgba(18,17,15,0.55) 0%, rgba(18,17,15,0.12) 42%, rgba(18,17,15,0.08) 100%)",
         }}
       />
       <Renderer frames={frames} hit={hit} />

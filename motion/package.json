@@ -8,7 +8,7 @@
     "studio": "remotion studio src/index.ts",
     "still": "remotion still src/index.ts MotionLibraryShowcase",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/utils/*.test.ts src/registry/*.test.ts src/typography/*.test.ts src/showcase/*.test.ts src/localization/*.test.ts src/cards/*.test.ts src/concepts/*.test.ts"
+    "test": "node --import tsx --test src/utils/*.test.ts src/registry/*.test.ts src/typography/*.test.ts src/showcase/*.test.ts src/localization/*.test.ts src/cards/*.test.ts src/concepts/*.test.ts src/preview/*.test.ts"
   },
   "dependencies": {
     "@remotion/cli": "4.0.524",

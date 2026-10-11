@@ -21,3 +21,5 @@ description: >-
 - Excessive zoom; repetitive identical card loops
 
 Choreography per scene: entrance → reveal → hold → emphasis → exit.
+
+Director V3 portrait splits (`portraitLayouts.ts`): fill the canvas; animate speaker panel width/position from near-fullscreen into the split (no unexplained jump to a tiny float). Crossfades must not fade from empty black. Concept PIP is a rounded portrait card, not a 220px face circle.

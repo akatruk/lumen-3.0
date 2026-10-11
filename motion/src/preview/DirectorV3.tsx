@@ -3,17 +3,20 @@ import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, interpolate, static
 import { theme } from "../themes/tokens";
 import { LocaleProvider } from "../typography/locale";
 import { AutoFitText } from "../typography/AutoFitText";
+import type { SupportedLocale } from "../localization/language-config";
 import { normalizeScene } from "../registry/validateScene";
 import { renderScene } from "../registry/motionRegistry";
 import { ConceptViz, syncConceptTriggers, type SyncedConceptTrigger } from "../concepts";
 import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
+import { PORTRAIT, criteriaCardsFor, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 const media = (name: string) => staticFile(`director-v3/${name}`);
 
 export const DIRECTOR_V3_FPS = 30;
 export const DIRECTOR_V3_FRAMES = 600;
-const BEAT_FRAMES = [90, 132, 120, 132, 81, 45] as const;
+/** Shorter hook → earlier media beat; avoids 0–19s talking-head lock on 60s cuts. */
+const BEAT_FRAMES = [54, 168, 120, 132, 81, 45] as const;
 
 export type SceneLook = {
   sceneId: string;
@@ -34,12 +37,14 @@ export type VisualPlan = {
   conceptTriggers?: boolean;
   backgroundPlate?: "ink_lift" | "paper_grain" | "navy_grid" | "gold_veil" | "soft_vignette" | null;
   heroObject?: "passport" | "key" | "globe" | "house" | null;
+  language?: SupportedLocale;
 };
 
 export type DirectorV3Props = {
   durationSeconds?: number;
   speakerFile?: string;
   visualPlan?: VisualPlan | null;
+  locale?: SupportedLocale;
 };
 
 const LOOK: SceneLook = {
@@ -142,35 +147,60 @@ function Enter({ transition, children }: { transition: string; children: ReactNo
     const reveal = interpolate(frame, [0, 12], [8, 100], clamp);
     return <AbsoluteFill style={{ clipPath: `inset(0 ${100 - reveal}% 0 0)` }}>{children}</AbsoluteFill>;
   }
-  const opacity = interpolate(frame, [0, 10], [0, 1], clamp);
+  // Never fade from empty black — keep the picture readable through the crossfade.
+  const opacity = interpolate(frame, [0, 10], [0.55, 1], clamp);
   return <AbsoluteFill style={{ opacity }}>{children}</AbsoluteFill>;
 }
 
-function Caption({ text, emphasis, animate = "fade" }: { text: string; emphasis?: string[]; animate?: "fade" | "pop" | "mask" | "slide" }) {
+function Caption({
+  text,
+  emphasis,
+  animate = "fade",
+  locale = "ru-RU",
+}: {
+  text: string;
+  emphasis?: string[];
+  animate?: "fade" | "pop" | "mask" | "slide";
+  locale?: SupportedLocale;
+}) {
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       <div
         style={{
           position: "absolute",
-          left: 72,
-          width: 936,
-          bottom: 280,
-          height: 220,
+          left: 64,
+          width: 952,
+          bottom: PORTRAIT.captionClearance - 60,
+          height: 240,
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "center",
         }}
       >
-        <AutoFitText
-          text={text}
-          maxWidth={936}
-          maxHeight={180}
-          role={{ min: 56, max: 84, weight: 600, lineHeight: 1.08, tracking: -0.02 }}
-          align="center"
-          vertical="end"
-          wrapMode="auto"
-          maxLines={2}
-          emphasis={emphasis}
-          animate={animate}
-          locale="ru-RU"
-        />
+        <div
+          data-caption-backing="dark"
+          style={{
+            maxWidth: 920,
+            padding: "22px 36px 26px",
+            borderRadius: 22,
+            background: "rgba(12, 11, 10, 0.78)",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.4)",
+          }}
+        >
+          <AutoFitText
+            text={text}
+            maxWidth={848}
+            maxHeight={168}
+            role={{ min: 64, max: 92, weight: 700, lineHeight: 1.1, tracking: -0.02 }}
+            align="center"
+            vertical="center"
+            wrapMode="auto"
+            maxLines={2}
+            emphasis={emphasis}
+            animate={animate}
+            locale={locale}
+          />
+        </div>
       </div>
     </AbsoluteFill>
   );
@@ -190,6 +220,8 @@ function Speaker({
   crop?: string;
   circle?: boolean;
 }) {
+  const frame = useCurrentFrame();
+  const enter = interpolate(frame, [0, 14], [0, 1], clamp);
   const video = (
     <AbsoluteFill style={{ ...(crop ? { clipPath: crop } : {}), transform: `scale(${zoomTo})` }}>
       <OffthreadVideo
@@ -201,16 +233,23 @@ function Speaker({
     </AbsoluteFill>
   );
   if (!circle) return video;
+  // Rounded portrait PIP — continuous scale from full frame, never a tiny face circle.
+  const pip = PORTRAIT.conceptPip;
   return (
-    <AbsoluteFill style={{ alignItems: "flex-end", justifyContent: "flex-end", padding: "0 48px 360px 0" }}>
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
       <div
         style={{
-          width: 220,
-          height: 220,
-          borderRadius: "50%",
+          position: "absolute",
+          right: pip.right,
+          bottom: pip.bottom,
+          width: pip.width,
+          height: pip.height,
+          borderRadius: PORTRAIT.radius,
           overflow: "hidden",
           border: `3px solid ${theme.color.lineStrong}`,
           boxShadow: theme.shadow.soft,
+          opacity: enter,
+          transform: `translateY(${(1 - enter) * 36}px) scale(${0.92 + enter * 0.08})`,
         }}
       >
         {video}
@@ -227,11 +266,16 @@ function layoutZoom(layout: string) {
 }
 
 function Hook({ file, from, frames, look }: { file: string; from: number; frames: number; look: SceneLook }) {
+  const frame = useCurrentFrame();
+  const baseZoom = layoutZoom(look.speaker.layout);
+  // Mid-hook punch keeps the opener from reading as a locked still when the beat stretches.
+  const punchAt = Math.max(18, Math.round(frames * 0.42));
+  const punch = interpolate(frame, [punchAt, punchAt + 16], [0, 0.12], clamp);
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill>
         <Move treatment={look.background.treatment} intensity={look.motionIntensity} frames={frames}>
-          <Speaker file={file} startFrom={from} frames={frames} zoomTo={layoutZoom(look.speaker.layout)} />
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={baseZoom + punch} />
         </Move>
         <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
       </AbsoluteFill>
@@ -241,73 +285,92 @@ function Hook({ file, from, frames, look }: { file: string; from: number; frames
 
 function Residency({ file, from, frames, look }: { file: string; from: number; frames: number; look: SceneLook }) {
   const frame = useCurrentFrame();
-  const treatment = look.foreground.treatment;
-  const rise = treatment === "slide_up" || treatment === "scale_reveal" ? interpolate(frame, [8, 28], [64, 0], clamp) : 0;
-  const slide = treatment === "slide_left" ? interpolate(frame, [6, 22], [90, 0], clamp) : 0;
-  const scale = treatment === "scale_reveal" ? interpolate(frame, [8, 28], [0.86, 1], clamp) : 1;
-  const opacity = interpolate(frame, [6, 18], [0, 1], clamp);
-  const speakerRight = look.speaker.layout === "speaker_split_right";
+  const enterEnd = Math.min(28, Math.max(16, Math.round(frames * 0.22)));
+  const holdStart = enterEnd;
+  const exitStart = Math.max(holdStart + 12, frames - 18);
+  const panelProgress = interpolate(frame, [0, enterEnd], [0, 1], clamp);
+  const exitProgress = interpolate(frame, [exitStart, frames - 1], [0, 1], clamp);
+  const mediaOpacity = interpolate(frame, [4, enterEnd], [0, 1], clamp) * (1 - exitProgress * 0.35);
+  const speakerRight = look.speaker.layout !== "speaker_split_left";
+  const speakerSide = speakerRight ? "right" : "left";
+  const mediaSide = speakerRight ? "left" : "right";
+  const speakerBox = splitSpeakerRect(speakerSide);
+  const mediaBox = splitMediaRect(mediaSide);
   const staged = look.background.staged;
   const motionPlate = Boolean(staged && /\.(mp4|webm|mov)$/i.test(staged));
   const plate = staged && !motionPlate ? staged : null;
+  const support = look.foreground.staged || "passport.png";
+  // Slide speaker from near-fullscreen toward the split panel (no shrink-to-empty).
+  const speakerWidth = interpolate(panelProgress, [0, 1], [PORTRAIT.width - PORTRAIT.pad * 2, speakerBox.width], clamp);
+  const speakerLeft = speakerRight
+    ? interpolate(panelProgress, [0, 1], [PORTRAIT.pad, speakerBox.left], clamp)
+    : PORTRAIT.pad;
   return (
     <Enter transition={look.transition}>
-    <AbsoluteFill style={{ background: theme.color.bg }}>
-      <div
-        style={{
-          position: "absolute",
-          left: speakerRight ? undefined : 36,
-          right: speakerRight ? 36 : undefined,
-          top: 160,
-          width: 620,
-          height: 1180,
-          borderRadius: 32,
-          overflow: "hidden",
-        }}
-      >
-        {plate || motionPlate ? (
-          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.06} />
-        ) : (
-          <Move treatment={look.background.treatment} intensity={look.motionIntensity} frames={frames}>
-            <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.06} />
-          </Move>
-        )}
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          right: speakerRight ? undefined : 0,
-          left: speakerRight ? 0 : undefined,
-          top: 340,
-          width: 460,
-          height: 780,
-          opacity,
-          transform: `translate(${slide}px, ${rise}px) scale(${scale})`,
-        }}
-      >
-        {motionPlate && staged ? (
-          <OffthreadVideo src={media(staged)} volume={0} style={{ width: "100%", height: "70%", objectFit: "cover", borderRadius: 24 }} />
-        ) : null}
-        {plate ? (
-          <Move treatment={look.background.treatment} intensity={look.motionIntensity} frames={frames}>
-            <Img src={media(plate)} style={{ width: "100%", height: "70%", objectFit: "cover", borderRadius: 24 }} />
-          </Move>
-        ) : null}
-        <Img
-          src={media(look.foreground.staged || "passport.png")}
+      <AbsoluteFill style={{ background: theme.color.bg }}>
+        {/* Full-bleed cover media — landscape sources fill portrait via cover, not letterbox. */}
+        <AbsoluteFill style={{ opacity: mediaOpacity * 0.55 }}>
+          {motionPlate && staged ? (
+            <OffthreadVideo src={media(staged)} volume={0} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : plate ? (
+            <Img src={media(plate)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <AbsoluteFill style={{ background: theme.gradient.broll }} />
+          )}
+        </AbsoluteFill>
+        <AbsoluteFill style={{ background: "linear-gradient(90deg, rgba(18,17,15,0.55) 0%, rgba(18,17,15,0.2) 45%, rgba(18,17,15,0.65) 100%)" }} />
+        <div
           style={{
             position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: "100%",
-            height: plate || motionPlate ? "46%" : "100%",
-            objectFit: "contain",
+            left: mediaBox.left,
+            top: mediaBox.top,
+            width: mediaBox.width,
+            height: mediaBox.height,
+            borderRadius: PORTRAIT.radius,
+            overflow: "hidden",
+            opacity: mediaOpacity,
+            transform: `translateY(${(1 - panelProgress) * 28}px)`,
+            boxShadow: theme.shadow.soft,
           }}
-        />
-      </div>
-      <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
-    </AbsoluteFill>
+        >
+          {motionPlate && staged ? (
+            <OffthreadVideo src={media(staged)} volume={0} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : plate ? (
+            <Img src={media(plate)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <Img src={media(support)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          )}
+          <Img
+            src={media(support)}
+            style={{
+              position: "absolute",
+              right: 16,
+              bottom: 16,
+              width: "42%",
+              height: "38%",
+              objectFit: "contain",
+              filter: "drop-shadow(0 12px 24px rgba(0,0,0,0.45))",
+            }}
+          />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: speakerLeft,
+            top: speakerBox.top,
+            width: speakerWidth,
+            height: speakerBox.height,
+            borderRadius: PORTRAIT.radius,
+            overflow: "hidden",
+            boxShadow: theme.shadow.soft,
+          }}
+        >
+          <Move treatment={look.background.treatment} intensity={look.motionIntensity} frames={frames}>
+            <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.08} />
+          </Move>
+        </div>
+        <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+      </AbsoluteFill>
     </Enter>
   );
 }
@@ -315,78 +378,161 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
 function Consult({ frames, look }: { frames: number; look: SceneLook }) {
   const still = look.background.staged;
   const motionPlate = Boolean(still && /\.(mp4|webm|mov)$/i.test(still));
+  // Always fill the portrait canvas with a cover plate; stamp/webm assets ride as midground.
   return (
     <Enter transition={look.transition}>
-    <AbsoluteFill>
-      <Move treatment={motionPlate || !still ? "ambient_loop" : look.background.treatment} intensity={look.motionIntensity} frames={frames}>
-        {still && !motionPlate ? (
-          <Img src={media(still)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
+      <AbsoluteFill style={{ background: theme.color.bg }}>
+        <Move treatment="ambient_loop" intensity={look.motionIntensity} frames={frames}>
           <OffthreadVideo
-            src={media(motionPlate && still ? still : "consult.mp4")}
+            src={media("consult.mp4")}
             volume={0}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
-        )}
-      </Move>
-      <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
-    </AbsoluteFill>
+        </Move>
+        {still && !motionPlate ? (
+          <AbsoluteFill style={{ opacity: 0.92 }}>
+            <Move treatment={look.background.treatment} intensity={look.motionIntensity} frames={frames}>
+              <Img src={media(still)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </Move>
+          </AbsoluteFill>
+        ) : null}
+        {/* Sparse stamp/webm plates sit on black canvases — do not mount them as panels. */}
+        {motionPlate && still && /\.(mp4|mov)$/i.test(still) ? (
+          <div
+            style={{
+              position: "absolute",
+              left: PORTRAIT.pad,
+              bottom: PORTRAIT.captionClearance + 24,
+              width: 360,
+              height: 420,
+              borderRadius: PORTRAIT.radius,
+              overflow: "hidden",
+              boxShadow: theme.shadow.soft,
+              background: theme.color.bgElevated,
+              border: `1px solid ${theme.color.lineStrong}`,
+            }}
+          >
+            <OffthreadVideo
+              src={media(still)}
+              volume={0}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          </div>
+        ) : null}
+        <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+      </AbsoluteFill>
     </Enter>
   );
 }
 
-function Beside({ file, from, frames, look }: { file: string; from: number; frames: number; look: SceneLook }) {
+function Beside({
+  file,
+  from,
+  frames,
+  look,
+  locale = "ru-RU",
+}: {
+  file: string;
+  from: number;
+  frames: number;
+  look: SceneLook;
+  locale?: SupportedLocale;
+}) {
   const frame = useCurrentFrame();
-  const pace = frames / 132;
-  const words = ["Цели", "Семья", "Бюджет"];
+  const enterEnd = Math.min(24, Math.max(14, Math.round(frames * 0.18)));
+  const panelProgress = interpolate(frame, [0, enterEnd], [0, 1], clamp);
+  const cards = criteriaCardsFor(locale);
   const speakerLeft = look.speaker.layout === "speaker_split_left";
+  const speakerSide = speakerLeft ? "left" : "right";
+  const cardSide = speakerLeft ? "right" : "left";
+  const speakerBox = splitSpeakerRect(speakerSide);
+  const cardBox = splitMediaRect(cardSide);
+  const cardCount = cards.length;
+  const cardGap = 18;
+  const cardHeight = Math.floor((cardBox.height - cardGap * (cardCount - 1)) / cardCount);
+  const pace = frames / 132;
   return (
     <Enter transition={look.transition}>
-    <AbsoluteFill style={{ background: theme.color.bg }}>
-      <div style={{ position: "absolute", left: speakerLeft ? undefined : 48, right: speakerLeft ? 48 : undefined, top: 360, width: 440 }}>
-        {words.map((word, index) => {
-          const shown = interpolate(frame, [(10 + index * 16) * pace, (24 + index * 16) * pace], [0, 1], clamp);
-          return (
-            <div
-              key={word}
-              style={{
-                opacity: shown,
-                transform: `translateY(${(1 - shown) * 24}px)`,
-                marginBottom: 28,
-                padding: "22px 28px",
-                borderRadius: 18,
-                background: theme.color.bgElevated,
-                border: `1px solid ${theme.color.lineStrong}`,
-              }}
-            >
-              <AutoFitText
-                text={word}
-                maxWidth={380}
-                maxHeight={72}
-                role={theme.type.title}
-                align="left"
-                vertical="center"
-                locale="ru-RU"
-              />
-            </div>
-          );
-        })}
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          right: speakerLeft ? undefined : 36,
-          left: speakerLeft ? 36 : undefined,
-          top: 180,
-          width: 520,
-          height: 1240,
-          borderRadius: 28,
-          overflow: "hidden",
-        }}
-      >
-        <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.04} />
-      </div>
-    </AbsoluteFill>
+      <AbsoluteFill style={{ background: theme.color.bg }}>
+        <AbsoluteFill style={{ background: theme.gradient.speaker, opacity: 0.85 }} />
+        <div
+          style={{
+            position: "absolute",
+            left: speakerBox.left,
+            top: speakerBox.top,
+            width: speakerBox.width,
+            height: speakerBox.height,
+            borderRadius: PORTRAIT.radius,
+            overflow: "hidden",
+            boxShadow: theme.shadow.soft,
+            transform: `translateX(${(1 - panelProgress) * (speakerLeft ? -40 : 40)}px)`,
+          }}
+        >
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.06} />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: cardBox.left,
+            top: cardBox.top,
+            width: cardBox.width,
+            height: cardBox.height,
+            display: "flex",
+            flexDirection: "column",
+            gap: cardGap,
+          }}
+        >
+          {cards.map((card, index) => {
+            const shown = interpolate(
+              frame,
+              [(8 + index * 14) * pace, (22 + index * 14) * pace],
+              [0, 1],
+              clamp,
+            );
+            return (
+              <div
+                key={card.title}
+                style={{
+                  height: cardHeight,
+                  opacity: shown,
+                  transform: `translateY(${(1 - shown) * 28}px)`,
+                  padding: "22px 26px",
+                  borderRadius: PORTRAIT.radius - 4,
+                  background: theme.color.bgElevated,
+                  border: `1px solid ${theme.color.lineStrong}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  boxShadow: theme.shadow.soft,
+                }}
+              >
+                <AutoFitText
+                  text={card.title}
+                  maxWidth={cardBox.width - 52}
+                  maxHeight={Math.min(64, cardHeight * 0.38)}
+                  role={theme.type.title}
+                  align="left"
+                  vertical="center"
+                  locale={locale}
+                />
+                <div style={{ height: 8 }} />
+                <AutoFitText
+                  text={card.explanation}
+                  maxWidth={cardBox.width - 52}
+                  maxHeight={Math.min(88, cardHeight * 0.42)}
+                  role={theme.type.support}
+                  align="left"
+                  vertical="center"
+                  wrapMode="auto"
+                  maxLines={2}
+                  locale={locale}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+      </AbsoluteFill>
     </Enter>
   );
 }
@@ -427,10 +573,16 @@ function bedVolume(frame: number, frames: number) {
   return fadeIn * fadeOut * gap;
 }
 
-export function DirectorV3({ durationSeconds = 20, speakerFile = "speaker.mp4", visualPlan = null }: DirectorV3Props) {
+export function DirectorV3({
+  durationSeconds = 20,
+  speakerFile = "speaker.mp4",
+  visualPlan = null,
+  locale = "ru-RU",
+}: DirectorV3Props) {
   const frames = framesForSeconds(durationSeconds);
   const [hook, residency, consult, beside, steps, ret] = beatsFor(frames);
   const scale = frames / DIRECTOR_V3_FRAMES;
+  const planLocale = visualPlan?.language || locale;
   const looks = {
     hook: sceneLook(visualPlan, "hook"),
     residency: sceneLook(visualPlan, "residency"),
@@ -457,13 +609,26 @@ export function DirectorV3({ durationSeconds = 20, speakerFile = "speaker.mp4", 
   });
   const conceptOn = visualPlan?.conceptTriggers !== false;
   const concepts: SyncedConceptTrigger[] = conceptOn ? syncConceptTriggers(CAPTIONS, scale) : [];
+  // Editorial layouts already carry the idea — stacking concept cards causes face hits + black voids.
+  const layoutOwned = [
+    { from: residency.from, to: residency.from + residency.duration, skip: ["document_stamp", "family_cluster", "budget_scale"] },
+    { from: consult.from, to: consult.from + consult.duration, skip: ["comparison_columns", "document_stamp", "steps_reveal"] },
+    { from: beside.from, to: beside.from + beside.duration, skip: ["family_cluster", "budget_scale", "comparison_columns"] },
+    { from: steps.from, to: steps.from + steps.duration, skip: ["steps_reveal"] },
+  ] as const;
+  const speakerPrimary = [
+    { from: hook.from, to: hook.from + hook.duration },
+    { from: residency.from, to: residency.from + residency.duration },
+    { from: beside.from, to: beside.from + beside.duration },
+    { from: ret.from, to: ret.from + ret.duration },
+  ];
   const plate = visualPlan?.backgroundPlate ?? null;
   const hero = visualPlan?.heroObject ?? null;
   return (
     <AbsoluteFill style={{ background: theme.color.bg, fontFamily: theme.font.sans }}>
-      <LocaleProvider locale="ru-RU">
+      <LocaleProvider locale={planLocale}>
       <Audio src={media(speakerFile)} volume={1.6} />
-      <Audio src={media("bed.mp3")} volume={(frame) => bedVolume(frame, frames)} />
+      <Audio src={media("bed.mp3")} volume={(f) => bedVolume(f, frames)} />
       {plate ? (
         <Sequence from={0} durationInFrames={frames} name="plate">
           <BackgroundPlate treatment={plate} frames={frames} intensity={1} />
@@ -483,7 +648,7 @@ export function DirectorV3({ durationSeconds = 20, speakerFile = "speaker.mp4", 
         <Consult frames={consult.duration} look={looks.consult} />
       </Sequence>
       <Sequence from={beside.from} durationInFrames={beside.duration} name="beside">
-        <Beside file={speakerFile} from={beside.from} frames={beside.duration} look={looks.beside} />
+        <Beside file={speakerFile} from={beside.from} frames={beside.duration} look={looks.beside} locale={planLocale} />
       </Sequence>
       <Sequence from={steps.from} durationInFrames={steps.duration} name="steps">
         <Enter transition={looks.steps.transition}>
@@ -493,12 +658,28 @@ export function DirectorV3({ durationSeconds = 20, speakerFile = "speaker.mp4", 
       <Sequence from={ret.from} durationInFrames={ret.duration} name="return">
         <Return file={speakerFile} from={ret.from} frames={ret.duration} look={looks.return} />
       </Sequence>
-      {concepts.map((hit) => (
-        <Sequence key={`concept-${hit.fromFrame}-${hit.presetId}`} from={hit.fromFrame} durationInFrames={hit.durationInFrames} name={`concept-${hit.presetId}`}>
-          <ConceptViz hit={hit} frames={hit.durationInFrames} />
-          <Speaker file={speakerFile} startFrom={hit.fromFrame} zoomTo={1.2} circle />
-        </Sequence>
-      ))}
+      {concepts.map((hit) => {
+        const owned = layoutOwned.find((range) => hit.fromFrame >= range.from && hit.fromFrame < range.to);
+        if (owned && (owned.skip as readonly string[]).includes(hit.presetId)) return null;
+        // Clip concept to the current beat so overlays do not hang over an empty cut.
+        const beatEnd =
+          [hook, residency, consult, beside, steps, ret].find(
+            (beat) => hit.fromFrame >= beat.from && hit.fromFrame < beat.from + beat.duration,
+          )?.duration ?? hit.durationInFrames;
+        const beatFrom =
+          [hook, residency, consult, beside, steps, ret].find(
+            (beat) => hit.fromFrame >= beat.from && hit.fromFrame < beat.from + beat.duration,
+          )?.from ?? hit.fromFrame;
+        const dur = Math.max(1, Math.min(hit.durationInFrames, beatFrom + beatEnd - hit.fromFrame));
+        const speakerOn = speakerPrimary.some((range) => hit.fromFrame >= range.from && hit.fromFrame < range.to);
+        const showPip = !speakerOn && dur >= 36;
+        return (
+          <Sequence key={`concept-${hit.fromFrame}-${hit.presetId}`} from={hit.fromFrame} durationInFrames={dur} name={`concept-${hit.presetId}`}>
+            <ConceptViz hit={hit} frames={dur} />
+            {showPip ? <Speaker file={speakerFile} startFrom={hit.fromFrame} zoomTo={1.14} circle /> : null}
+          </Sequence>
+        );
+      })}
       {hero ? (
         <Sequence from={residency.from} durationInFrames={residency.duration} name="hero-object">
           <AbsoluteFill style={{ pointerEvents: "none", opacity: 0.92 }}>
@@ -508,7 +689,7 @@ export function DirectorV3({ durationSeconds = 20, speakerFile = "speaker.mp4", 
       ) : null}
       {captions.map((row) => (
         <Sequence key={row.from} from={row.from} durationInFrames={row.duration} name={`cap-${row.from}`}>
-          <Caption text={row.text} emphasis={row.emphasis} animate={row.animate} />
+          <Caption text={row.text} emphasis={row.emphasis} animate={row.animate} locale={planLocale} />
         </Sequence>
       ))}
       </LocaleProvider>

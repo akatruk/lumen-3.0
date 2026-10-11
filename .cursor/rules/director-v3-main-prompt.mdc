@@ -1,0 +1,15 @@
+---
+description: Route Director / Remotion / video quality work to the MAIN quality-recovery prompt
+globs: motion/**/*,backend/director*.py,backend/remotion*.py,backend/visual_variation.py,output/director-v3/**/*,docs/prompts/**
+alwaysApply: false
+---
+
+# Director V3 / Remotion / video QA
+
+For any task about Director V3, Remotion composition, video quality recovery, captions, shot plans, or `preview-v3`:
+
+1. Load and follow **`docs/prompts/cinematic-director-v3-quality-recovery.md`** first (MAIN product prompt).
+2. See also `docs/prompts/README.md`.
+3. Hypit assembly handoff remains `backend/assembly_prompt.txt` — do not use it as the Director quality brief.
+4. `docs/prompts/lumen-hypit-integration-cursor-prompt.md` is NOT the product MAIN prompt.
+5. STOP generating new media unless the MAIN prompt explicitly authorizes it. Prefer fixing Director/Remotion/captions and reusing the library.

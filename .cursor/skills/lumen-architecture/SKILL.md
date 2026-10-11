@@ -9,6 +9,10 @@ description: >-
 
 Read first: `docs/architecture/VIDEO_PIPELINE.md` and ADRs under `docs/architecture/adr/`.
 
+**Director V3 / Remotion / video QA recovery:** load  
+`docs/prompts/cinematic-director-v3-quality-recovery.md` (**MAIN** product prompt) before substantial edits.  
+Prompt index: `docs/prompts/README.md`. Hypit assembly: `backend/assembly_prompt.txt` (not the MAIN editing brief).
+
 ## Boundaries
 
 | Area | Path | Owns |

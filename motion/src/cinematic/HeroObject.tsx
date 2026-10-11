@@ -21,12 +21,24 @@ export function HeroObject({
   });
   const float = interpolate(frame % 90, [0, 45, 90], [0, -8, 0], clamp);
 
+  // Lower-left shelf: keep clear of face (upper-center) and caption band (bottom ~280–500).
   return (
-    <AbsoluteFill style={{ opacity, transform: `translateY(${y + float}px)`, alignItems: "center", justifyContent: "center" }}>
-      {kind === "passport" ? <PassportMark /> : null}
-      {kind === "key" ? <KeyMark /> : null}
-      {kind === "globe" ? <GlobeMark /> : null}
-      {kind === "house" ? <HouseMark /> : null}
+    <AbsoluteFill
+      style={{
+        opacity,
+        transform: `translateY(${y + float}px)`,
+        alignItems: "flex-start",
+        justifyContent: "flex-end",
+        padding: "0 0 520px 48px",
+        pointerEvents: "none",
+      }}
+    >
+      <div style={{ transform: "scale(0.72)", transformOrigin: "bottom left" }}>
+        {kind === "passport" ? <PassportMark /> : null}
+        {kind === "key" ? <KeyMark /> : null}
+        {kind === "globe" ? <GlobeMark /> : null}
+        {kind === "house" ? <HouseMark /> : null}
+      </div>
     </AbsoluteFill>
   );
 }
