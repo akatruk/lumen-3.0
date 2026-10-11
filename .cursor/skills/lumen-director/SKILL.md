@@ -29,10 +29,10 @@ Implemented (not aspirational):
 - Beside cards are title + relationship explanation (`criteriaCardsFor`), not single-word labels.
 - Concept overlays are beat-gated; speaker PIP is skipped when a primary speaker panel is already on screen.
 - Consult prefers full-bleed `consult.mp4`; sparse stamp `.webm` plates are not mounted as panels.
-- Validation artifact: `output/director-v3/preview-v3-r5.mp4` (preserve r2–r4). r5: consult one-cover + speaker PIP; same-source ban.
-- Prompt load: Hypit → `assembly_prompt.txt` via `hypit_prompt.py`; Remotion → `visual_variation` + `remotion_engine` (no LLM prompt file). MAIN agent brief stays in docs — do not dump recovery checklist into the model prompt.
-- Rules module: `backend/director_media_rules.py` (canonical identity; sanitize FG when same as BG).
-- Do not mount `HeroObject` / `passport.png` when residency already has photographic media.
-- Selection: situation queries, file-exists, people_/i2v_ weights, top-weight band; `representation` + `mediaGap`.
-- Consult: staged library OR `consult.mp4` as sole cover; presenter PIP from `speakerFile`+beat offset — never second library inset.
-- Shared visuals: light `theme.gradient.scrimBottom`; `ProgressSteps` fills portrait with caption reserve.
+- Validation: `preview-v3-r5.mp4` (preserve r2–r4) + ordinary fulls under `output/director-v3/ordinary/` (`e-full` / `b-full` / `c-full`).
+- Ordinary path script: `scripts/ordinary_director_render.py` (= resolve_plan→resolve_scene_plan→render_with_plan). Default create-video duration is 20s unless `duration_seconds` set to max step.
+- Prompt load: Hypit → `assembly_prompt.txt`; Remotion → `visual_variation` + `remotion_engine`. MAIN brief in docs only.
+- Rules: `director_media_rules.py`; captions keyed to `beatsFor`; RouteLink under face band; caption bottom = `captionClearance`.
+- `recent_asset_ids` reads all `visual-history/*.json` (not only `gen_*`); prefer non-recent plates; FG skips `concept_*`.
+- Consult: one cover + presenter PIP from `speakerFile` — never duplicate library inset.
+- **Gap:** DirectorV3 caption *strings* still RU immigration pack — locale flag does not localize lines (EN/ZH unavailable until transcript wiring).

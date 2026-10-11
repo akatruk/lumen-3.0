@@ -82,16 +82,43 @@ export function beatsFor(frames: number) {
   });
 }
 
-const CAPTIONS: { from: number; duration: number; text: string; emphasis?: string[] }[] = [
-  { from: 0, duration: 66, text: "Планируете переезд", emphasis: ["переезд"] },
-  { from: 66, duration: 66, text: "второй вид на жительство", emphasis: ["жительство"] },
-  { from: 132, duration: 66, text: "с чего начать?", emphasis: ["начать"] },
-  { from: 222, duration: 66, text: "подходящую программу", emphasis: ["программу"] },
-  { from: 288, duration: 72, text: "с учетом целей", emphasis: ["целей"] },
-  { from: 360, duration: 93, text: "семьи и бюджета", emphasis: ["бюджета"] },
-  { from: 474, duration: 54, text: "весь процесс", emphasis: ["процесс"] },
-  { from: 528, duration: 72, text: "консультация и программа", emphasis: ["программа"] },
+/** Caption lines keyed to beat index (hook…return). Timing comes from beatsFor — not fixed 20s stamps. */
+const CAPTION_LINES: { beat: number; text: string; emphasis?: string[]; share?: number }[] = [
+  { beat: 0, text: "Планируете переезд", emphasis: ["переезд"], share: 1 },
+  { beat: 1, text: "второй вид на жительство", emphasis: ["жительство"], share: 0.55 },
+  { beat: 1, text: "с чего начать?", emphasis: ["начать"], share: 0.45 },
+  { beat: 2, text: "подходящую программу", emphasis: ["программу"], share: 1 },
+  { beat: 3, text: "с учетом целей", emphasis: ["целей"], share: 0.45 },
+  { beat: 3, text: "семьи и бюджета", emphasis: ["бюджета"], share: 0.55 },
+  { beat: 4, text: "весь процесс", emphasis: ["процесс"], share: 1 },
+  { beat: 5, text: "консультация и программа", emphasis: ["программа"], share: 1 },
 ];
+
+function captionsForBeats(beats: { from: number; duration: number }[]) {
+  const byBeat = new Map<number, typeof CAPTION_LINES>();
+  for (const line of CAPTION_LINES) {
+    const list = byBeat.get(line.beat) || [];
+    list.push(line);
+    byBeat.set(line.beat, list);
+  }
+  const rows: { from: number; duration: number; text: string; emphasis?: string[] }[] = [];
+  for (const [index, beat] of beats.entries()) {
+    const lines = byBeat.get(index) || [];
+    if (!lines.length) continue;
+    const totalShare = lines.reduce((sum, line) => sum + (line.share ?? 1), 0) || 1;
+    let cursor = beat.from;
+    lines.forEach((line, lineIndex) => {
+      const share = (line.share ?? 1) / totalShare;
+      const duration =
+        lineIndex === lines.length - 1
+          ? beat.from + beat.duration - cursor
+          : Math.max(1, Math.round(beat.duration * share));
+      rows.push({ from: cursor, duration, text: line.text, emphasis: line.emphasis });
+      cursor += duration;
+    });
+  }
+  return rows;
+}
 
 function Move({
   treatment,
@@ -170,8 +197,9 @@ function Caption({
           position: "absolute",
           left: 64,
           width: 952,
-          bottom: PORTRAIT.captionClearance - 60,
-          height: 240,
+          // Stay in the bottom safe inset — never climb into the face band.
+          bottom: PORTRAIT.captionClearance,
+          height: 200,
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "center",
@@ -593,7 +621,6 @@ export function DirectorV3({
 }: DirectorV3Props) {
   const frames = framesForSeconds(durationSeconds);
   const [hook, residency, consult, beside, steps, ret] = beatsFor(frames);
-  const scale = frames / DIRECTOR_V3_FRAMES;
   const planLocale = visualPlan?.language || locale;
   const looks = {
     hook: sceneLook(visualPlan, "hook"),
@@ -603,28 +630,24 @@ export function DirectorV3({
     steps: sceneLook(visualPlan, "steps"),
     return: sceneLook(visualPlan, "return"),
   };
-  const captions = CAPTIONS.map((row) => {
-    const from = Math.round(row.from * scale);
-    const beatAt = [hook, residency, consult, beside, steps, ret];
-    const ids = ["hook", "residency", "consult", "beside", "steps", "return"] as const;
+  const beatList = [hook, residency, consult, beside, steps, ret];
+  const ids = ["hook", "residency", "consult", "beside", "steps", "return"] as const;
+  const captions = captionsForBeats(beatList).map((row) => {
     let sceneId: (typeof ids)[number] = "hook";
-    beatAt.forEach((beat, index) => {
-      if (from >= beat.from) sceneId = ids[index];
+    beatList.forEach((beat, index) => {
+      if (row.from >= beat.from) sceneId = ids[index];
     });
     const animate = (looks[sceneId].typography.animate || "fade") as "fade" | "pop" | "mask" | "slide";
-    return {
-      ...row,
-      from,
-      duration: Math.max(1, Math.round(row.duration * scale)),
-      animate,
-    };
+    return { ...row, animate };
   });
   const conceptOn = visualPlan?.conceptTriggers !== false;
-  const concepts: SyncedConceptTrigger[] = conceptOn ? syncConceptTriggers(CAPTIONS, scale) : [];
+  // Captions already use composition frames — do not scale again.
+  const concepts: SyncedConceptTrigger[] = conceptOn ? syncConceptTriggers(captions, 1) : [];
   // Editorial layouts already carry the idea — stacking concept cards causes face hits + black voids.
   const layoutOwned = [
+    { from: hook.from, to: hook.from + hook.duration, skip: ["document_stamp", "family_cluster", "budget_scale"] },
     { from: residency.from, to: residency.from + residency.duration, skip: ["document_stamp", "family_cluster", "budget_scale", "steps_reveal"] },
-    { from: consult.from, to: consult.from + consult.duration, skip: ["comparison_columns", "document_stamp", "steps_reveal"] },
+    { from: consult.from, to: consult.from + consult.duration, skip: ["comparison_columns", "document_stamp", "steps_reveal", "family_cluster", "budget_scale"] },
     { from: beside.from, to: beside.from + beside.duration, skip: ["family_cluster", "budget_scale", "comparison_columns"] },
     { from: steps.from, to: steps.from + steps.duration, skip: ["steps_reveal"] },
   ] as const;

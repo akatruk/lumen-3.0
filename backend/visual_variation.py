@@ -238,9 +238,12 @@ def _choose_asset(rng, found, recent=(), used_concepts=(), used_prefixes=()):
     recent_set = set(recent or ())
     concepts = set(used_concepts or ())
     prefixes = set(used_prefixes or ())
-    weights = [_weight_asset(asset, recent_set, concepts, prefixes) for asset in found]
+    # Prefer never-recent plates when any exist — cuts cross-video template repeat.
+    fresh = [asset for asset in found if asset.get('id') not in recent_set]
+    pool = fresh or list(found)
+    weights = [_weight_asset(asset, recent_set, concepts, prefixes) for asset in pool]
     # Prefer the top-weighted band (seeded) so situational plates win over weak tails.
-    ranked = sorted(zip(weights, found), key=lambda item: item[0], reverse=True)
+    ranked = sorted(zip(weights, pool), key=lambda item: item[0], reverse=True)
     top_w = ranked[0][0]
     band = [asset for weight, asset in ranked if weight == top_w]
     return rng.choice(band)
@@ -282,7 +285,15 @@ def _foreground_asset(rng, exclude, recent=(), used_concepts=(), used_prefixes=(
         or 'detail' in (asset.get('action') or '')
         or 'foreground' in (asset.get('action') or '')
     ]
-    return _choose_asset(rng, preferred or found, recent, used_concepts, used_prefixes), query
+    # Conceptual marks (shield/path icons) are not desk/document insets.
+    preferred = [
+        asset for asset in preferred
+        if not (asset.get('id') or '').startswith('concept_')
+    ]
+    pool = preferred or [
+        asset for asset in found if not (asset.get('id') or '').startswith('concept_')
+    ] or found
+    return _choose_asset(rng, pool, recent, used_concepts, used_prefixes), query
 
 
 def _motion_file(asset):
@@ -311,7 +322,9 @@ def recent_asset_ids(data_dir, limit=12):
     if not root.is_dir():
         return []
     files = []
-    for path in root.glob('*/visual-history/gen_*.json'):
+    for path in root.glob('*/visual-history/*.json'):
+        if path.name == 'latest.json':
+            continue
         files.append(path)
     files.sort(key=lambda path: path.stat().st_mtime, reverse=True)
     seen = []

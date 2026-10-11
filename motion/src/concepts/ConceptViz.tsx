@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
-import { theme } from "../themes/tokens";
+import { CANVAS, theme } from "../themes/tokens";
 import { AutoFitText } from "../typography/AutoFitText";
 import { CountUp } from "../primitives/marks";
 import { presetById } from "./presets";
@@ -193,14 +193,15 @@ function RouteLink({ frames }: { frames: number }) {
   const { opacity } = enter(frame, frames);
   const draw = interpolate(frame, [6, 42], [1, 0], clamp);
   const rise = interpolate(frame, [4, 20], [36, 0], { ...clamp, easing: Easing.out(Easing.cubic) });
-  // Left shelf under face band — two readable place cards linked by a route.
+  // Shelf strictly below the shared face band; above caption clear zone.
+  const top = Math.round(CANVAS.height * 0.48);
   return (
     <AbsoluteFill
       style={{
         opacity,
         alignItems: "flex-start",
-        justifyContent: "flex-end",
-        padding: "0 0 560px 40px",
+        justifyContent: "flex-start",
+        padding: `${top}px 40px 0`,
         pointerEvents: "none",
       }}
     >
