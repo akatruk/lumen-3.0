@@ -29,7 +29,10 @@ Implemented (not aspirational):
 - Beside cards are title + relationship explanation (`criteriaCardsFor`), not single-word labels.
 - Concept overlays are beat-gated; speaker PIP is skipped when a primary speaker panel is already on screen.
 - Consult prefers full-bleed `consult.mp4`; sparse stamp `.webm` plates are not mounted as panels.
-- Validation artifact: `output/director-v3/preview-v3-r4.mp4` (+ `r4-excerpt-b/c.mp4`). r3 fixed placeholders; r4 semantic pick + shared scrim/ProgressSteps.
+- Validation artifact: `output/director-v3/preview-v3-r5.mp4` (preserve r2–r4). r5: consult one-cover + speaker PIP; same-source ban.
+- Prompt load: Hypit → `assembly_prompt.txt` via `hypit_prompt.py`; Remotion → `visual_variation` + `remotion_engine` (no LLM prompt file). MAIN agent brief stays in docs — do not dump recovery checklist into the model prompt.
+- Rules module: `backend/director_media_rules.py` (canonical identity; sanitize FG when same as BG).
 - Do not mount `HeroObject` / `passport.png` when residency already has photographic media.
-- Selection: `visual_variation.resolve_plan` uses situation queries, file-exists, people_/i2v_ weights, top-weight band; emits `representation` + `mediaGap`.
-- Shared visuals: light `theme.gradient.scrimBottom`; `ProgressSteps` fills portrait with caption reserve; ConceptViz RouteLink uses caption-sized explanations.
+- Selection: situation queries, file-exists, people_/i2v_ weights, top-weight band; `representation` + `mediaGap`.
+- Consult: staged library OR `consult.mp4` as sole cover; presenter PIP from `speakerFile`+beat offset — never second library inset.
+- Shared visuals: light `theme.gradient.scrimBottom`; `ProgressSteps` fills portrait with caption reserve.

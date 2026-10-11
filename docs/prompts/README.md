@@ -2,8 +2,9 @@
 
 | Prompt | Role |
 | --- | --- |
-| **[cinematic-director-v3-quality-recovery.md](./cinematic-director-v3-quality-recovery.md)** | **MAIN** — Director V3 / Remotion / video quality recovery. **Start here** for the next console/editing/render-QA assignment. |
-| `backend/assembly_prompt.txt` | Hypit **handoff** assembly prompt (constructor → Hypit renderer only). |
+| **[cinematic-director-v3-quality-recovery.md](./cinematic-director-v3-quality-recovery.md)** | **MAIN** agent/product brief — Director V3 / Remotion / video QA. **Start here** for console work. Not loaded into the model wholesale. |
+| `backend/assembly_prompt.txt` | Hypit **model** handoff (via `hypit_prompt.py`). Concise QUALITY ENFORCEMENT + E2E assembly rules. |
+| `backend/director_media_rules.py` | Shared measurable rules for Remotion planner/validator (same-source ban, etc.). |
 | [lumen-hypit-integration-cursor-prompt.md](./lumen-hypit-integration-cursor-prompt.md) | Historical Hypit **integration planning** — **NOT** the product MAIN prompt. |
 
 ## Routing

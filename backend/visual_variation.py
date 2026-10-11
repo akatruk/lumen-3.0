@@ -260,7 +260,9 @@ def _background(rng, scene, exclude, recent=(), used_concepts=(), used_prefixes=
     return _choose_asset(rng, found, recent, used_concepts, used_prefixes), query
 
 
-def _foreground_asset(rng, exclude, recent=(), used_concepts=(), used_prefixes=()):
+def _foreground_asset(rng, exclude, recent=(), used_concepts=(), used_prefixes=(), background_id=None):
+    from .director_media_rules import same_media_source
+
     query = _pick(rng, _FOREGROUND_QUERIES)
     found = _candidates(
         query,
@@ -269,6 +271,8 @@ def _foreground_asset(rng, exclude, recent=(), used_concepts=(), used_prefixes=(
         families=frozenset({'editorial_object', 'photography'}),
         limit=10,
     )
+    # Ban same canonical identity as the main plate (still vs i2v counts as same).
+    found = [asset for asset in found if not same_media_source(background_id, asset.get('id'))]
     # Prefer object / foreground / detail plates for the residency card.
     preferred = [
         asset for asset in found
@@ -356,6 +360,7 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
                 blocked.append(asset.get('id'))
             fg_asset, fg_query = _foreground_asset(
                 rng, blocked, recent_ids, used_concepts, used_prefixes,
+                background_id=asset.get('id') if asset else None,
             )
         motion_file = _motion_file(asset)
         if motion_file:
@@ -406,7 +411,8 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
             'rejected': rejected,
             'mediaGap': media_gap,
         }
-        scenes.append(record)
+        from .director_media_rules import sanitize_scene_layers
+        scenes.append(sanitize_scene_layers(record))
         used_layouts.append(layout)
         used_text.append(text)
         used_transitions.append(transition)

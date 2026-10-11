@@ -164,3 +164,14 @@ Known regression (2026-10-11): centered `DocumentStamp` / `HeroObject` covers pr
 Recovery validation (same day): failed delivery `lumen-9a9c116d (31).mp4` autopsy in `output/director-v3/`; fixes in `portraitLayouts.ts` + `DirectorV3.tsx` caption pill / split fill / criteria explanations / consult cover. Prove with `output/director-v3/preview-v3-r2.mp4` — do not claim full-minute PASS without a new full render.
 
 Semantic coverage pass: `preview-v3-r4.mp4` (+ excerpts) — situational retrieval, eligibility-before-rank, shared scrim/ProgressSteps fixes; reports under `output/director-v3/semantic-selection-r4.md`. Stop new media; no auto-deploy from this pass.
+
+### Prompt load path (do not confuse)
+
+| Path | File | Loaded by |
+| --- | --- | --- |
+| **Hypit final picture** (ordinary projects) | `backend/assembly_prompt.txt` | `hypit_prompt._sentence` → `illustration_request` |
+| **Remotion Director V3** (project «e» + flag) | no LLM prompt file — seeded `visual_variation.resolve_plan` | `studio.create_video` → `director_v3.run_job` → `remotion_engine.resolve_scene_plan` |
+| **This MAIN brief** | `docs/prompts/cinematic-director-v3-quality-recovery.md` | humans/agents only — **not** dumped wholesale into the model prompt |
+| Measurable rules | `backend/director_media_rules.py` + Remotion renderer | planner + `resolve_scene_plan` + `DirectorV3.tsx` |
+
+r5: fix consult duplicate-inset (one cover + presenter PIP from source). Prove with `output/director-v3/preview-v3-r5.mp4`.

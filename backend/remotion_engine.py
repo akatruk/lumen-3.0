@@ -81,7 +81,10 @@ def resolve_scene_plan(
 
     Does not call Remotion. Does not invent asset bytes. Asset ids come from
     the seeded visual plan (media library search already ran upstream).
+    Enforces same-source ban (main plate vs inset) via director_media_rules.
     """
+    from .director_media_rules import sanitize_scene_layers
+
     plan = dict(visual_plan or {})
     seed = int(plan.get('visualSeed') or plan.get('visual_seed') or 0)
     scenes = []
@@ -90,6 +93,7 @@ def resolve_scene_plan(
             'sceneId': raw.get('sceneId'),
             'semanticPurpose': raw.get('semanticPurpose'),
             'query': raw.get('query'),
+            'representation': raw.get('representation'),
             'speaker': dict(raw.get('speaker') or {}),
             'background': dict(raw.get('background') or {}),
             'foreground': dict(raw.get('foreground') or {}),
@@ -97,12 +101,13 @@ def resolve_scene_plan(
             'transition': raw.get('transition') or 'cut',
             'motionIntensity': raw.get('motionIntensity') or 'medium',
             'rejected': list(raw.get('rejected') or []),
+            'mediaGap': raw.get('mediaGap'),
         }
         # Strip director-illegal keys if a buggy planner leaked them.
         for bucket in ('speaker', 'background', 'foreground', 'typography'):
             for bad in ('x', 'y', 'css', 'style', 'fontSize', 'color', 'react'):
                 scene[bucket].pop(bad, None)
-        scenes.append(scene)
+        scenes.append(sanitize_scene_layers(scene))
 
     render_plan = {
         'generationId': generation_id or plan.get('generationId') or f'remotion_{uuid.uuid4().hex[:12]}',

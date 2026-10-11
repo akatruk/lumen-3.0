@@ -6,6 +6,8 @@
 - History: `data/<project>/visual-history/gen_*.json` + `latest.json`
 - Studio create-video (project «e») stores `visual_plan` on the `director_v3` job
 - Remotion `DirectorV3` applies looks per beat; concept triggers sync from captions
+- Media rules: `backend/director_media_rules.py` (canonical same-source ban) applied in planner + `remotion_engine.resolve_scene_plan`
+- Hypit model brief (non-Remotion projects): `backend/assembly_prompt.txt` via `hypit_prompt.py` — concise QUALITY ENFORCEMENT block; full recovery checklist stays in `docs/prompts/cinematic-director-v3-quality-recovery.md`
 
 ## TARGET STATE
 
@@ -18,6 +20,9 @@ Remotion decides HOW (pixels, easing, typography).
 - Seeded anti-repetition for backgrounds / layouts / transitions
 - `backend/remotion_engine.resolve_scene_plan` wraps visual plan + motion metadata + locale
 - Concept-trigger presets for spoken-concept viz
+- Eligibility-before-rank library search; situational queries; no passport placeholder when photo exists
+- Same-source ban: main plate and inset cannot share canonical identity (still + i2v)
+- Consult beat: one cover plate + presenter PIP from original speaker timing (never duplicate library inset)
 
 ## NOT IMPLEMENTED
 

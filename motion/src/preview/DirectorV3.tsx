@@ -384,50 +384,53 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
   );
 }
 
-function Consult({ frames, look }: { frames: number; look: SceneLook }) {
-  const still = look.background.staged;
-  const motionPlate = Boolean(still && /\.(mp4|webm|mov)$/i.test(still));
-  // Always fill the portrait canvas with a cover plate; stamp/webm assets ride as midground.
+function Consult({
+  file,
+  from,
+  frames,
+  look,
+}: {
+  file: string;
+  from: number;
+  frames: number;
+  look: SceneLook;
+}) {
+  const staged = look.background.staged;
+  // One cover only: prefer staged library plate; fallback consult.mp4. Never also inset the same source.
+  const cover = staged && !/document_approval/i.test(staged) ? staged : "consult.mp4";
+  const coverVideo = /\.(mp4|webm|mov)$/i.test(cover);
+  const pip = PORTRAIT.conceptPip;
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill style={{ background: theme.color.bg }}>
         <Move treatment="ambient_loop" intensity={look.motionIntensity} frames={frames}>
-          <OffthreadVideo
-            src={media("consult.mp4")}
-            volume={0}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        </Move>
-        {still && !motionPlate ? (
-          <AbsoluteFill style={{ opacity: 0.92 }}>
-            <Move treatment={look.background.treatment} intensity={look.motionIntensity} frames={frames}>
-              <Img src={media(still)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            </Move>
-          </AbsoluteFill>
-        ) : null}
-        {/* Sparse stamp/webm plates sit on black canvases — do not mount them as panels. */}
-        {motionPlate && still && /\.(mp4|mov)$/i.test(still) ? (
-          <div
-            style={{
-              position: "absolute",
-              left: PORTRAIT.pad,
-              bottom: PORTRAIT.captionClearance + 24,
-              width: 360,
-              height: 420,
-              borderRadius: PORTRAIT.radius,
-              overflow: "hidden",
-              boxShadow: theme.shadow.soft,
-              background: theme.color.bgElevated,
-              border: `1px solid ${theme.color.lineStrong}`,
-            }}
-          >
+          {coverVideo ? (
             <OffthreadVideo
-              src={media(still)}
+              src={media(cover)}
               volume={0}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
-          </div>
-        ) : null}
+          ) : (
+            <Img src={media(cover)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          )}
+        </Move>
+        {/* Presenter PIP = original speaker at beat offset — never a second library plate. */}
+        <div
+          style={{
+            position: "absolute",
+            right: pip.right,
+            bottom: pip.bottom,
+            width: pip.width,
+            height: pip.height,
+            borderRadius: PORTRAIT.radius,
+            overflow: "hidden",
+            boxShadow: theme.shadow.soft,
+            border: `1px solid ${theme.color.lineStrong}`,
+            background: theme.color.bgElevated,
+          }}
+        >
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.12} />
+        </div>
         <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
       </AbsoluteFill>
     </Enter>
@@ -625,9 +628,11 @@ export function DirectorV3({
     { from: beside.from, to: beside.from + beside.duration, skip: ["family_cluster", "budget_scale", "comparison_columns"] },
     { from: steps.from, to: steps.from + steps.duration, skip: ["steps_reveal"] },
   ] as const;
+  // Consult mounts its own speaker PIP — skip concept circle to avoid double presenter.
   const speakerPrimary = [
     { from: hook.from, to: hook.from + hook.duration },
     { from: residency.from, to: residency.from + residency.duration },
+    { from: consult.from, to: consult.from + consult.duration },
     { from: beside.from, to: beside.from + beside.duration },
     { from: ret.from, to: ret.from + ret.duration },
   ];
@@ -656,7 +661,7 @@ export function DirectorV3({
         <Residency file={speakerFile} from={residency.from} frames={residency.duration} look={looks.residency} />
       </Sequence>
       <Sequence from={consult.from} durationInFrames={consult.duration} name="consult">
-        <Consult frames={consult.duration} look={looks.consult} />
+        <Consult file={speakerFile} from={consult.from} frames={consult.duration} look={looks.consult} />
       </Sequence>
       <Sequence from={beside.from} durationInFrames={beside.duration} name="beside">
         <Beside file={speakerFile} from={beside.from} frames={beside.duration} look={looks.beside} locale={planLocale} />

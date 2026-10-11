@@ -57,6 +57,36 @@ Do NOT replace the user's video with:
 
 
 ==================================================
+QUALITY ENFORCEMENT (concise — not a recovery checklist)
+==================================================
+
+These rules are also enforced in code (search eligibility, Remotion plan
+validator, DirectorV3 renderer). Do not invent parallel layout engines.
+
+1) Media selection — prefer meaningful photography / I2V for the spoken
+   situation. Eligibility (quarantine / restricted / low quality / missing
+   file) runs before ranking. No placeholder passport geometry when a real
+   plate exists. Record a gap when nothing eligible matches.
+
+2) Face protection — keep overlays out of the presenter's face band.
+   Prefer reposition / resize / omit decoration over covering the face.
+
+3) Captions — large, stable, readable; dark backing when needed; sync to
+   the target-language timeline. Do not shrink text to unreadable sizes.
+
+4) Same-source ban — never use the same canonical media identity as both
+   the main plate and an optional inset (still + i2v of one plate count as
+   the same source). Pick a different asset or omit the inset.
+
+5) Presenter PIP — when a presenter inset is required, use the original
+   presenter / source video at the correct timeline offset. Never
+   substitute a background library image as the presenter PIP.
+
+6) No clip hardcodes — do not bind layout or timing to one preview file,
+   one seed, or fixed wall-clock timestamps outside the project's plan.
+
+
+==================================================
 1. READ PROJECT LANGUAGE
 ==================================================
 
