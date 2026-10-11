@@ -39,13 +39,13 @@ def test_project_e_duration_follows_the_control(client, monkeypatch):
     monkeypatch.setattr(director_v3, 'PROJECT_ID', pid)
     refused = client.post(f'/api/studio/projects/{pid}/create-video', json={
         'animation_percent': 60, 'intensity_percent': 60, 'motion_percent': 80, 'density_percent': 70,
-        'duration_seconds': 45,
+        'duration_seconds': 45, 'language': 'ru-RU',
     })
     assert refused.status_code == 422
     assert refused.json()['detail'] == 'duration_step'
     chosen = client.post(f'/api/studio/projects/{pid}/create-video', json={
         'animation_percent': 60, 'intensity_percent': 60, 'motion_percent': 80, 'density_percent': 70,
-        'duration_seconds': 40,
+        'duration_seconds': 40, 'language': 'ru-RU',
     })
     assert chosen.status_code == 200
     with connect() as db:

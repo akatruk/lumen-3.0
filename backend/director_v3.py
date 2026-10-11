@@ -164,9 +164,16 @@ def run_job(p, payload):
     visual_plan = (payload or {}).get('visual_plan')
     speaker = speaker_for(seconds, settings.data_dir / p['id'] / 'source')
     from . import remotion_engine
+    target_locale = (
+        (visual_plan or {}).get('language')
+        or (payload or {}).get('target_language')
+        or (payload or {}).get('language')
+    )
+    if visual_plan is not None and target_locale and not visual_plan.get('language'):
+        visual_plan = {**visual_plan, 'language': target_locale}
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=visual_plan,
-        locale=(visual_plan or {}).get('language'),
+        locale=target_locale,
         duration_seconds=seconds,
         speaker_file=speaker,
         source_ref=str(settings.data_dir / p['id'] / 'source'),
@@ -189,6 +196,8 @@ def run_job(p, payload):
         'visual_seed': render_plan.get('visualSeed'),
         'art_direction': render_plan.get('artDirection'),
         'render_plan_id': render_plan.get('generationId'),
+        'language': render_plan.get('locale'),
+        'target_language': render_plan.get('locale'),
         'delivery_sha256': digest,
         'assembled': True,
         'qa': None,

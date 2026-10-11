@@ -427,10 +427,14 @@ def picture_prompt_preview(
     levels = _prompt_levels(body)
     if locale:
         levels['language'] = locale
-    from .hypit_prompt import illustration_request
+    from .hypit_prompt import assemble_illustration
     from .language import build_language_directive, config_for
-    prompt = illustration_request(levels)
-    debug = {'prompt': prompt, 'language': locale}
+    assembly = assemble_illustration(levels)
+    debug = {
+        'prompt': assembly.text,
+        'language': locale,
+        **assembly.job_fields(),
+    }
     if locale:
         chosen = config_for(locale)
         from .language import available_card_ids
@@ -471,27 +475,75 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             except ValueError:
                 raise HTTPException(422, 'duration_step') from None
             from .visual_variation import plan_for_request
+            from .hypit_prompt import assemble_illustration
+            # Video language from the create-video control (not UI language). Fall back
+            # to the saved studio video_language — never invent a silent RU default.
+            saved_video = (s.get('context') or {}).get('video_language')
+            locale = _locale_or_422(body.language or saved_video)
+            if not locale:
+                raise HTTPException(422, 'unsupported_language')
+            from .language import detect_source_locale, resolve_voice, short_code
+            spoken = ' '.join(
+                (row.get('original') or row.get('en') or row.get('ru') or row.get('zh') or '')
+                for row in (s.get('plan') or {}).get('transcript') or []
+            )
+            source_locale = detect_source_locale(spoken)
+            resolved = resolve_voice(
+                source_language=source_locale,
+                target_language=locale,
+                voice=body.voice,
+            )
+            if resolved['status'] == 'VOICE_SETUP_REQUIRED':
+                raise HTTPException(422, 'VOICE_SETUP_REQUIRED')
+            if resolved['mode'] == 'dubbed':
+                # Remotion still plays speaker.mp4 until a dubbed track exists —
+                # never silently ship RU VO under an EN/ZH targetLocale.
+                from .language import rendition_dir
+                rendition_path = rendition_dir(settings.data_dir, pid, locale) / 'rendition.json'
+                record = {}
+                if rendition_path.is_file():
+                    try:
+                        record = json.loads(rendition_path.read_text(encoding='utf-8'))
+                    except (OSError, json.JSONDecodeError):
+                        record = {}
+                if record.get('status') not in ('audio_ready', 'aligned', 'ready', 'rendered'):
+                    raise HTTPException(422, 'target_voice_not_ready')
+            _remember_language(db, pid, locale)
             try:
                 visual = plan_for_request(
                     settings.data_dir, pid,
                     body.visual_variation or 'automatic',
                     body.visual_energy or 'balanced',
-                    body.language,
+                    locale,
                 )
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
             if remotion_engine.enabled():
                 visual = {**visual, 'conceptTriggers': True}
-            enqueue(db, pid, 'director_v3', {
+            visual = {**visual, 'language': locale}
+            # Same module assembly metadata as Hypit (locale + versions) for reproducibility.
+            assembly = assemble_illustration({
+                'language': locale,
+                'card_motion': levels['card_motion'],
+                'animation_intensity': levels['animation_intensity'],
+                'animation_motion': levels['animation_motion'],
+                'animation_density': levels['animation_density'],
+            })
+            job = {
                 'revision': s['revision'],
                 'composition': 'DirectorV3Preview',
                 'duration_seconds': chosen,
                 'visual_plan': visual,
                 'picture_engine': 'remotion',
-            })
+                'language': locale,
+                'target_language': locale,
+                'source_language': source_locale,
+                'voice_resolution': resolved,
+            }
+            job.update(assembly.job_fields())
+            enqueue(db, pid, 'director_v3', job)
             db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
             return {'ok': True}
-        from .hypit_prompt import illustration_request
         from .schemas import Caption
         from .sound_effects import DURATIONS, SoundEffect
         captions = []
@@ -544,11 +596,17 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             effects_language=code,
             presentation_prompt='', music=music,
         )
-        prompt = illustration_request(edit)
+        from .hypit_prompt import assemble_illustration
+        assembly = assemble_illustration(edit)
+        prompt = assembly.text
         edit = edit.model_copy(update={'presentation_prompt': prompt})
         check(edit, duration)
         if locale:
             (folder / 'director-prompt.txt').write_text(prompt, encoding='utf-8')
+            (folder / 'prompt-assembly.json').write_text(
+                json.dumps(assembly.job_fields()['promptAssembly'], ensure_ascii=False, indent=2),
+                encoding='utf-8',
+            )
             (folder / 'source-language.txt').write_text(source_locale or '', encoding='utf-8')
             from .rendition import prepare as prepare_rendition, store_rendition, store_source, translations_from_rows
             from .language import LanguageError
@@ -565,14 +623,16 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 store_rendition(folder, record)
                 raise HTTPException(422, 'VOICE_SETUP_REQUIRED')
             record['voiceResolution'] = resolved
+            record['promptAssembly'] = assembly.job_fields()['promptAssembly']
             store_rendition(folder, record)
             (folder / 'audio.json').write_text(json.dumps({
                 'sourceLanguage': source_locale,
                 'targetLanguage': locale,
                 'keepSourceAudio': not source_locale or source_locale == locale,
                 'voice': voice_id,
+                'languageVersion': locale,
             }, ensure_ascii=False), encoding='utf-8')
-        enqueue(db, pid, 'studio_render', {
+        job_payload = {
             'revision': s['revision'],
             'plan': s['plan'],
             'decisions': [],
@@ -585,7 +645,9 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             'voice': voice_id,
             'dubbed': resolved['mode'] == 'dubbed',
             'voice_resolution': resolved,
-        })
+        }
+        job_payload.update(assembly.job_fields())
+        enqueue(db, pid, 'studio_render', job_payload)
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
     return {'ok': True}
 

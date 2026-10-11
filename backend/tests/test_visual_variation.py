@@ -204,3 +204,7 @@ def test_language_switch_keeps_the_visual_plan(client, monkeypatch):
         ).fetchone()[0])
     assert first['visual_plan']['visualSeed'] == second['visual_plan']['visualSeed']
     assert first['visual_plan']['scenes'] == second['visual_plan']['scenes']
+    assert first['visual_plan']['language'] == 'ru-RU'
+    assert second['visual_plan']['language'] == 'zh-CN'
+    assert second['language'] == 'zh-CN'
+    assert second.get('target_language') == 'zh-CN'

@@ -486,14 +486,22 @@ def store_plan(data_dir, project_id, plan):
 
 
 def plan_for_request(data_dir, project_id, variation, energy, language=None):
-    """New generations get a new seed. Keep, a language switch, and a retry reuse the last plan."""
+    """New generations get a new seed. Keep, a language switch, and a retry reuse the last plan.
+
+    A language switch reuses the visual seed/scenes but always stamps the new
+    ``language`` / targetLocale onto the plan — never keep a stale locale.
+    """
     if variation not in ('automatic', 'keep', 'remix'):
         raise ValueError('visual_variation')
     if energy not in ENERGY:
         raise ValueError('visual_energy')
     previous = load_latest(data_dir, project_id)
     if variation == 'keep' and previous:
-        return previous
+        plan = dict(previous)
+        if language:
+            plan['language'] = language
+            store_plan(data_dir, project_id, plan)
+        return plan
     if (
         variation == 'automatic'
         and previous
@@ -501,7 +509,10 @@ def plan_for_request(data_dir, project_id, variation, energy, language=None):
         and previous.get('language')
         and previous.get('language') != language
     ):
-        return previous
+        plan = dict(previous)
+        plan['language'] = language
+        store_plan(data_dir, project_id, plan)
+        return plan
     seed = new_seed()
     plan = resolve_plan(seed, energy, variation, recent_asset_ids(data_dir))
     plan['generationId'] = f"gen_{seed}"

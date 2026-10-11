@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { CANVAS, theme } from "../themes/tokens";
 import { AutoFitText } from "../typography/AutoFitText";
+import { useLocale } from "../typography/locale";
 import { CountUp } from "../primitives/marks";
 import { presetById } from "./presets";
 import type { ConceptPresetId, ConceptTriggerHit } from "./schema";
@@ -83,8 +84,11 @@ function BigFigure({ frames, value = 2 }: { frames: number; value?: number }) {
 
 function StepsReveal({ frames, labels }: { frames: number; labels?: string[] }) {
   const frame = useCurrentFrame();
+  const locale = useLocale();
   const { opacity } = enter(frame, frames);
-  const items = labels?.length ? labels.slice(0, 4) : ["Консультация", "Программа", "Документы"];
+  const fallback =
+    locale.startsWith("zh") ? ["咨询", "方案", "文件"] : locale.startsWith("en") ? ["Consult", "Program", "Documents"] : ["Консультация", "Программа", "Документы"];
+  const items = labels?.length ? labels.slice(0, 4) : fallback;
   return (
     <AbsoluteFill style={{ opacity, padding: "420px 96px 0", gap: 28 }}>
       {items.map((label, index) => {
@@ -109,7 +113,7 @@ function StepsReveal({ frames, labels }: { frames: number; labels?: string[] }) 
               role={theme.type.title}
               align="left"
               vertical="center"
-              locale="ru-RU"
+              locale={locale}
             />
           </div>
         );
@@ -120,13 +124,24 @@ function StepsReveal({ frames, labels }: { frames: number; labels?: string[] }) 
 
 function ComparisonColumns({ frames }: { frames: number }) {
   const frame = useCurrentFrame();
+  const locale = useLocale();
   const { opacity, y } = enter(frame, frames);
   const left = interpolate(frame, [6, 22], [-40, 0], clamp);
   const right = interpolate(frame, [12, 28], [40, 0], clamp);
-  const cols = [
-    { label: "Цели", detail: "какая программа подходит", x: left },
-    { label: "Срок", detail: "когда реально стартовать", x: right },
-  ];
+  const cols = locale.startsWith("zh")
+    ? [
+        { label: "目标", detail: "哪套方案合适", x: left },
+        { label: "期限", detail: "何时可以启动", x: right },
+      ]
+    : locale.startsWith("en")
+      ? [
+          { label: "Goals", detail: "which program fits", x: left },
+          { label: "Timing", detail: "when you can start", x: right },
+        ]
+      : [
+          { label: "Цели", detail: "какая программа подходит", x: left },
+          { label: "Срок", detail: "когда реально стартовать", x: right },
+        ];
   return (
     <AbsoluteFill
       style={{
@@ -154,7 +169,7 @@ function ComparisonColumns({ frames }: { frames: number }) {
             justifyContent: "flex-end",
           }}
         >
-          <AutoFitText text={col.label} maxWidth={400} maxHeight={64} role={theme.type.title} align="left" vertical="end" locale="ru-RU" />
+          <AutoFitText text={col.label} maxWidth={400} maxHeight={64} role={theme.type.title} align="left" vertical="end" locale={locale} />
           <div style={{ height: 10 }} />
           <AutoFitText
             text={col.detail}
@@ -165,7 +180,7 @@ function ComparisonColumns({ frames }: { frames: number }) {
             vertical="end"
             wrapMode="auto"
             maxLines={2}
-            locale="ru-RU"
+            locale={locale}
           />
         </div>
       ))}
@@ -190,11 +205,26 @@ function DeadlineScale({ frames }: { frames: number }) {
 
 function RouteLink({ frames }: { frames: number }) {
   const frame = useCurrentFrame();
+  const locale = useLocale();
   const { opacity } = enter(frame, frames);
   const draw = interpolate(frame, [6, 42], [1, 0], clamp);
   const rise = interpolate(frame, [4, 20], [36, 0], { ...clamp, easing: Easing.out(Easing.cubic) });
   // Shelf strictly below the shared face band; above caption clear zone.
   const top = Math.round(CANVAS.height * 0.48);
+  const routeCards = locale.startsWith("zh")
+    ? [
+        { title: "现在", detail: "您居住在哪里" },
+        { title: "搬迁", detail: "计划去哪里" },
+      ]
+    : locale.startsWith("en")
+      ? [
+          { title: "now", detail: "where you live" },
+          { title: "move", detail: "where you plan to go" },
+        ]
+      : [
+          { title: "сейчас", detail: "где вы живёте" },
+          { title: "переезд", detail: "куда планируете" },
+        ];
   return (
     <AbsoluteFill
       style={{
@@ -207,10 +237,7 @@ function RouteLink({ frames }: { frames: number }) {
     >
       <div style={{ width: 560, transform: `translateY(${rise}px)` }}>
         <div style={{ display: "flex", gap: 18, marginBottom: 18 }}>
-          {[
-            { title: "сейчас", detail: "где вы живёте" },
-            { title: "переезд", detail: "куда планируете" },
-          ].map((card) => (
+          {routeCards.map((card) => (
             <div
               key={card.title}
               style={{
@@ -221,7 +248,7 @@ function RouteLink({ frames }: { frames: number }) {
                 border: `1px solid ${theme.color.lineStrong}`,
               }}
             >
-              <AutoFitText text={card.title} maxWidth={240} maxHeight={52} role={theme.type.title} align="left" vertical="center" locale="ru-RU" />
+              <AutoFitText text={card.title} maxWidth={240} maxHeight={52} role={theme.type.title} align="left" vertical="center" locale={locale} />
               <div style={{ height: 8 }} />
               <AutoFitText
                 text={card.detail}
@@ -232,7 +259,7 @@ function RouteLink({ frames }: { frames: number }) {
                 vertical="center"
                 wrapMode="auto"
                 maxLines={2}
-                locale="ru-RU"
+                locale={locale}
               />
             </div>
           ))}
@@ -325,12 +352,25 @@ function DocumentStamp({ frames }: { frames: number }) {
 
 function FamilyCluster({ frames }: { frames: number }) {
   const frame = useCurrentFrame();
+  const locale = useLocale();
   const { opacity } = enter(frame, frames);
-  const cards = [
-    { title: "Цели", explanation: "куда и зачем вы переезжаете" },
-    { title: "Семья", explanation: "кто едет с вами и какие сроки" },
-    { title: "Бюджет", explanation: "что реально потянуть по программе" },
-  ];
+  const cards = locale.startsWith("zh")
+    ? [
+        { title: "目标", explanation: "迁往哪里以及为何出发" },
+        { title: "家庭", explanation: "同行家人与时间安排" },
+        { title: "预算", explanation: "项目费用是否可承受" },
+      ]
+    : locale.startsWith("en")
+      ? [
+          { title: "Goals", explanation: "where you are going and why" },
+          { title: "Family", explanation: "who travels with you and when" },
+          { title: "Budget", explanation: "what the program can really cost" },
+        ]
+      : [
+          { title: "Цели", explanation: "куда и зачем вы переезжаете" },
+          { title: "Семья", explanation: "кто едет с вами и какие сроки" },
+          { title: "Бюджет", explanation: "что реально потянуть по программе" },
+        ];
   return (
     <AbsoluteFill style={{ opacity, padding: "420px 72px 0 72px", pointerEvents: "none" }}>
       {cards.map((card, index) => {
@@ -349,7 +389,7 @@ function FamilyCluster({ frames }: { frames: number }) {
               maxWidth: 520,
             }}
           >
-            <AutoFitText text={card.title} maxWidth={460} maxHeight={40} role={theme.type.title} align="left" vertical="center" locale="ru-RU" />
+            <AutoFitText text={card.title} maxWidth={460} maxHeight={40} role={theme.type.title} align="left" vertical="center" locale={locale} />
             <div style={{ height: 4 }} />
             <AutoFitText
               text={card.explanation}
@@ -360,7 +400,7 @@ function FamilyCluster({ frames }: { frames: number }) {
               vertical="center"
               wrapMode="auto"
               maxLines={2}
-              locale="ru-RU"
+              locale={locale}
             />
           </div>
         );

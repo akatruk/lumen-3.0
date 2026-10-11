@@ -82,8 +82,10 @@ export function beatsFor(frames: number) {
   });
 }
 
-/** Caption lines keyed to beat index (hook…return). Timing comes from beatsFor — not fixed 20s stamps. */
-const CAPTION_LINES: { beat: number; text: string; emphasis?: string[]; share?: number }[] = [
+type CaptionLine = { beat: number; text: string; emphasis?: string[]; share?: number };
+
+/** Caption lines keyed to beat index (hook…return). Timing from beatsFor; text from targetLocale. */
+const CAPTION_LINES_RU: CaptionLine[] = [
   { beat: 0, text: "Планируете переезд", emphasis: ["переезд"], share: 1 },
   { beat: 1, text: "второй вид на жительство", emphasis: ["жительство"], share: 0.55 },
   { beat: 1, text: "с чего начать?", emphasis: ["начать"], share: 0.45 },
@@ -94,9 +96,38 @@ const CAPTION_LINES: { beat: number; text: string; emphasis?: string[]; share?: 
   { beat: 5, text: "консультация и программа", emphasis: ["программа"], share: 1 },
 ];
 
-function captionsForBeats(beats: { from: number; duration: number }[]) {
-  const byBeat = new Map<number, typeof CAPTION_LINES>();
-  for (const line of CAPTION_LINES) {
+const CAPTION_LINES_EN: CaptionLine[] = [
+  { beat: 0, text: "Planning a move", emphasis: ["move"], share: 1 },
+  { beat: 1, text: "a second residency", emphasis: ["residency"], share: 0.55 },
+  { beat: 1, text: "where do you start?", emphasis: ["start"], share: 0.45 },
+  { beat: 2, text: "the right program", emphasis: ["program"], share: 1 },
+  { beat: 3, text: "for your goals", emphasis: ["goals"], share: 0.45 },
+  { beat: 3, text: "family and budget", emphasis: ["budget"], share: 0.55 },
+  { beat: 4, text: "the full process", emphasis: ["process"], share: 1 },
+  { beat: 5, text: "consult and program", emphasis: ["program"], share: 1 },
+];
+
+const CAPTION_LINES_ZH: CaptionLine[] = [
+  { beat: 0, text: "计划搬迁吗", emphasis: ["搬迁"], share: 1 },
+  { beat: 1, text: "第二居留身份", emphasis: ["居留"], share: 0.55 },
+  { beat: 1, text: "从何开始？", emphasis: ["开始"], share: 0.45 },
+  { beat: 2, text: "合适的方案", emphasis: ["方案"], share: 1 },
+  { beat: 3, text: "结合目标", emphasis: ["目标"], share: 0.45 },
+  { beat: 3, text: "家庭与预算", emphasis: ["预算"], share: 0.55 },
+  { beat: 4, text: "完整流程", emphasis: ["流程"], share: 1 },
+  { beat: 5, text: "咨询与方案", emphasis: ["方案"], share: 1 },
+];
+
+function captionLinesFor(locale: string): CaptionLine[] {
+  if (locale.startsWith("zh")) return CAPTION_LINES_ZH;
+  if (locale.startsWith("en")) return CAPTION_LINES_EN;
+  return CAPTION_LINES_RU;
+}
+
+function captionsForBeats(beats: { from: number; duration: number }[], locale: string) {
+  const pack = captionLinesFor(locale);
+  const byBeat = new Map<number, CaptionLine[]>();
+  for (const line of pack) {
     const list = byBeat.get(line.beat) || [];
     list.push(line);
     byBeat.set(line.beat, list);
@@ -577,15 +608,26 @@ function Beside({
   );
 }
 
-function Steps({ frames }: { frames: number }) {
+function stepsCopy(locale: string) {
+  if (locale.startsWith("zh")) {
+    return { title: "全程陪同", steps: [{ label: "咨询" }, { label: "方案" }, { label: "文件" }] };
+  }
+  if (locale.startsWith("en")) {
+    return { title: "Guided process", steps: [{ label: "Consult" }, { label: "Program" }, { label: "Documents" }] };
+  }
+  return { title: "Сопровождение", steps: [{ label: "Консультация" }, { label: "Программа" }, { label: "Документы" }] };
+}
+
+function Steps({ frames, locale }: { frames: number; locale: string }) {
+  const copy = stepsCopy(locale);
   return renderScene(
     normalizeScene({
       id: "process",
       type: "progress_steps",
       variant: "vertical",
       durationInFrames: frames,
-      title: "Сопровождение",
-      steps: [{ label: "Консультация" }, { label: "Программа" }, { label: "Документы" }],
+      title: copy.title,
+      steps: copy.steps,
       transition: { type: "cut", durationInFrames: 0 },
     }),
   );
@@ -617,11 +659,12 @@ export function DirectorV3({
   durationSeconds = 20,
   speakerFile = "speaker.mp4",
   visualPlan = null,
-  locale = "ru-RU",
+  locale,
 }: DirectorV3Props) {
   const frames = framesForSeconds(durationSeconds);
   const [hook, residency, consult, beside, steps, ret] = beatsFor(frames);
-  const planLocale = visualPlan?.language || locale;
+  // targetLocale from the visual plan wins; composition defaultLocale is last resort only.
+  const planLocale = (visualPlan?.language || locale || "en-US") as SupportedLocale;
   const looks = {
     hook: sceneLook(visualPlan, "hook"),
     residency: sceneLook(visualPlan, "residency"),
@@ -632,7 +675,7 @@ export function DirectorV3({
   };
   const beatList = [hook, residency, consult, beside, steps, ret];
   const ids = ["hook", "residency", "consult", "beside", "steps", "return"] as const;
-  const captions = captionsForBeats(beatList).map((row) => {
+  const captions = captionsForBeats(beatList, planLocale).map((row) => {
     let sceneId: (typeof ids)[number] = "hook";
     beatList.forEach((beat, index) => {
       if (row.from >= beat.from) sceneId = ids[index];
@@ -691,7 +734,7 @@ export function DirectorV3({
       </Sequence>
       <Sequence from={steps.from} durationInFrames={steps.duration} name="steps">
         <Enter transition={looks.steps.transition}>
-          <Steps frames={steps.duration} />
+          <Steps frames={steps.duration} locale={planLocale} />
         </Enter>
       </Sequence>
       <Sequence from={ret.from} durationInFrames={ret.duration} name="return">

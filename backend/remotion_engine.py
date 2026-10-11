@@ -114,7 +114,8 @@ def resolve_scene_plan(
         'engine': 'remotion',
         'engineVersion': 'v1',
         'composition': COMPOSITION,
-        'locale': locale or plan.get('language') or 'ru-RU',
+        # Callers must stamp visual_plan.language. No silent RU default.
+        'locale': locale or plan.get('language'),
         'fps': FPS,
         'width': WIDTH,
         'height': HEIGHT,
