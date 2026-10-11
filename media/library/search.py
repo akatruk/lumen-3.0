@@ -243,7 +243,31 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
 
 
 # Manifest status values hidden from default search (cleanup V1). Ids preserved.
-_HIDDEN_STATUS = frozenset({"quarantined", "rejected"})
+_HIDDEN_STATUS = frozenset({"quarantined", "rejected", "duplicate", "corrupt"})
+# Not auto-retrieved until reviewed; ids stay in the manifest.
+_HOLD_STATUS = frozenset({"needs_review", "unreviewed", "restricted"})
+# Quality tiers that must not win auto ranking (cleanup classify).
+_BLOCKED_QUALITY = frozenset({"LOW", "LEGACY", "UNCERTAIN", "CORRUPT"})
+_MIN_QUALITY_SCORE = 0.35
+
+
+def _eligible_for_auto(asset, *, include_hidden=False) -> bool:
+    """Quality gate before ranking. Quarantine/reject never re-enter defaults."""
+    status = asset.get("status") or "active"
+    if not include_hidden and status in _HIDDEN_STATUS:
+        return False
+    if not include_hidden and status in _HOLD_STATUS:
+        return False
+    if (asset.get("qualityTier") or asset.get("quality") or "").upper() in _BLOCKED_QUALITY:
+        return False
+    score = asset.get("qualityScore")
+    if score is not None and float(score) < _MIN_QUALITY_SCORE:
+        return False
+    # Missing Remotion stubs / broken paths must not be ranked as media.
+    rel = asset.get("file") or ""
+    if rel.startswith("motion/src/") or rel.endswith("scenes.tsx"):
+        return False
+    return True
 
 
 def search_assets(
@@ -259,6 +283,8 @@ def search_assets(
     dropping a strong semantic match that has no composition note yet.
     exclude_ids drops files already used in the current video.
     include_hidden=True keeps quarantined/rejected rows (default: skip them).
+    Quality eligibility runs before ranking — gaps fall through empty so Remotion
+    can use typography / diagram / presenter instead of a placeholder.
     """
     words = _query_words(query)
     if (query or "").strip() and not words:
@@ -271,7 +297,7 @@ def search_assets(
     for asset in load(path):
         if asset.get("id") in skipped:
             continue
-        if not include_hidden and asset.get("status") in _HIDDEN_STATUS:
+        if not _eligible_for_auto(asset, include_hidden=include_hidden):
             continue
         if type and asset.get("type") != type:
             continue

@@ -89,9 +89,15 @@ class SearchTest(unittest.TestCase):
         self.assertEqual(search_assets("完全未知的符号"), [])
 
     def test_route_can_prefer_video_when_present(self):
-        hits = search_assets("animated international route", limit=3, path=MANIFEST)
+        hits = search_assets("animated international route", limit=10, path=MANIFEST)
         self.assertTrue(hits)
-        self.assertTrue(any("route" in hit["id"] or "global" in hit["id"] for hit in hits))
+        # Photography may rank above motion; still must not open on decorative marks.
+        self.assertFalse(hits[0]["id"].startswith("mark_"))
+        self.assertFalse(hits[0].get("category") == "decorative")
+        self.assertTrue(
+            any("route" in hit["id"] or "global" in hit["id"] for hit in hits),
+            [h["id"] for h in hits],
+        )
 
     def test_runpod_still_is_found_in_three_languages(self):
         import json

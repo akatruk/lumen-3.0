@@ -299,7 +299,11 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
   const staged = look.background.staged;
   const motionPlate = Boolean(staged && /\.(mp4|webm|mov)$/i.test(staged));
   const plate = staged && !motionPlate ? staged : null;
-  const support = look.foreground.staged || "passport.png";
+  // Never fall back to geometric passport.png — placeholder shelf reads as decoration.
+  const fgStaged = look.foreground.staged;
+  const supportShelf =
+    fgStaged && !/passport\.png$/i.test(fgStaged) && !/document_approval/i.test(fgStaged) ? fgStaged : null;
+  const hasPhotoPlate = Boolean(plate || motionPlate);
   // Slide speaker from near-fullscreen toward the split panel (no shrink-to-empty).
   const speakerWidth = interpolate(panelProgress, [0, 1], [PORTRAIT.width - PORTRAIT.pad * 2, speakerBox.width], clamp);
   const speakerLeft = speakerRight
@@ -338,20 +342,23 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
           ) : plate ? (
             <Img src={media(plate)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
-            <Img src={media(support)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <AbsoluteFill style={{ background: theme.gradient.image }} />
           )}
-          <Img
-            src={media(support)}
-            style={{
-              position: "absolute",
-              right: 16,
-              bottom: 16,
-              width: "42%",
-              height: "38%",
-              objectFit: "contain",
-              filter: "drop-shadow(0 12px 24px rgba(0,0,0,0.45))",
-            }}
-          />
+          {/* Real library FG only — omit SVG/placeholder shelves when the plate already carries meaning. */}
+          {supportShelf && !hasPhotoPlate ? (
+            <Img
+              src={media(supportShelf)}
+              style={{
+                position: "absolute",
+                right: 16,
+                bottom: 16,
+                width: "42%",
+                height: "38%",
+                objectFit: "contain",
+                filter: "drop-shadow(0 12px 24px rgba(0,0,0,0.45))",
+              }}
+            />
+          ) : null}
         </div>
         <div
           style={{
@@ -611,7 +618,7 @@ export function DirectorV3({
   const concepts: SyncedConceptTrigger[] = conceptOn ? syncConceptTriggers(CAPTIONS, scale) : [];
   // Editorial layouts already carry the idea — stacking concept cards causes face hits + black voids.
   const layoutOwned = [
-    { from: residency.from, to: residency.from + residency.duration, skip: ["document_stamp", "family_cluster", "budget_scale"] },
+    { from: residency.from, to: residency.from + residency.duration, skip: ["document_stamp", "family_cluster", "budget_scale", "steps_reveal"] },
     { from: consult.from, to: consult.from + consult.duration, skip: ["comparison_columns", "document_stamp", "steps_reveal"] },
     { from: beside.from, to: beside.from + beside.duration, skip: ["family_cluster", "budget_scale", "comparison_columns"] },
     { from: steps.from, to: steps.from + steps.duration, skip: ["steps_reveal"] },
@@ -623,7 +630,9 @@ export function DirectorV3({
     { from: ret.from, to: ret.from + ret.duration },
   ];
   const plate = visualPlan?.backgroundPlate ?? null;
-  const hero = visualPlan?.heroObject ?? null;
+  // Prefer clean photographic residency over decorative SVG hero (passport rect+circle).
+  const residencyHasMedia = Boolean(looks.residency.background.staged);
+  const hero = residencyHasMedia ? null : visualPlan?.heroObject ?? null;
   return (
     <AbsoluteFill style={{ background: theme.color.bg, fontFamily: theme.font.sans }}>
       <LocaleProvider locale={planLocale}>

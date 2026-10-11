@@ -40,6 +40,19 @@ def enabled() -> bool:
     return bool(getattr(settings, 'remotion_engine_enabled', False))
 
 
+def _hero_or_none(hero, scenes: list) -> str | None:
+    """Omit passport/key SVG heroes when a photo/video plate already carries the beat."""
+    if not hero:
+        return None
+    for scene in scenes:
+        if scene.get('sceneId') != 'residency':
+            continue
+        bg = scene.get('background') or {}
+        if bg.get('staged') or (bg.get('assetId') and bg.get('assetId') != 'passport.png'):
+            return None
+    return hero
+
+
 def should_use_remotion(project_id: str) -> bool:
     """Project «e» always uses Remotion. Others require the feature flag."""
     from .director_v3 import PROJECT_ID
@@ -109,7 +122,8 @@ def resolve_scene_plan(
         'sourceRef': source_ref,
         'conceptTriggers': bool(concept_triggers if plan.get('conceptTriggers') is None else plan.get('conceptTriggers')),
         'backgroundPlate': plan.get('backgroundPlate'),
-        'heroObject': plan.get('heroObject'),
+        # Drop decorative SVG hero when residency already has photographic media.
+        'heroObject': _hero_or_none(plan.get('heroObject'), scenes),
         'motionRegistry': list(RENDERABLE_SCENE_TYPES),
         'scenes': scenes,
         'audio': {

@@ -29,4 +29,5 @@ Implemented (not aspirational):
 - Beside cards are title + relationship explanation (`criteriaCardsFor`), not single-word labels.
 - Concept overlays are beat-gated; speaker PIP is skipped when a primary speaker panel is already on screen.
 - Consult prefers full-bleed `consult.mp4`; sparse stamp `.webm` plates are not mounted as panels.
-- Validation artifact: `output/director-v3/preview-v3-r2.mp4`.
+- Validation artifact: `output/director-v3/preview-v3-r3.mp4` (r2 had SVG passport + placeholder shelf; removed).
+- Do not mount `HeroObject` / `passport.png` when residency already has photographic media.

@@ -13,7 +13,8 @@ from pathlib import Path
 
 from .stability import is_stable
 
-HIDDEN = frozenset({"quarantined", "rejected"})
+HIDDEN = frozenset({"quarantined", "rejected", "duplicate", "corrupt"})
+HOLD = frozenset({"needs_review", "unreviewed", "restricted"})
 
 
 def load_manifest(path: Path) -> dict:
@@ -147,7 +148,13 @@ def apply_review(
 def is_searchable(asset: dict, *, include_hidden: bool = False) -> bool:
     if include_hidden:
         return True
-    status = asset.get("status")
-    if status in HIDDEN:
+    status = asset.get("status") or "active"
+    if status in HIDDEN or status in HOLD:
+        return False
+    tier = (asset.get("qualityTier") or asset.get("quality") or "").upper()
+    if tier in {"LOW", "LEGACY", "UNCERTAIN", "CORRUPT"}:
+        return False
+    rel = asset.get("file") or ""
+    if rel.startswith("motion/src/") or rel.endswith("scenes.tsx"):
         return False
     return True

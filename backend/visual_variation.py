@@ -361,7 +361,8 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
             },
             'foreground': {
                 'treatment': foreground,
-                'assetId': (fg_asset.get('id') if fg_asset else None) or ('passport.png' if kind == 'speaker_object' else None),
+                # No passport.png placeholder — gaps stay null; Remotion uses photo/typography.
+                'assetId': fg_asset.get('id') if fg_asset else None,
                 'file': fg_asset.get('file') if fg_asset else None,
                 'query': fg_query,
             },
