@@ -313,7 +313,8 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
     <Enter transition={look.transition}>
       <AbsoluteFill style={{ background: theme.color.bg }}>
         {/* Full-bleed cover media — landscape sources fill portrait via cover, not letterbox. */}
-        <AbsoluteFill style={{ opacity: mediaOpacity * 0.55 }}>
+        {/* Soft ambient plate only — avoid stacked full-frame dimmers crushing midtones. */}
+        <AbsoluteFill style={{ opacity: mediaOpacity * 0.28 }}>
           {motionPlate && staged ? (
             <OffthreadVideo src={media(staged)} volume={0} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : plate ? (
@@ -322,7 +323,8 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
             <AbsoluteFill style={{ background: theme.gradient.broll }} />
           )}
         </AbsoluteFill>
-        <AbsoluteFill style={{ background: "linear-gradient(90deg, rgba(18,17,15,0.55) 0%, rgba(18,17,15,0.2) 45%, rgba(18,17,15,0.65) 100%)" }} />
+        {/* Lateral veil only — caption scrim is applied once at the bottom of the stack. */}
+        <AbsoluteFill style={{ background: "linear-gradient(90deg, rgba(18,17,15,0.12) 0%, rgba(18,17,15,0.02) 50%, rgba(18,17,15,0.14) 100%)" }} />
         <div
           style={{
             position: "absolute",
@@ -461,7 +463,7 @@ function Beside({
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill style={{ background: theme.color.bg }}>
-        <AbsoluteFill style={{ background: theme.gradient.speaker, opacity: 0.85 }} />
+        <AbsoluteFill style={{ background: theme.color.bg }} />
         <div
           style={{
             position: "absolute",
@@ -526,8 +528,8 @@ function Beside({
                 <AutoFitText
                   text={card.explanation}
                   maxWidth={cardBox.width - 52}
-                  maxHeight={Math.min(88, cardHeight * 0.42)}
-                  role={theme.type.support}
+                  maxHeight={Math.min(120, cardHeight * 0.52)}
+                  role={theme.type.caption}
                   align="left"
                   vertical="center"
                   wrapMode="auto"

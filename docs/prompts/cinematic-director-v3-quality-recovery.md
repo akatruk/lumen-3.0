@@ -162,3 +162,5 @@ The 20s preview validates platform-wide improvements; do not claim universal rel
 Known regression (2026-10-11): centered `DocumentStamp` / `HeroObject` covers presenter face; white/gold captions on light clothing lose contrast.
 
 Recovery validation (same day): failed delivery `lumen-9a9c116d (31).mp4` autopsy in `output/director-v3/`; fixes in `portraitLayouts.ts` + `DirectorV3.tsx` caption pill / split fill / criteria explanations / consult cover. Prove with `output/director-v3/preview-v3-r2.mp4` — do not claim full-minute PASS without a new full render.
+
+Semantic coverage pass: `preview-v3-r4.mp4` (+ excerpts) — situational retrieval, eligibility-before-rank, shared scrim/ProgressSteps fixes; reports under `output/director-v3/semantic-selection-r4.md`. Stop new media; no auto-deploy from this pass.

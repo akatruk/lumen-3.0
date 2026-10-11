@@ -29,5 +29,7 @@ Implemented (not aspirational):
 - Beside cards are title + relationship explanation (`criteriaCardsFor`), not single-word labels.
 - Concept overlays are beat-gated; speaker PIP is skipped when a primary speaker panel is already on screen.
 - Consult prefers full-bleed `consult.mp4`; sparse stamp `.webm` plates are not mounted as panels.
-- Validation artifact: `output/director-v3/preview-v3-r3.mp4` (r2 had SVG passport + placeholder shelf; removed).
+- Validation artifact: `output/director-v3/preview-v3-r4.mp4` (+ `r4-excerpt-b/c.mp4`). r3 fixed placeholders; r4 semantic pick + shared scrim/ProgressSteps.
 - Do not mount `HeroObject` / `passport.png` when residency already has photographic media.
+- Selection: `visual_variation.resolve_plan` uses situation queries, file-exists, people_/i2v_ weights, top-weight band; emits `representation` + `mediaGap`.
+- Shared visuals: light `theme.gradient.scrimBottom`; `ProgressSteps` fills portrait with caption reserve; ConceptViz RouteLink uses caption-sized explanations.

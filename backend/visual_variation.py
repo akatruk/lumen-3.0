@@ -52,16 +52,27 @@ PROFILE_WEIGHTS = {
 }
 
 SCENES = (
-    {'id': 'hook', 'intent': 'hook', 'kind': 'speaker', 'base': 'high'},
-    {'id': 'residency', 'intent': 'document', 'kind': 'speaker_object', 'base': 'medium', 'query': (
-        'passport document approval', 'document review desk', 'residence permit application',
+    {'id': 'hook', 'intent': 'hook', 'kind': 'speaker', 'base': 'high', 'representation': 'presenter'},
+    # Residency beat: prefer lived situations (family/home/arrival) over decorative docs.
+    {'id': 'residency', 'intent': 'document', 'kind': 'speaker_object', 'base': 'medium',
+     'role': 'hero', 'representation': 'photo+presenter', 'query': (
+        'family home doorway relocation',
+        'family new home arrival residence',
+        'document review desk paperwork',
+        'residence permit application desk',
     )},
-    {'id': 'consult', 'intent': 'proof', 'kind': 'broll', 'base': 'medium', 'query': (
-        'consultation meeting', 'advisor client documents', 'phone consultation office',
+    {'id': 'consult', 'intent': 'proof', 'kind': 'broll', 'base': 'medium',
+     'role': 'supporting_broll', 'representation': 'photo', 'query': (
+        'consultation meeting advisor',
+        'advisor client meeting trust',
+        'phone consultation office advisor',
     )},
-    {'id': 'beside', 'intent': 'criteria', 'kind': 'speaker_text', 'base': 'medium'},
-    {'id': 'steps', 'intent': 'process', 'kind': 'infographic', 'base': 'low'},
-    {'id': 'return', 'intent': 'payoff', 'kind': 'speaker', 'base': 'low'},
+    {'id': 'beside', 'intent': 'criteria', 'kind': 'speaker_text', 'base': 'medium',
+     'representation': 'typography+presenter'},
+    {'id': 'steps', 'intent': 'process', 'kind': 'infographic', 'base': 'low',
+     'representation': 'diagram'},
+    {'id': 'return', 'intent': 'payoff', 'kind': 'speaker', 'base': 'low',
+     'representation': 'presenter'},
 )
 
 SPEAKER = {
@@ -157,7 +168,7 @@ def _intensity(base, energy):
     return order[min(cap, max(floor, index))]
 
 
-def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8):
+def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8, preferred_scene_role='explanation'):
     import sys
     # Search module lives next to the real library package, not next to a
     # monkeypatched LIBRARY path used in tests.
@@ -169,8 +180,8 @@ def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8):
     found = []
     for asset in search_assets(
         query,
-        limit=24,
-        preferred_scene_role='explanation',
+        limit=32,
+        preferred_scene_role=preferred_scene_role,
         path=LIBRARY / 'manifest.json',
         recent_ids=recent,
         exclude_ids=blocked,
@@ -182,6 +193,14 @@ def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8):
             continue
         file_name = str(asset.get('file') or '')
         if file_name.endswith('.svg') or file_name.endswith('.tsx'):
+            continue
+        # Sparse stamp webms / restricted ids never become plates.
+        if (asset.get('status') or '') in ('restricted', 'quarantined', 'rejected', 'needs_review'):
+            continue
+        if 'document_approval' in (asset.get('id') or ''):
+            continue
+        # Do not select missing bytes — staging would null them and leave empty plates.
+        if not (LIBRARY / file_name).is_file():
             continue
         found.append(asset)
         if len(found) == limit:
@@ -200,11 +219,16 @@ def _weight_asset(asset, recent_set, used_concepts, used_prefixes):
     prefix = (asset.get('id') or '').split('_')[0] + '_'
     if prefix in used_prefixes:
         weight = max(1, weight // 2)
-    # Prefer indexed RunPod stills when they match; they were unused for details/objects.
-    if asset.get('source') == 'runpod':
-        weight += 2
+    # Curated people/i2v plates beat anonymous RunPod stills for situation beats.
+    aid = asset.get('id') or ''
+    if aid.startswith('people_') or aid.startswith('i2v_'):
+        weight += 4
+    elif asset.get('source') == 'runpod':
+        weight += 1
     if asset.get('visualFamily') == 'editorial_object' and asset.get('category') in ('details', 'objects', 'foreground'):
         weight += 1
+    if (asset.get('matchMode') or '') == 'situational':
+        weight += 2
     return weight
 
 
@@ -215,8 +239,11 @@ def _choose_asset(rng, found, recent=(), used_concepts=(), used_prefixes=()):
     concepts = set(used_concepts or ())
     prefixes = set(used_prefixes or ())
     weights = [_weight_asset(asset, recent_set, concepts, prefixes) for asset in found]
-    bag = [asset for asset, weight in zip(found, weights) for _ in range(weight)]
-    return rng.choice(bag)
+    # Prefer the top-weighted band (seeded) so situational plates win over weak tails.
+    ranked = sorted(zip(weights, found), key=lambda item: item[0], reverse=True)
+    top_w = ranked[0][0]
+    band = [asset for weight, asset in ranked if weight == top_w]
+    return rng.choice(band)
 
 
 def _background(rng, scene, exclude, recent=(), used_concepts=(), used_prefixes=()):
@@ -224,7 +251,10 @@ def _background(rng, scene, exclude, recent=(), used_concepts=(), used_prefixes=
         return None, None
     options = scene['query']
     query = _pick(rng, options) if isinstance(options, (list, tuple)) else options
-    found = _candidates(query, exclude, recent)
+    role = scene.get('role') or 'explanation'
+    found = _candidates(query, exclude, recent, preferred_scene_role=role)
+    if not found and role != 'explanation':
+        found = _candidates(query, exclude, recent, preferred_scene_role='explanation')
     if not found:
         return None, query
     return _choose_asset(rng, found, recent, used_concepts, used_prefixes), query
@@ -348,10 +378,14 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
             transition = 'cut'
         else:
             transition = _pick(rng, TRANSITIONS, blocked=used_transitions[-1:] if used_transitions[-1:] == ['mask_wipe'] else ())
+        media_gap = None
+        if scene.get('query') and not asset:
+            media_gap = {'sceneId': scene['id'], 'query': chosen_query, 'reason': 'no_eligible_library_hit'}
         record = {
             'sceneId': scene['id'],
             'semanticPurpose': scene['intent'],
             'query': chosen_query,
+            'representation': scene.get('representation') or 'presenter',
             'speaker': {'layout': layout, 'treatment': 'speaker_punch_in' if layout == 'speaker_punch_in' else layout},
             'background': {
                 'assetId': asset.get('id') if asset else None,
@@ -370,6 +404,7 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
             'transition': transition,
             'motionIntensity': _intensity(scene['base'], energy),
             'rejected': rejected,
+            'mediaGap': media_gap,
         }
         scenes.append(record)
         used_layouts.append(layout)

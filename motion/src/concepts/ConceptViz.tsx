@@ -204,8 +204,8 @@ function RouteLink({ frames }: { frames: number }) {
         pointerEvents: "none",
       }}
     >
-      <div style={{ width: 480, transform: `translateY(${rise}px)` }}>
-        <div style={{ display: "flex", gap: 16, marginBottom: 18 }}>
+      <div style={{ width: 560, transform: `translateY(${rise}px)` }}>
+        <div style={{ display: "flex", gap: 18, marginBottom: 18 }}>
           {[
             { title: "сейчас", detail: "где вы живёте" },
             { title: "переезд", detail: "куда планируете" },
@@ -214,19 +214,19 @@ function RouteLink({ frames }: { frames: number }) {
               key={card.title}
               style={{
                 flex: 1,
-                padding: "18px 16px",
+                padding: "22px 20px",
                 borderRadius: theme.radius.md,
-                background: "rgba(28,26,23,0.9)",
+                background: "rgba(28,26,23,0.92)",
                 border: `1px solid ${theme.color.lineStrong}`,
               }}
             >
-              <AutoFitText text={card.title} maxWidth={200} maxHeight={40} role={theme.type.title} align="left" vertical="center" locale="ru-RU" />
-              <div style={{ height: 6 }} />
+              <AutoFitText text={card.title} maxWidth={240} maxHeight={52} role={theme.type.title} align="left" vertical="center" locale="ru-RU" />
+              <div style={{ height: 8 }} />
               <AutoFitText
                 text={card.detail}
-                maxWidth={200}
-                maxHeight={44}
-                role={theme.type.support}
+                maxWidth={240}
+                maxHeight={64}
+                role={theme.type.caption}
                 align="left"
                 vertical="center"
                 wrapMode="auto"
@@ -236,7 +236,7 @@ function RouteLink({ frames }: { frames: number }) {
             </div>
           ))}
         </div>
-        <svg width="480" height="90" viewBox="0 0 360 90">
+        <svg width="560" height="90" viewBox="0 0 360 90">
           <path
             d="M40 60 C120 20, 240 20, 320 60"
             fill="none"
@@ -415,7 +415,7 @@ export function ConceptViz({
       <AbsoluteFill
         style={{
           background:
-            "linear-gradient(90deg, rgba(18,17,15,0.55) 0%, rgba(18,17,15,0.12) 42%, rgba(18,17,15,0.08) 100%)",
+            "linear-gradient(90deg, rgba(18,17,15,0.16) 0%, rgba(18,17,15,0.02) 48%, rgba(18,17,15,0.04) 100%)",
         }}
       />
       <Renderer frames={frames} hit={hit} />

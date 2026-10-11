@@ -42,12 +42,13 @@ export const theme = {
     background: "linear-gradient(180deg, #243036 0%, #101418 100%)",
     image: "linear-gradient(180deg, #4A4036 0%, #1A1612 100%)",
     screenshot: "linear-gradient(180deg, #E8E2D8 0%, #CFC6BA 100%)",
+    // Caption legibility only — keep midtones; avoid stacking with layout veils.
     scrimBottom:
-      "linear-gradient(to top, rgba(18,17,15,0.92) 0%, rgba(18,17,15,0.45) 42%, rgba(18,17,15,0) 100%)",
+      "linear-gradient(to top, rgba(18,17,15,0.62) 0%, rgba(18,17,15,0.22) 32%, rgba(18,17,15,0) 58%)",
     scrimCenter:
-      "linear-gradient(180deg, rgba(18,17,15,0.35) 0%, rgba(18,17,15,0.62) 48%, rgba(18,17,15,0.78) 100%)",
+      "linear-gradient(180deg, rgba(18,17,15,0.18) 0%, rgba(18,17,15,0.38) 48%, rgba(18,17,15,0.52) 100%)",
     vignette:
-      "radial-gradient(ellipse at center, rgba(18,17,15,0) 40%, rgba(18,17,15,0.45) 100%)",
+      "radial-gradient(ellipse at center, rgba(18,17,15,0) 48%, rgba(18,17,15,0.28) 100%)",
   },
   font: {
     sans: 'Arial, "Helvetica Neue", Helvetica, sans-serif',

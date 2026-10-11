@@ -182,9 +182,28 @@ def _hay(asset):
         " ".join(asset.get("recommendedTreatments") or []),
         " ".join(asset.get("propertyType") or []),
         " ".join(asset.get("textSafeAreas") or []),
+        # Situations / actions / relationships (semantic coverage V1).
+        " ".join(asset.get("situations") or []),
+        " ".join(asset.get("actions") or []),
+        " ".join(asset.get("relationships") or []),
+        asset.get("matchMode") or "",
     ]
     blob = re.sub(r"\b(?:four|one|two|three|\d+)[\s-]seconds?\b", "duration", " ".join(parts), flags=re.I)
     return _tokens(blob)
+
+
+# Query intent buckets for ranking (literal object vs lived situation vs abstract mark).
+_LITERAL = frozenset({
+    "passport", "document", "documents", "desk", "paperwork", "application", "stamp", "keys",
+})
+_SITUATION = frozenset({
+    "family", "couple", "home", "door", "doorway", "arrival", "consultation", "meeting",
+    "advisor", "packing", "travel", "apartment", "buyer", "phone",
+})
+_CONCEPTUAL = frozenset({
+    "route", "path", "growth", "risk", "deadline", "comparison", "process", "steps",
+})
+_DECORATIVE_HINT = frozenset({"arrow", "mark", "overlay", "wipe", "icon"})
 
 
 def _same_domain(asset, domain):
@@ -192,6 +211,20 @@ def _same_domain(asset, domain):
     if isinstance(value, list):
         return domain in value
     return value == domain
+
+
+def _query_mode(words):
+    """Classify the ask: situation > literal > conceptual > decorative."""
+    w = set(words)
+    if w & _DECORATIVE_HINT and not (w & _SITUATION) and not (w & _LITERAL):
+        return "decorative"
+    if w & _SITUATION:
+        return "situational"
+    if w & _LITERAL:
+        return "literal"
+    if w & _CONCEPTUAL:
+        return "conceptual"
+    return "contextual"
 
 
 def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy, preferred_composition=None, recent_ids=()):
@@ -202,6 +235,8 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
     score = overlap * 2 + (asset.get("qualityScore") or 0)
     family = asset.get("visualFamily") or ""
     category = asset.get("category") or ""
+    mode = _query_mode(words)
+    asset_mode = (asset.get("matchMode") or "").lower()
     if family == "deterministic_motion":
         score += 0.45
     elif family == "generative_motion":
@@ -211,7 +246,7 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
     elif category == "icons":
         score -= 0.25
     matched_scene = [word for word in words if word in _SCENE and word in hay]
-    decorative = category == "decorative"
+    decorative = category == "decorative" or asset_mode == "decorative"
     asks_mark = any(word in words for word in ("arrow", "mark", "overlay", "transition", "wipe"))
     if matched_scene:
         if family == "photography":
@@ -228,6 +263,23 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
             score -= 0.6
     elif decorative and not asks_mark:
         score -= 1.5
+    # Situation/action/relationship overlap beats loose tag soup.
+    situ = set(_tokens(" ".join(asset.get("situations") or [])))
+    acts = set(_tokens(" ".join(asset.get("actions") or [])))
+    rels = set(_tokens(" ".join(asset.get("relationships") or [])))
+    score += 1.6 * len(set(words) & situ)
+    score += 1.2 * len(set(words) & acts)
+    score += 1.1 * len(set(words) & rels)
+    if mode == "situational" and family == "photography":
+        score += 1.5
+    if mode == "literal" and family == "editorial_object":
+        score += 1.2
+    if mode == "situational" and decorative:
+        score -= 2.5
+    if mode == "literal" and decorative and not asks_mark:
+        score -= 2.0
+    if asset_mode and asset_mode == mode:
+        score += 0.9
     roles = asset.get("sceneRoles") or []
     if preferred_scene_role and preferred_scene_role in roles:
         score += 1.8
@@ -239,6 +291,11 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
         score += 1.6
     if asset.get("id") in set(recent_ids or ()):
         score -= 2.2
+    # Curated editorial people plates beat anonymous RunPod stills when both match.
+    if (asset.get("id") or "").startswith("people_") and family == "photography":
+        score += 0.7
+    if asset.get("source") == "runpod" and mode == "situational":
+        score -= 0.35
     return score
 
 
