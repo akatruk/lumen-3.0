@@ -54,6 +54,18 @@ export type Analysis = {
   recommendations: Recommendation[];
   uncertainties: Text[];
 };
+export type ProjectJobSnap = {
+  id: string;
+  kind: string;
+  status: string;
+  created?: number;
+  updated?: number;
+  language?: string | null;
+  duration_seconds?: number | null;
+  composition?: string | null;
+  picture_engine?: string | null;
+};
+
 export type Project = {
   studio?: boolean;
   topic?: string;
@@ -67,6 +79,8 @@ export type Project = {
   title: string;
   brief: string;
   language: ContentLang;
+  /** Selected video locale (UI language is separate). */
+  video_language?: string | null;
   aspect: string;
   auto_render: boolean;
   generative: boolean;
@@ -92,6 +106,8 @@ export type Project = {
     qa: { passed: boolean; observations: Text[]; issues: Text[]; scores?:{category:string;value:number;reason:Text}[];revisions?:Text[] } | null;
   } | null;
   error: string | null;
+  latest_job?: ProjectJobSnap | null;
+  active_job?: ProjectJobSnap | null;
   created: number;
   cost: number;
   events: { kind: string; detail: string; created: number }[];

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
-import type { Lang } from "./types";
+import type { Lang, Project } from "./types";
+import { ProjectJobStatus } from "./ProjectJobStatus";
 import { workspaceText } from "./ProjectWorkspace";
 
 type Speech = "ru-RU" | "en-US" | "zh-CN";
@@ -80,12 +81,14 @@ function durationLimit(sourceSeconds: number) {
 export function CreateVideo({
   pid,
   lang,
+  project,
   working,
   sourceSeconds,
   onStarted,
 }: {
   pid: string;
   lang: Lang;
+  project?: Project | null;
   working: boolean;
   sourceSeconds: number;
   onStarted: () => Promise<void>;
@@ -100,7 +103,7 @@ export function CreateVideo({
   const [debug, setDebug] = useState("");
   const [uploads, setUploads] = useState<StudioState | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<"" | "voice" | "voice_not_ready" | "provider" | "busy" | "failed">("");
+  const [error, setError] = useState("");
   const [voiceChoice, setVoiceChoice] = useState<string | null>(null);
   const notice = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
@@ -214,16 +217,7 @@ export function CreateVideo({
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        const detail = body?.detail;
-        setError(
-          detail === "MISSING_TARGET_LANGUAGE_VOICE" || detail === "VOICE_SETUP_REQUIRED"
-            ? "voice"
-            : detail === "target_voice_not_ready"
-              ? "voice_not_ready"
-              : detail === "job_already_running"
-                ? "busy"
-                : "failed",
-        );
+        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" || body?.detail === "VOICE_SETUP_REQUIRED" ? "voice" : "failed");
         notice.current?.scrollIntoView({ block: "nearest" });
         return;
       }
@@ -236,6 +230,7 @@ export function CreateVideo({
   }
   return (
     <section className="create-video" aria-label={w("Создать видео", "Create video", "创建视频")}>
+      {project ? <ProjectJobStatus p={project} lang={lang} /> : null}
       <div>
         <span className="eyebrow">{w("ЗАГРУЖЕННЫЕ ВИДЕО", "UPLOADED VIDEOS", "已上传视频")}</span>
         <ul>
@@ -345,11 +340,7 @@ export function CreateVideo({
           {working || busy ? <Loader2 className="spin" size={17} /> : <Sparkles size={17} />}
           {w("Создать видео", "Create video", "创建视频")}
         </button>
-        {(error === "voice" ||
-          error === "voice_not_ready" ||
-          error === "provider" ||
-          error === "busy" ||
-          error === "failed") && (
+        {(error === "voice" || error === "provider" || error === "failed") && (
           <p className="error-box" role="alert" ref={notice}>
             {error === "voice" &&
               (speech === "zh-CN"
@@ -374,18 +365,6 @@ export function CreateVideo({
                 "Голос для этого языка не настроен. Другой язык не подставляется.",
                 "The voice provider is not configured. Another language is not substituted.",
                 "这个语言的声音服务未配置，不会改用其他语言。",
-              )}
-            {error === "voice_not_ready" &&
-              w(
-                "Для выбранного языка видео ещё нет готовой озвучки. Исходный голос не подставляется — доделайте голос или выберите язык исходника (Русский).",
-                "This video language has no finished voice yet. The source voice is not substituted — finish the voice or choose the source language (Russian).",
-                "所选视频语言还没有成品配音，不会改用原片声音。请先完成配音，或改回源语言（俄语）。",
-              )}
-            {error === "busy" &&
-              w(
-                "Уже идёт задача по этому проекту. Дождитесь окончания или обновите страницу.",
-                "A task is already running for this project. Wait for it to finish or reload.",
-                "该项目已有任务在进行。请等待完成或刷新页面。",
               )}
             {error === "failed" &&
               w(

@@ -25,6 +25,7 @@ import { MenuSlide } from "./MenuSlide";
 import type { Project, Lang } from "./types";
 import { contentLanguage, translate } from "./locale";
 import { AnalysisActivity, activityTitle } from "./AnalysisActivity";
+import { ProjectJobStatus, projectIsBusy } from "./ProjectJobStatus";
 import { StatusBadge } from "./TaskStatus";
 export type WorkspaceTask =
   "edit" | "subtitles" | "audio" | "effects" | "materials" | "review";
@@ -159,7 +160,7 @@ export function ProjectWorkspace({
     pending = useRef<{ start: number; end?: number } | null>(null),
     stop = useRef<number | undefined>(undefined);
   const base = `/api/projects/${p.id}/media/`;
-  const working = ["queued", "importing", "analyzing", "rendering"].includes(
+  const working = projectIsBusy(p) || ["queued", "importing", "analyzing", "rendering"].includes(
     p.status,
   );
   async function retryAnalysis() {
@@ -515,13 +516,20 @@ export function ProjectWorkspace({
               )}
             </div>
             {playNotice && !draftActive && <p role="status">{playNotice}</p>}
+            <ProjectJobStatus p={p} lang={lang} compact />
             {mediaError && !draftActive && (
               <p role="alert">
-                {w(
-                  "Не удалось загрузить видео. Выберите другую версию или обновите страницу.",
-                  "Could not load video. Select another version or reload.",
-                  "无法加载视频，请选择其他版本或刷新。",
-                )}
+                {working
+                  ? w(
+                      "Плеер ждёт готовую версию. Смотрите статус выше — исходник сохранён.",
+                      "The player is waiting for a finished version. See status above — your original is safe.",
+                      "播放器在等待成品。请看上方状态 — 原始素材已保留。",
+                    )
+                  : w(
+                      "Не удалось открыть это видео в плеере. Выберите другую версию, обновите страницу или смотрите статус выше.",
+                      "Could not view this video in the player. Pick another version, reload, or check the status above.",
+                      "无法在播放器中打开此视频。请换版本、刷新，或查看上方状态。",
+                    )}
               </p>
             )}
             <div

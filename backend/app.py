@@ -220,7 +220,8 @@ def detail(pid:str,user=Depends(current_user)):
     p=project(pid,user['id'])
     if not p: raise HTTPException(404,'not_found')
     p['pictures']=finished_pictures(pid,(p.get('result') or {}).get('render_id',''))
-    return p
+    from .project_status import attach_job_status
+    return attach_job_status(p)
 
 class DouyinSearchRequest(BaseModel):
     keyword: str = Field(min_length=1,max_length=120)

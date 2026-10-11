@@ -79,8 +79,9 @@ function initialRoute() {
     page: ["studio", "library", "settings"].includes(h) ? h : "studio",
   };
 }
-const active = (p: { status: string }) =>
-  ["queued", "analyzing", "rendering"].includes(p.status);
+const active = (p: { status: string; active_job?: { status?: string } | null }) =>
+  Boolean(p.active_job) ||
+  ["queued", "analyzing", "rendering", "importing"].includes(p.status);
 async function api(path: string, init?: RequestInit) {
   const r = await fetch("/api" + path, { credentials: "same-origin", ...init });
   let d;
@@ -448,6 +449,8 @@ function App() {
                     key={project.id}
                     pid={project.id}
                     lang={lang}
+                    project={project}
+                    sourceSeconds={project.metadata?.duration || 20}
                     working={active(project)}
                     onStarted={async () => {
                       setProject(await api("/projects/" + pid));

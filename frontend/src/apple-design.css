@@ -645,6 +645,44 @@ dialog h2 {
   }
 }
 .ws-preview-heading-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.project-job-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid #1d1d1f22;
+  border-radius: 14px;
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
+.project-job-status.is-live { border-color: #1d1d1f55; background: #eef3ff; }
+.project-job-status.is-error { border-color: #a3564344; background: #fff4f0; }
+.project-job-status header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.project-job-status .phase { font-weight: 700; }
+.project-job-status .detail { margin: 0; font-size: 13px; line-height: 1.4; opacity: 0.9; }
+.project-job-status dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+}
+.project-job-status dt {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.project-job-status dd { margin: 2px 0 0; font-size: 13px; font-weight: 600; word-break: break-word; }
+.project-job-status .hint { margin: 0; font-size: 12px; opacity: 0.7; }
+.project-job-status code { font-size: 12px; font-weight: 600; }
 .create-video { display: flex; flex-direction: column; gap: 16px; padding: 4px 2px 12px; }
 .create-video ul { list-style: none; margin: 8px 0 0; padding: 0; }
 .create-video li { padding: 8px 0; border-bottom: 1px solid #00000010; }
