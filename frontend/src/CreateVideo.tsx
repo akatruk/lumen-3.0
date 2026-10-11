@@ -65,6 +65,42 @@ type Share = {
   min: number;
 };
 
+type RenditionSnap = {
+  locale?: string;
+  status?: string;
+  voiceName?: string | null;
+  audioMode?: string | null;
+};
+
+function boardMap(board: unknown): Record<string, RenditionSnap> {
+  const out: Record<string, RenditionSnap> = {};
+  if (!Array.isArray(board)) return out;
+  for (const item of board) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as RenditionSnap;
+    if (row.locale) out[row.locale] = row;
+  }
+  return out;
+}
+
+function apiDetail(body: unknown): string {
+  if (!body || typeof body !== "object") return "";
+  const detail = (body as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail[0] && typeof detail[0] === "object" && "msg" in detail[0]) {
+    return String((detail[0] as { msg?: string }).msg || "");
+  }
+  return "";
+}
+
+function createErrorKind(detail: string): "voice" | "voice_not_ready" | "busy" | "provider" | "failed" {
+  if (detail === "MISSING_TARGET_LANGUAGE_VOICE" || detail === "VOICE_SETUP_REQUIRED") return "voice";
+  if (detail === "target_voice_not_ready") return "voice_not_ready";
+  if (detail === "job_already_running" || detail === "project_busy") return "busy";
+  if (detail === "provider_not_configured") return "provider";
+  return "failed";
+}
+
 const SHARES: Share[] = [
   { key: "animation", label: ["Анимация, %", "Animation, %", "动画，%"], min: 0 },
   { key: "intensity", label: ["Интенсивность, %", "Intensity, %", "强度，%"], min: 5 },
@@ -104,7 +140,9 @@ export function CreateVideo({
   const [uploads, setUploads] = useState<StudioState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [errorDetail, setErrorDetail] = useState("");
   const [voiceChoice, setVoiceChoice] = useState<string | null>(null);
+  const [renditions, setRenditions] = useState<Record<string, RenditionSnap>>({});
   const notice = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +153,14 @@ export function CreateVideo({
       })
       .catch(() => {
         if (!cancelled) setUploads(null);
+      });
+    fetch("/api/studio/projects/" + pid + "/rendition", { credentials: "same-origin" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.renditions) setRenditions(boardMap(data.renditions));
+      })
+      .catch(() => {
+        if (!cancelled) setRenditions({});
       });
     return () => {
       cancelled = true;
@@ -133,12 +179,21 @@ export function CreateVideo({
   const voiceLabel = originalVoice
     ? w("Оригинальный голос ведущего", "Original speaker audio", "原声")
     : (LANGUAGES.find((item) => item.id === speech)?.voice ?? speech);
+  const rendition = renditions[speech] || {};
+  const voiceStatus = originalVoice
+    ? "ready"
+    : ["audio_ready", "aligned", "ready", "rendered"].includes(String(rendition.status || ""))
+      ? "ready"
+      : rendition.status === "script_ready"
+        ? "script_ready"
+        : String(rendition.status || "missing");
   useEffect(() => {
     notice.current?.scrollIntoView({ block: "nearest" });
   }, [error, speech]);
   async function choose(next: Speech) {
     setLanguage(next);
     setError("");
+    setErrorDetail("");
     try {
       const response = await fetch("/api/studio/projects/" + pid + "/language", {
         method: "PUT",
@@ -146,7 +201,17 @@ export function CreateVideo({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language: next }),
       });
-      if (!response.ok) setError("failed");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const detail = apiDetail(body);
+        setErrorDetail(detail);
+        setError(createErrorKind(detail));
+      }
+      const board = await fetch("/api/studio/projects/" + pid + "/rendition", { credentials: "same-origin" });
+      if (board.ok) {
+        const data = await board.json();
+        if (data?.renditions) setRenditions(boardMap(data.renditions));
+      }
     } catch {
       setError("failed");
     }
@@ -177,6 +242,7 @@ export function CreateVideo({
   }
   async function preview() {
     setError("");
+    setErrorDetail("");
     try {
       const response = await fetch("/api/studio/projects/" + pid + "/voice-preview", {
         method: "POST",
@@ -186,10 +252,17 @@ export function CreateVideo({
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
-        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" ? "voice" : body?.detail === "provider_not_configured" ? "provider" : "failed");
+        const detail = apiDetail(body);
+        setErrorDetail(detail);
+        setError(createErrorKind(detail));
         return;
       }
       setDebug([body?.voiceName || "", body?.text || ""].filter(Boolean).join("\n"));
+      const board = await fetch("/api/studio/projects/" + pid + "/rendition", { credentials: "same-origin" });
+      if (board.ok) {
+        const data = await board.json();
+        if (data?.renditions) setRenditions(boardMap(data.renditions));
+      }
     } catch {
       setError("failed");
     }
@@ -198,6 +271,7 @@ export function CreateVideo({
     if (working || busy) return;
     setBusy(true);
     setError("");
+    setErrorDetail("");
     try {
       const response = await fetch("/api/studio/projects/" + pid + "/create-video", {
         method: "POST",
@@ -217,7 +291,9 @@ export function CreateVideo({
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
-        setError(body?.detail === "MISSING_TARGET_LANGUAGE_VOICE" || body?.detail === "VOICE_SETUP_REQUIRED" ? "voice" : "failed");
+        const detail = apiDetail(body);
+        setErrorDetail(detail);
+        setError(createErrorKind(detail));
         notice.current?.scrollIntoView({ block: "nearest" });
         return;
       }
@@ -331,6 +407,20 @@ export function CreateVideo({
             {speech === "en-US" && w("Английская озвучка", "Dubbed English", "英语配音")}
             {speech === "ru-RU" && w("Русская озвучка", "Dubbed Russian", "俄语配音")}
             {speech === "zh-CN" && w("Китайская озвучка", "Dubbed Chinese", "中文配音")}
+            {" · "}
+            {voiceStatus === "ready"
+              ? w("озвучка готова", "voice ready", "配音已就绪")
+              : voiceStatus === "script_ready"
+                ? w(
+                    "есть перевод — Create video соберёт озвучку",
+                    "script ready — Create video will build the voice",
+                    "文案已就绪 — 创建视频时会生成配音",
+                  )
+                : w(
+                    "озвучка соберётся при Create video",
+                    "voice builds on Create video",
+                    "创建视频时生成配音",
+                  )}
           </p>
         )}
         <button type="button" disabled={working || busy} onClick={() => void preview()}>
@@ -340,7 +430,11 @@ export function CreateVideo({
           {working || busy ? <Loader2 className="spin" size={17} /> : <Sparkles size={17} />}
           {w("Создать видео", "Create video", "创建视频")}
         </button>
-        {(error === "voice" || error === "provider" || error === "failed") && (
+        {(error === "voice" ||
+          error === "voice_not_ready" ||
+          error === "busy" ||
+          error === "provider" ||
+          error === "failed") && (
           <p className="error-box" role="alert" ref={notice}>
             {error === "voice" &&
               (speech === "zh-CN"
@@ -360,6 +454,18 @@ export function CreateVideo({
                       "Choose an English voice to create this version.",
                       "请选择英文配音以创建此版本。",
                     ))}
+            {error === "voice_not_ready" &&
+              w(
+                "Не удалось собрать озвучку для этого языка. Исходный русский голос не подставляется — смотрите блок Статус.",
+                "Could not build voice for this language. Source Russian is not substituted — see Status above.",
+                "无法为此语言生成配音。不会改用原片俄语 — 请看上方状态。",
+              )}
+            {error === "busy" &&
+              w(
+                "Уже идёт задача по этому проекту. Смотрите блок Статус выше — дождитесь завершения.",
+                "A task is already running. See Status above — wait for it to finish.",
+                "该项目已有任务进行中。请看上方状态并等待结束。",
+              )}
             {error === "provider" &&
               w(
                 "Голос для этого языка не настроен. Другой язык не подставляется.",
@@ -367,11 +473,13 @@ export function CreateVideo({
                 "这个语言的声音服务未配置，不会改用其他语言。",
               )}
             {error === "failed" &&
-              w(
-                "Не удалось поставить видео в очередь. Дождитесь текущей задачи или обновите страницу.",
-                "Could not queue the video. Wait for the current task or reload.",
-                "无法加入视频队列。请等待当前任务或刷新页面。",
-              )}
+              (errorDetail
+                ? `${w("Не удалось поставить в очередь", "Could not queue", "无法加入队列")}: ${errorDetail}`
+                : w(
+                    "Не удалось поставить видео в очередь. Смотрите блок Статус выше или обновите страницу.",
+                    "Could not queue the video. See Status above or reload.",
+                    "无法加入视频队列。请看上方状态或刷新页面。",
+                  ))}
           </p>
         )}
         {error === "voice" &&

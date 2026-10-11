@@ -495,19 +495,8 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             )
             if resolved['status'] == 'VOICE_SETUP_REQUIRED':
                 raise HTTPException(422, 'VOICE_SETUP_REQUIRED')
-            if resolved['mode'] == 'dubbed':
-                # Remotion still plays speaker.mp4 until a dubbed track exists —
-                # never silently ship RU VO under an EN/ZH targetLocale.
-                from .language import rendition_dir
-                rendition_path = rendition_dir(settings.data_dir, pid, locale) / 'rendition.json'
-                record = {}
-                if rendition_path.is_file():
-                    try:
-                        record = json.loads(rendition_path.read_text(encoding='utf-8'))
-                    except (OSError, json.JSONDecodeError):
-                        record = {}
-                if record.get('status') not in ('audio_ready', 'aligned', 'ready', 'rendered'):
-                    raise HTTPException(422, 'target_voice_not_ready')
+            # Dubbed EN/ZH: queue the job and materialize speech in the worker
+            # (same as Hypit). Never silently ship source RU VO under EN/ZH.
             _remember_language(db, pid, locale)
             try:
                 visual = plan_for_request(
@@ -535,10 +524,13 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 'duration_seconds': chosen,
                 'visual_plan': visual,
                 'picture_engine': 'remotion',
-                'language': locale,
+                'language': short_code(locale),
                 'target_language': locale,
                 'source_language': source_locale,
+                'voice': body.voice or resolved.get('voiceId'),
                 'voice_resolution': resolved,
+                'dubbed': resolved['mode'] == 'dubbed',
+                'plan': s.get('plan') or {},
             }
             job.update(assembly.job_fields())
             enqueue(db, pid, 'director_v3', job)

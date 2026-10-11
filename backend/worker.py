@@ -12,9 +12,66 @@ from . import media,ai
 
 log=logging.getLogger('lumen.worker')
 
-def progress(pid,stage,value):
-    update(pid,stage=stage,progress=value)
-    event(pid,'stage',stage)
+# Create-video / Remotion steps shown in the live activity card (not analysis).
+RENDER_ACTIVITY = (
+    'preparing_voice', 'creating', 'preparing_picture', 'matching_music',
+    'drawing_graphics', 'rendering', 'rendering_shots', 'assembling',
+    'mixing_music', 'burning_captions', 'writing_file', 'checking', 'render_queued',
+)
+
+
+def progress(pid, stage, value, *, note=None, plan=None):
+    """Update stage/progress and refresh the live activity card (clock + step list)."""
+    current = project(pid) or {}
+    meta = dict(current.get('metadata') or {})
+    previous = meta.get('activity') if isinstance(meta.get('activity'), dict) else {}
+    log = [row for row in (previous.get('log') or []) if isinstance(row, dict) and row.get('step')]
+    if previous.get('step') and previous.get('step') != stage:
+        log.append({'step': previous['step']})
+        log = log[-12:]
+    if isinstance(plan, list) and plan:
+        chosen = plan
+    elif stage in RENDER_ACTIVITY:
+        # Drop stale analysis steps (director / reference_*) so the page shows the render path.
+        base = [
+            'preparing_voice', 'drawing_graphics', 'rendering', 'assembling', 'checking',
+        ]
+        if stage == 'render_queued':
+            chosen = ['render_queued'] + [s for s in base if s != 'preparing_voice']
+        elif stage in base:
+            # Keep voice step only when this job actually entered it (or stays on it).
+            if stage == 'preparing_voice' or previous.get('step') == 'preparing_voice' or any(
+                row.get('step') == 'preparing_voice' for row in log
+            ):
+                chosen = list(base)
+            else:
+                chosen = [s for s in base if s != 'preparing_voice']
+            if stage not in chosen:
+                chosen = [stage] + chosen
+        else:
+            chosen = [stage]
+    else:
+        chosen = previous.get('plan') if isinstance(previous.get('plan'), list) and previous.get('plan') else [stage]
+    same = previous.get('step') == stage and previous.get('at')
+    meta['activity'] = {
+        'step': stage,
+        'part': None,
+        'done': None,
+        'total': None,
+        'at': previous.get('at') if same else time.time(),
+        'log': log,
+        'plan': chosen,
+        'note': note if note is not None else (previous.get('note') if same else None),
+    }
+    status = current.get('status')
+    # Keep analyzing for analysis notes; render jobs stay queued/rendering.
+    if status not in ('analyzing', 'importing') and stage in RENDER_ACTIVITY:
+        if status not in ('rendering', 'complete', 'failed', 'needs_review'):
+            status = 'rendering' if stage != 'render_queued' else 'queued'
+        update(pid, status=status, stage=stage, progress=value, metadata=meta)
+    else:
+        update(pid, stage=stage, progress=value, metadata=meta)
+    event(pid, 'stage', stage)
 
 def fit_caption_ends(rows, audio):
     """Keep caption times inside the speech file. Alignment can run a little past it."""
@@ -336,6 +393,7 @@ def run_once():
     except Exception as exc:
         code=safe_error(exc)
         # A closed worker terminal must not skip the status update or hide the cause.
+        detail=''
         try:
             detail=failure_detail(exc)
             log.error('Job %s failed: %s (%s)%s',job['id'],code,type(exc).__name__,f'; {detail}' if detail else '')
@@ -343,7 +401,26 @@ def run_once():
                 handler.flush()
         except Exception:
             pass
-        if job['kind'] not in ('final_music','dubbing','platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'): update(p['id'],status='failed',stage='failed',error=code)
+        if job['kind'] not in ('final_music','dubbing','platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'):
+            # Keep a human note on the activity card — safe_error alone hides ModuleNotFound etc.
+            try:
+                current = project(p['id']) or {}
+                meta = dict(current.get('metadata') or {})
+                prev = meta.get('activity') if isinstance(meta.get('activity'), dict) else {}
+                note = detail or f'{type(exc).__name__}: {exc}'
+                if len(note) > 280:
+                    note = note[:277] + '…'
+                meta['activity'] = {
+                    **prev,
+                    'step': prev.get('step') or current.get('stage') or 'failed',
+                    'note': note,
+                    'at': prev.get('at') or time.time(),
+                    'plan': prev.get('plan') or [],
+                    'log': prev.get('log') or [],
+                }
+                update(p['id'], status='failed', stage='failed', error=code, metadata=meta)
+            except Exception:
+                update(p['id'], status='failed', stage='failed', error=code)
         event(p['id'],'failed',code)
         state='failed'
     with connect() as db:

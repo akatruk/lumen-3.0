@@ -1,12 +1,35 @@
 import { useEffect, useState } from "react";
 import { translate } from "./locale";
-import type { AnalysisActivityState, Lang } from "./types";
+import type { AnalysisActivityState, Lang, ProjectJobSnap } from "./types";
 
 type ActivityProject = {
   stage: string;
+  status?: string;
   progress: number;
+  error?: string | null;
+  video_language?: string | null;
+  language?: string;
   metadata: { activity?: AnalysisActivityState | null } | null;
+  active_job?: ProjectJobSnap | null;
+  latest_job?: ProjectJobSnap | null;
 };
+
+const RENDER_STAGES = new Set([
+  "preparing_voice",
+  "creating",
+  "preparing_picture",
+  "matching_music",
+  "drawing_graphics",
+  "rendering",
+  "rendering_shots",
+  "assembling",
+  "mixing_music",
+  "burning_captions",
+  "writing_file",
+  "checking",
+  "render_queued",
+  "importing",
+]);
 
 function fallbackStep(stage?: string) {
   if (stage === "queued") return "queued";
@@ -34,6 +57,17 @@ function stepTitle(step: string, lang: Lang) {
   if (step === "owned_model") return translate(lang, "The model is watching your video", "模型正在观看您的视频");
   if (step === "director") return translate(lang, "Writing the edit plan", "正在编写剪辑方案");
   if (step === "style_cut") return translate(lang, "Building the styled picture", "正在生成风格化画面");
+  if (step === "preparing_voice") return translate(lang, "Building the target voice", "正在生成目标配音");
+  if (step === "render_queued") return translate(lang, "Your new cut is queued", "新版本已排队");
+  if (step === "creating" || step === "preparing_picture") return translate(lang, "Preparing the picture", "准备画面");
+  if (step === "matching_music") return translate(lang, "Matching the soundtrack", "匹配配乐");
+  if (step === "drawing_graphics") return translate(lang, "Drawing the graphics", "绘制图形");
+  if (step === "rendering" || step === "rendering_shots") return translate(lang, "Rendering each shot", "逐个渲染镜头");
+  if (step === "assembling") return translate(lang, "Assembling the cut", "拼接成片");
+  if (step === "mixing_music") return translate(lang, "Mixing the soundtrack", "混入配乐");
+  if (step === "burning_captions") return translate(lang, "Burning captions", "烧录字幕");
+  if (step === "writing_file") return translate(lang, "Writing the video file", "写出视频文件");
+  if (step === "checking") return translate(lang, "Checking the finished video", "检查成片");
   return translate(lang, "Working on your video", "正在处理您的视频");
 }
 
@@ -63,37 +97,50 @@ function partDetail(step: string, part: string | null | undefined, lang: Lang) {
   if (step === "director") return translate(lang, "The model turns what it saw into timed decisions.", "模型把看到的内容写成按时间排列的决定。");
   if (step === "style_cut") return translate(lang, "Measurements become the cut. Your footage stays the only picture.", "测量结果变成剪辑。成片画面仍然只用您的素材。");
   if (step === "reference_grade") return translate(lang, "Sampling color across the file", "正在整段采样色彩");
+  if (step === "preparing_voice") {
+    return translate(
+      lang,
+      "Synthesizing the selected video language on GPU. Source voice is not substituted.",
+      "正在 GPU 上合成所选视频语言的配音。不会改用原片声音。",
+    );
+  }
+  if (step === "render_queued") return translate(lang, "The saved edit is waiting for the renderer.", "已保存的剪辑正在等待渲染。");
+  if (step === "creating" || step === "preparing_picture") {
+    return translate(
+      lang,
+      "The saved edit is being prepared. The previous finished video stays until this one succeeds.",
+      "正在准备已保存的剪辑。上一版成片会保留，直到这一版成功。",
+    );
+  }
+  if (step === "matching_music") {
+    return translate(
+      lang,
+      "A licensed bed is chosen from the reference music note. The reference audio is not copied.",
+      "根据参考音乐说明选择授权配乐。不复制参考音频。",
+    );
+  }
+  if (step === "drawing_graphics") {
+    return translate(lang, "Charts and stills are prepared for the shots that need them.", "正在为需要的镜头准备图表和静帧。");
+  }
+  if (step === "rendering" || step === "rendering_shots") {
+    return translate(lang, "Each shot is encoded on its own. The bar moves as shots finish.", "每个镜头单独编码。进度条会随镜头完成而前进。");
+  }
+  if (step === "assembling") return translate(lang, "The shots are joined into one picture.", "镜头正在拼成一条画面。");
+  if (step === "mixing_music") return translate(lang, "The soundtrack is ducked under the voice.", "配乐在人声下被压低。");
+  if (step === "burning_captions") return translate(lang, "Captions are placed above the graphics.", "字幕放在图形上方。");
+  if (step === "writing_file") return translate(lang, "The finished file is being written.", "正在写出成片文件。");
+  if (step === "checking") return translate(lang, "The finished file is being checked.", "正在检查成片文件。");
   return translate(lang, "This page updates every few seconds while the job runs.", "任务进行时，此页面每隔几秒更新一次。");
 }
 
 function renderTitle(stage: string | undefined, lang: Lang) {
-  if (stage === "importing") return translate(lang, "Downloading from Douyin", "正在从抖音导入");
-  if (stage === "render_queued") return translate(lang, "Your new cut is queued", "新版本已排队");
-  if (stage === "creating" || stage === "preparing_picture") return translate(lang, "Preparing the picture", "准备画面");
-  if (stage === "matching_music") return translate(lang, "Matching the soundtrack", "匹配配乐");
-  if (stage === "drawing_graphics") return translate(lang, "Drawing the graphics", "绘制图形");
-  if (stage === "rendering" || stage === "rendering_shots") return translate(lang, "Rendering each shot", "逐个渲染镜头");
-  if (stage === "assembling") return translate(lang, "Assembling the cut", "拼接成片");
-  if (stage === "mixing_music") return translate(lang, "Mixing the soundtrack", "混入配乐");
-  if (stage === "burning_captions") return translate(lang, "Burning captions", "烧录字幕");
-  if (stage === "writing_file") return translate(lang, "Writing the video file", "写出视频文件");
-  if (stage === "checking") return translate(lang, "Checking the finished video", "检查成片");
-  return "";
+  if (!stage || !RENDER_STAGES.has(stage)) return "";
+  return stepTitle(stage, lang);
 }
 
 function renderDetail(stage: string | undefined, lang: Lang) {
-  if (stage === "importing") return translate(lang, "Lumen is retrieving the selected source. Analysis starts after the download is verified.", "正在获取所选原视频，下载验证完成后开始分析。");
-  if (stage === "render_queued") return translate(lang, "The saved edit is waiting for the renderer.", "已保存的剪辑正在等待渲染。");
-  if (stage === "creating" || stage === "preparing_picture") return translate(lang, "The saved edit is being prepared. The previous finished video stays until this one succeeds.", "正在准备已保存的剪辑。上一版成片会保留，直到这一版成功。");
-  if (stage === "matching_music") return translate(lang, "A licensed bed is chosen from the reference music note. The reference audio is not copied.", "根据参考音乐说明选择授权配乐。不复制参考音频。");
-  if (stage === "drawing_graphics") return translate(lang, "Charts and stills are prepared for the shots that need them.", "正在为需要的镜头准备图表和静帧。");
-  if (stage === "rendering" || stage === "rendering_shots") return translate(lang, "Each shot is encoded on its own. The bar moves as shots finish.", "每个镜头单独编码。进度条会随镜头完成而前进。");
-  if (stage === "assembling") return translate(lang, "The shots are joined into one picture.", "镜头正在拼成一条画面。");
-  if (stage === "mixing_music") return translate(lang, "The soundtrack is ducked under the voice.", "配乐在人声下被压低。");
-  if (stage === "burning_captions") return translate(lang, "Captions are placed above the graphics.", "字幕放在图形上方。");
-  if (stage === "writing_file") return translate(lang, "The finished file is being written.", "正在写出成片文件。");
-  if (stage === "checking") return translate(lang, "The finished file is being checked.", "正在检查成片文件。");
-  return "";
+  if (!stage || !RENDER_STAGES.has(stage)) return "";
+  return partDetail(stage, null, lang);
 }
 
 export function activityTitle(activity: AnalysisActivityState | null | undefined, lang: Lang, stage?: string) {
@@ -110,6 +157,7 @@ export function activityTitle(activity: AnalysisActivityState | null | undefined
 }
 
 export function activityDetail(activity: AnalysisActivityState | null | undefined, lang: Lang, stage?: string) {
+  if (activity?.note) return activity.note;
   const rendered = renderDetail(stage, lang);
   if (rendered) return rendered;
   const step = activity?.step || fallbackStep(stage);
@@ -124,11 +172,53 @@ function clock(lang: Lang, at?: number, now = Date.now()) {
   return translate(lang, "Running {time}", "已进行 {time}").replaceAll("{time}", shown);
 }
 
+function localeLabel(lang: Lang, locale?: string | null) {
+  if (!locale) return translate(lang, "not set", "未设置");
+  if (locale.startsWith("ru")) return translate(lang, "Russian", "俄语");
+  if (locale.startsWith("en")) return "English";
+  if (locale.startsWith("zh")) return translate(lang, "Chinese", "中文");
+  return locale;
+}
+
+function kindLabel(lang: Lang, kind?: string | null) {
+  if (kind === "director_v3") return "Director V3 (Remotion)";
+  if (kind === "studio_render" || kind === "render") return translate(lang, "Video render", "视频渲染");
+  if (kind === "studio_analyze" || kind === "analysis") return translate(lang, "Analysis", "分析");
+  return kind || translate(lang, "job", "任务");
+}
+
+function jobPhase(lang: Lang, status?: string | null) {
+  if (status === "queued") return translate(lang, "Queued", "排队中");
+  if (status === "running") return translate(lang, "Running", "进行中");
+  if (status === "complete") return translate(lang, "Complete", "已完成");
+  if (status === "failed") return translate(lang, "Failed", "失败");
+  return status || "—";
+}
+
 export function AnalysisActivity({ project, lang }: { project: ActivityProject; lang: Lang }) {
-  const activity = renderTitle(project.stage, lang) ? undefined : project.metadata?.activity;
-  const step = activity?.step || fallbackStep(project.stage);
-  const plan = activity?.plan || [];
+  const stage = project.stage;
+  const renderLive = RENDER_STAGES.has(stage);
+  const activity = project.metadata?.activity;
+  const step = renderLive
+    ? stage
+    : renderTitle(stage, lang)
+      ? stage
+      : activity?.step || fallbackStep(stage);
+  const plan = renderLive
+    ? activity?.plan && activity.plan.some((id) => RENDER_STAGES.has(id))
+      ? activity.plan
+      : ["preparing_voice", "drawing_graphics", "rendering", "assembling", "checking"].filter(
+          (id) => id !== "preparing_voice" || stage === "preparing_voice" || activity?.step === "preparing_voice",
+        )
+    : activity?.plan || [];
   const done = new Set((activity?.log || []).map((row) => row.step));
+  if (renderLive && activity?.step && activity.step !== stage) {
+    // Stage moved ahead of the last logged step — mark previous render steps done.
+    for (const id of plan) {
+      if (id === stage) break;
+      done.add(id);
+    }
+  }
   const current = plan.indexOf(step);
   const rows = plan.length
     ? plan.filter((id, index) => index === current || done.has(id) || (current >= 0 && index > current))
@@ -141,9 +231,17 @@ export function AnalysisActivity({ project, lang }: { project: ActivityProject; 
     return () => window.clearInterval(timer);
   }, []);
   const percent = Math.max(0, Math.min(100, project.progress || 0));
-  const headline = activityTitle(activity, lang, project.stage);
-  const detail = activityDetail(activity, lang, project.stage);
-  const elapsed = clock(lang, activity?.at, now);
+  const headline = activityTitle(activity, lang, stage);
+  const detail = activityDetail(activity, lang, stage);
+  const job = project.active_job || project.latest_job;
+  const clockAt =
+    (renderLive && (activity?.step === stage ? activity?.at : undefined)) ||
+    (renderLive && job?.updated) ||
+    (renderLive && job?.created) ||
+    activity?.at;
+  const elapsed = clock(lang, clockAt, now);
+  const locale = project.video_language || job?.language || null;
+
   return (
     <section className="analysis-activity" aria-label={translate(lang, "What is happening", "当前进度")}>
       <div className="analysis-activity-head">
@@ -160,6 +258,39 @@ export function AnalysisActivity({ project, lang }: { project: ActivityProject; 
         <span>{detail}</span>
         {elapsed && <span className="analysis-activity-clock">{elapsed}</span>}
       </p>
+      <dl className="analysis-activity-facts">
+        <div>
+          <dt>{translate(lang, "Stage", "阶段")}</dt>
+          <dd>
+            <code>{stage || "—"}</code>
+            {project.status ? ` · ${project.status}` : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>{translate(lang, "Video language", "视频语言")}</dt>
+          <dd>{localeLabel(lang, locale)}</dd>
+        </div>
+        {job && (
+          <div>
+            <dt>{translate(lang, "Job", "任务")}</dt>
+            <dd>
+              {kindLabel(lang, job.kind)} · {jobPhase(lang, job.status)}
+              {job.id ? ` · ${job.id.slice(0, 8)}` : ""}
+              {job.duration_seconds != null ? ` · ${job.duration_seconds}s` : ""}
+              {job.picture_engine ? ` · ${job.picture_engine}` : ""}
+              {job.composition ? ` · ${job.composition}` : ""}
+            </dd>
+          </div>
+        )}
+        {project.error && (
+          <div>
+            <dt>{translate(lang, "Error", "错误")}</dt>
+            <dd>
+              <code>{project.error}</code>
+            </dd>
+          </div>
+        )}
+      </dl>
       {rows.length > 0 && (
         <ol>
           {rows.map((id) => {

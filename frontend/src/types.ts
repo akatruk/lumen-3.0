@@ -22,6 +22,8 @@ export type AnalysisActivityState = {
   at?: number;
   log?: { step: string }[];
   plan?: string[];
+  /** Live one-line note from the worker (voice/GPU/Remotion). */
+  note?: string | null;
 };
 export type Metadata = {
   duration: number;

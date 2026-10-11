@@ -32,6 +32,37 @@ def test_project_e_create_video_queues_the_remotion_file(client, monkeypatch):
     assert 'illustration' not in payload and 'manual' not in payload
 
 
+def test_project_e_english_queues_dubbed_remotion(client, monkeypatch):
+    """EN create-video must queue; voice is built in the worker, not blocked at the button."""
+    from backend import director_v3
+    pid = create(client).json()['id']
+    seed_plan(pid)
+    monkeypatch.setattr(director_v3, 'PROJECT_ID', pid)
+    line = {
+        'start': 0, 'end': 4, 'original': 'Планируете переезд в другую страну',
+        'en': 'Planning a move to another country', 'ru': 'Планируете переезд в другую страну', 'zh': '',
+    }
+    with connect() as db:
+        stored = json.loads(db.execute('SELECT plan FROM studio_projects WHERE project_id=?', (pid,)).fetchone()[0])
+        stored['transcript'] = [line]
+        db.execute(
+            'UPDATE studio_projects SET plan=? WHERE project_id=?',
+            (json.dumps(stored, ensure_ascii=False), pid),
+        )
+    started = client.post(f'/api/studio/projects/{pid}/create-video', json={
+        'animation_percent': 60, 'intensity_percent': 60, 'motion_percent': 80, 'density_percent': 70,
+        'language': 'en-US', 'voice': 'en-male',
+    })
+    assert started.status_code == 200, started.text
+    with connect() as db:
+        row = db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='director_v3'", (pid,)).fetchone()
+    payload = json.loads(row[0])
+    assert payload['dubbed'] is True
+    assert payload['target_language'] == 'en-US'
+    assert payload['voice'] == 'en-male'
+    assert (payload.get('plan') or {}).get('transcript')
+
+
 def test_project_e_duration_follows_the_control(client, monkeypatch):
     from backend import director_v3
     pid = create(client).json()['id']

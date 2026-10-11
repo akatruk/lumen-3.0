@@ -116,10 +116,11 @@ export function ProjectJobStatus({
   const title = busy
     ? activityTitle(p.metadata?.activity, lang, p.stage) || projectPhase(lang, p)
     : projectPhase(lang, p);
+  const activityNote = p.metadata?.activity?.note || "";
   const detail = busy
     ? activityDetail(p.metadata?.activity, lang, p.stage)
     : p.error
-      ? err
+      ? [err, activityNote && activityNote !== err ? activityNote : ""].filter(Boolean).join(" — ")
       : p.result?.render_id
         ? w("Можно смотреть и скачать текущую версию.", "You can play and download the current version.", "可播放并下载当前版本。")
         : w("Исходник сохранён. Можно создать видео.", "Your original is safe. You can create a video.", "原始素材已保留，可以创建视频。");

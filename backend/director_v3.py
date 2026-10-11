@@ -79,6 +79,30 @@ def speaker_for(seconds, source: Path):
     return 'source-edit.mp4'
 
 
+def speaker_with_dub(speaker_name: str, dub_path: Path) -> str:
+    """Replace speaker audio with the finished dubbed track. Video stays the host picture."""
+    public = _public_director()
+    src = public / speaker_name
+    if not src.is_file():
+        raise ValueError('director_v3_render_failed')
+    if not Path(dub_path).is_file():
+        raise ValueError('target_voice_not_ready')
+    out_name = 'speaker-dub.mp4'
+    out = public / out_name
+    if out.exists():
+        out.unlink()
+    media.ffmpeg(
+        '-y', '-i', src, '-i', dub_path,
+        '-map', '0:v:0', '-map', '1:a:0',
+        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+        '-shortest', '-movflags', '+faststart', out,
+        timeout=600,
+    )
+    if not out.is_file() or out.stat().st_size < 10_000:
+        raise ValueError('target_voice_not_ready')
+    return out_name
+
+
 def _remotion_env(root: Path) -> dict:
     """Point caches at a writable volume when the repo tree is read-only (systemd)."""
     env = os.environ.copy()
@@ -164,11 +188,39 @@ def run_job(p, payload):
     visual_plan = (payload or {}).get('visual_plan')
     speaker = speaker_for(seconds, settings.data_dir / p['id'] / 'source')
     from . import remotion_engine
+    from .worker import progress
     target_locale = (
         (visual_plan or {}).get('language')
         or (payload or {}).get('target_language')
         or (payload or {}).get('language')
     )
+    dubbed = bool((payload or {}).get('dubbed'))
+    if not dubbed:
+        mode = ((payload or {}).get('voice_resolution') or {}).get('mode')
+        dubbed = mode == 'dubbed'
+    if dubbed:
+        # Same path as Hypit: build target speech, then put it on the speaker cut.
+        # Never leave source RU audio under an EN/ZH label.
+        locale_label = target_locale or (payload or {}).get('language') or 'target'
+        progress(
+            p['id'], 'preparing_voice', 18,
+            note=f'Building {locale_label} voice on GPU (Qwen3-TTS). Source RU audio is not used.',
+            plan=['preparing_voice', 'drawing_graphics', 'rendering', 'assembling', 'checking'],
+        )
+        from .worker import _dub_for_job
+        record = _dub_for_job(p['id'], payload or {}, folder)
+        dub_file = (record.get('audio') or {}).get('file')
+        if not dub_file:
+            raise ValueError('target_voice_not_ready')
+        progress(
+            p['id'], 'preparing_voice', 28,
+            note=f'Muxing {locale_label} voice onto the speaker picture…',
+        )
+        speaker = speaker_with_dub(speaker, Path(dub_file))
+        progress(
+            p['id'], 'drawing_graphics', 35,
+            note='Voice ready. Staging Remotion stills and scene plan…',
+        )
     if visual_plan is not None and target_locale and not visual_plan.get('language'):
         visual_plan = {**visual_plan, 'language': target_locale}
     render_plan = remotion_engine.resolve_scene_plan(
@@ -180,7 +232,12 @@ def run_job(p, payload):
         generation_id=(visual_plan or {}).get('generationId'),
     )
     remotion_engine.store_render_plan(settings.data_dir, p['id'], render_plan)
+    progress(
+        p['id'], 'rendering', 55,
+        note=f'Remotion DirectorV3 · {seconds}s · speaker={speaker}',
+    )
     digest = remotion_engine.render_with_plan(dest, render_plan)
+    progress(p['id'], 'checking', 92, note='Probing finished MP4 (size, audio, duration)…')
     meta = _accept(dest, seconds)
     from .db import event, update
     from .studio import state
