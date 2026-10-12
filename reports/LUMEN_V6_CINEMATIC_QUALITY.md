@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-12  
 **Branch:** `feat/media-library-cleanup-v1`  
-**Tip SHA:** _(filled after commit)_  
+**Tip SHA:** `18e066d`  
 **Preview:** `output/director-v6/director-v6-e-preview-20s.mp4`  
 **Desktop:** `~/Desktop/director-v6-e-preview-20s.mp4`
 
