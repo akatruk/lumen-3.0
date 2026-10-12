@@ -121,3 +121,24 @@ def test_runpod_director_no_heuristic_swap(monkeypatch):
     assert isinstance(provider, RunPodDirectorProvider)
     with pytest.raises(RunpodLlmError):
         provider.build_plan(duration=20, language="en", transcript=[])
+
+
+def test_normalize_director_payload():
+    from backend.runpod_director_normalize import normalize_director_payload
+    from backend.studio import Director
+
+    raw = {
+        "summary": {"en": "a", "zh": "b", "ru": "c"},
+        "strongest_moment": "x",
+        "audience": "y",
+        "scores": [{"category": "clarity", "value": 70, "reason": "r"}],
+        "scenes": [{"start": 0, "end": 5, "title": "T", "observation": "O", "role": "hook"}],
+        "transcript": [{"start": 0, "end": 5, "text": "hi"}],
+        "recommendations": [{"id": "r1", "title": "t", "evidence": "e", "improvement": "i", "category": "visuals", "action": "captions", "start": 0, "end": 5}],
+        "uncertainties": ["u"],
+        "transfers": [],
+    }
+    plan = Director.model_validate(normalize_director_payload(raw, duration=20))
+    assert plan.scenes[0].role == "hook"
+    assert plan.recommendations == []
+    assert plan.transcript[0].original == "hi"
