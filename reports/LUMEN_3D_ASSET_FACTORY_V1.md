@@ -1,7 +1,7 @@
 # Lumen Premium 3D Asset Factory V1
 
 **Branch:** `feat/media-library-cleanup-v1`  
-**Git SHA:** _(filled after commit)_  
+**Git SHA:** `2af993f42ae62932a2df4e630c78ff4d61e0c499`  
 **Preview:** `output/director-v10/director-v10-e-preview-60s.mp4`  
 **Showcase:** `output/director-v10/3d-showcase.mp4`  
 **Desktop:** `~/Desktop/director-v10-e-preview-60s.mp4`
