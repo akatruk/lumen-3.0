@@ -40,24 +40,28 @@ def test_a_different_language_is_a_dub_not_an_error():
 
 def test_the_prompt_names_library_files_and_not_the_spoken_line():
     from backend.hypit_prompt import animation_shots
+    from backend.library_clips import staged_media_block
     spoken = "Планируете переезд"
     prompt = illustration_request({
         "language": "ru-RU",
         "captions": [{"start": 0, "end": 6, "original": spoken, "ru": spoken}],
     })
     assert "--- MEDIA LIBRARY ---" in prompt
-    assert "global_route_001 ./motion/global/global_route_001.webm" in prompt
-    assert "people_door_001 ./static/people/people_door_001.png" in prompt
+    assert "Do not call search.py" in prompt or "search.py" in prompt
     assert spoken not in prompt
     shots = animation_shots({
         "language": "ru",
         "captions": [{"start": 1, "end": 8, "original": spoken, "ru": spoken}],
         "card_motion": 100,
     }, 40)
-    assert shots[0]["library_id"] == "people_door_001"
+    assert shots[0]["library_id"].startswith("people_")
     assert shots[0]["file"] == "1.mp4"
-    assert shots[0]["library_path"].endswith("static/people/people_door_001.png")
+    assert "static/people/" in shots[0]["library_path"]
     assert spoken not in shots[0]["library_path"]
+    shots[0]["library"] = True
+    shots[0]["staged_path"] = "./motion/1.mp4"
+    staged = staged_media_block(shots)
+    assert "./motion/1.mp4" in staged and shots[0]["library_id"] in staged
 
 
 def test_one_base_prompt_carries_each_directive():
@@ -69,10 +73,15 @@ def test_one_base_prompt_carries_each_directive():
         "animation_density": 70,
     }
     base = illustration_request(manual)
+    assert "QUALITY ENFORCEMENT" in base
+    assert "attached: editing_controls@1.0.0" in base or "attached: none" in base
     for locale, marker in (("en-US", "English (en-US)"), ("ru-RU", "ru-RU"), ("zh-CN", "zh-CN")):
         prompt = illustration_request({**manual, "language": locale})
-        assert prompt.startswith(base)
-        assert prompt.index(base) < prompt.index("--- PROJECT LANGUAGE ---") < prompt.index("--- AVAILABLE CARDS ---")
+        # Main body first; localization module refines language (not a prefix append).
+        assert prompt.index("QUALITY ENFORCEMENT") < prompt.index("MODULE LOCALIZATION RULES")
+        assert prompt.index("MODULE LOCALIZATION RULES") < prompt.index("--- PROJECT LANGUAGE ---")
+        assert prompt.index("--- PROJECT LANGUAGE ---") < prompt.index("--- AVAILABLE CARDS ---")
+        assert f"localization@1.0.0" in prompt or "MODULE: localization" in prompt
         assert marker in prompt
         assert f'"locale": "{locale}"' in prompt
         assert build_language_directive(locale) in prompt

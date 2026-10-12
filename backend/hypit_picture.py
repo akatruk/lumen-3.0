@@ -5,6 +5,7 @@ that source. The prompt names the percent and the spoken words. ``hypit build``
 returns one video. Lumen does not cut the footage into scenes or set a
 parameter on each frame.
 """
+import html
 import json
 import logging
 import os
@@ -386,17 +387,39 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     program = _video_program_seconds(work / 'source.mp4')
     if program <= 0:
         program = duration
-    write_author(work, author_source(manual, width, height, board, language, voiceover=voiceover, duration=program))
+    markup = author_source(manual, width, height, board, language, voiceover=voiceover, duration=program)
+    write_author(work, markup)
     motion = work / 'motion'
     motion.mkdir(exist_ok=True)
     shots = animation_shots(manual, program)
-    from .library_clips import stage
+    from .library_clips import stage, staged_media_block, write_assets_manifest
+    from .hypit_prompt import illustration_request
     stage(motion, shots, width, height, ffmpeg)
     (motion / 'plan.json').write_text(json.dumps({
         'width': width,
         'height': height,
         'shots': shots,
     }, ensure_ascii=False))
+    # Persist the actual Hypit request + staged file map (not a reconstruction later).
+    prompt_text = illustration_request(manual)
+    staged_block = staged_media_block(shots)
+    final_prompt = prompt_text.rstrip() + '\n\n' + staged_block + '\n'
+    (work / 'final_prompt.txt').write_text(final_prompt, encoding='utf-8')
+    write_assets_manifest(work, shots, prompt_text=final_prompt)
+    # Append staged paths into the SVML request Value so Hypit sees resolvable refs.
+    try:
+        main = work / 'main.svml'
+        body = main.read_text(encoding='utf-8')
+        open_tag = '<text:Value id="request">'
+        close_tag = '</text:Value>'
+        if open_tag in body and 'STAGED LIBRARY FILES' not in body:
+            start = body.index(open_tag) + len(open_tag)
+            end = body.index(close_tag, start)
+            inject = html.escape(staged_block, quote=False)
+            body = body[:end] + '\n\n' + inject + body[end:]
+            main.write_text(body, encoding='utf-8')
+    except (OSError, ValueError):
+        pass
     shutil.copy(Path(__file__).resolve().parent / 'hypit_figures.py', work / 'hypit_figures.py')
     page = work / 'index.html'
     if page.is_file():

@@ -6,7 +6,7 @@ Usage (on a host that has RUNPOD_API_KEY in the environment):
   python3 scripts/runpod_pod_control.py resume
   python3 scripts/runpod_pod_control.py stop
 
-Only pod id nxi1rfwb94eufx (lumen-hypit-4090) is allowed. lumen-web-gpu is left alone.
+Only pod id sovtlhobiu7wvt (lumen-hypit-4090) is allowed. lumen-web-gpu is left alone.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import time
 import urllib.error
 import urllib.request
 
-ALLOWED_POD = "nxi1rfwb94eufx"
+ALLOWED_POD = "sovtlhobiu7wvt"
 ALLOWED_NAME = "lumen-hypit-4090"
 FORBIDDEN = {"hufsgfs9f7gpga"}
 

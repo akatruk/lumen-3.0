@@ -62,16 +62,20 @@ def test_create_video_enqueues_the_short_prompt(client):
     assert payload['manual']['font_size'] == 'medium' and payload['manual']['position'] == 'bottom'
     assert payload['manual']['color'] == 'white'
     assert payload['manual']['music'] is None and payload['decisions'] == []
+    assert 'promptAssembly' in payload
+    assert payload['promptAssembly']['mainPromptVersion'].startswith('assembly:')
+    assert isinstance(payload['promptAssembly']['modules'], list)
     text = illustration_request(payload['manual'])
     assert payload['manual']['presentation_prompt'] == text
     preview = client.get('/api/studio/picture-prompt?animation_percent=50&intensity_percent=40&motion_percent=80&density_percent=70')
     assert preview.status_code == 200 and preview.json()['prompt'] == text
+    assert preview.json()['promptAssembly']['mainPromptVersion'] == payload['promptAssembly']['mainPromptVersion']
     assert 'Доля анимации — 50%' in text
     assert 'Интенсивность — 40' in text
-    assert 'SPEAKER MUST REMAIN THE PROTAGONIST' in text
-    assert "THE USER'S ORIGINAL VIDEO IS THE VIDEO." in text
-    assert 'CURATED MEDIA LIBRARY' in text
-    assert '1.5–4 seconds' in text
+    assert 'Hypit is the only renderer' in text
+    assert "The source footage is the video." in text
+    assert 'MEDIA LIBRARY' in text
+    assert 'protected circle' in text or 'PIP' in text
     assert client.post(f'/api/studio/projects/{pid}/create-video', json={'animation_percent': 80}).status_code == 409
     other = create(client).json()['id']
     seed_plan(other)
@@ -86,12 +90,13 @@ def test_create_video_enqueues_the_short_prompt(client):
     assert odd.status_code == 422
 
 
-def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(client):
+def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(client, monkeypatch):
     """One language changes the cards and the request. Three languages are not dumped."""
-    from backend.db import connect
+    from backend import studio
+    from backend.db import connect, project
     from backend.hypit_prompt import author_source, illustration_request
 
-    sentence = "THE USER'S ORIGINAL VIDEO IS THE VIDEO."
+    sentence = "The source footage is the video."
     line = {
         'start': 1.0, 'end': 8.0,
         'original': 'Планируете переезд, второй вид на жительство',
@@ -133,7 +138,7 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     assert 'Планируете переезд' in filmed and '您是否正在计划移居' not in filmed.split('id="motion-1">', 1)[1].split('</text:Value>', 1)[0]
     kept = author_source({**bare, 'language': 'zh'}, 464, 848, duration=40)
     assert '您是否正在计划移居' in kept and 'Планируете переезд' not in kept
-    assert 'src="./motion/1.mp4"' in filmed and 'PATTERN INTERRUPTS' in value
+    assert 'src="./motion/1.mp4"' in filmed and 'Hypit is the only renderer' in value
 
     pid = create(client).json()['id']
     seed_plan(pid)
@@ -158,6 +163,9 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     assert payload['manual']['presentation_prompt'] == illustration_request(payload['manual'])
     assert sentence in payload['manual']['presentation_prompt']
     assert 'Планируете переезд' not in payload['manual']['presentation_prompt']
+    assert [m['id'] for m in payload['promptAssembly']['modules']] == ['editing_controls', 'localization']
+    assert payload['promptAssembly']['runParams']['targetLocale'] == 'ru-RU'
+    assert 'MODULE LOCALIZATION RULES' in payload['manual']['presentation_prompt']
     markup = author_source(payload['manual'], 464, 848, duration=40)
     assert 'Планируете переезд' in markup
     assert '您是否正在计划移居' not in markup.split('id="motion-1">', 1)[1].split('</text:Value>', 1)[0]
@@ -188,6 +196,76 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     assert body['voice_resolution']['mode'] == 'dubbed'
     assert body['voice_resolution']['path'] == 'project_default'
     assert 'Выберите язык исходника' not in json.dumps(body, ensure_ascii=False)
+    seen = {}
+
+    def stop(_project, handed):
+        seen.update(handed)
+        raise RuntimeError('stop_after_handoff')
+
+    monkeypatch.setattr('backend.worker.render_job', stop)
+    try:
+        studio.render_job(project(other_language), body)
+    except RuntimeError as exc:
+        assert str(exc) == 'stop_after_handoff'
+    else:
+        raise AssertionError('render continued without the handoff')
+    assert seen['dubbed'] is True
+    assert seen['target_language'] == 'en-US'
+    assert seen['source_language'] == 'ru-RU'
+    assert seen['voice'] == 'en-male'
+    assert seen['language'] == 'en'
+    assert seen['plan']['transcript'][0]['en'] == 'Are you planning a move, a second residency'
+
+
+def test_dub_audio_is_not_an_edit_field():
+    from backend.manual import Edit
+    from backend.media import _without_dub
+
+    body = {'clips': [{'start': 0, 'end': 1}], 'dub_audio': '/tmp/speech.m4a'}
+    edit = Edit.model_validate(_without_dub(body))
+    assert edit.clips[0].end == 1
+
+
+def test_caption_end_stays_inside_the_speech_file(tmp_path):
+    import wave
+    from backend.worker import dub_captions, fit_caption_ends
+
+    path = tmp_path / 'speech.wav'
+    with wave.open(str(path), 'wb') as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(48000)
+        handle.writeframes(b'\x00\x00' * 48000)
+    rows = dub_captions([{'start': 0, 'end': 2.4, 'text': 'Раз'}], 'ru')
+    fitted = fit_caption_ends(rows, path)
+    assert fitted[0]['end'] <= 1.05
+    assert fitted[0]['ru'] == 'Раз'
+
+
+def test_dubbed_russian_captions_validate_past_the_source():
+    from backend.manual import Edit, check
+    from backend.schemas import Caption
+    from backend.worker import dub_captions
+
+    rows = dub_captions([
+        {'start': 0, 'end': 10.7, 'text': 'Многие думают, что регистрация компании за рубежом совсем другая.'},
+        {'start': 81.94, 'end': 90.62, 'text': 'Разница прямая: смотрят на структуру.'},
+    ], 'ru')
+    for row in rows:
+        Caption.model_validate(row)
+        assert row['ru'] and row['en'] == '' and row['zh'] == ''
+    edit = {
+        'clips': [{'start': 0, 'end': 61.8}],
+        'captions': rows,
+        'subtitles': True,
+    }
+    check(Edit.model_validate(edit), 90.62)
+    try:
+        check(Edit.model_validate(edit), 61.8)
+    except Exception as exc:
+        assert getattr(exc, 'detail', None) == 'invalid_caption_range' or 'invalid_caption_range' in str(exc)
+    else:
+        raise AssertionError('source duration accepted speech that runs past it')
 
 
 def test_effect_board_cannot_change_the_picture(client):

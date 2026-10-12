@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from pathlib import Path
 
@@ -16,6 +17,48 @@ from . import media
 from .providers import get_director_provider, get_llm_provider, get_transcript_provider
 
 ANALYSIS_VERSION = "source-v1"
+_PLACEHOLDER_LINE = re.compile(r'^\[(segment\s+\d+|audio|no speech)\]$', re.I)
+
+
+def is_placeholder_transcript(segments) -> bool:
+    """True when ASR fell back to silence-grid labels like [segment 1]."""
+    rows = list(segments or [])
+    if not rows:
+        return True
+    texts = []
+    for row in rows:
+        if isinstance(row, dict):
+            texts.append(str(row.get('text') or row.get('original') or row.get('en') or '').strip())
+        else:
+            texts.append(str(getattr(row, 'original', None) or getattr(row, 'en', None) or getattr(row, 'text', None) or '').strip())
+    usable = [t for t in texts if t]
+    if not usable:
+        return True
+    hits = sum(1 for t in usable if _PLACEHOLDER_LINE.match(t) or t in ('…', '...'))
+    return hits >= max(1, (len(usable) + 1) // 2)
+
+
+def _transcribe_source(source: Path, *, language: str, duration: float | None) -> tuple[list[dict], str]:
+    """Real ASR when available. Stamp the provider that actually produced the lines."""
+    transcript_provider = get_transcript_provider()
+    try:
+        if transcript_provider.name == "placeholder":
+            segments = transcript_provider.transcribe(
+                source, language=language, duration=duration
+            )
+        else:
+            segments = transcript_provider.transcribe(source, language=language)
+        used = transcript_provider.name
+    except Exception:
+        placeholder = get_transcript_provider("placeholder")
+        segments = placeholder.transcribe(
+            source, language=language, duration=duration
+        )
+        used = placeholder.name
+    if is_placeholder_transcript(segments) and used != "placeholder":
+        # Provider claimed success but returned silence-grid labels.
+        used = "placeholder"
+    return segments, used
 
 
 def source_checksum(path: Path) -> str:
@@ -39,7 +82,7 @@ def enrich_metadata(meta: dict, path: Path | None = None) -> dict:
     return out
 
 
-def _cache_valid(meta: dict, path: Path) -> bool:
+def _cache_valid(meta: dict, path: Path, plan: dict | None = None) -> bool:
     if not path.is_file():
         return False
     if (meta or {}).get("analysis_version") != ANALYSIS_VERSION:
@@ -47,7 +90,14 @@ def _cache_valid(meta: dict, path: Path) -> bool:
     cached = (meta or {}).get("source_checksum")
     if not cached:
         return False
-    return cached == source_checksum(path)
+    if cached != source_checksum(path):
+        return False
+    # Placeholder ASR must never block a real Create Video re-analysis.
+    if (meta or {}).get("transcript_provider") == "placeholder":
+        return False
+    if plan is not None and is_placeholder_transcript((plan or {}).get("transcript")):
+        return False
+    return True
 
 
 def plan_cache_hit(pid: str) -> bool:
@@ -60,7 +110,7 @@ def plan_cache_hit(pid: str) -> bool:
     with connect() as db:
         row = db.execute("SELECT metadata FROM projects WHERE id=?", (pid,)).fetchone()
     meta = json.loads(row["metadata"] or "{}") if row else {}
-    return _cache_valid(meta, folder / "source")
+    return _cache_valid(meta, folder / "source", s.get("plan"))
 
 
 def build_local_plan(pid: str, *, language: str = "en") -> dict:
@@ -73,19 +123,9 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
         media.prepare(source, folder)
         meta["preview_ready"] = True
 
-    transcript_provider = get_transcript_provider()
-    try:
-        if transcript_provider.name == "placeholder":
-            segments = transcript_provider.transcribe(
-                source, language=language, duration=float(meta["duration"])
-            )
-        else:
-            segments = transcript_provider.transcribe(source, language=language)
-    except Exception:
-        placeholder = get_transcript_provider("placeholder")
-        segments = placeholder.transcribe(
-            source, language=language, duration=float(meta["duration"])
-        )
+    segments, transcript_name = _transcribe_source(
+        source, language=language, duration=float(meta["duration"])
+    )
 
     director = get_director_provider("none")  # local baseline — never silent LLM claim
     plan = director.build_plan(
@@ -98,7 +138,7 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
     return {
         "plan": plan,
         "metadata": meta,
-        "transcript_provider": transcript_provider.name,
+        "transcript_provider": transcript_name,
         "director_provider": director.name,
         "director_mode": "heuristic",
         "analysis_quality": "local_baseline",
@@ -143,7 +183,7 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
     lang = language or (row["language"] if row else None) or "en"
 
     s = state(pid)
-    if not force and s and s.get("plan") and _cache_valid(meta, source):
+    if not force and s and s.get("plan") and _cache_valid(meta, source, s.get("plan")):
         mode = (s.get("context") or {}).get("director_mode") or meta.get("director_mode") or "unknown"
         return {
             "reused": True,
@@ -164,28 +204,18 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
         if not llm.available():
             raise RunpodLlmError(RUNPOD_LLM_UNAVAILABLE)
         director = RunPodDirectorProvider()
-        transcript_provider = get_transcript_provider()
-        try:
-            if transcript_provider.name == "placeholder":
-                segments = transcript_provider.transcribe(
-                    source, language=lang, duration=float(meta.get("duration") or 0) or None
-                )
-            else:
-                segments = transcript_provider.transcribe(source, language=lang)
-        except Exception:
-            placeholder = get_transcript_provider("placeholder")
-            segments = placeholder.transcribe(
-                source, language=lang, duration=float(meta.get("duration") or media.probe(source)["duration"])
-            )
+        duration = float(meta.get("duration") or media.probe(source)["duration"])
+        segments, transcript_name = _transcribe_source(
+            source, language=lang, duration=duration
+        )
         if not (folder / "analysis.mp4").exists():
             media.prepare(source, folder)
             meta = {**meta, "preview_ready": True}
-        duration = float(meta.get("duration") or media.probe(source)["duration"])
         plan = director.build_plan(duration=duration, language=lang, transcript=segments, dna=[])
         validate_director(plan, [])
         stamp = {
-            "analysis_provider": transcript_provider.name,
-            "transcript_provider": transcript_provider.name,
+            "analysis_provider": transcript_name,
+            "transcript_provider": transcript_name,
             "director_provider": "runpod",
             "director_mode": "runpod",
             "analysis_quality": "llm",

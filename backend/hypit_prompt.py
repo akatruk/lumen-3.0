@@ -18,8 +18,6 @@ RUN = '''<?svml using="@hypit/run-markup@1"?>
 
 _MARKUP = '<?svml using="@hypit/markup@1"?>'
 
-_ASSEMBLY = Path(__file__).resolve().parent / 'assembly_prompt.txt'
-
 _RECIPES = '''<?svml using="@hypit/svs@1"?>
 
 <sheet version="1">
@@ -35,7 +33,7 @@ _RECIPES = '''<?svml using="@hypit/svs@1"?>
   }
   caption.line {
     stack-order: 80;
-    x: 0.5; y: 0.9; width: 0.92; height: 0.22;
+    x: 0.5; y: 0.72; width: 0.92; height: 0.16;
     anchor-x: center; anchor-y: bottom;
     align: center; block-align: end; wrap: word;
     size: 28; line-height: 1.2; fill: #FFFFFF;
@@ -46,7 +44,7 @@ _RECIPES = '''<?svml using="@hypit/svs@1"?>
   }
   caption.host-bottom {
     stack-order: 80;
-    x: 0.5; y: 0.88; width: 0.92; height: 0.24;
+    x: 0.5; y: 0.70; width: 0.92; height: 0.16;
     anchor-x: center; anchor-y: bottom;
     align: center; block-align: end; wrap: word;
     size: 28; line-height: 1.2; fill: #FFFFFF;
@@ -170,14 +168,9 @@ def _levels(manual):
 
 def _sentence(levels):
     """The assembly brief, plus the studio sliders. The brief file has no format fields."""
-    brief = _ASSEMBLY.read_text(encoding='utf-8').strip()
-    levels_line = (
-        f"Доля анимации — {levels['animation']}% каждой минуты. "
-        f"Интенсивность — {levels['intensity']}. "
-        f"Движение — {levels['motion']}%. "
-        f"Визуальная плотность — {levels['density']}%."
-    )
-    return f"{brief}\n\n--- STUDIO LEVELS ---\n{levels_line}\n--- END STUDIO LEVELS ---"
+    from .prompt_modules import assemble_hypit_prompt
+    # Levels-only path (no language) still goes through the assembler so versions match.
+    return assemble_hypit_prompt(levels).text
 
 
 def _output_language(manual):
@@ -201,31 +194,14 @@ def _has_script(text, script):
 
 
 def illustration_request(manual=None):
-    """The sentence Hypit films. One base prompt, plus the project language and its cards."""
-    from .language import LanguageError, audio_instruction, build_language_directive, director_context_blocks, resolve_locale
-    levels = _levels(manual)
-    sentence = _sentence(levels)
-    language = _as_dict(manual).get('language')
-    if not language:
-        return sentence
-    try:
-        locale = resolve_locale(language)
-    except LanguageError:
-        return sentence
-    cards, motion, media, context = director_context_blocks(locale)
-    from .library_clips import media_block
-    listed = media_block()
-    if listed:
-        media = listed
-    return "\n\n".join((
-        sentence,
-        build_language_directive(locale),
-        audio_instruction(manual, locale),
-        cards,
-        motion,
-        media,
-        context,
-    ))
+    """The sentence Hypit films. Main prompt + applicable modules (localization, …)."""
+    return assemble_illustration(manual).text
+
+
+def assemble_illustration(manual=None):
+    """Full assembly (text + versions) for the Hypit create-video path."""
+    from .prompt_modules import assemble_hypit_prompt
+    return assemble_hypit_prompt(_as_dict(manual) or _levels(manual))
 
 
 def picture_prompt(edit, board=None, voiceover=False, reference=None, style=None):
@@ -287,6 +263,9 @@ def _display_line(caption, language):
     return _graphic_text(caption)
 
 
+_PLACEHOLDER_CAPTION = re.compile(r'^\[(segment\s+\d+|audio|no speech)\]$', re.I)
+
+
 def _phrase_rows(manual):
     """Timed lines. display is the switch language. source is what the host said."""
     language = _output_language(manual)
@@ -297,6 +276,9 @@ def _phrase_rows(manual):
         source = _graphic_text(caption)
         display = _display_line(caption, language)
         if not display or display == '口播' or display in seen:
+            continue
+        # Silence-grid ASR labels must never become on-screen graphics or library queries.
+        if _PLACEHOLDER_CAPTION.match(display) or _PLACEHOLDER_CAPTION.match(source or ''):
             continue
         try:
             start = float(caption.get('start') or 0)
