@@ -84,8 +84,11 @@ def resolve_scene_plan(
     Enforces same-source ban (main plate vs inset) via director_media_rules.
     """
     from .director_media_rules import sanitize_scene_layers
+    from .director_execution import enforce_plan
 
     plan = dict(visual_plan or {})
+    # Structured execution contract + deterministic repairs (Director V4).
+    plan = enforce_plan(plan)
     seed = int(plan.get('visualSeed') or plan.get('visual_seed') or 0)
     scenes = []
     for raw in plan.get('scenes') or []:
@@ -98,8 +101,12 @@ def resolve_scene_plan(
             'background': dict(raw.get('background') or {}),
             'foreground': dict(raw.get('foreground') or {}),
             'typography': dict(raw.get('typography') or {}),
+            'execution': dict(raw.get('execution') or {}),
+            'repairs': list(raw.get('repairs') or []),
             'transition': raw.get('transition') or 'cut',
             'motionIntensity': raw.get('motionIntensity') or 'medium',
+            'animateGraphics': raw.get('animateGraphics', True),
+            'overlayBudget': raw.get('overlayBudget'),
             'rejected': list(raw.get('rejected') or []),
             'mediaGap': raw.get('mediaGap'),
         }
@@ -124,6 +131,7 @@ def resolve_scene_plan(
         'artDirection': plan.get('artDirection') or plan.get('visualStyle'),
         'visualEnergy': plan.get('visualEnergy') or 'balanced',
         'motionIntensity': plan.get('motionIntensity') or 'medium',
+        'editingControls': dict(plan.get('editingControls') or {}),
         'speakerFile': speaker_file,
         'sourceRef': source_ref,
         'conceptTriggers': bool(concept_triggers if plan.get('conceptTriggers') is None else plan.get('conceptTriggers')),
@@ -132,6 +140,7 @@ def resolve_scene_plan(
         'heroObject': _hero_or_none(plan.get('heroObject'), scenes),
         'motionRegistry': list(RENDERABLE_SCENE_TYPES),
         'scenes': scenes,
+        'executionCompliance': plan.get('executionCompliance') or {},
         'audio': {
             'speech': speaker_file,
             'bed': 'bed.mp3',
@@ -165,11 +174,13 @@ def visual_plan_from_render_plan(render_plan: dict) -> dict:
         'artDirection': render_plan.get('artDirection'),
         'visualEnergy': render_plan.get('visualEnergy'),
         'motionIntensity': render_plan.get('motionIntensity'),
+        'editingControls': render_plan.get('editingControls') or {},
         'conceptTriggers': render_plan.get('conceptTriggers', True),
         'backgroundPlate': render_plan.get('backgroundPlate'),
         'heroObject': render_plan.get('heroObject'),
         'scenes': render_plan.get('scenes') or [],
         'language': render_plan.get('locale'),
+        'executionCompliance': render_plan.get('executionCompliance') or {},
     }
 
 

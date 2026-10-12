@@ -43,4 +43,5 @@ Implemented (not aspirational):
 - Rules: `director_media_rules.py`; captions keyed to `beatsFor`; RouteLink under face band; caption bottom = `captionClearance`.
 - `recent_asset_ids` reads all `visual-history/*.json` (not only `gen_*`); prefer non-recent plates; FG skips `concept_*`.
 - Consult: one cover + presenter PIP from `speakerFile` — never duplicate library inset.
+- **Director V4 execution compliance:** `backend/director_execution.py` validates/repairs structured `execution` (min PIP ≥324px, incomplete headings, fragment cards, redundant stats) inside `remotion_engine.resolve_scene_plan`. Remotion `pipRect()` enforces layout floor. Report: `reports/DIRECTOR_EXECUTION_COMPLIANCE.md`.
 - **Gap:** DirectorV3 caption *strings* still RU immigration pack — locale flag does not localize lines (EN/ZH unavailable until transcript wiring).

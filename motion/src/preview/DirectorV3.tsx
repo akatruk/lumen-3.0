@@ -8,7 +8,7 @@ import { normalizeScene } from "../registry/validateScene";
 import { renderScene } from "../registry/motionRegistry";
 import { ConceptViz, syncConceptTriggers, type SyncedConceptTrigger } from "../concepts";
 import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
-import { PORTRAIT, criteriaCardsFor, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
+import { PORTRAIT, criteriaCardsFor, pipRect, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 const media = (name: string) => staticFile(`director-v3/${name}`);
@@ -26,6 +26,19 @@ export type SceneLook = {
   typography: { animate?: string };
   transition: string;
   motionIntensity: "low" | "medium" | "high";
+  /** From editing_controls Animation % — false skips purposeful plate motion. */
+  animateGraphics?: boolean;
+  /** From editing_controls Density % — caps concurrent overlays. */
+  overlayBudget?: number;
+};
+
+export type EditingControls = {
+  animation: number;
+  intensity: number;
+  motion: number;
+  density: number;
+  visualEnergy?: string;
+  preset?: string;
 };
 
 export type VisualPlan = {
@@ -38,6 +51,8 @@ export type VisualPlan = {
   backgroundPlate?: "ink_lift" | "paper_grain" | "navy_grid" | "gold_veil" | "soft_vignette" | null;
   heroObject?: "passport" | "key" | "globe" | "house" | null;
   language?: SupportedLocale;
+  editingControls?: EditingControls | null;
+  motionIntensity?: "low" | "medium" | "high";
 };
 
 export type DirectorV3Props = {
@@ -58,7 +73,33 @@ const LOOK: SceneLook = {
 };
 
 export function sceneLook(plan: VisualPlan | null | undefined, sceneId: string): SceneLook {
-  return plan?.scenes?.find((scene) => scene.sceneId === sceneId) ?? { ...LOOK, sceneId };
+  const raw = plan?.scenes?.find((scene) => scene.sceneId === sceneId) ?? { ...LOOK, sceneId };
+  // Animation slider: scenes outside the share keep the host picture, no plate motion.
+  if (raw.animateGraphics === false) {
+    return {
+      ...raw,
+      motionIntensity: "low",
+      background: { ...raw.background, treatment: "static_editorial" },
+    };
+  }
+  return raw;
+}
+
+/** Motion × Intensity → Remotion amplitude gain (speech rate untouched). */
+export function editingMotionGain(controls?: EditingControls | null): number {
+  if (!controls) return 1;
+  const motion = Math.max(0, Math.min(100, Number(controls.motion) || 80));
+  const intensity = Math.max(5, Math.min(100, Number(controls.intensity) || 60));
+  return Math.max(0.35, Math.min(1.75, (motion / 100) * (0.55 + intensity / 200)));
+}
+
+/** Density → max concurrent concept overlays (relevance still wins upstream). */
+export function editingConceptCap(controls?: EditingControls | null): number {
+  const density = controls ? Number(controls.density) : 70;
+  if (density < 25) return 0;
+  if (density < 55) return 2;
+  if (density < 80) return 4;
+  return 8;
 }
 
 export function framesForSeconds(seconds: number) {
@@ -164,6 +205,7 @@ function Move({
 }) {
   const frame = useCurrentFrame();
   const span = Math.max(1, frames - 1);
+  // Plan band sets the base; editingControls Motion/Intensity already folded into scene band.
   const gain = intensity === "high" ? 1.4 : intensity === "low" ? 0.55 : 1;
   if (treatment === "gradient_reveal") {
     const opacity = interpolate(frame, [0, Math.min(16, span)], [0.45, 1], clamp);
@@ -293,7 +335,7 @@ function Speaker({
   );
   if (!circle) return video;
   // Rounded portrait PIP — continuous scale from full frame, never a tiny face circle.
-  const pip = PORTRAIT.conceptPip;
+  const pip = pipRect();
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       <div
@@ -458,7 +500,7 @@ function Consult({
   // One cover only: prefer staged library plate; fallback consult.mp4. Never also inset the same source.
   const cover = staged && !/document_approval/i.test(staged) ? staged : "consult.mp4";
   const coverVideo = /\.(mp4|webm|mov)$/i.test(cover);
-  const pip = PORTRAIT.conceptPip;
+  const pip = pipRect();
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill style={{ background: theme.color.bg }}>
@@ -683,9 +725,14 @@ export function DirectorV3({
     const animate = (looks[sceneId].typography.animate || "fade") as "fade" | "pop" | "mask" | "slide";
     return { ...row, animate };
   });
-  const conceptOn = visualPlan?.conceptTriggers !== false;
+  const controls = visualPlan?.editingControls || null;
+  const motionGain = editingMotionGain(controls);
+  const conceptCap = editingConceptCap(controls);
+  const conceptOn = visualPlan?.conceptTriggers !== false && conceptCap > 0;
   // Captions already use composition frames — do not scale again.
-  const concepts: SyncedConceptTrigger[] = conceptOn ? syncConceptTriggers(captions, 1) : [];
+  const concepts: SyncedConceptTrigger[] = conceptOn
+    ? syncConceptTriggers(captions, 1).slice(0, conceptCap)
+    : [];
   // Editorial layouts already carry the idea — stacking concept cards causes face hits + black voids.
   const layoutOwned = [
     { from: hook.from, to: hook.from + hook.duration, skip: ["document_stamp", "family_cluster", "budget_scale"] },
@@ -719,7 +766,7 @@ export function DirectorV3({
       <Sequence from={hook.from} durationInFrames={hook.duration} name="hook">
         <ParallaxLayers
           frames={hook.duration}
-          intensity={looks.hook.motionIntensity === "high" ? 1.2 : 0.85}
+          intensity={(looks.hook.motionIntensity === "high" ? 1.2 : 0.85) * motionGain}
           layers={[{ depth: 0.4, children: <Hook file={speakerFile} from={hook.from} frames={hook.duration} look={looks.hook} /> }]}
         />
       </Sequence>

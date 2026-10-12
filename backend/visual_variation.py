@@ -399,12 +399,22 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
         media_gap = None
         if scene.get('query') and not asset:
             media_gap = {'sceneId': scene['id'], 'query': chosen_query, 'reason': 'no_eligible_library_hit'}
+        framing = (
+            'fullscreen' if layout in ('speaker_fullscreen', 'speaker_closeup', 'speaker_medium', 'speaker_punch_in')
+            else 'split' if layout in ('speaker_split_left', 'speaker_split_right')
+            else 'pip'
+        )
         record = {
             'sceneId': scene['id'],
             'semanticPurpose': scene['intent'],
             'query': chosen_query,
             'representation': scene.get('representation') or 'presenter',
-            'speaker': {'layout': layout, 'treatment': 'speaker_punch_in' if layout == 'speaker_punch_in' else layout},
+            'speaker': {
+                'layout': layout,
+                'treatment': 'speaker_punch_in' if layout == 'speaker_punch_in' else layout,
+                'framing': framing,
+                'visibility': 'primary' if framing in ('fullscreen', 'split') else 'pip',
+            },
             'background': {
                 'assetId': asset.get('id') if asset else None,
                 'file': asset.get('file') if asset else None,
@@ -419,6 +429,19 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
                 'query': fg_query,
             },
             'typography': {'treatment': text, 'animate': TEXT_TO_ANIMATE.get(text, 'fade')},
+            # Structured Director V4 execution contract (validated in remotion_engine).
+            'execution': {
+                'scenePurpose': scene['intent'],
+                'speakerFraming': framing,
+                'speakerVisibility': 'primary' if framing in ('fullscreen', 'split') else 'pip',
+                'mediaRole': 'supporting' if asset else 'none',
+                'headline': '',
+                'cardText': '',
+                'caption': '',
+                'captionMode': 'speech',
+                'motionPreset': TEXT_TO_ANIMATE.get(text, 'fade'),
+                'expectedResult': f'{framing} speaker with {scene["intent"]} intent',
+            },
             'transition': transition,
             'motionIntensity': _intensity(scene['base'], energy),
             'rejected': rejected,
@@ -485,11 +508,14 @@ def store_plan(data_dir, project_id, plan):
     return dest
 
 
-def plan_for_request(data_dir, project_id, variation, energy, language=None):
+def plan_for_request(data_dir, project_id, variation, energy, language=None, editing=None):
     """New generations get a new seed. Keep, a language switch, and a retry reuse the last plan.
 
     A language switch reuses the visual seed/scenes but always stamps the new
     ``language`` / targetLocale onto the plan — never keep a stale locale.
+
+    ``editing`` (animation/intensity/motion/density) is always re-applied so
+    slider changes affect Remotion even when the seed is kept.
     """
     if variation not in ('automatic', 'keep', 'remix'):
         raise ValueError('visual_variation')
@@ -500,9 +526,7 @@ def plan_for_request(data_dir, project_id, variation, energy, language=None):
         plan = dict(previous)
         if language:
             plan['language'] = language
-            store_plan(data_dir, project_id, plan)
-        return plan
-    if (
+    elif (
         variation == 'automatic'
         and previous
         and language
@@ -511,13 +535,22 @@ def plan_for_request(data_dir, project_id, variation, energy, language=None):
     ):
         plan = dict(previous)
         plan['language'] = language
-        store_plan(data_dir, project_id, plan)
-        return plan
-    seed = new_seed()
-    plan = resolve_plan(seed, energy, variation, recent_asset_ids(data_dir))
-    plan['generationId'] = f"gen_{seed}"
-    if language:
-        plan['language'] = language
+    else:
+        seed = new_seed()
+        plan = resolve_plan(seed, energy, variation, recent_asset_ids(data_dir))
+        plan['generationId'] = f"gen_{seed}"
+        if language:
+            plan['language'] = language
+    from .prompt_modules.editing_controls import apply_editing_controls
+    if editing is not None:
+        # Explicit slider pass (create-video) — always re-stamp Remotion prefs.
+        controls = dict(editing)
+        controls.setdefault('visualEnergy', energy)
+        plan = apply_editing_controls(plan, controls)
+    elif not plan.get('editingControls'):
+        # Fresh plan without slider payload — Balanced defaults once.
+        plan = apply_editing_controls(plan, {'visualEnergy': energy})
+    # Language/keep reuse with no new editing keeps prior editingControls as-is.
     store_plan(data_dir, project_id, plan)
     return plan
 

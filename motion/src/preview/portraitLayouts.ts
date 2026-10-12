@@ -21,14 +21,27 @@ export const PORTRAIT = {
     top: SAFE_INSET.top - 40,
     bottomClearance: SAFE_INSET.bottom + 36,
   },
-  /** Side PIP during concept overlays — rounded card, not a tiny circle. */
+  /**
+   * Side PIP during concept overlays — rounded card, not a tiny circle.
+   * Width ≥ ~30% of 1080 (Director V4 MIN_PIP). Phone-readable face/shoulders.
+   */
   conceptPip: {
-    width: 300,
-    height: 400,
-    right: 40,
+    width: 360,
+    height: 480,
+    right: 36,
     bottom: SAFE_INSET.bottom + 48,
   },
+  /** Absolute floor — layouts must not shrink speaker below this. */
+  minPipWidth: 324,
 } as const;
+
+/** Enforce Director V4 minimum speaker PIP size (never a decorative avatar). */
+export function pipRect(override?: Partial<{ width: number; height: number; right: number; bottom: number }>) {
+  const base = { ...PORTRAIT.conceptPip, ...(override || {}) };
+  const width = Math.max(base.width, PORTRAIT.minPipWidth);
+  const height = Math.max(base.height, Math.round(width * (4 / 3)));
+  return { ...base, width, height };
+}
 
 export type CriteriaCard = {
   title: string;
