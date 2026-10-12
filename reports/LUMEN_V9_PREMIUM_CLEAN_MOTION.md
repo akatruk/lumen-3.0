@@ -3,7 +3,7 @@
 **Branch:** `feat/media-library-cleanup-v1`  
 **Preview:** `output/director-v9/director-v9-e-preview-60s.mp4`  
 **Desktop:** `~/Desktop/director-v9-e-preview-60s.mp4`  
-**Git SHA:** _(filled after commit)_  
+**Git SHA:** `7ee985d6d602f8593ab7987096bd9b2300d8011b`  
 **Reference:** `output/director-v8/director-v8-e-preview-60s.mp4` (user rated 6/10)
 
 ## Result
