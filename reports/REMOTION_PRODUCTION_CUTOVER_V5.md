@@ -101,7 +101,7 @@ Contract preserved: `ru-RU` / `en-US` / `zh-CN`. Phrase grouping is locale-aware
 | Item | Value |
 | --- | --- |
 | Host | `142.93.248.163` `/opt/lumen-rebuild` |
-| Deploy SHA | `60a9153e583f39fbf7728256e64dd606f825e58f` |
+| Deploy SHA | `44022c6` (code cutover `60a2560` / tip includes deploy notes) |
 | Backup | `/opt/lumen-rebuild/backups/remotion-v5-20261012-154641.tar.gz` |
 | Flags | `FAST_PROJECT_CREATION_ENABLED=1`, `REMOTION_ENGINE_ENABLED=1`, `LLM_PROVIDER=none` |
 | Services | `lumen-web` + `lumen-worker` **active**; health `{"status":"ok",…,"fast_project_creation":true}` |
@@ -121,11 +121,12 @@ Contract preserved: `ru-RU` / `en-US` / `zh-CN`. Phrase grouping is locale-aware
 
 ## Git
 
-Feature commit: `60a2560` · docs stamp + tip: `60a9153`  
-Push: `feat/media-library-cleanup-v1` @ `60a9153` (no force)
+Feature commit: `60a2560` · tip: `44022c6`  
+Push: `feat/media-library-cleanup-v1` @ `44022c6` (no force)
 
 ## Remaining issues
 
 - Full-length production Create Video on lumen-test still needs post-deploy smoke (beyond 20s preview helper).
 - Target-language dubbed caption path needs a live dub render for `target_alignment` proof (unit-covered).
 - Hypit assembly path retained for unsupported / flag-off projects — not deleted.
+- Public DNS `lumen-test.universalgravity.org` currently resolves to `188.166.244.242` (strom-v2); app health verified on deploy host `142.93.248.163:8018` via SSH.
