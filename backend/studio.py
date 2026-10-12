@@ -117,6 +117,15 @@ class CreateVideo(Strict):
 class VideoLanguage(Strict):
     language: str = Field(min_length=2, max_length=16)
 
+class EditingControlsBody(Strict):
+    """Persist Calm/Balanced/Dynamic + sliders. Never enqueues render or TTS."""
+    animation_percent: int = Field(default=60, ge=0, le=100)
+    intensity_percent: int = Field(default=60, ge=5, le=100)
+    motion_percent: int = Field(default=80, ge=0, le=100)
+    density_percent: int = Field(default=70, ge=0, le=100)
+    visual_energy: str = Field(default='balanced')
+    visual_variation: str | None = None
+
 class VoicePreview(Strict):
     language: str = Field(min_length=2, max_length=16)
 
@@ -208,13 +217,21 @@ async def create(request:Request,config:str=Form(...),file:UploadFile=File(...),
                 return project(existing['project_id'],user['id'])
             count=db.execute("SELECT COUNT(*) FROM projects WHERE user_id=? AND status IN ('queued','analyzing','rendering')",(user['id'],)).fetchone()[0]
             if count>=3:raise HTTPException(429,'too_many_jobs')
-            db.execute('INSERT INTO projects(id,user_id,title,brief,language,aspect,auto_render,generative,budget,status,stage,metadata,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(pid,user['id'],body.title,body.script,body.language,'original',0,0,body.budget,'queued','queued',json.dumps(meta),now,now))
+            # Fast create: identity + source + ffprobe metadata only. No LLM / analyze job.
+            from .source_analysis import enrich_metadata, source_checksum
+            meta=enrich_metadata(meta, folder/'source')
+            meta['source_checksum']=source_checksum(folder/'source')
+            fast=bool(getattr(settings,'fast_project_creation_enabled',True))
+            initial_status='ready' if fast else 'queued'
+            initial_stage='ready' if fast else 'queued'
+            db.execute('INSERT INTO projects(id,user_id,title,brief,language,aspect,auto_render,generative,budget,status,stage,metadata,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(pid,user['id'],body.title,body.script,body.language,'original',0,0,body.budget,initial_status,initial_stage,json.dumps(meta),now,now))
             db.execute('INSERT INTO studio_projects(project_id,context) VALUES(?,?)',(pid,json.dumps(context,ensure_ascii=False)))
             db.execute('INSERT INTO studio_requests VALUES(?,?,?)',(user['id'],body.request_id,pid))
             if body.concept_id:
                 from .trends import attach_concept
                 attach_concept(db,user['id'],pid,body.concept_id)
-            enqueue(db,pid,'studio_analyze')
+            if not fast:
+                enqueue(db,pid,'studio_analyze')
     except Exception:
         shutil.rmtree(folder,ignore_errors=True);raise
     finally:
@@ -354,6 +371,51 @@ def save_video_language(pid: str, body: VideoLanguage, user=Depends(current_user
     return {'language': locale, 'label': saved['label'], 'typographyProfile': saved['typographyProfile'], 'voiceLocale': saved['voiceLocale']}
 
 
+@router.put('/projects/{pid}/editing-controls')
+def save_editing_controls(pid: str, body: EditingControlsBody, user=Depends(current_user)):
+    """Save montage prefs only. Does not queue analysis, TTS, or render."""
+    owned(pid, user)
+    for name in ('animation_percent', 'intensity_percent', 'motion_percent', 'density_percent'):
+        if getattr(body, name) % 5:
+            raise HTTPException(422, 'animation_step')
+    energy = body.visual_energy or 'balanced'
+    if energy not in ('calm', 'balanced', 'dynamic', 'custom'):
+        raise HTTPException(422, 'visual_energy')
+    from .prompt_modules.editing_controls import detect_preset, levels_from_manual
+    levels = levels_from_manual({
+        'card_motion': body.animation_percent,
+        'animation_intensity': body.intensity_percent,
+        'animation_motion': body.motion_percent,
+        'animation_density': body.density_percent,
+    })
+    preset = detect_preset(levels)
+    if energy in ('calm', 'balanced', 'dynamic') and preset != energy:
+        energy_label = 'custom'
+    else:
+        energy_label = energy if energy != 'custom' else preset
+    record = {
+        **levels,
+        'visualEnergy': energy_label,
+        'preset': preset,
+        'visualVariation': body.visual_variation,
+    }
+    with connect() as db:
+        db.lock()
+        current = state(pid, db)
+        if not current:
+            raise HTTPException(404, 'not_found')
+        context = dict(current['context'] or {})
+        context['editing_controls'] = record
+        context['visual_energy'] = energy_label
+        if body.visual_variation in ('automatic', 'keep', 'remix'):
+            context['visual_variation'] = body.visual_variation
+        db.execute(
+            'UPDATE studio_projects SET context=? WHERE project_id=?',
+            (json.dumps(context, ensure_ascii=False), pid),
+        )
+    return {'editing_controls': record}
+
+
 @router.get('/projects/{pid}/rendition')
 def rendition_board(pid: str, user=Depends(current_user)):
     """Status of each spoken rendition. Switching language does not delete the others."""
@@ -458,6 +520,16 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
     duration = float((p.get('metadata') or {}).get('duration') or 0)
     if duration <= 0:
         raise HTTPException(422, 'analysis_not_ready')
+    # Deferred analysis: build/reuse source plan here — not during upload.
+    with connect() as db:
+        s_pre = state(pid, db)
+    if not s_pre or not s_pre.get('plan'):
+        from .source_analysis import ensure_analysis
+        try:
+            ensure_analysis(pid, language=body.language or p.get('language'))
+        except Exception as exc:
+            raise HTTPException(422, str(exc) if str(exc) else 'analysis_not_ready') from None
+        p = owned(pid, user)
     with connect() as db:
         db.lock()
         s = state(pid, db)
@@ -479,7 +551,9 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             # Video language from the create-video control (not UI language). Fall back
             # to the saved studio video_language — never invent a silent RU default.
             saved_video = (s.get('context') or {}).get('video_language')
-            locale = _locale_or_422(body.language or saved_video)
+            # Prefer explicit create-video control, then saved video language, then
+            # project.language (set at upload). Never invent a silent default locale.
+            locale = _locale_or_422(body.language or saved_video or p.get('language'))
             if not locale:
                 raise HTTPException(422, 'unsupported_language')
             from .language import detect_source_locale, resolve_voice, short_code
@@ -498,18 +572,36 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             # Dubbed EN/ZH: queue the job and materialize speech in the worker
             # (same as Hypit). Never silently ship source RU VO under EN/ZH.
             _remember_language(db, pid, locale)
+            energy = body.visual_energy or 'balanced'
+            editing = {
+                'animation': levels['card_motion'],
+                'intensity': levels['animation_intensity'],
+                'motion': levels['animation_motion'],
+                'density': levels['animation_density'],
+                'visualEnergy': energy,
+            }
             try:
                 visual = plan_for_request(
                     settings.data_dir, pid,
                     body.visual_variation or 'automatic',
-                    body.visual_energy or 'balanced',
+                    energy if energy in ('calm', 'balanced', 'dynamic') else 'balanced',
                     locale,
+                    editing=editing,
                 )
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
             if remotion_engine.enabled():
-                visual = {**visual, 'conceptTriggers': True}
+                # Density may still gate overlays inside editing_controls.
+                visual = {**visual, 'conceptTriggers': visual.get('conceptTriggers', True)}
             visual = {**visual, 'language': locale}
+            # Persist montage prefs on the project (no paid work).
+            context = dict(s.get('context') or {})
+            context['editing_controls'] = visual.get('editingControls') or editing
+            context['visual_energy'] = energy
+            db.execute(
+                'UPDATE studio_projects SET context=? WHERE project_id=?',
+                (json.dumps(context, ensure_ascii=False), pid),
+            )
             # Same module assembly metadata as Hypit (locale + versions) for reproducibility.
             assembly = assemble_illustration({
                 'language': locale,
@@ -517,6 +609,7 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 'animation_intensity': levels['animation_intensity'],
                 'animation_motion': levels['animation_motion'],
                 'animation_density': levels['animation_density'],
+                'visual_energy': energy,
             })
             job = {
                 'revision': s['revision'],
@@ -531,6 +624,7 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 'voice_resolution': resolved,
                 'dubbed': resolved['mode'] == 'dubbed',
                 'plan': s.get('plan') or {},
+                'editing_controls': visual.get('editingControls') or editing,
             }
             job.update(assembly.job_fields())
             enqueue(db, pid, 'director_v3', job)
@@ -589,10 +683,27 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             presentation_prompt='', music=music,
         )
         from .hypit_prompt import assemble_illustration
-        assembly = assemble_illustration(edit)
+        energy = body.visual_energy or 'balanced'
+        assembly = assemble_illustration({
+            **(edit.model_dump() if hasattr(edit, 'model_dump') else dict(edit)),
+            'visual_energy': energy,
+        })
         prompt = assembly.text
         edit = edit.model_copy(update={'presentation_prompt': prompt})
         check(edit, duration)
+        context = dict(s.get('context') or {})
+        context['editing_controls'] = (assembly.run_params or {}).get('editingControls') or {
+            'animation': levels['card_motion'],
+            'intensity': levels['animation_intensity'],
+            'motion': levels['animation_motion'],
+            'density': levels['animation_density'],
+            'visualEnergy': energy,
+        }
+        context['visual_energy'] = energy
+        db.execute(
+            'UPDATE studio_projects SET context=? WHERE project_id=?',
+            (json.dumps(context, ensure_ascii=False), pid),
+        )
         if locale:
             (folder / 'director-prompt.txt').write_text(prompt, encoding='utf-8')
             (folder / 'prompt-assembly.json').write_text(
@@ -657,12 +768,20 @@ def _analysis_plan(context):
 def analyze(p):
     from .analysis_activity import note
     from .db import project as load_project
+    from .providers import get_llm_provider
     pid=p['id'];folder=settings.data_dir/pid;s=state(pid);context=s['context']
     update(pid,error=None)
     note(pid,'prepare',plan=_analysis_plan(context))
     meta=media.probe(folder/'source');media.prepare(folder/'source',folder)
     saved=(load_project(pid) or {}).get('metadata') or {}
     update(pid,metadata={**saved,**meta,'preview_ready':True})
+    llm=get_llm_provider()
+    # Without an LLM, skip Douyin DNA / OpenRouter Director — local source plan only.
+    if not llm.available():
+        from .source_analysis import ensure_analysis
+        note(pid,'director')
+        ensure_analysis(pid, language=(load_project(pid) or {}).get('language') or 'en', force=True)
+        return
     dna=s['dna']
     for ref in context['references']:
         if any(d['reference_id']==ref['aweme_id'] for d in dna):continue

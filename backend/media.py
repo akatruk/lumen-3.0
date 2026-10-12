@@ -56,9 +56,21 @@ def probe(path):
     duration=float(data['format'].get('duration') or video.get('duration') or 0)
     if not math.isfinite(duration) or duration<=0: raise ValueError('invalid_duration')
     if min(video['width'],video['height'])<16 or video['width']*video['height'] > 4096*4096: raise ValueError('resolution_too_large')
-    return {'duration':duration,'width':video['width'],'height':video['height'],
+    fps=None
+    rate=video.get('avg_frame_rate') or video.get('r_frame_rate') or ''
+    if isinstance(rate,str) and '/' in rate:
+        num,den=rate.split('/',1)
+        try:
+            den_f=float(den)
+            if den_f: fps=round(float(num)/den_f,3)
+        except (TypeError,ValueError):
+            fps=None
+    w,h=int(video['width']),int(video['height'])
+    orientation='portrait' if h>w else ('landscape' if w>h else 'square')
+    return {'duration':duration,'width':w,'height':h,
             'has_audio':any(s['codec_type']=='audio' for s in data['streams']),
-            'size':int(data['format']['size']),'codec':video['codec_name']}
+            'size':int(data['format']['size']),'codec':video['codec_name'],
+            'fps':fps,'orientation':orientation}
 
 def prepare(path, folder):
     duration=probe(path)['duration']
@@ -553,6 +565,13 @@ def picture_frame(metadata, aspect, picture_engine=None):
     return {'9:16': (1080, 1920), '16:9': (1920, 1080), '1:1': (1080, 1080), '4:5': (1080, 1350)}[aspect]
 
 
+def _without_dub(manual):
+    """Speech path is a file, not an edit field."""
+    if not isinstance(manual, dict):
+        return manual
+    return {key: value for key, value in manual.items() if key != 'dub_audio'}
+
+
 def render(source,folder,metadata,analysis,recommendations,language,aspect,brolls=None,timeline_override=None,manual=None,asset_paths=None,preserve_caption_master=False,voice_audio=None,on_progress=None,picture_engine=None,presentation_language=None,effect_board=None):
     def beat(stage, value):
         if on_progress:
@@ -560,8 +579,17 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
     if manual:
         from .manual import Edit,check
         from .schemas import Caption
+        dub_file = manual.pop('dub_audio', None) if isinstance(manual, dict) else None
         manual=Edit.model_validate(manual).model_dump()
-        check(Edit.model_validate(manual),metadata['duration'])
+        if dub_file:
+            manual['dub_audio'] = dub_file
+        limit = float(metadata['duration'])
+        if dub_file and Path(dub_file).is_file():
+            from .music import probe_audio
+            spoken = float((probe_audio(dub_file) or {}).get('duration') or 0)
+            if spoken > limit:
+                limit = spoken
+        check(Edit.model_validate(_without_dub(manual)), limit)
         approved=[c for c in manual['clips'] if c['approved']]
         if not approved:raise ValueError('no_approved_changes')
         timeline_override=[(c['start'],c['end']) for c in approved]
@@ -899,5 +927,5 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
     if metadata['has_audio'] and not output['has_audio']: raise ValueError('output_audio_missing')
     for p in [*parts,base,*folder.glob('overlay-*.mp4')]: p.unlink(missing_ok=True)
     from .timeline import compile_timeline
-    director_timeline=compile_timeline(Edit.model_validate(manual)) if manual else None
+    director_timeline=compile_timeline(Edit.model_validate(_without_dub(manual))) if manual else None
     return {'music':manual.get('music') if manual else None,'caption_master':bool(preserve_caption_master),'captions_enabled':bool(captions),'caption_style':{k:manual[k] for k in ('font_size','position','color')} if manual else {},'caption_transcript':[c for c in manual['captions']] if manual else [c.model_dump() for c in analysis.transcript],'director_timeline':director_timeline,'metadata':output,'timeline':timeline,'applied':[r.id for r in recommendations], 'generated_clips':len(brolls or [])}

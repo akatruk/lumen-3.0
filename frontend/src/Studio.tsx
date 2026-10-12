@@ -960,7 +960,7 @@ export function DirectorProject({
             workspace.styleTarget,
           )}
           {state?.plan && <div hidden={!manualTask}><ManualEditor serverRevision={state.revision} onDirtyChange={setManualDirty} hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} voiceover={<Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} embedded onFinalChange={()=>workspace?.refreshFinal()} onPreview={(url,label)=>workspace?.previewVersion(url,label)}/>} /></div>}
-          {manualTask&&!state?.plan&&<>{p.error?<div role="alert"><p>{message(p.error,lang)}</p></div>:<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}{p.error&&!p.analysis&&state?.context?.creator?.topic!=="real_estate"&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</>}
+          {manualTask&&!state?.plan&&<>{p.error?<div role="alert"><p>{message(p.error,lang)}</p></div>:<p role="status">{w('Исходник готов. План появится при создании видео — или откройте «Создать видео».','Source is ready. The plan is built when you create a video — use Create video.','原片已就绪。创建视频时会生成计划，请使用「创建视频」。')}</p>}{p.error&&!p.analysis&&state?.context?.creator?.topic!=="real_estate"&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</>}
           <div hidden={!!manualTask}>
           {manualDirty&&<p role="status">{w('Сначала сохраните правки в разделе «Эффекты».','Save your manual edits in Effects first.','请先在效果中保存手动更改。')}</p>}
           {p.error&&<div role="alert"><p>{message(p.error,lang)}</p>{!p.analysis&&state?.context?.creator?.topic!=="real_estate"&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</div>}
@@ -1144,8 +1144,8 @@ export function DirectorProject({
               {!state.plan ? (
                 <p role="status">
                   {t(
-                    "The editable plan appears after reference and owned-footage analysis.",
-                    "参考与自有素材分析完成后，将显示可编辑计划。",
+                    "No plan yet. Press Create video to run analysis and render — the editable plan appears after that.",
+                    "尚无计划。点击「创建视频」会运行分析并渲染，之后可编辑计划。",
                   )}
                 </p>
               ) : (

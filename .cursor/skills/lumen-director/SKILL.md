@@ -13,11 +13,17 @@ load and follow `docs/prompts/cinematic-director-v3-quality-recovery.md` before 
 Index: `docs/prompts/README.md`. Hypit handoff is separate: `backend/assembly_prompt.txt`.
 
 - Plans: `backend/visual_variation.py` (`resolve_plan`, `plan_for_request`)
+- Editing prefs: `prompt_modules/editing_controls.py` → `apply_editing_controls`
+  (Animation/Intensity/Motion/Density + Calm/Balanced/Dynamic). Create-video
+  passes `editing=` into `plan_for_request`; Remotion reads
+  `visualPlan.editingControls` (motion gain, concept cap, `animateGraphics`).
 - Engine wrap: `backend/remotion_engine.resolve_scene_plan`
 - Composition: `motion/src/preview/DirectorV3.tsx` (`DirectorV3Preview`)
 - Shared portrait geometry: `motion/src/preview/portraitLayouts.ts` (splits fill 1080×1920; face band; criteria explanations RU/EN/ZH)
 - Registry types/variants: `motion/src/types/scene.ts`
 - Concept triggers: `motion/src/concepts/` + `media/library/concept_triggers.py`
+
+Director runs at **Create video**, not at project upload. Default plan builder is local heuristic (`backend/providers/director.py`); OpenRouter is optional via `LLM_PROVIDER=openrouter`. Source transcript/cache: `backend/source_analysis.py`.
 
 Speaker presence is required. Same seed + versioned inputs → same visuals.
 Never emit CSS, React, or x/y from the Director.

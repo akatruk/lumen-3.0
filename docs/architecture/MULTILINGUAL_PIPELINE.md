@@ -10,6 +10,8 @@
 
 ## Rules
 
+- Language is chosen on the project / Create video — not by creating separate projects
+- Source transcript is cached and reused across target languages; changing language does not retranscribe
 - Never split Latin/Cyrillic words; CJK wraps without inserted spaces
 - Never invent statistics the source did not state
 - Never silently fall back to the wrong voice

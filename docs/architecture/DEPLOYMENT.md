@@ -13,4 +13,5 @@
 - Prefer testing stack for engine verification
 - Env files are CI-overwrite — change secrets via GitHub, not hand-edit
 - Rollback: set `REMOTION_ENGINE_ENABLED=false` → Hypit / prior path
+- Fast create: `FAST_PROJECT_CREATION_ENABLED=true` (default), `LLM_PROVIDER=none` (no OpenRouter on create). Rollback create: `FAST_PROJECT_CREATION_ENABLED=0` + funded `LLM_PROVIDER=openrouter`
 - Never `docker compose down -v` on production without explicit wipe approval

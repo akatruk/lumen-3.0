@@ -2,6 +2,7 @@
 
 ## CURRENT STATE
 
+- Project create does **not** call the Director. Deferred source plan: `backend/source_analysis.ensure_analysis` (heuristic by default; OpenRouter optional).
 - Semantic visual plan: `backend/visual_variation.resolve_plan(seed, energy)`
 - History: `data/<project>/visual-history/gen_*.json` + `latest.json`
 - Studio create-video (project «e») stores `visual_plan` on the `director_v3` job

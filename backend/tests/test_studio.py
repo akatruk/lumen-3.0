@@ -45,11 +45,12 @@ def test_roles_and_validation(client,monkeypatch):
  assert create(client,references=['b'*32]).status_code==422
  r=create(client);assert r.status_code==201
  pid=r.json()['id'];assert r.json()['studio'] is True
+ assert r.json()['status']=='ready'
  s=client.get('/api/studio/projects/'+pid).json()
  assert s['context']['references'][0]['role']=='reference_only'
  assert s['context']['platforms']==['douyin','instagram_reels','youtube_shorts','tiktok','xiaohongshu']
  assert (settings.data_dir/pid/'source').read_bytes()==b'owned-source-only'
- with connect() as db:assert db.execute('SELECT kind FROM jobs WHERE project_id=?',(pid,)).fetchone()[0]=='studio_analyze'
+ with connect() as db:assert db.execute('SELECT kind FROM jobs WHERE project_id=?',(pid,)).fetchone() is None
  app.dependency_overrides[current_user]=lambda:{'id':'v','email':'other@example.com'}
  assert client.get('/api/studio/projects/'+pid).status_code==404
  assert client.get('/api/studio/projects/'+pid+'/references/1234567890123456789').status_code==404
@@ -85,7 +86,8 @@ def test_render_uses_owned_source_and_edited_times(client,monkeypatch):
  studio.render_job(project(pid),dict(revision=3,plan=plan().model_dump(),decisions=[dict(id='cut',start=3,end=4,approved=True,locked=True)]))
  assert captured[0][0]['id']==pid
  assert captured[0][0]['analysis']['recommendations'][0]['start']==3
- assert captured[0][1]=={'recommendations':['cut']}
+ assert captured[0][1]['recommendations']==['cut']
+ assert 'plan' in captured[0][1]
  assert project(pid)['result']['plan_revision']==3
 
 
@@ -97,9 +99,16 @@ def test_create_retry_is_idempotent(client):
  assert first.json()['id']==second.json()['id']
  with connect() as db:
   assert db.execute('SELECT COUNT(*) FROM projects').fetchone()[0]==1
-  assert db.execute('SELECT COUNT(*) FROM jobs').fetchone()[0]==1
+  # Fast create: no analyze job enqueued
+  assert db.execute('SELECT COUNT(*) FROM jobs').fetchone()[0]==0
+
+def _enable_openrouter_analyze(monkeypatch):
+ monkeypatch.setattr(settings,'llm_provider','openrouter')
+ monkeypatch.setattr(settings,'openrouter_api_key','test-key')
+ monkeypatch.setattr(settings,'fast_project_creation_enabled',False)
 
 def test_retry_with_cached_reference_reaches_review_without_reanalyzing_reference(client,monkeypatch):
+ _enable_openrouter_analyze(monkeypatch)
  pid=create(client).json()['id']
  cached=[dict(reference_id='1234567890123456789',duration=20,analysis={'summary':T})]
  with connect() as db:
@@ -124,6 +133,7 @@ def test_retry_with_cached_reference_reaches_review_without_reanalyzing_referenc
 
 
 def test_analysis_automatically_queues_dna_based_decisions(client,monkeypatch):
+ _enable_openrouter_analyze(monkeypatch)
  pid=create(client).json()['id']
  cached=[dict(reference_id='1234567890123456789',duration=20,analysis={'summary':T})]
  with connect() as db:db.execute('UPDATE studio_projects SET dna=? WHERE project_id=?',(json.dumps(cached),pid))
@@ -138,6 +148,7 @@ def test_analysis_automatically_queues_dna_based_decisions(client,monkeypatch):
   assert db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='creative_plan'",(pid,)).fetchone()[0]==1
 
 def test_analysis_publishes_each_step_and_keeps_the_video_metadata(client,monkeypatch):
+ _enable_openrouter_analyze(monkeypatch)
  pid=create(client).json()['id']
  cached=[dict(reference_id='1234567890123456789',duration=20,analysis={'summary':T,'shots':[]})]
  with connect() as db:db.execute('UPDATE studio_projects SET dna=? WHERE project_id=?',(json.dumps(cached),pid))

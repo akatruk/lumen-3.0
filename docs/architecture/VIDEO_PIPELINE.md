@@ -8,14 +8,21 @@
 | Director V3 Remotion | Project «e» only (`director_v3.PROJECT_ID`) | `motion/` Remotion `DirectorV3Preview` |
 | Studio edit plan | All | `studio.state` + worker jobs |
 
-Flow today (typical project):
+Flow today (typical project) — **fast project creation** (`FAST_PROJECT_CREATION_ENABLED`, default on):
 
 ```
-upload → analysis → studio plan → create-video
-  → hypit prompt sentences
-  → picture job / FFmpeg assembly
-  → downloadable MP4
+upload → ffprobe metadata → status=ready (no LLM)
+  → user opens project / sets language / voice / style
+  → Create video
+       → reuse cached source analysis OR deferred local transcript + heuristic Director
+         (optional OpenRouter only if LLM_PROVIDER=openrouter)
+       → hypit prompt / Remotion («e»)
+       → picture job → downloadable MP4
 ```
+
+Invariant: **PROJECT CREATION MUST NOT REQUIRE AI INFERENCE.**
+
+See `docs/architecture/PROJECT_CREATION_REFACTOR.md`.
 
 Project «e»:
 

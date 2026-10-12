@@ -1583,12 +1583,24 @@ function ProjectView({
                 <ScanLine size={34} />
               </div>
               <h2>
-                {t(p.status === "failed" ? "stage_failed" : "analysisPending")}
+                {t(
+                  p.status === "failed"
+                    ? "stage_failed"
+                    : p.status === "ready"
+                      ? "status_ready"
+                      : "analysisPending",
+                )}
               </h2>
               <p>
                 {working
                   ? activityDetail(p.metadata?.activity, lang, p.stage)
-                  : t(p.status === "failed" ? "processing_failed" : "pendingDesc")}
+                  : t(
+                      p.status === "failed"
+                        ? "processing_failed"
+                        : p.status === "ready"
+                          ? "readyNoPlan"
+                          : "pendingDesc",
+                    )}
               </p>
               <div className="skeleton-line" />
               <div className="skeleton-line short" />

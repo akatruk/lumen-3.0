@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     # When true, create-video may use Remotion for non-«e» projects that request it.
     # Project «e» always uses Director V3 Remotion. Hypit remains the default fallback.
     remotion_engine_enabled: bool = False
+    # Fast project creation: upload → metadata → ready. No LLM / analyze job on create.
+    fast_project_creation_enabled: bool = True
+    # LLM for Director/DNA. Default none — OpenRouter is optional at generation only.
+    llm_provider: str = 'none'
+    # Transcript at generation: auto | whisperx | placeholder
+    transcript_provider: str = 'auto'
 
 settings = Settings()
 settings.data_dir.mkdir(parents=True, exist_ok=True)

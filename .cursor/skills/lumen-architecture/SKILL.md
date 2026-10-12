@@ -26,7 +26,8 @@ Prompt index: `docs/prompts/README.md`. Hypit assembly: `backend/assembly_prompt
 
 ## Restrictions
 
+- **PROJECT CREATION MUST NOT REQUIRE AI INFERENCE.** Upload → ffprobe metadata → `ready`. Deferred analysis runs on Create video (`backend/source_analysis.py`). See `docs/architecture/PROJECT_CREATION_REFACTOR.md`.
 - Do not invent a second composition engine in `frontend/` or `index.html`.
 - Do not restart RunPod for Remotion-only changes.
-- Feature flag: `REMOTION_ENGINE_ENABLED` / `settings.remotion_engine_enabled`.
+- Feature flags: `FAST_PROJECT_CREATION_ENABLED` (default on), `LLM_PROVIDER` (default `none`), `REMOTION_ENGINE_ENABLED`.
 - Acceptance = downloaded MP4 (`docs/RELEASE_CHECKS.md`).

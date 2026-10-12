@@ -102,11 +102,13 @@ const bilingualWords = {
     analysisPending: "Looking closely at your video",
     pendingDesc:
       "Lumen is examining your visuals and audio, then building a specific edit plan.",
+    readyNoPlan:
+      "Source is ready. Choose language and press Create video — analysis runs then.",
     queueDesc:
       "Your video is safely saved. Processing starts when a worker is available.",
     status_queued: "Queued",
     status_analyzing: "Analyzing",
-    status_ready: "Analysis ready",
+    status_ready: "Ready to edit",
     status_rendering: "Creating",
     status_complete: "Ready to export",
     status_needs_review: "Needs your review",
@@ -359,10 +361,11 @@ const bilingualWords = {
     source: "原始素材",
     analysisPending: "正在仔细理解视频",
     pendingDesc: "Lumen 正在分析画面和声音，并制定具体剪辑方案。",
+    readyNoPlan: "原片已就绪。选择语言后点击「创建视频」，届时再运行分析。",
     queueDesc: "视频已安全保存，工作进程空闲后会开始处理。",
     status_queued: "排队中",
     status_analyzing: "分析中",
-    status_ready: "分析完成",
+    status_ready: "可编辑",
     status_rendering: "制作中",
     status_complete: "可导出",
     status_needs_review: "需要复核",
