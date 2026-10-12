@@ -80,6 +80,12 @@ def film(work):
     """Capture work/visual.mp4 on lumen-hypit-4090. Speech uses that same pod."""
     work = Path(work)
     _hardware_runtime(work)
+    try:
+        from . import runpod_llm
+
+        runpod_llm.unload_model()
+    except Exception:
+        pass
     ip = port = None
     try:
         with pod_session() as (ip, port, _pod_id):

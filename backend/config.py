@@ -33,8 +33,13 @@ class Settings(BaseSettings):
     remotion_engine_enabled: bool = False
     # Fast project creation: upload → metadata → ready. No LLM / analyze job on create.
     fast_project_creation_enabled: bool = True
-    # LLM for Director/DNA. Default none — OpenRouter is optional at generation only.
+    # LLM for Director/DNA. Default none — OpenRouter/RunPod optional at generation only.
+    # Values: none | openrouter | runpod. runpod is fail-closed (RUNPOD_LLM_UNAVAILABLE).
     llm_provider: str = 'none'
+    runpod_llm_model: str = 'qwen2.5:7b-instruct'
+    runpod_llm_base_url: str = ''
+    runpod_llm_port: int = 11434
+    runpod_llm_api_key: str = 'lumen-runpod'
     # Transcript at generation: auto | whisperx | placeholder
     transcript_provider: str = 'auto'
 

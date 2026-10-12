@@ -126,8 +126,9 @@ def _stamp_director_mode(pid: str, *, director_mode: str, director_provider: str
 def ensure_analysis(pid: str, *, language: str | None = None, force: bool = False) -> dict:
     """Reuse cached plan when source checksum matches; else build at generation time.
 
-    Create stays AI-free. Generation may use OpenRouter only when LLM_PROVIDER=openrouter
-    and a key is present — otherwise heuristic with explicit director_mode.
+    Create stays AI-free. Generation may use OpenRouter when LLM_PROVIDER=openrouter,
+    or RunPod-local LLM when LLM_PROVIDER=runpod (fail-closed: RUNPOD_LLM_UNAVAILABLE).
+    Otherwise heuristic with explicit director_mode — never silent LLM claims.
     """
     from .studio import state, validate_director
 
@@ -154,8 +155,75 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
         }
 
     llm = get_llm_provider()
-    # Generation-time LLM Director (optional). Fast create remains AI-free either way.
-    if llm.available() and getattr(settings, "llm_provider", "none") in ("openrouter", "or"):
+    provider_name = (getattr(settings, "llm_provider", "none") or "none").strip().lower()
+
+    if provider_name in ("runpod", "runpod_llm", "local_runpod"):
+        from .providers.director import RunPodDirectorProvider
+        from .runpod_llm import RUNPOD_LLM_UNAVAILABLE, RunpodLlmError
+
+        if not llm.available():
+            raise RunpodLlmError(RUNPOD_LLM_UNAVAILABLE)
+        director = RunPodDirectorProvider()
+        transcript_provider = get_transcript_provider()
+        try:
+            if transcript_provider.name == "placeholder":
+                segments = transcript_provider.transcribe(
+                    source, language=lang, duration=float(meta.get("duration") or 0) or None
+                )
+            else:
+                segments = transcript_provider.transcribe(source, language=lang)
+        except Exception:
+            placeholder = get_transcript_provider("placeholder")
+            segments = placeholder.transcribe(
+                source, language=lang, duration=float(meta.get("duration") or media.probe(source)["duration"])
+            )
+        if not (folder / "analysis.mp4").exists():
+            media.prepare(source, folder)
+            meta = {**meta, "preview_ready": True}
+        duration = float(meta.get("duration") or media.probe(source)["duration"])
+        plan = director.build_plan(duration=duration, language=lang, transcript=segments, dna=[])
+        validate_director(plan, [])
+        stamp = {
+            "analysis_provider": transcript_provider.name,
+            "transcript_provider": transcript_provider.name,
+            "director_provider": "runpod",
+            "director_mode": "runpod",
+            "analysis_quality": "llm",
+            "llm_model": getattr(settings, "runpod_llm_model", ""),
+        }
+        with connect() as db:
+            db.execute(
+                "UPDATE studio_projects SET plan=?,decisions=?,revision=revision+1 WHERE project_id=?",
+                (plan.model_dump_json(), json.dumps([]), pid),
+            )
+        _stamp_director_mode(
+            pid,
+            director_mode="runpod",
+            director_provider="runpod",
+            analysis_quality="llm",
+            transcript_provider=transcript_provider.name,
+        )
+        update(
+            pid,
+            analysis=plan.model_dump(exclude={"transfers"}),
+            metadata={**meta, **stamp},
+            status="ready",
+            stage="ready",
+            progress=100,
+            error=None,
+        )
+        return {
+            "reused": False,
+            "plan": plan.model_dump(),
+            "metadata": {**meta, **stamp},
+            "provider": "runpod",
+            "director_mode": "runpod",
+            "director_provider": "runpod",
+            "analysis_quality": "llm",
+            "built_at": time.time(),
+        }
+
+    if llm.available() and provider_name in ("openrouter", "or"):
         from .studio import analyze
         from .db import project as load_project
 

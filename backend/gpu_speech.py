@@ -54,6 +54,12 @@ def speak_lines(jobs):
             'speaker': item['speaker'],
             'out': f'/tmp/lumen-speech-{index}.wav',
         })
+    try:
+        from . import runpod_llm
+
+        runpod_llm.unload_model()
+    except Exception:
+        pass
     with pod_session() as (ip, port, _pod_id):
         _install(ip, port)
         _infer(ip, port, specs)
