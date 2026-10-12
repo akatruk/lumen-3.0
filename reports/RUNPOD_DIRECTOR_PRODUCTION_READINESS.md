@@ -152,3 +152,102 @@ Flip to `LLM_PROVIDER=runpod` only after a Create Video that stamps `director_mo
 Readiness doc: this file.  
 Related code already on branch (`0970226` RunPod provider, `2651286` / later deploy markers).  
 Do not commit the 6.7 MB MP4.
+
+
+## Independent revalidation — 2026-10-12 (Asia/Bangkok)
+
+This section supersedes conflicting assertions above. No application code, deployment,
+provider configuration, GPU services or pod lifecycle were changed during this pass.
+
+### Verified evidence
+
+- Checkout: `/Users/akatruk_macbook/Documents/github/lumen-3.0`, initial HEAD
+  `722b51e`; remote branch `feat/media-library-cleanup-v1` matched that HEAD.
+  Existing modified and untracked user files were preserved.
+- Read-only SSH to `root@142.93.248.163` succeeded; hostname is `lumen-fix`.
+  `/opt/lumen-rebuild` is not a Git checkout, so its deployed SHA could not be
+  independently established with Git.
+- Local and server MP4 SHA-256 both equal
+  `ef9de2b4782b857c1e512f88d3f9d1f78dfca4029e9e6083809bad3a9842a95d`.
+  Full FFmpeg decode succeeded without errors. Probe confirms 20.053333 seconds,
+  H.264 1080x1920 at 30 fps and AAC stereo at 48 kHz. This proves decodability;
+  it does not certify playback in every browser.
+- A fresh 20-frame contact sheet (one frame per second across the entire clip)
+  shows full host, split, consultation PIP, criteria and steps treatments.
+  Full-size existing frames at approximately 5 and 10 seconds were inspected.
+  The source speaker remains identifiable; the consult plate is related to the
+  consultation theme, but source-transcript semantic fidelity is not established.
+- **Visual gate FAIL:** at about 10 seconds the dark caption backing overlaps and
+  dims the presenter PIP face. Opening cards also occupy the lower-face area in
+  the contact sheet. Therefore the previous blanket face-safe assessment is too
+  strong. The lone `C` at about 5 seconds becomes a complete phrase in later
+  samples: it may be a caption entrance/reveal, not a persistent localization bug.
+  Frame-by-frame timing is needed before calling it a broken caption.
+- Measured audio mean -22.4 dB and peak -1.2 dB. Lip synchronization and the
+  audible music mix were not perceptually verified. The current composition
+  contains `Audio` for `bed.mp3`; a combined AAC stream cannot establish whether
+  a separate music bed is audible. The earlier assertion of absent music is
+  therefore unproven.
+- Server `.env` still contains `LLM_PROVIDER=none`.
+
+### Director provenance and comparison limits
+
+`reports/runpod_director_ab.json` records a historical 21.42-second successful
+request and health metadata for `qwen2.5:7b-instruct` through Ollama's forwarded
+OpenAI-compatible endpoint. The saved plan differs from the heuristic summary
+(3 semantic scenes versus 4). These are historical artifacts, not independently
+replayed live inference. Raw request/response logs, model digest and a durable
+request-to-render identifier were not available in the inspected evidence.
+Model-generated scores in the plan are not human quality measurements.
+
+The preview report and `scripts/ordinary_director_render.py` establish the ordinary
+seeded `resolve_plan` → `resolve_scene_plan` → `render_with_plan` →
+`DirectorV3Preview` path. Its selected assets are `people_door_001`,
+`rp_detail_001` and `i2v_phone_001`. The RunPod provider returns a different Studio
+Director schema. No artifact links its output to this preview's visual plan.
+Thus this MP4 is evidence for the ordinary/heuristic renderer, not the Qwen renderer.
+No paired, same-input Qwen-rendered preview was found; a visual A/B verdict is blocked.
+Do not infer that all production routes are unwired solely from this one preview.
+
+### Volume and manifest
+
+The mounted volume reports 100 GB total, 16 GB used, 79 GB available. The
+server manifest has 829 entries and no duplicate IDs. All 400 entries with
+`source=runpod` resolve to existing files, including nested
+`static/runpod/photographs/`. All 18 `pm_*` entries have files available.
+
+Five entries (`re_motion_price_counter`, `re_motion_price_change`,
+`re_motion_rental_yield`, `re_motion_comparison`, `re_motion_purchase`) reference
+`motion/src/realestate/scenes.tsx`, which is not a file under the media volume.
+That source exists in the local application checkout. These are procedural
+references, not demonstrated lost recovery files; their server renderer mapping
+and availability remain unverified. Manifest integrity is therefore conditional,
+not an unconditional all-assets-on-volume PASS. Existing-file checks do not
+constitute checksums or full decoding of all recovered assets.
+
+### Fresh regressions
+
+`PYTHONPATH=. .venv/bin/pytest backend/tests/test_runpod_llm_provider.py
+backend/tests/test_fast_project_creation.py backend/tests/test_director_media_rules.py -q`
+completed: **14 passed**, two dependency deprecation warnings. These tests cover
+provider behavior, AI-free creation and media layer rules. They do not prove
+live Qwen inference, a full browser/worker delivery lifecycle or creative quality.
+
+### Operational recommendation and blockers
+
+Keep the existing `LLM_PROVIDER=none` configuration. No RunPod API call was made,
+so EXITED is historical reported state rather than a freshly verified pod status.
+The prior ~$0.90/hour figure is historical and has not been verified as the
+current price. Do not use it as a billing quote. Startup steps above are a
+proposed authorized procedure, not a procedure executed in this pass.
+
+Remaining acceptance work: obtain a same-source Qwen-rendered counterpart and
+raw provider provenance; verify the scene-plan adapter and asset mappings;
+resolve presenter-face obstruction; inspect motion continuously and listen to
+speech/music against source; validate procedural assets on the host; and perform
+an isolated complete Create Video/download lifecycle. Live inference cannot be
+retested within the no-resume constraint when the pod is stopped.
+
+**Verdict remains NOT production-ready / acceptance blocked.** Only technical
+preview decoding, saved ordinary render provenance, scoped regressions and the
+specified file-existence checks passed. No code fix or deployment is claimed.
