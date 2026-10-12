@@ -98,7 +98,24 @@ def pick_3d_variant(
 
 
 def apply_premium_3d(plan: dict, *, seed: int | None = None) -> dict:
-    """Upgrade V9 float objects to premium 3D alpha when available."""
+    """V10.1 quality gate (default). Legacy unbound V10 auto-pick is disabled.
+
+    Set PREMIUM_3D_MODE=v10_legacy to restore the original auto-bind behavior
+    for debugging only — do not use in production.
+    """
+    import os
+
+    mode = (os.environ.get("PREMIUM_3D_MODE") or "v10.1").strip().lower()
+    if mode in ("v10.1", "v101", "gate", ""):
+        from . import director_v10_1
+
+        return director_v10_1.apply_premium_3d_v101(plan, seed=seed)
+    if mode in ("off", "0", "false", "v9"):
+        out = director_v9.apply_composition_intelligence(plan)
+        out["shotPlanVersion"] = out.get("shotPlanVersion") or "v9"
+        out["premium3d"] = {"policy": "off", "bindings": [], "boundCount": 0, "pass": True}
+        return out
+    # --- legacy V10 auto-bind (explicit opt-in only) ---
     if plan.get("compositionPolicy") == "v9_clean" or plan.get("shotPlanVersion") in ("v9", "v10"):
         out = dict(plan)
     else:
@@ -112,7 +129,6 @@ def apply_premium_3d(plan: dict, *, seed: int | None = None) -> dict:
         scene = dict(scene)
         comp = dict(scene.get("composition") or {})
         fo = dict(comp.get("floatObject") or {})
-        # Derive concept from float keyword / shot keywords / semanticMotion
         kids = []
         if fo.get("keyword"):
             kids.append(fo["keyword"])
@@ -141,18 +157,29 @@ def apply_premium_3d(plan: dict, *, seed: int | None = None) -> dict:
         scenes.append(scene)
     out["scenes"] = scenes
     out["shotPlanVersion"] = "v10"
-    out["compositionPolicy"] = "v9_clean"  # keep clean hierarchy
+    out["compositionPolicy"] = "v9_clean"
     out["premium3d"] = {
         "bindings": bindings,
         "registryCount": len(registry),
         "boundCount": len(bindings),
         "pass": len(bindings) >= 1 or not registry,
+        "policy": "v10_legacy",
     }
     return out
 
 
 def stage_premium_3d(plan: dict, public_dir: Path, library: Path | None = None) -> dict:
-    """Stage 3D alpha webm into Remotion public/picked."""
+    """Stage gated PNG sequences (V10.1) or legacy webm when PREMIUM_3D_MODE=v10_legacy."""
+    import os
+
+    mode = (os.environ.get("PREMIUM_3D_MODE") or "v10.1").strip().lower()
+    if mode in ("v10.1", "v101", "gate", ""):
+        from . import director_v10_1
+
+        return director_v10_1.stage_premium_3d_v101(plan, public_dir, library)
+    if mode in ("off", "0", "false", "v9"):
+        return director_v9.stage_float_objects(plan, public_dir, library)
+
     root = Path(library or Path(__file__).resolve().parent.parent / "media" / "library" / "out")
     factory_alpha = Path(__file__).resolve().parent.parent / "3d-library" / "alpha"
     picked = Path(public_dir) / "picked"
@@ -164,7 +191,6 @@ def stage_premium_3d(plan: dict, public_dir: Path, library: Path | None = None) 
         comp = dict(scene.get("composition") or {})
         fo = dict(comp.get("floatObject") or {})
         if fo.get("family") != "premium_3d" and not str(fo.get("file") or "").endswith(".webm"):
-            # Still stage V9 SVG/PNG
             scenes.append(scene)
             continue
         rel = fo.get("file")
@@ -197,7 +223,6 @@ def stage_premium_3d(plan: dict, public_dir: Path, library: Path | None = None) 
             fg["background"] = "transparent"
             scene["foreground"] = fg
         scenes.append(scene)
-    # Also run V9 stager for any remaining SVG/PNG floats
     out["scenes"] = scenes
     out = director_v9.stage_float_objects(out, public_dir, library)
     return out

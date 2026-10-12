@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Orchestrate Lumen 3D Asset Factory V1 — Blender → PNG α → VP9 yuva420p + registry."""
+"""Orchestrate Lumen 3D Asset Factory V1 — Blender → PNG α → VP9 + registry.
+
+NOTE (V10.1): On several macOS Homebrew ffmpeg builds, `-pix_fmt yuva420p` with
+libvpx-vp9 silently falls back to opaque `yuv420p`. Treat `3d-library/alpha_png/`
+as the production alpha master. Remotion V10.1 stages PNG sequences (`png_seq`).
+Do not claim WebM alpha until `ffprobe` reports `yuva420p` (or use ProRes 4444).
+"""
 from __future__ import annotations
 
 import argparse

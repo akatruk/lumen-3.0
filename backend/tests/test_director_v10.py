@@ -37,7 +37,8 @@ def test_pick_from_registry():
     assert b["variantId"] != a["variantId"] or len(registry) == 1
 
 
-def test_apply_keeps_clean_policy():
+def test_apply_keeps_clean_policy(monkeypatch):
+    monkeypatch.delenv("PREMIUM_3D_MODE", raising=False)
     plan = {
         "compositionPolicy": "v9_clean",
         "shotPlanVersion": "v9",
@@ -45,6 +46,7 @@ def test_apply_keeps_clean_policy():
         "scenes": [
             {
                 "sceneId": "hook",
+                "speaker": {"layout": "speaker_punch_in", "framing": "close"},
                 "composition": {
                     "floatObject": {
                         "keyword": "relocation",
@@ -55,9 +57,14 @@ def test_apply_keeps_clean_policy():
                 },
                 "shotPlan": {"keywords": [{"id": "relocation"}]},
                 "foreground": {},
+                "semanticMotion": {},
+                "typography": {},
             }
         ],
     }
     out = apply_premium_3d(plan, seed=7)
-    assert out["shotPlanVersion"] == "v10"
+    # Default path is V10.1 quality gate — no unverified 3D on hook.
+    assert out["shotPlanVersion"] == "v10.1"
     assert out["compositionPolicy"] == "v9_clean"
+    fo = (out["scenes"][0].get("composition") or {}).get("floatObject") or {}
+    assert fo.get("family") != "premium_3d"

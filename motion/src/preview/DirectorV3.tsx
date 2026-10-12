@@ -72,6 +72,12 @@ export type SceneLook = {
       placement?: string;
       areaShare?: number;
       background?: string;
+      format?: string;
+      frameCount?: number;
+      scaleProfile?: "hero" | "supporting" | "foreground" | "background" | string;
+      minPx?: number;
+      maxPx?: number;
+      family?: string;
     } | null;
   };
   primaryVisualRole?: string;
@@ -232,34 +238,73 @@ function SemanticMotionClip({
   );
 }
 
-/** V9/V10: floating transparent SVG/PNG or VP9-alpha webm — no black rectangle. */
+const SCALE_PROFILE_LIMITS: Record<string, { minPx: number; maxPx: number }> = {
+  hero: { minPx: 400, maxPx: 560 },
+  supporting: { minPx: 300, maxPx: 440 },
+  foreground: { minPx: 340, maxPx: 500 },
+  background: { minPx: 200, maxPx: 280 },
+};
+
+/** V9/V10.1: floating transparent SVG/PNG, RGBA PNG sequence, or true-alpha video. */
 function FloatingForeground({
   staged,
   frames,
   placement = "speaker_left_lower",
   areaShare = 0.12,
+  format,
+  frameCount,
+  scaleProfile,
+  minPx,
+  maxPx,
 }: {
   staged: string;
   frames: number;
   placement?: string;
   areaShare?: number;
+  format?: string;
+  frameCount?: number;
+  scaleProfile?: string;
+  minPx?: number;
+  maxPx?: number;
 }) {
   const frame = useCurrentFrame();
   const enter = interpolate(frame, [0, 12], [0, 1], clamp);
   const exit = interpolate(frame, [Math.max(18, frames - 14), frames - 1], [1, 0], clamp);
   const scale = interpolate(frame, [0, Math.min(20, frames)], [0.86, 1], clamp);
-  const size = Math.round(Math.min(340, Math.max(220, PORTRAIT.width * areaShare * 2.2)));
+  const limits =
+    SCALE_PROFILE_LIMITS[scaleProfile || ""] ||
+    (scaleProfile === "hero"
+      ? SCALE_PROFILE_LIMITS.hero
+      : { minPx: minPx ?? 220, maxPx: maxPx ?? 340 });
+  const lo = minPx ?? limits.minPx;
+  const hi = maxPx ?? limits.maxPx;
+  const size = Math.round(Math.min(hi, Math.max(lo, PORTRAIT.width * areaShare * 2.2)));
   const rightSide = placement.includes("right");
-  // Face-safe: lower shelf well below chin / mouth band.
-  const bottom = PORTRAIT.captionClearance + 160;
-  const side = rightSide ? { right: 36 } : { left: 36 };
-  const isVideo = /\.(webm|mov|mp4)$/i.test(staged);
+  // Face-safe: stay in lower third, outside the central face column.
+  // Hero floats over speaker are capped — true heroes need cutaway layouts, not face overlays.
+  const bottom = PORTRAIT.captionClearance + (scaleProfile === "hero" ? 140 : 160);
+  const side = rightSide ? { right: 48 } : { left: 48 };
+  const isPngSeq = format === "png_seq" || (!/\.(webm|mov|mp4|svg|png|jpg|jpeg|webp)$/i.test(staged) && Boolean(frameCount));
+  const isVideo = !isPngSeq && /\.(webm|mov|mp4)$/i.test(staged);
   const mediaStyle = {
     width: "100%",
     height: "100%",
     objectFit: "contain" as const,
     background: "transparent",
   };
+  let body: ReactNode = null;
+  if (isPngSeq) {
+    const total = Math.max(1, frameCount || 90);
+    // Play once then hold last frame (no decorative loop).
+    const idx = Math.min(total - 1, Math.floor((frame / Math.max(1, Math.min(frames, total))) * total));
+    const pad = String(idx + 1).padStart(4, "0");
+    const src = media(`${staged.replace(/\/$/, "")}/frame_${pad}.png`);
+    body = <Img src={src} style={mediaStyle} />;
+  } else if (isVideo) {
+    body = <OffthreadVideo src={media(staged)} volume={0} transparent style={mediaStyle} />;
+  } else {
+    body = <Img src={media(staged)} style={mediaStyle} />;
+  }
   return (
     <AbsoluteFill style={{ pointerEvents: "none", opacity: enter * exit }}>
       <div
@@ -276,11 +321,7 @@ function FloatingForeground({
           transformOrigin: rightSide ? "bottom right" : "bottom left",
         }}
       >
-        {isVideo ? (
-          <OffthreadVideo src={media(staged)} volume={0} transparent style={mediaStyle} />
-        ) : (
-          <Img src={media(staged)} style={mediaStyle} />
-        )}
+        {body}
       </div>
     </AbsoluteFill>
   );
@@ -358,6 +399,11 @@ function SceneRouter({
           frames={frames}
           placement={floatObj?.placement || "speaker_left_lower"}
           areaShare={floatObj?.areaShare || 0.12}
+          format={floatObj?.format}
+          frameCount={floatObj?.frameCount}
+          scaleProfile={floatObj?.scaleProfile}
+          minPx={floatObj?.minPx}
+          maxPx={floatObj?.maxPx}
         />
       ) : null}
       {/* Legacy boxed webm only when V9 did not substitute a float object. */}
