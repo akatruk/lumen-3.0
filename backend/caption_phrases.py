@@ -29,14 +29,25 @@ def _row_text(row: dict, locale: str | None) -> str:
     return prefer_locale_field(row, locale)
 
 
-def _split_en_ru(text: str, *, lo: int, hi: int) -> list[str]:
-    """Prefer clause boundaries; fall back to word windows. Never mid-word."""
+_TRAIL_BAD = re.compile(
+    r'\b(и|а|но|да|или|с|со|к|ко|у|о|об|от|по|за|для|на|из|and|or|but|the|a|an|of|to|for|with|in)\s*$',
+    re.I,
+)
+
+
+def _normalize_caption_text(text: str) -> str:
     text = ' '.join(str(text or '').split())
+    text = re.sub(r'\.{2,}', '.', text)
+    text = re.sub(r'\s+([?？!！.。,，])', r'\1', text)
+    return text.strip(' .')
+
+
+def _split_en_ru(text: str, *, lo: int, hi: int) -> list[str]:
+    """Prefer clause boundaries; never end on dangling prepositions/conjunctions."""
+    text = _normalize_caption_text(text)
     if not text:
         return []
-    # Clause-first: split on punctuation, then pack clauses into phrase windows.
     clauses = [c.strip() for c in re.split(r'[,，;；:]+|\s+[—–-]\s+', text) if c.strip()]
-    # Keep terminal ?! with previous clause.
     if len(clauses) == 1:
         clauses = [text]
     phrases: list[str] = []
@@ -44,26 +55,42 @@ def _split_en_ru(text: str, *, lo: int, hi: int) -> list[str]:
         words = _WORD.findall(clause)
         if not words:
             continue
-        # Preserve trailing punctuation from clause.
         trailing = ''
         if clause[-1:] in '?？!！.。':
             trailing = clause[-1]
         if len(words) <= hi:
-            piece = ' '.join(words) + trailing
-            phrases.append(piece)
+            phrases.append((' '.join(words) + trailing).strip())
             continue
         i = 0
         while i < len(words):
             remaining = len(words) - i
-            take = hi if remaining > hi else remaining
-            if remaining > hi and remaining - hi < lo:
+            take = min(hi, remaining)
+            if remaining > hi and remaining - take < lo:
                 take = max(lo, remaining // 2)
-            chunk = ' '.join(words[i:i + take])
+            # Avoid ending on a dangling function word — borrow one more if available.
+            chunk_words = words[i:i + take]
+            while take < remaining and _TRAIL_BAD.search(' '.join(chunk_words)) and take < hi + 2:
+                take += 1
+                chunk_words = words[i:i + take]
+            # If still ends badly and we can shrink into previous… keep take>=lo.
+            while take > lo and _TRAIL_BAD.search(' '.join(chunk_words)):
+                take -= 1
+                chunk_words = words[i:i + take]
+            chunk = ' '.join(chunk_words)
             if i + take >= len(words) and trailing:
                 chunk += trailing
-            phrases.append(chunk)
+            phrases.append(chunk.strip())
             i += take
-    return phrases or [text]
+    # Merge orphan phrases that still end badly into the next/previous.
+    merged: list[str] = []
+    for piece in phrases:
+        if merged and (_TRAIL_BAD.search(merged[-1]) or len(merged[-1].split()) < lo):
+            merged[-1] = f"{merged[-1]} {piece}".strip()
+        elif _TRAIL_BAD.search(piece) and merged:
+            merged[-1] = f"{merged[-1]} {piece}".strip()
+        else:
+            merged.append(piece)
+    return merged or [text]
 
 
 def _split_zh(text: str) -> list[str]:
@@ -101,7 +128,8 @@ def group_phrase_texts(text: str, locale: str | None = None) -> list[str]:
     if bucket == 'zh' or _CJK.search(text or ''):
         return _split_zh(text)
     if bucket == 'ru':
-        return _split_en_ru(text, lo=2, hi=5)
+        # Slightly longer windows reduce orphan words like «подачи» at segment tails.
+        return _split_en_ru(text, lo=3, hi=6)
     return _split_en_ru(text, lo=2, hi=6)
 
 
@@ -133,29 +161,33 @@ def phrases_from_transcript(
         pieces = group_phrase_texts(text, locale)
         if not pieces:
             continue
-        # Prefer readable holds: at least ~0.85s per phrase; stretch the window if needed.
-        min_piece = 0.85
-        need = max(end - start, min_piece * len(pieces))
-        span = need
+        # Hold within the real speech window — do not invent empty caption plates in gaps.
+        span = max(0.01, end - start)
         cursor = start
+        weights = [max(1, len(_WORD.findall(p))) for p in pieces]
+        weight_sum = sum(weights) or 1
         for index, piece in enumerate(pieces):
-            share = 1.0 / len(pieces)
-            piece_end = (start + span) if index == len(pieces) - 1 else cursor + span * share
-            piece_end = max(cursor + min_piece, piece_end)
-            if duration_s is not None and piece_end > float(duration_s) and index == len(pieces) - 1:
-                piece_end = float(duration_s)
+            share = weights[index] / weight_sum
+            piece_end = end if index == len(pieces) - 1 else cursor + span * share
+            piece_end = min(end, max(cursor + 0.45, piece_end))
+            if duration_s is not None:
+                piece_end = min(piece_end, float(duration_s))
             if piece_end <= cursor:
+                continue
+            text = _normalize_caption_text(piece)
+            if not text:
+                cursor = piece_end
                 continue
             rows.append({
                 'start': round(cursor, 3),
                 'end': round(piece_end, 3),
-                'text': piece,
+                'text': text,
                 'source': 'source_transcript',
             })
             cursor = piece_end
             if duration_s is not None and cursor >= float(duration_s):
                 break
-    # Drop flashes and incomplete crumbs ("and the", "Look at", "но не знаете").
+    # Drop flashes and incomplete crumbs; never keep empty / punctuation-only plates.
     from .director_execution import is_incomplete_heading
     _LEAD_CONJ = re.compile(
         r'^(и|а|но|да|или|чтобы|когда|если|and|but|or|the|a|an|with|for|of)\b',
@@ -163,19 +195,21 @@ def phrases_from_transcript(
     )
     cleaned = []
     for r in rows:
-        text = str(r.get('text') or '').strip()
+        text = _normalize_caption_text(r.get('text'))
+        if not text or not _WORD.search(text):
+            continue
         if (r['end'] - r['start']) < 0.35:
             continue
         if is_incomplete_heading(text):
             continue
         words = text.split()
-        # Merge dangling conjunction-led crumbs into previous phrase.
-        if cleaned and (_LEAD_CONJ.match(text) or len(words) <= 2):
+        prev_text = cleaned[-1]['text'] if cleaned else ''
+        if cleaned and (_LEAD_CONJ.match(text) or len(words) <= 2 or _TRAIL_BAD.search(prev_text)):
             prev = cleaned[-1]
-            prev['text'] = f"{prev['text']} {text}".strip()
+            prev['text'] = _normalize_caption_text(f"{prev['text']} {text}")
             prev['end'] = r['end']
             continue
-        cleaned.append(r)
+        cleaned.append({**r, 'text': text})
     return cleaned
 
 

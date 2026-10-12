@@ -1,0 +1,78 @@
+{
+  "shotPlanVersion": "v7",
+  "motionFamilies": [
+    "camera+kinetic",
+    "media+mask",
+    "broll",
+    "info_reveal",
+    "infographic",
+    "camera"
+  ],
+  "uniqueMotionFamilies": 6,
+  "layouts": [
+    "speaker_punch_in",
+    "speaker_with_foreground",
+    "speaker_with_media",
+    "speaker_split_left",
+    "speaker_with_diagram",
+    "speaker_medium"
+  ],
+  "uniqueLayouts": 6,
+  "choreographyActions": 18,
+  "keywords": [
+    {
+      "id": "relocation",
+      "preset": "route_link",
+      "match": "переезд"
+    },
+    {
+      "id": "residency",
+      "preset": "document_stamp",
+      "match": "жительств"
+    },
+    {
+      "id": "program",
+      "preset": "steps_reveal",
+      "match": "программ"
+    },
+    {
+      "id": "consult",
+      "preset": "comparison_columns",
+      "match": "консульт"
+    },
+    {
+      "id": "documents",
+      "preset": "document_stamp",
+      "match": "документ"
+    },
+    {
+      "id": "family",
+      "preset": "family_cluster",
+      "match": "семь"
+    },
+    {
+      "id": "budget",
+      "preset": "budget_scale",
+      "match": "бюджет"
+    },
+    {
+      "id": "goals",
+      "preset": "comparison_columns",
+      "match": "целей"
+    }
+  ],
+  "antiRepetition": {
+    "signatures": [
+      "fullscreen|speaker_punch_in|camera+kinetic|none|",
+      "split|speaker_with_foreground|media+mask|none|people_apartment_001",
+      "pip|speaker_with_media|broll|none|people_phone_001",
+      "split|speaker_split_left|info_reveal|progressive_one|",
+      "pip|speaker_with_diagram|infographic|none|",
+      "fullscreen|speaker_medium|camera|none|"
+    ],
+    "maxIdenticalStreak": 1,
+    "maxSplitStreak": 1,
+    "pass": true
+  },
+  "pass": true
+}

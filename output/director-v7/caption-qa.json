@@ -1,0 +1,68 @@
+{
+  "count": 9,
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 5.362,
+      "text": "Планируете переезд второй вид на жительство или новый международный статус но не знаете",
+      "source": "source_transcript"
+    },
+    {
+      "start": 5.362,
+      "end": 6.6,
+      "text": "с чего начать?",
+      "source": "source_transcript"
+    },
+    {
+      "start": 7.4,
+      "end": 10.7,
+      "text": "Мы помогаем клиентам подобрать подходящую иммиграционную",
+      "source": "source_transcript"
+    },
+    {
+      "start": 10.7,
+      "end": 13.45,
+      "text": "программу с учетом их целей",
+      "source": "source_transcript"
+    },
+    {
+      "start": 13.45,
+      "end": 15.1,
+      "text": "семьи и бюджета",
+      "source": "source_transcript"
+    },
+    {
+      "start": 15.8,
+      "end": 16.733,
+      "text": "Мы сопровождаем весь процесс",
+      "source": "source_transcript"
+    },
+    {
+      "start": 16.733,
+      "end": 18.133,
+      "text": "от первичной консультации и выбора программы",
+      "source": "source_transcript"
+    },
+    {
+      "start": 18.133,
+      "end": 18.833,
+      "text": "до подготовки документов",
+      "source": "source_transcript"
+    },
+    {
+      "start": 18.833,
+      "end": 20.0,
+      "text": "подачи заявления и дальнейшего сопровождения",
+      "source": "source_transcript"
+    }
+  ],
+  "languageValidation": {
+    "ok": true,
+    "locale": "ru-RU",
+    "captionLocaleOk": true,
+    "cardLocaleOk": true,
+    "issues": []
+  },
+  "emptyPlates": [],
+  "shortOrphans": []
+}

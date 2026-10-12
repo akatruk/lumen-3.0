@@ -248,10 +248,9 @@ def enrich_plan_from_transcript(
         exe['mediaRole'] = 'supporting'
         consult['execution'] = exe
 
-    scenes = diversify_speaker_layouts(list(by_id.values()) if by_id else scenes)
-    # Preserve original scene order.
+    # Preserve original scene order, then apply V7 shot plans (replaces ad-hoc diversify).
     order = [s.get('sceneId') for s in (plan.get('scenes') or [])]
-    indexed = {s.get('sceneId'): s for s in scenes}
+    indexed = {s.get('sceneId'): s for s in by_id.values()} if by_id else {s.get('sceneId'): s for s in scenes}
     ordered = [indexed[i] for i in order if i in indexed]
 
     out = dict(plan)
@@ -263,6 +262,13 @@ def enrich_plan_from_transcript(
         'criteriaTitles': [c['title'] for c in criteria],
         'locale': locale,
     }
+    from .director_shot_plan import apply_shot_plans
+    out = apply_shot_plans(out, locale=locale, transcript_text=joined)
+    # Hook hero: prefer passport/document object when speech mentions residency/passport.
+    if any(k in joined.lower() for k in ('паспорт', 'жительств', 'passport', 'residenc')):
+        out.setdefault('heroObject', 'passport')
+    elif any(k in joined.lower() for k in ('переезд', 'reloc', '搬')):
+        out.setdefault('heroObject', 'globe')
     # Reject plans where we could not get locale-matching speech at all.
     if transcript and not segments:
         out['localeGate'] = {

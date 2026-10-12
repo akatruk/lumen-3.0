@@ -15,13 +15,15 @@ def test_english_groups_2_to_6_words():
     assert all(2 <= len(p.split()) <= 6 for p in parts)
 
 
-def test_russian_groups_2_to_5_words():
+def test_russian_groups_readable_phrases():
     parts = group_phrase_texts(
-        'Планируете переезд второй вид на жительство с чего начать',
+        'Планируете переезд, второй вид на жительство, с чего начать?',
         'ru-RU',
     )
     assert parts
-    assert all(2 <= len(p.split()) <= 5 for p in parts)
+    # Target 2–5; merge may stretch one clause to avoid dangling prepositions.
+    assert all(2 <= len(p.split()) <= 8 for p in parts)
+    assert not any(p.rstrip().endswith(' с') for p in parts)
 
 
 def test_chinese_keeps_cjk_phrase_boundaries():

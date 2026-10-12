@@ -8,6 +8,7 @@
 - **Execution:** `backend/director_execution.enforce_plan` (PIP ≥324px, heading completeness, caption≠card, statistic dedupe) inside `resolve_scene_plan`
 - **Captions:** transcript → `caption_phrases` → Remotion (not LLM caption fragments)
 - **V6:** `locale_consistency` + `director_semantics` — one viewer locale; speech-backed headlines/cards; layout diversity; reject EN captions under RU cards
+- **V7:** `director_shot_plan.py` — per-beat shot plans + choreography + keywords≠captions + anti-repetition (`maxSplitStreak < 3`). Progressive cards. Report: `reports/LUMEN_V7_PREMIUM_MOTION.md`
 - Studio create-video stores `visual_plan` on `director_v3` when `should_use_remotion`
 - Hypit model brief (legacy): `backend/assembly_prompt.txt` via `hypit_prompt.py`
 

@@ -85,6 +85,7 @@ def main():
                 transcript = raw
 
     from backend.director_semantics import enrich_plan_from_transcript, motion_diversity_summary
+    from backend.director_shot_plan import motion_usage_report
     plan = enrich_plan_from_transcript(plan, transcript, locale=args.language)
     plan['language'] = args.language
     store_plan(settings.data_dir, args.project_id, plan)
@@ -105,6 +106,7 @@ def main():
         render_plan, transcript, locale=args.language,
     )
     render_plan['motionDiversity'] = motion_diversity_summary(render_plan.get('scenes') or [])
+    render_plan['motionUsage'] = motion_usage_report({**plan, **render_plan})
     remotion_engine.store_render_plan(settings.data_dir, args.project_id, render_plan)
 
     out = args.out.resolve()

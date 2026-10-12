@@ -12,6 +12,8 @@ Short-form Remotion pictures live in `motion/`. Do not start a second component 
 
 Pipeline integration (feature-flagged) goes through `backend/remotion_engine.py` and Director V3 — see `lumen-remotion`. Hypit remains the fallback picture path when the flag is off. Do not invent plate CSS inside Studio HTML as a second renderer.
 
+**V7:** Director `shotPlan` drives layout / `cardMode=progressive_one` / kinetic hook. Never mount empty caption plates. Prefer one hero card over dense stacks.
+
 ## Contract
 
 Director chooses: scene `type`, `variant`, duration, text/emphasis/media/data, transition (`cut|fade|slide|wipe`).

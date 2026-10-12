@@ -184,6 +184,10 @@ def resolve_scene_plan(
             'steps': list((raw.get('typography') or {}).get('steps') or []),
             'headline': (raw.get('execution') or {}).get('headline')
             or (raw.get('typography') or {}).get('headline'),
+            'cardMode': (raw.get('typography') or {}).get('cardMode')
+            or (raw.get('execution') or {}).get('cardMode')
+            or (raw.get('shotPlan') or {}).get('cardMode'),
+            'shotPlan': dict(raw.get('shotPlan') or {}),
         }
         # Strip director-illegal keys if a buggy planner leaked them.
         for bucket in ('speaker', 'background', 'foreground', 'typography'):
@@ -221,6 +225,9 @@ def resolve_scene_plan(
             'runpod_llm' if str(getattr(settings, 'llm_provider', None) or 'none').lower() == 'runpod'
             else 'heuristic'
         ),
+        'keywords': list(plan.get('keywords') or []),
+        'shotPlanVersion': plan.get('shotPlanVersion'),
+        'antiRepetition': plan.get('antiRepetition') or {},
         'audio': {
             'speech': speaker_file,
             'bed': 'bed.mp3',
@@ -271,6 +278,9 @@ def visual_plan_from_render_plan(render_plan: dict) -> dict:
         'executionValidation': render_plan.get('executionValidation') or 'passed',
         'languageValidation': render_plan.get('languageValidation') or {},
         'directorMode': render_plan.get('directorMode'),
+        'keywords': list(render_plan.get('keywords') or []),
+        'shotPlanVersion': render_plan.get('shotPlanVersion'),
+        'antiRepetition': render_plan.get('antiRepetition') or {},
     }
 
 

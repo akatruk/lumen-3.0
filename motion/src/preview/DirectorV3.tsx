@@ -25,7 +25,14 @@ export type SceneLook = {
   speaker: { layout: string };
   background: { treatment: string; staged?: string | null };
   foreground: { treatment: string; staged?: string | null; assetId?: string | null };
-  typography: { animate?: string; headline?: string; cards?: CriteriaCardLook[]; stepsTitle?: string; steps?: string[] };
+  typography: {
+    animate?: string;
+    headline?: string;
+    cards?: CriteriaCardLook[];
+    stepsTitle?: string;
+    steps?: string[];
+    cardMode?: "stack" | "progressive_one" | "none";
+  };
   transition: string;
   motionIntensity: "low" | "medium" | "high";
   /** From editing_controls Animation % — false skips purposeful plate motion. */
@@ -36,6 +43,8 @@ export type SceneLook = {
   criteriaCards?: CriteriaCardLook[];
   stepsTitle?: string;
   steps?: string[];
+  cardMode?: "stack" | "progressive_one" | "none";
+  shotPlan?: Record<string, unknown>;
 };
 
 export type EditingControls = {
@@ -302,6 +311,11 @@ function Caption({
   animate?: "fade" | "pop" | "mask" | "slide";
   locale?: SupportedLocale;
 }) {
+  const frame = useCurrentFrame();
+  const clean = String(text || "").trim();
+  // Never mount an empty dark plate — backing lives only while text is present.
+  if (!clean) return null;
+  const enter = interpolate(frame, [0, 8], [0, 1], clamp);
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       <div
@@ -309,12 +323,12 @@ function Caption({
           position: "absolute",
           left: 64,
           width: 952,
-          // Stay in the bottom safe inset — never climb into the face band.
           bottom: PORTRAIT.captionClearance,
           height: 200,
           display: "flex",
           alignItems: "flex-end",
           justifyContent: "center",
+          opacity: enter,
         }}
       >
         <div
@@ -328,7 +342,7 @@ function Caption({
           }}
         >
           <AutoFitText
-            text={text}
+            text={clean}
             maxWidth={848}
             maxHeight={168}
             role={{ min: 64, max: 92, weight: 700, lineHeight: 1.1, tracking: -0.02 }}
@@ -643,19 +657,31 @@ function Beside({
       ? look.typography.cards
       : null;
   const cards = planned ?? criteriaCardsFor(locale);
+  const progressive =
+    (look.cardMode || look.typography?.cardMode || "progressive_one") === "progressive_one";
   const speakerLeft = look.speaker.layout === "speaker_split_left";
   const speakerSide = speakerLeft ? "left" : "right";
   const cardSide = speakerLeft ? "right" : "left";
   const speakerBox = splitSpeakerRect(speakerSide);
   const cardBox = splitMediaRect(cardSide);
-  const cardCount = cards.length;
+  const cardCount = Math.max(1, cards.length);
+  // One hero card at a time — phone-readable; stack only as legacy fallback.
+  const slot = Math.min(
+    cardCount - 1,
+    Math.max(0, Math.floor((frame / Math.max(1, frames)) * cardCount)),
+  );
+  const active = cards[slot] || cards[0];
+  const slotEnter = interpolate(
+    frame,
+    [(slot * frames) / cardCount, (slot * frames) / cardCount + 12],
+    [0, 1],
+    clamp,
+  );
   const cardGap = 18;
-  const cardHeight = Math.floor((cardBox.height - cardGap * (cardCount - 1)) / cardCount);
-  const pace = frames / 132;
+  const stackHeight = Math.floor((cardBox.height - cardGap * (cardCount - 1)) / cardCount);
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill style={{ background: theme.color.bg }}>
-        <AbsoluteFill style={{ background: theme.color.bg }} />
         <div
           style={{
             position: "absolute",
@@ -681,56 +707,93 @@ function Beside({
             display: "flex",
             flexDirection: "column",
             gap: cardGap,
+            justifyContent: progressive ? "center" : "flex-start",
           }}
         >
-          {cards.map((card, index) => {
-            const shown = interpolate(
-              frame,
-              [(8 + index * 14) * pace, (22 + index * 14) * pace],
-              [0, 1],
-              clamp,
-            );
-            return (
-              <div
-                key={card.title}
-                style={{
-                  height: cardHeight,
-                  opacity: shown,
-                  transform: `translateY(${(1 - shown) * 28}px)`,
-                  padding: "22px 26px",
-                  borderRadius: PORTRAIT.radius - 4,
-                  background: theme.color.bgElevated,
-                  border: `1px solid ${theme.color.lineStrong}`,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  boxShadow: theme.shadow.soft,
-                }}
-              >
-                <AutoFitText
-                  text={card.title}
-                  maxWidth={cardBox.width - 52}
-                  maxHeight={Math.min(64, cardHeight * 0.38)}
-                  role={theme.type.title}
-                  align="left"
-                  vertical="center"
-                  locale={locale}
-                />
-                <div style={{ height: 8 }} />
-                <AutoFitText
-                  text={card.explanation}
-                  maxWidth={cardBox.width - 52}
-                  maxHeight={Math.min(120, cardHeight * 0.52)}
-                  role={theme.type.caption}
-                  align="left"
-                  vertical="center"
-                  wrapMode="auto"
-                  maxLines={2}
-                  locale={locale}
-                />
-              </div>
-            );
-          })}
+          {progressive && active ? (
+            <div
+              key={`${active.title}-${slot}`}
+              style={{
+                height: cardBox.height,
+                opacity: slotEnter,
+                transform: `translateY(${(1 - slotEnter) * 28}px)`,
+                padding: "48px 36px",
+                borderRadius: PORTRAIT.radius,
+                background: theme.color.bgElevated,
+                border: `1px solid ${theme.color.lineStrong}`,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                boxShadow: theme.shadow.soft,
+              }}
+            >
+              <AutoFitText
+                text={active.title}
+                maxWidth={cardBox.width - 72}
+                maxHeight={160}
+                role={{ min: 64, max: 96, weight: 800, lineHeight: 1.05, tracking: -0.02 }}
+                align="left"
+                vertical="center"
+                locale={locale}
+              />
+              <div style={{ height: 28 }} />
+              <AutoFitText
+                text={active.explanation}
+                maxWidth={cardBox.width - 72}
+                maxHeight={280}
+                role={{ min: 40, max: 56, weight: 600, lineHeight: 1.25, tracking: -0.01 }}
+                align="left"
+                vertical="center"
+                wrapMode="auto"
+                maxLines={4}
+                locale={locale}
+              />
+            </div>
+          ) : (
+            cards.map((card, index) => {
+              const shown = interpolate(frame, [8 + index * 14, 22 + index * 14], [0, 1], clamp);
+              return (
+                <div
+                  key={card.title}
+                  style={{
+                    height: stackHeight,
+                    opacity: shown,
+                    transform: `translateY(${(1 - shown) * 28}px)`,
+                    padding: "22px 26px",
+                    borderRadius: PORTRAIT.radius - 4,
+                    background: theme.color.bgElevated,
+                    border: `1px solid ${theme.color.lineStrong}`,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    boxShadow: theme.shadow.soft,
+                  }}
+                >
+                  <AutoFitText
+                    text={card.title}
+                    maxWidth={cardBox.width - 52}
+                    maxHeight={Math.min(64, stackHeight * 0.38)}
+                    role={theme.type.title}
+                    align="left"
+                    vertical="center"
+                    locale={locale}
+                  />
+                  <div style={{ height: 8 }} />
+                  <AutoFitText
+                    text={card.explanation}
+                    maxWidth={cardBox.width - 52}
+                    maxHeight={Math.min(120, stackHeight * 0.52)}
+                    role={theme.type.caption}
+                    align="left"
+                    vertical="center"
+                    wrapMode="auto"
+                    maxLines={2}
+                    locale={locale}
+                  />
+                </div>
+              );
+            })
+          )}
         </div>
         <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
       </AbsoluteFill>
@@ -793,9 +856,10 @@ function Return({ file, from, frames, look }: { file: string; from: number; fram
 function bedVolume(frame: number, frames: number) {
   const fadeIn = interpolate(frame, [0, 15], [0, 1], clamp);
   const fadeOut = interpolate(frame, [Math.max(16, frames - 30), frames - 1], [1, 0], clamp);
+  // Speech-priority duck: audible bed without masking dialogue.
   const gapStart = Math.round((198 / DIRECTOR_V3_FRAMES) * frames);
   const gapEnd = Math.round((222 / DIRECTOR_V3_FRAMES) * frames);
-  const gap = frame >= gapStart && frame < gapEnd ? 0.4 : 0.26;
+  const gap = frame >= gapStart && frame < gapEnd ? 0.48 : 0.34;
   return fadeIn * fadeOut * gap;
 }
 
@@ -930,11 +994,13 @@ export function DirectorV3({
           </AbsoluteFill>
         </Sequence>
       ) : null}
-      {captions.map((row) => (
-        <Sequence key={row.from} from={row.from} durationInFrames={row.duration} name={`cap-${row.from}`}>
-          <Caption text={row.text} emphasis={row.emphasis} animate={row.animate} locale={planLocale} />
-        </Sequence>
-      ))}
+      {captions
+        .filter((row) => String(row.text || "").trim().length > 0 && row.duration > 0)
+        .map((row) => (
+          <Sequence key={row.from} from={row.from} durationInFrames={row.duration} name={`cap-${row.from}`}>
+            <Caption text={row.text} emphasis={row.emphasis} animate={row.animate} locale={planLocale} />
+          </Sequence>
+        ))}
       </LocaleProvider>
     </AbsoluteFill>
   );
