@@ -1,0 +1,46 @@
+{
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "query": null,
+      "background": null,
+      "foreground": null,
+      "layout": "speaker_closeup"
+    },
+    {
+      "sceneId": "residency",
+      "query": "family home doorway relocation",
+      "background": "people_couple_001",
+      "foreground": null,
+      "layout": "speaker_split_left"
+    },
+    {
+      "sceneId": "consult",
+      "query": "consultation meeting advisor",
+      "background": "re_agent_docs",
+      "foreground": null,
+      "layout": "speaker_with_media"
+    },
+    {
+      "sceneId": "beside",
+      "query": null,
+      "background": null,
+      "foreground": null,
+      "layout": "speaker_split_right"
+    },
+    {
+      "sceneId": "steps",
+      "query": null,
+      "background": null,
+      "foreground": null,
+      "layout": "speaker_closeup"
+    },
+    {
+      "sceneId": "return",
+      "query": null,
+      "background": null,
+      "foreground": null,
+      "layout": "speaker_split_right"
+    }
+  ]
+}

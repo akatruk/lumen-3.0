@@ -24,35 +24,46 @@ def _locale_bucket(locale: str | None) -> str:
 
 
 def _row_text(row: dict, locale: str | None) -> str:
-    bucket = _locale_bucket(locale)
-    prefer = {
-        'en': ('en', 'original'),
-        'ru': ('ru', 'original', 'en'),
-        'zh': ('zh', 'original', 'en'),
-    }[bucket]
-    for key in prefer:
-        text = ' '.join(str(row.get(key) or '').split())
-        if text and '[segment' not in text.lower():
-            return text
-    return ''
+    """Locale-strict field pick — never silently serve EN speech under ru-RU."""
+    from .locale_consistency import prefer_locale_field
+    return prefer_locale_field(row, locale)
 
 
 def _split_en_ru(text: str, *, lo: int, hi: int) -> list[str]:
-    words = _WORD.findall(text)
-    if not words:
+    """Prefer clause boundaries; fall back to word windows. Never mid-word."""
+    text = ' '.join(str(text or '').split())
+    if not text:
         return []
-    if len(words) <= hi:
-        return [' '.join(words)]
-    phrases = []
-    i = 0
-    while i < len(words):
-        remaining = len(words) - i
-        take = hi if remaining > hi else remaining
-        if remaining > hi and remaining - hi < lo:
-            take = max(lo, remaining // 2)
-        phrases.append(' '.join(words[i:i + take]))
-        i += take
-    return phrases
+    # Clause-first: split on punctuation, then pack clauses into phrase windows.
+    clauses = [c.strip() for c in re.split(r'[,，;；:]+|\s+[—–-]\s+', text) if c.strip()]
+    # Keep terminal ?! with previous clause.
+    if len(clauses) == 1:
+        clauses = [text]
+    phrases: list[str] = []
+    for clause in clauses:
+        words = _WORD.findall(clause)
+        if not words:
+            continue
+        # Preserve trailing punctuation from clause.
+        trailing = ''
+        if clause[-1:] in '?？!！.。':
+            trailing = clause[-1]
+        if len(words) <= hi:
+            piece = ' '.join(words) + trailing
+            phrases.append(piece)
+            continue
+        i = 0
+        while i < len(words):
+            remaining = len(words) - i
+            take = hi if remaining > hi else remaining
+            if remaining > hi and remaining - hi < lo:
+                take = max(lo, remaining // 2)
+            chunk = ' '.join(words[i:i + take])
+            if i + take >= len(words) and trailing:
+                chunk += trailing
+            phrases.append(chunk)
+            i += take
+    return phrases or [text]
 
 
 def _split_zh(text: str) -> list[str]:
@@ -144,13 +155,25 @@ def phrases_from_transcript(
             cursor = piece_end
             if duration_s is not None and cursor >= float(duration_s):
                 break
-    # Drop flashes and incomplete crumbs ("and the", "Look at").
+    # Drop flashes and incomplete crumbs ("and the", "Look at", "но не знаете").
     from .director_execution import is_incomplete_heading
+    _LEAD_CONJ = re.compile(
+        r'^(и|а|но|да|или|чтобы|когда|если|and|but|or|the|a|an|with|for|of)\b',
+        re.I,
+    )
     cleaned = []
     for r in rows:
+        text = str(r.get('text') or '').strip()
         if (r['end'] - r['start']) < 0.35:
             continue
-        if is_incomplete_heading(r['text']):
+        if is_incomplete_heading(text):
+            continue
+        words = text.split()
+        # Merge dangling conjunction-led crumbs into previous phrase.
+        if cleaned and (_LEAD_CONJ.match(text) or len(words) <= 2):
+            prev = cleaned[-1]
+            prev['text'] = f"{prev['text']} {text}".strip()
+            prev['end'] = r['end']
             continue
         cleaned.append(r)
     return cleaned

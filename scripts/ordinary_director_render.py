@@ -55,6 +55,40 @@ def main():
         )
         plan = {**plan, 'generationId': f"ordinary_{args.project_id[:8]}_{seconds}s"}
 
+    transcript = plan.get('transcript') or []
+    # Optional sidecar transcript next to source (stem or full name).
+    for side in (
+        source.with_suffix('.transcript.json'),
+        Path(str(source) + '.transcript.json'),
+        project_dir / 'source.transcript.json',
+        project_dir / 'transcript.json',
+        project_dir / 'localization' / 'source-transcript.json',
+    ):
+        if transcript:
+            break
+        if side.is_file():
+            raw = json.loads(side.read_text(encoding='utf-8'))
+            if isinstance(raw, dict) and isinstance(raw.get('segments'), list):
+                transcript = [
+                    {
+                        'start': s.get('start'),
+                        'end': s.get('end'),
+                        'original': s.get('text'),
+                        'ru': s.get('text') if str(args.language).startswith('ru') else '',
+                        'en': s.get('text') if str(args.language).startswith('en') else '',
+                        'zh': s.get('text') if str(args.language).startswith('zh') else '',
+                        'id': s.get('id'),
+                    }
+                    for s in raw['segments']
+                ]
+            else:
+                transcript = raw
+
+    from backend.director_semantics import enrich_plan_from_transcript, motion_diversity_summary
+    plan = enrich_plan_from_transcript(plan, transcript, locale=args.language)
+    plan['language'] = args.language
+    store_plan(settings.data_dir, args.project_id, plan)
+
     speaker = director_v3.speaker_for(seconds, dest_source)
     public = director_v3._public_director()
     plan = stage_backgrounds(plan, public, ROOT / 'media' / 'library' / 'out')
@@ -67,21 +101,10 @@ def main():
         source_ref=str(dest_source),
         generation_id=plan['generationId'],
     )
-    transcript = plan.get('transcript') or []
-    # Optional sidecar transcript next to source (stem or full name).
-    for side in (
-        source.with_suffix('.transcript.json'),
-        Path(str(source) + '.transcript.json'),
-        project_dir / 'source.transcript.json',
-        project_dir / 'transcript.json',
-    ):
-        if transcript:
-            break
-        if side.is_file():
-            transcript = json.loads(side.read_text(encoding='utf-8'))
     render_plan = remotion_engine.attach_transcript_captions(
         render_plan, transcript, locale=args.language,
     )
+    render_plan['motionDiversity'] = motion_diversity_summary(render_plan.get('scenes') or [])
     remotion_engine.store_render_plan(settings.data_dir, args.project_id, render_plan)
 
     out = args.out.resolve()

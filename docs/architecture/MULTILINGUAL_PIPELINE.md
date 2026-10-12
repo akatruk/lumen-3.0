@@ -5,7 +5,8 @@
 - Locales: `ru-RU`, `en-US`, `zh-CN` (`motion/src/localization/`, backend `language.py`)
 - Cards: `motion/src/cards/` registry + validation
 - Voice: `resolve_voice` — fails closed on `VOICE_SETUP_REQUIRED`
-- Captions (V5): **transcript-driven** — `backend/caption_phrases.py` groups source / target-aligned speech; Remotion reads `visualPlan.captions`. Caption-pack strings are legacy fallback only. Hypit path still uses ASS from studio plan.
+- Captions (V5/V6): **transcript-driven** — `backend/caption_phrases.py` groups source / target-aligned speech; Remotion reads `visualPlan.captions`. Caption-pack strings are legacy fallback only. Hypit path still uses ASS from studio plan.
+- **V6 locale gate:** `backend/locale_consistency.py` — captions/cards/headlines must match `project.language` script; mismatched captions are dropped (never silent EN+RU mix).
 - Library search expands RU/ZH phrases to English tags
 
 ## Rules

@@ -7,6 +7,7 @@
 - Semantic visual plan: `backend/visual_variation.resolve_plan(seed, energy)`
 - **Execution:** `backend/director_execution.enforce_plan` (PIP ≥324px, heading completeness, caption≠card, statistic dedupe) inside `resolve_scene_plan`
 - **Captions:** transcript → `caption_phrases` → Remotion (not LLM caption fragments)
+- **V6:** `locale_consistency` + `director_semantics` — one viewer locale; speech-backed headlines/cards; layout diversity; reject EN captions under RU cards
 - Studio create-video stores `visual_plan` on `director_v3` when `should_use_remotion`
 - Hypit model brief (legacy): `backend/assembly_prompt.txt` via `hypit_prompt.py`
 

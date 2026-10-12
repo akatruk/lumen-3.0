@@ -18,18 +18,24 @@ export const DIRECTOR_V3_FRAMES = 600;
 /** Shorter hook → earlier media beat; avoids 0–19s talking-head lock on 60s cuts. */
 const BEAT_FRAMES = [54, 168, 120, 132, 81, 45] as const;
 
+export type CriteriaCardLook = { title: string; explanation: string };
+
 export type SceneLook = {
   sceneId: string;
   speaker: { layout: string };
   background: { treatment: string; staged?: string | null };
   foreground: { treatment: string; staged?: string | null; assetId?: string | null };
-  typography: { animate?: string };
+  typography: { animate?: string; headline?: string; cards?: CriteriaCardLook[]; stepsTitle?: string; steps?: string[] };
   transition: string;
   motionIntensity: "low" | "medium" | "high";
   /** From editing_controls Animation % — false skips purposeful plate motion. */
   animateGraphics?: boolean;
   /** From editing_controls Density % — caps concurrent overlays. */
   overlayBudget?: number;
+  headline?: string;
+  criteriaCards?: CriteriaCardLook[];
+  stepsTitle?: string;
+  steps?: string[];
 };
 
 export type EditingControls = {
@@ -399,12 +405,55 @@ function layoutZoom(layout: string) {
   return 1.04;
 }
 
-function Hook({ file, from, frames, look }: { file: string; from: number; frames: number; look: SceneLook }) {
+function KineticHeadline({ text, locale }: { text: string; locale: SupportedLocale }) {
+  const frame = useCurrentFrame();
+  const enter = interpolate(frame, [0, 16], [0, 1], clamp);
+  if (!text) return null;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          left: 56,
+          right: 56,
+          top: 220,
+          opacity: enter,
+          transform: `translateY(${(1 - enter) * 28}px) scale(${0.96 + enter * 0.04})`,
+        }}
+      >
+        <div
+          style={{
+            padding: "20px 28px",
+            borderRadius: 20,
+            background: "rgba(12, 11, 10, 0.72)",
+            boxShadow: "0 10px 32px rgba(0,0,0,0.35)",
+          }}
+        >
+          <AutoFitText
+            text={text}
+            maxWidth={940}
+            maxHeight={160}
+            role={{ min: 56, max: 88, weight: 800, lineHeight: 1.05, tracking: -0.03 }}
+            align="left"
+            vertical="center"
+            wrapMode="auto"
+            maxLines={2}
+            animate="pop"
+            locale={locale}
+          />
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function Hook({ file, from, frames, look, locale = "ru-RU" }: { file: string; from: number; frames: number; look: SceneLook; locale?: SupportedLocale }) {
   const frame = useCurrentFrame();
   const baseZoom = layoutZoom(look.speaker.layout);
   // Mid-hook punch keeps the opener from reading as a locked still when the beat stretches.
   const punchAt = Math.max(18, Math.round(frames * 0.42));
   const punch = interpolate(frame, [punchAt, punchAt + 16], [0, 0.12], clamp);
+  const headline = look.headline || look.typography?.headline || "";
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill>
@@ -412,6 +461,7 @@ function Hook({ file, from, frames, look }: { file: string; from: number; frames
           <Speaker file={file} startFrom={from} frames={frames} zoomTo={baseZoom + punch} />
         </Move>
         <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+        <KineticHeadline text={headline} locale={locale} />
       </AbsoluteFill>
     </Enter>
   );
@@ -587,7 +637,12 @@ function Beside({
   const frame = useCurrentFrame();
   const enterEnd = Math.min(24, Math.max(14, Math.round(frames * 0.18)));
   const panelProgress = interpolate(frame, [0, enterEnd], [0, 1], clamp);
-  const cards = criteriaCardsFor(locale);
+  const planned = look.criteriaCards?.length
+    ? look.criteriaCards
+    : look.typography?.cards?.length
+      ? look.typography.cards
+      : null;
+  const cards = planned ?? criteriaCardsFor(locale);
   const speakerLeft = look.speaker.layout === "speaker_split_left";
   const speakerSide = speakerLeft ? "left" : "right";
   const cardSide = speakerLeft ? "right" : "left";
@@ -693,16 +748,30 @@ function stepsCopy(locale: string) {
   return { title: "Сопровождение", steps: [{ label: "Консультация" }, { label: "Программа" }, { label: "Документы" }] };
 }
 
-function Steps({ frames, locale }: { frames: number; locale: string }) {
+function Steps({
+  frames,
+  locale,
+  look,
+}: {
+  frames: number;
+  locale: string;
+  look?: SceneLook;
+}) {
   const copy = stepsCopy(locale);
+  const title = look?.stepsTitle || look?.typography?.stepsTitle || copy.title;
+  const stepLabels = look?.steps?.length
+    ? look.steps
+    : look?.typography?.steps?.length
+      ? look.typography.steps
+      : copy.steps.map((s) => s.label);
   return renderScene(
     normalizeScene({
       id: "process",
       type: "progress_steps",
       variant: "vertical",
       durationInFrames: frames,
-      title: copy.title,
-      steps: copy.steps,
+      title,
+      steps: stepLabels.map((label) => ({ label })),
       transition: { type: "cut", durationInFrames: 0 },
     }),
   );
@@ -753,14 +822,23 @@ export function DirectorV3({
   const transcriptCaptions = captionsFromTranscript(visualPlan?.captions, frames);
   const packCaptions = captionsForBeats(beatList, planLocale);
   const captionRows = transcriptCaptions.length ? transcriptCaptions : packCaptions;
-  const captions = captionRows.map((row) => {
-    let sceneId: (typeof ids)[number] = "hook";
-    beatList.forEach((beat, index) => {
-      if (row.from >= beat.from) sceneId = ids[index];
+  const hookHeadline = (looks.hook.headline || looks.hook.typography?.headline || "").trim();
+  const captions = captionRows
+    .map((row) => {
+      let sceneId: (typeof ids)[number] = "hook";
+      beatList.forEach((beat, index) => {
+        if (row.from >= beat.from) sceneId = ids[index];
+      });
+      const animate = (looks[sceneId].typography.animate || "fade") as "fade" | "pop" | "mask" | "slide";
+      return { ...row, animate, sceneId };
+    })
+    // Avoid duplicate kinetic headline + identical bottom caption on the opener.
+    .filter((row) => {
+      if (!hookHeadline) return true;
+      if (row.sceneId !== "hook") return true;
+      const t = String(row.text || "").trim();
+      return t !== hookHeadline && !hookHeadline.startsWith(t) && !t.startsWith(hookHeadline);
     });
-    const animate = (looks[sceneId].typography.animate || "fade") as "fade" | "pop" | "mask" | "slide";
-    return { ...row, animate };
-  });
   const controls = visualPlan?.editingControls || null;
   const motionGain = editingMotionGain(controls);
   const conceptCap = editingConceptCap(controls);
@@ -803,7 +881,7 @@ export function DirectorV3({
         <ParallaxLayers
           frames={hook.duration}
           intensity={(looks.hook.motionIntensity === "high" ? 1.2 : 0.85) * motionGain}
-          layers={[{ depth: 0.4, children: <Hook file={speakerFile} from={hook.from} frames={hook.duration} look={looks.hook} /> }]}
+          layers={[{ depth: 0.4, children: <Hook file={speakerFile} from={hook.from} frames={hook.duration} look={looks.hook} locale={planLocale} /> }]}
         />
       </Sequence>
       <Sequence from={residency.from} durationInFrames={residency.duration} name="residency">
@@ -817,7 +895,7 @@ export function DirectorV3({
       </Sequence>
       <Sequence from={steps.from} durationInFrames={steps.duration} name="steps">
         <Enter transition={looks.steps.transition}>
-          <Steps frames={steps.duration} locale={planLocale} />
+          <Steps frames={steps.duration} locale={planLocale} look={looks.steps} />
         </Enter>
       </Sequence>
       <Sequence from={ret.from} durationInFrames={ret.duration} name="return">

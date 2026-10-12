@@ -74,12 +74,39 @@ def attach_transcript_captions(
 ) -> dict:
     """Stamp timed caption phrases from real transcript onto the render plan."""
     from .caption_phrases import caption_source_label, phrases_from_transcript
+    from .locale_consistency import validate_viewer_locale
 
+    target = locale or render_plan.get('locale')
     duration = float(render_plan.get('durationSeconds') or 0) or None
-    phrases = phrases_from_transcript(transcript, locale=locale or render_plan.get('locale'), duration_s=duration)
+    phrases = phrases_from_transcript(transcript, locale=target, duration_s=duration)
     out = dict(render_plan)
     out['captions'] = phrases
     out['captionSource'] = caption_source_label(phrases, dubbed=dubbed)
+    # Collect card/headline strings for locale gate.
+    headlines = []
+    cards = []
+    for scene in out.get('scenes') or []:
+        exe = scene.get('execution') or {}
+        typ = scene.get('typography') or {}
+        if exe.get('headline'):
+            headlines.append(exe['headline'])
+        if typ.get('headline'):
+            headlines.append(typ['headline'])
+        for card in typ.get('cards') or []:
+            cards.append(card)
+    locale_report = validate_viewer_locale(
+        locale=target or 'en-US', captions=phrases, cards=cards, headlines=headlines,
+    )
+    out['languageValidation'] = locale_report
+    if not locale_report['ok'] and phrases:
+        # Hard fail captions that mix languages — leave empty rather than wrong-locale speech.
+        if not locale_report.get('captionLocaleOk'):
+            out['captions'] = []
+            out['captionSource'] = 'unavailable'
+            out['languageValidation'] = {
+                **locale_report,
+                'action': 'dropped_mismatched_captions',
+            }
     compliance = dict(out.get('executionCompliance') or {})
     repairs = compliance.get('repairs') or []
     status = 'passed'
@@ -122,10 +149,16 @@ def resolve_scene_plan(
     """
     from .director_media_rules import sanitize_scene_layers
     from .director_execution import enforce_plan
+    from .director_semantics import validate_scene_semantics
 
     plan = dict(visual_plan or {})
     # Structured execution contract + deterministic repairs (Director V4).
     plan = enforce_plan(plan)
+    semantic = validate_scene_semantics(plan, locale=locale or plan.get('language'))
+    if not semantic.get('ok'):
+        compliance = dict(plan.get('executionCompliance') or {})
+        compliance['semanticIssues'] = semantic.get('issues') or []
+        plan['executionCompliance'] = compliance
     seed = int(plan.get('visualSeed') or plan.get('visual_seed') or 0)
     scenes = []
     for raw in plan.get('scenes') or []:
@@ -146,6 +179,11 @@ def resolve_scene_plan(
             'overlayBudget': raw.get('overlayBudget'),
             'rejected': list(raw.get('rejected') or []),
             'mediaGap': raw.get('mediaGap'),
+            'criteriaCards': list((raw.get('typography') or {}).get('cards') or []),
+            'stepsTitle': (raw.get('typography') or {}).get('stepsTitle'),
+            'steps': list((raw.get('typography') or {}).get('steps') or []),
+            'headline': (raw.get('execution') or {}).get('headline')
+            or (raw.get('typography') or {}).get('headline'),
         }
         # Strip director-illegal keys if a buggy planner leaked them.
         for bucket in ('speaker', 'background', 'foreground', 'typography'):
@@ -231,6 +269,8 @@ def visual_plan_from_render_plan(render_plan: dict) -> dict:
         'captionSource': render_plan.get('captionSource') or 'unavailable',
         'renderer': render_plan.get('renderer') or 'remotion',
         'executionValidation': render_plan.get('executionValidation') or 'passed',
+        'languageValidation': render_plan.get('languageValidation') or {},
+        'directorMode': render_plan.get('directorMode'),
     }
 
 

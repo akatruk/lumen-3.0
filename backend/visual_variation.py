@@ -79,8 +79,9 @@ SPEAKER = {
     'speaker': ('speaker_fullscreen', 'speaker_closeup', 'speaker_medium', 'speaker_punch_in'),
     'speaker_object': ('speaker_split_left', 'speaker_split_right', 'speaker_with_foreground'),
     'speaker_text': ('speaker_split_left', 'speaker_split_right', 'speaker_with_diagram'),
-    'broll': ('speaker_with_media',),
-    'infographic': ('speaker_with_diagram',),
+    # Media cutaway reuses speaker_with_media framing but consult beat pairs with fullscreen return.
+    'broll': ('speaker_with_media', 'speaker_split_right'),
+    'infographic': ('speaker_with_diagram', 'speaker_split_left'),
 }
 
 BACKGROUND = {
@@ -499,11 +500,12 @@ def load_latest(data_dir, project_id):
 def store_plan(data_dir, project_id, plan):
     folder = history_dir(data_dir, project_id)
     dest = folder / f"{plan['generationId']}.json"
-    if not dest.exists():
-        dest.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding='utf-8')
+    # Always overwrite — semantic enrichment / locale stamps must persist.
+    dest.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding='utf-8')
     (folder / 'latest.json').write_text(json.dumps({
         'generationId': plan['generationId'],
         'visualSeed': plan['visualSeed'],
+        'language': plan.get('language'),
     }), encoding='utf-8')
     return dest
 

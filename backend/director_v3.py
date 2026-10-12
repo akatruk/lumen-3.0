@@ -226,6 +226,17 @@ def run_job(p, payload):
         )
     if visual_plan is not None and target_locale and not visual_plan.get('language'):
         visual_plan = {**visual_plan, 'language': target_locale}
+    transcript_early = (
+        (payload or {}).get('transcript')
+        or ((payload or {}).get('plan') or {}).get('transcript')
+        or (visual_plan or {}).get('transcript')
+        or []
+    )
+    if visual_plan is not None and transcript_early:
+        from .director_semantics import enrich_plan_from_transcript
+        visual_plan = enrich_plan_from_transcript(
+            visual_plan, transcript_early, locale=target_locale or visual_plan.get('language'),
+        )
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=visual_plan,
         locale=target_locale,

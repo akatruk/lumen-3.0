@@ -1,0 +1,701 @@
+{
+  "generationId": "ordinary_9a9c116d_20s",
+  "engine": "remotion",
+  "engineVersion": "v1",
+  "composition": "DirectorV3Preview",
+  "locale": "ru-RU",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "durationSeconds": 20,
+  "visualSeed": 90601,
+  "artDirection": "luxury_minimal",
+  "visualEnergy": "balanced",
+  "motionIntensity": "medium",
+  "editingControls": {},
+  "speakerFile": "speaker.mp4",
+  "sourceRef": "/Users/akatruk_macbook/Documents/github/lumen-3.0/data/9a9c116d8e0d4f7f927e7f60cb926562/source",
+  "conceptTriggers": true,
+  "backgroundPlate": null,
+  "heroObject": null,
+  "motionRegistry": [
+    "kinetic_hook",
+    "big_number",
+    "progress_steps",
+    "speaker_focus",
+    "broll_caption",
+    "timeline",
+    "comparison",
+    "split_screen",
+    "checklist",
+    "stat_reveal",
+    "animated_diagram"
+  ],
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "semanticPurpose": "hook",
+      "query": null,
+      "representation": "presenter",
+      "speaker": {
+        "layout": "speaker_closeup",
+        "treatment": "speaker_closeup",
+        "framing": "fullscreen",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "subtle_drift"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "pop",
+        "headline": "Планируете переезд"
+      },
+      "execution": {
+        "scenePurpose": "hook",
+        "speakerFraming": "fullscreen",
+        "speakerVisibility": "primary",
+        "mediaRole": "none",
+        "headline": "Планируете переезд",
+        "cardText": "",
+        "caption": "",
+        "captionMode": "speech",
+        "motionPreset": "fade",
+        "expectedResult": "fullscreen speaker with hook intent",
+        "kineticReveal": true,
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        }
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "high",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": "Планируете переезд"
+    },
+    {
+      "sceneId": "residency",
+      "semanticPurpose": "document",
+      "query": "family home doorway relocation",
+      "representation": "photo+presenter",
+      "speaker": {
+        "layout": "speaker_split_left",
+        "treatment": "speaker_split_left",
+        "framing": "split",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": "people_apartment_001",
+        "file": "static/people/people_apartment_001.png",
+        "conceptId": null,
+        "treatment": "mask_reveal",
+        "staged": "picked/people_apartment_001.png"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": null,
+        "file": null,
+        "query": "keys handover object"
+      },
+      "typography": {
+        "treatment": "minimal_fade",
+        "animate": "fade"
+      },
+      "execution": {
+        "scenePurpose": "document",
+        "speakerFraming": "split",
+        "speakerVisibility": "primary",
+        "mediaRole": "supporting",
+        "headline": "Мы помогаем клиентам подобрать подходящую иммиграционную",
+        "cardText": "",
+        "caption": "",
+        "captionMode": "speech",
+        "motionPreset": "fade",
+        "expectedResult": "split speaker with document intent",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": "Мы помогаем клиентам подобрать подходящую иммиграционную"
+    },
+    {
+      "sceneId": "consult",
+      "semanticPurpose": "proof",
+      "query": "consultation meeting advisor",
+      "representation": "photo",
+      "speaker": {
+        "layout": "speaker_with_media",
+        "treatment": "speaker_with_media",
+        "framing": "pip",
+        "visibility": "pip",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": "people_phone_001",
+        "file": "static/people/people_phone_001.png",
+        "conceptId": null,
+        "treatment": "slow_zoom_out",
+        "staged": "picked/people_phone_001.png"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade"
+      },
+      "execution": {
+        "scenePurpose": "proof",
+        "speakerFraming": "pip",
+        "speakerVisibility": "pip",
+        "mediaRole": "supporting",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "captionMode": "speech",
+        "motionPreset": "fade",
+        "expectedResult": "pip speaker with proof intent",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null
+    },
+    {
+      "sceneId": "beside",
+      "semanticPurpose": "criteria",
+      "query": null,
+      "representation": "typography+presenter",
+      "speaker": {
+        "layout": "speaker_split_right",
+        "treatment": "speaker_split_right",
+        "framing": "split",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "static_editorial"
+      },
+      "foreground": {
+        "treatment": "slide_up",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cards": [
+          {
+            "title": "Цели",
+            "explanation": "куда и зачем вы переезжаете"
+          },
+          {
+            "title": "Семья",
+            "explanation": "кто едет с вами и в какие сроки"
+          },
+          {
+            "title": "Бюджет",
+            "explanation": "какой бюджет программы реалистичен"
+          }
+        ],
+        "headline": "",
+        "title": ""
+      },
+      "execution": {
+        "scenePurpose": "criteria",
+        "speakerFraming": "split",
+        "speakerVisibility": "primary",
+        "mediaRole": "none",
+        "headline": "",
+        "cardText": "Цели | Семья | Бюджет",
+        "caption": "",
+        "captionMode": "speech",
+        "motionPreset": "fade",
+        "expectedResult": "split speaker with criteria intent",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "kineticReveal": false
+      },
+      "repairs": [
+        "drop_incomplete_heading:'Цели'"
+      ],
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [
+        {
+          "title": "Цели",
+          "explanation": "куда и зачем вы переезжаете"
+        },
+        {
+          "title": "Семья",
+          "explanation": "кто едет с вами и в какие сроки"
+        },
+        {
+          "title": "Бюджет",
+          "explanation": "какой бюджет программы реалистичен"
+        }
+      ],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": ""
+    },
+    {
+      "sceneId": "steps",
+      "semanticPurpose": "process",
+      "query": null,
+      "representation": "diagram",
+      "speaker": {
+        "layout": "speaker_closeup",
+        "treatment": "speaker_closeup",
+        "framing": "fullscreen",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "gradient_reveal"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "minimal_fade",
+        "animate": "fade",
+        "stepsTitle": "Сопровождение",
+        "steps": [
+          "Консультация",
+          "Программа",
+          "Документы"
+        ],
+        "headline": "",
+        "title": ""
+      },
+      "execution": {
+        "scenePurpose": "process",
+        "speakerFraming": "fullscreen",
+        "speakerVisibility": "primary",
+        "mediaRole": "none",
+        "headline": "",
+        "cardText": "Консультация → Программа → Документы",
+        "caption": "",
+        "captionMode": "speech",
+        "motionPreset": "fade",
+        "expectedResult": "split speaker with process intent",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "kineticReveal": false
+      },
+      "repairs": [
+        "drop_incomplete_heading:'Сопровождение'"
+      ],
+      "transition": "cut",
+      "motionIntensity": "low",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": "Сопровождение",
+      "steps": [
+        "Консультация",
+        "Программа",
+        "Документы"
+      ],
+      "headline": ""
+    },
+    {
+      "sceneId": "return",
+      "semanticPurpose": "payoff",
+      "query": null,
+      "representation": "presenter",
+      "speaker": {
+        "layout": "speaker_split_right",
+        "treatment": "speaker_split_right",
+        "framing": "split",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "subtle_drift"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "minimal_fade",
+        "animate": "fade"
+      },
+      "execution": {
+        "scenePurpose": "payoff",
+        "speakerFraming": "split",
+        "speakerVisibility": "primary",
+        "mediaRole": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "captionMode": "speech",
+        "motionPreset": "fade",
+        "expectedResult": "fullscreen speaker with payoff intent",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "low",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null
+    }
+  ],
+  "executionCompliance": {
+    "version": "director_execution_v4",
+    "minPipWidthPx": 324,
+    "maxRepairAttempts": 3,
+    "repairs": [
+      {
+        "sceneId": "beside",
+        "attempt": 1,
+        "issues": [
+          {
+            "code": "incomplete_heading",
+            "severity": "blocking",
+            "detail": "headline='Цели'"
+          }
+        ],
+        "actions": [
+          "drop_incomplete_heading:'Цели'"
+        ]
+      },
+      {
+        "sceneId": "steps",
+        "attempt": 1,
+        "issues": [
+          {
+            "code": "incomplete_heading",
+            "severity": "blocking",
+            "detail": "headline='Сопровождение'"
+          }
+        ],
+        "actions": [
+          "drop_incomplete_heading:'Сопровождение'"
+        ]
+      }
+    ]
+  },
+  "renderer": "remotion",
+  "directorMode": "heuristic",
+  "audio": {
+    "speech": "speaker.mp4",
+    "bed": "bed.mp3",
+    "speechDominant": true
+  },
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 1.32,
+      "text": "Планируете переезд",
+      "source": "source_transcript"
+    },
+    {
+      "start": 1.32,
+      "end": 2.64,
+      "text": "второй вид на жительство или",
+      "source": "source_transcript"
+    },
+    {
+      "start": 2.64,
+      "end": 5.28,
+      "text": "новый международный статус но не знаете",
+      "source": "source_transcript"
+    },
+    {
+      "start": 5.28,
+      "end": 6.6,
+      "text": "с чего начать?",
+      "source": "source_transcript"
+    },
+    {
+      "start": 7.4,
+      "end": 9.325,
+      "text": "Мы помогаем клиентам подобрать подходящую",
+      "source": "source_transcript"
+    },
+    {
+      "start": 9.325,
+      "end": 11.25,
+      "text": "иммиграционную программу с",
+      "source": "source_transcript"
+    },
+    {
+      "start": 11.25,
+      "end": 13.175,
+      "text": "учетом их целей",
+      "source": "source_transcript"
+    },
+    {
+      "start": 13.175,
+      "end": 15.1,
+      "text": "семьи и бюджета..",
+      "source": "source_transcript"
+    },
+    {
+      "start": 15.8,
+      "end": 16.85,
+      "text": "Мы сопровождаем весь процесс",
+      "source": "source_transcript"
+    },
+    {
+      "start": 16.85,
+      "end": 17.9,
+      "text": "от первичной консультации и выбора",
+      "source": "source_transcript"
+    },
+    {
+      "start": 17.9,
+      "end": 18.95,
+      "text": "программы до подготовки документов",
+      "source": "source_transcript"
+    },
+    {
+      "start": 18.95,
+      "end": 20.0,
+      "text": "подачи заявления и дальнейшего сопровождения..",
+      "source": "source_transcript"
+    }
+  ],
+  "captionSource": "source_transcript",
+  "languageValidation": {
+    "ok": true,
+    "locale": "ru-RU",
+    "captionLocaleOk": true,
+    "cardLocaleOk": true,
+    "issues": []
+  },
+  "executionValidation": "repaired",
+  "motionDiversity": {
+    "layouts": [
+      "speaker_closeup",
+      "speaker_split_left",
+      "speaker_with_media",
+      "speaker_split_right",
+      "speaker_closeup",
+      "speaker_split_right"
+    ],
+    "uniqueLayouts": 4,
+    "backgroundTreatments": [
+      "subtle_drift",
+      "mask_reveal",
+      "slow_zoom_out",
+      "static_editorial",
+      "gradient_reveal",
+      "subtle_drift"
+    ],
+    "uniqueBackgrounds": 5,
+    "transitions": [
+      "cut",
+      "cut",
+      "cut",
+      "cut",
+      "cut",
+      "cut"
+    ],
+    "consecutiveLayoutRepeats": 0,
+    "pass": true
+  }
+}
