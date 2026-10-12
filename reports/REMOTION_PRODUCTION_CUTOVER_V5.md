@@ -98,10 +98,18 @@ Contract preserved: `ru-RU` / `en-US` / `zh-CN`. Phrase grouping is locale-aware
 
 ## Deployment
 
-Target: `142.93.248.163:/opt/lumen-rebuild`  
-Preserve media volume · do not touch strom-v2 · do not restart RunPod · verify web+worker.
-
-See deployment subsection below (filled after deploy).
+| Item | Value |
+| --- | --- |
+| Host | `142.93.248.163` `/opt/lumen-rebuild` |
+| Deploy SHA | `60a9153e583f39fbf7728256e64dd606f825e58f` |
+| Backup | `/opt/lumen-rebuild/backups/remotion-v5-20261012-154641.tar.gz` |
+| Flags | `FAST_PROJECT_CREATION_ENABLED=1`, `REMOTION_ENGINE_ENABLED=1`, `LLM_PROVIDER=none` |
+| Services | `lumen-web` + `lumen-worker` **active**; health `{"status":"ok",…,"fast_project_creation":true}` |
+| Routing check | `should_use_remotion(e)=True`, `should_use_remotion(other)=True` |
+| Volume | `/mnt/volume_nyc1_1791446889637` 100G · 17G used · **preserved** |
+| Frontend | `index-DT-jIP2o.js` |
+| RunPod | not restarted |
+| strom-v2 | not touched |
 
 ## Docs / skills updated
 
@@ -113,8 +121,8 @@ See deployment subsection below (filled after deploy).
 
 ## Git
 
-SHA: _(filled after commit)_  
-Push: `feat/media-library-cleanup-v1` (no force)
+Feature commit: `60a2560` · docs stamp + tip: `60a9153`  
+Push: `feat/media-library-cleanup-v1` @ `60a9153` (no force)
 
 ## Remaining issues
 
