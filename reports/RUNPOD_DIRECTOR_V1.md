@@ -110,3 +110,9 @@ Do **not** flip global Remotion until non-«e» face-safe review.
   3. set `LLM_PROVIDER=runpod` + restart `lumen-web` / `lumen-worker`
 
 **Live LLM criterion at close-out:** FAIL until existing pod resumed (approval required). Integration/code/tests/preview: PASS.
+
+## Production readiness follow-up (2026-10-12)
+
+See `reports/RUNPOD_DIRECTOR_PRODUCTION_READINESS.md`.
+
+Honest split: Remotion `e-preview-20s.mp4` **PASS** technically, but it is the **ordinary Director V3** path (`ordinary_9a9c116d_20s`), **not** qwen2.5 plan→Remotion. LLM A/B remains plan-only evidence. Host left `LLM_PROVIDER=none`; pod **EXITED**. Overall: **NOT production-ready** for LLM-directed Create Video.

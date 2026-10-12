@@ -1,0 +1,132 @@
+{
+  "summary": {
+    "en": "The video focuses on the process of obtaining a residence permit through real estate investments in three months.",
+    "zh": "视频主要介绍了通过房地产投资在三个月内获得居住许可的过程。"
+  },
+  "strongest_moment": {
+    "en": "The strongest moment is the clear and concise explanation of the steps involved in the process.",
+    "zh": "最有力的时刻是清晰简洁地解释了该过程中的步骤。"
+  },
+  "audience": {
+    "en": "The target audience is individuals interested in real estate investments and those seeking a residence permit.",
+    "zh": "目标受众是对房地产投资感兴趣的人以及寻求居住许可的人。"
+  },
+  "scores": [
+    {
+      "category": "hook",
+      "value": 85,
+      "reason": {
+        "en": "The introduction is engaging and directly addresses the audience's interest in real estate investments and residence permits.",
+        "zh": "引言引人入胜，直接针对了观众对房地产投资和居住许可的兴趣。"
+      }
+    },
+    {
+      "category": "clarity",
+      "value": 90,
+      "reason": {
+        "en": "The explanation is clear and easy to follow, with a logical flow of information.",
+        "zh": "解释清晰易懂，信息逻辑流畅。"
+      }
+    },
+    {
+      "category": "pacing",
+      "value": 88,
+      "reason": {
+        "en": "The pacing is well-balanced, with a good mix of information and pauses.",
+        "zh": "节奏平衡，信息和停顿的混合恰到好处。"
+      }
+    },
+    {
+      "category": "visuals",
+      "value": 80,
+      "reason": {
+        "en": "The visuals are relevant but could be more engaging with better transitions and animations.",
+        "zh": "视觉效果相关但可以通过更好的过渡和动画使其更具吸引力。"
+      }
+    },
+    {
+      "category": "audio",
+      "value": 92,
+      "reason": {
+        "en": "The audio quality is excellent, with clear and audible speech.",
+        "zh": "音频质量优秀，语音清晰可听。"
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "start": 0.0,
+      "end": 6.0,
+      "title": {
+        "en": "Introduction",
+        "zh": "介绍"
+      },
+      "observation": {
+        "en": "The video starts with a clear statement about the topic, capturing the audience's attention.",
+        "zh": "视频以清晰的主题陈述开始，吸引观众的注意力。"
+      },
+      "role": "hook"
+    },
+    {
+      "start": 6.0,
+      "end": 12.0,
+      "title": {
+        "en": "Risk Assessment and Documentation",
+        "zh": "风险评估和文件准备"
+      },
+      "observation": {
+        "en": "The video explains the initial steps, which involve assessing risks and preparing necessary documents.",
+        "zh": "视频解释了最初的步骤，包括评估风险和准备必要的文件。"
+      },
+      "role": "context"
+    },
+    {
+      "start": 12.0,
+      "end": 20.0,
+      "title": {
+        "en": "Object Selection and Application Submission",
+        "zh": "选择对象和提交申请"
+      },
+      "observation": {
+        "en": "The video concludes with the final steps, which are selecting an investment property and submitting the application.",
+        "zh": "视频以最终步骤结束，即选择投资物业并提交申请。"
+      },
+      "role": "transition"
+    }
+  ],
+  "transcript": [
+    {
+      "start": 0.0,
+      "end": 6.0,
+      "emphasis_en": [],
+      "emphasis_zh": [],
+      "original": "ВНЖ за три месяца через инвестиции в недвижимость",
+      "en": "Residence permit in three months through real estate investments",
+      "zh": "通过房地产投资在三个月内获得居住许可",
+      "ru": "ВНЖ за три месяца через инвестиции в недвижимость"
+    },
+    {
+      "start": 6.0,
+      "end": 12.0,
+      "emphasis_en": [],
+      "emphasis_zh": [],
+      "original": "Сначала оцениваем риски и документы",
+      "en": "First, we assess risks and documents",
+      "zh": "首先，评估风险和文件",
+      "ru": "Сначала оцениваем риски и документы"
+    },
+    {
+      "start": 12.0,
+      "end": 20.0,
+      "emphasis_en": [],
+      "emphasis_zh": [],
+      "original": "Потом выбираем объект и подаём заявление",
+      "en": "Then we select an object and submit the application",
+      "zh": "然后选择对象并提交申请",
+      "ru": "Потом выбираем объект и подаём заявление"
+    }
+  ],
+  "recommendations": [],
+  "uncertainties": [],
+  "transfers": []
+}
