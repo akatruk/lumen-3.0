@@ -75,4 +75,4 @@ Verify on `test.lumen.universalgravity.org` after merge to `deploy/testing`: upl
 
 ## Git
 
-Commit SHA: *(filled after commit)*
+Commit SHA: `9c953fb30d28281525b823a4c5a750c3dcc0860a`
