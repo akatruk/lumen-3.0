@@ -110,3 +110,44 @@ On lumen-test (`PYTHONPATH=/opt/lumen-rebuild`):
 2. Some SVML motion refs still declare files for gap shots; Hypit/figures fill or skip — tighten so gap shots omit `src=` when stage fails.
 3. Semantic pick quality: some plates are loosely related (e.g. construction for “government”); improve query/ranking later without inventing assets.
 4. Keep `ALLOWED_POD` / discovery on **name** `lumen-hypit-4090` if RunPod recreates the id again.
+
+---
+
+## Second Create Video attempt (2026-10-12 follow-up) — FAILED
+
+| | |
+|---|---|
+| **Intent** | `docs/RELEASE_CHECKS.md` second render on original1; keep `5dd1527b…` recoverable |
+| **Job** | `945e49ff1af844faba743975b8fd42be` · `studio_render` · **failed** · `hypit_unavailable` |
+| **Attempted render dir** | `ade31b8c9bd346f7bb7e58aa3afb1589` · **no** `result.mp4` |
+| **SSH error** | `ssh: connect to host 213.173.107.35 port 15590: Connection refused` |
+| **Pod used (wrong)** | `dznvwn90el5au4` · name still `lumen-hypit-4090` · GPU **RTX PRO 4500 Blackwell** · EU-RO-1 |
+| **Accepted delivery (unchanged)** | render `5dd1527b7233416b92d4a95540cb22e5` · sha256 `c8c1fa956f87d4cf38a8a589b2214e3329a3194965f96d9d49f2314926ba80ff` · player/download match · project restored to `needs_review` |
+| **Preserve** | `/mnt/volume_nyc1_1791446889637/lumen/_preserve/original1_5dd1527b/` |
+| **LLM_PROVIDER** | `none` (unchanged) |
+| **`lumen-web-gpu`** | `hufsgfs9f7gpga` · EXITED · untouched |
+
+### What happened
+
+1. Manually resumed **`sovtlhobiu7wvt`** (`lumen-hypit-4090`) after EU-RO-1 host-capacity waits → RUNNING · SSH `213.173.110.43:13942`.
+2. Enqueued second Create Video with same EN + levels (`60/60/80/70`, balanced). Local cut started under `ade31b8c…`.
+3. Worker `backend/hypit_gpu._start_pod` did **not** stick to the resumed 4090. On resume GPU-busy it **`podTerminate`s the EXITED pod**, then **`podFindAndDeployOnDemand`** under the same name `lumen-hypit-4090` (any of `GPU_TYPES`, volume `spsiypcy8y`). That **destroyed `sovtlhobiu7wvt`** and created **`dznvwn90el5au4`** (Blackwell 4500).
+4. Capture then failed (`Connection refused` on `213.173.107.35:15590`); worker logged `gpu pod dznvwn90el5au4 stopped`.
+5. Account after failure: `sovtlhobiu7wvt` **gone**; orphan `dznvwn90el5au4` was RUNNING (spend) → **stopped** (EXITED, not terminated). `hufsgfs9f7gpga` left alone.
+
+### Root cause (code)
+
+`backend/hypit_gpu.py` `_start_pod`: match by **name only**; if EXITED resume hits “not enough free GPUs…”, **terminate + create new pod**. Conflicts with ops policy “resume only `sovtlhobiu7wvt`; never create”. `scripts/runpod_pod_control.py` allowlist is id-pinned and was bypassed by the worker path.
+
+### Lifecycle verdict
+
+| Check | Result |
+|---|---|
+| Second Create Video on original1 | **Fail** (job `945e49ff…`) |
+| Player/download still `5dd1527b…` | **Pass** |
+| `verify_release.py` isolated | **Not run** (would need local Chrome/Playwright + remote temp checkout; does not use production original1 — deferred; production second-render path blocked on GPU policy) |
+| GPU spend stopped | **Pass** (`dznvwn90el5au4` EXITED; web-gpu untouched) |
+
+### Blocker (stop here)
+
+Cannot safely retry second render: allowed pod id `sovtlhobiu7wvt` **no longer exists**. Creating/resuming `dznvwn90el5au4` would violate “no new pods / only lumen-hypit-4090 4090 resume” without an explicit ops decision. Fix `hypit_gpu._start_pod` to **never terminate+redeploy** (fail closed / wait on pinned id or name+volume) before any further original1 Create Video.
