@@ -129,3 +129,34 @@ strom-v2 (`188.166.244.242`) **not touched**. RunPod **not restarted**.
 ## 7. Git
 
 This report + architecture/skill notes documenting the blocker. No LLM adapter claiming success. No secrets.
+
+## 8. Follow-up credential hunt (2026-10-12, agent after 66796999)
+
+**Result: NOT FOUND.** No partial `LLM_PROVIDER=digitalocean` implementation.
+
+| Source | Result |
+| --- | ---: |
+| lumen-test `/opt/lumen-rebuild/.env` | `MODEL_ACCESS_KEY` / `GRADIENT_MODEL_ACCESS_KEY` / `DIGITALOCEAN_*` / `DO_*` / `GRADIENT_API_KEY` / `INFERENCE_API_KEY` → **ABSENT** (length check) |
+| Vault `secret/admins/*` | **403** (no admins token; `root_token` file absent on this Mac; `VAULT_TOKEN` unset) |
+| macOS Keychain | no items for `MODEL_ACCESS_KEY`, `GRADIENT_MODEL_ACCESS_KEY`, `DIGITALOCEAN_*`, `doctl`, `inference.do-ai.run`, DigitalOcean/Gradient labels |
+| Local env | no repo `.env`; shell env unset for DO inference keys; no `doctl` |
+| `.env.example` (lumen-3.0) | names only — **no** `MODEL_ACCESS_KEY` / `GRADIENT_*` documented |
+| Related repos (`lumen`, `lumen2.1`) | OpenRouter / TikHub / etc. only — **no** DO Inference key names |
+| GitHub Actions secrets (this repo) | **empty** (`total_count=0`) |
+| Notion MCP + memory | no pages/memories holding Model Access / `inference.do-ai.run` credentials |
+| Workspace rg for `doo-v1-` / key names | report/docs only — no live secret files |
+
+Still present on host (forbidden for this track): `OPENROUTER_API_KEY`. Endpoint remains `https://inference.do-ai.run/v1` (do not invent alternatives).
+
+### Unblock — user must provide
+
+Paste **one** of these into a secure channel (chat/Vault), then ask agent to install on lumen-test only:
+
+1. **Preferred:** DigitalOcean Serverless Inference **Model Access Key** (`doo-v1-…`)
+   - Env name: `MODEL_ACCESS_KEY` (alias OK: `GRADIENT_MODEL_ACCESS_KEY`)
+   - Where to create: DO Control Panel → **Gradient / Serverless Inference → Model Access Keys**
+2. **Or:** store the same key under Vault `secret/admins/digitalocean/inference` (field `model_access_key`) and grant this agent an admins-capable Vault token.
+
+**Do not** send OpenRouter keys. **Do not** ask for a fake/stub provider.
+
+After key arrives, next agent steps (unchanged from §5): write key to `/opt/lumen-rebuild/.env` → `GET /v1/models` → pick returned chat model → implement fail-closed `LLM_PROVIDER=digitalocean` → keep `FAST_PROJECT_CREATION_ENABLED=1` → Remotion staging + 20s preview on project «e».
