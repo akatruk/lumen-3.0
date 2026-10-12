@@ -6,7 +6,7 @@ set -uo pipefail
 INTERVAL="${INTERVAL:-600}"
 LOG="${LOG:-/Users/akatruk_macbook/Documents/github/lumen-3.0/output/runpod-hypit-sync-status.log}"
 HOST="${LUMEN_TEST_HOST:-root@142.93.248.163}"
-HYPIT_POD_ID="${HYPIT_POD_ID:-6zleobjm8h7zu9}"
+HYPIT_POD_ID="${HYPIT_POD_ID:-nxi1rfwb94eufx}"
 HYPIT_POD_NAME="${HYPIT_POD_NAME:-lumen-hypit-4090}"
 AGENT_TRANSCRIPT="${AGENT_TRANSCRIPT:-/Users/akatruk_macbook/.cursor/projects/Users-akatruk-macbook-Documents-github-lumen-3-0/agent-transcripts/1492dcf3-d1d7-40d0-883d-5c640bd08663/subagents/f3c3ca5f-ec41-44ad-8a0c-a3cf84289a5c.jsonl}"
 STATE_DIR="${STATE_DIR:-/Users/akatruk_macbook/Documents/github/lumen-3.0/output/.runpod-hypit-sync-monitor}"
@@ -41,7 +41,7 @@ runpod_status() {
 import json, os, urllib.request
 
 token = os.environ["RUNPOD_API_KEY"]
-pod_id = os.environ.get("HYPIT_POD_ID", "6zleobjm8h7zu9")
+pod_id = os.environ.get("HYPIT_POD_ID", "nxi1rfwb94eufx")
 pod_name = os.environ.get("HYPIT_POD_NAME", "lumen-hypit-4090")
 query = "{ myself { currentSpendPerHr pods { id name desiredStatus } } }"
 body = json.dumps({"query": query}).encode()

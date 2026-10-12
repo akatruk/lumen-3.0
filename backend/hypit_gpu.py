@@ -20,8 +20,8 @@ from .hypit_picture import LOCAL_RENDER_TIMEOUT_S, _note_failure
 
 log = logging.getLogger('lumen.hypit')
 
-VOLUME_ID = 'xv77ctuc80'
-POD_NAME = 'lumen-web-gpu'
+VOLUME_ID = 'spsiypcy8y'
+POD_NAME = 'lumen-hypit-4090'
 GPU_TYPES = (
     'NVIDIA GeForce RTX 4090',
     'NVIDIA RTX PRO 4500 Blackwell',
@@ -46,7 +46,7 @@ _pod = contextvars.ContextVar('lumen_gpu_pod', default=None)
 
 @contextmanager
 def pod_session():
-    """Start lumen-web-gpu, or reuse the holder already running in this process.
+    """Start lumen-hypit-4090, or reuse the holder already running in this process.
 
     The pod stops when the outermost holder exits. A nested speech call does
     not shut the machine down in the middle of a picture.
@@ -77,7 +77,7 @@ def pod_session():
 
 
 def film(work):
-    """Capture work/visual.mp4 on lumen-web-gpu. Speech uses that same pod."""
+    """Capture work/visual.mp4 on lumen-hypit-4090. Speech uses that same pod."""
     work = Path(work)
     _hardware_runtime(work)
     ip = port = None
@@ -236,6 +236,7 @@ def _gpu_busy(exc):
     return (
         'not enough free GPUs' in detail
         or 'no longer any instances' in detail
+        or 'no gpu free' in detail
         or 'Something went wrong' in detail
         or 'try again later' in detail
     )
@@ -258,15 +259,16 @@ def _gpu_type():
 
 
 def _ensure_pod():
+    """Wait while the datacenter has no free card. A full region is not a finished failure."""
     last = None
-    for _attempt in range(8):
+    for _attempt in range(40):
         try:
             return _start_pod()
         except RuntimeError as exc:
             last = exc
             if not _gpu_busy(exc):
                 raise
-            time.sleep(25)
+            time.sleep(30)
     raise last
 
 
@@ -425,6 +427,7 @@ export NODE_OPTIONS=--max-old-space-size=16384
 export HYPIT_ROOT=/opt/hypit
 export PATH=/usr/local/bin:$PATH
 mkdir -p "$HOME"
+rm -f /workspace/lumen-picture.mp4
 cd /opt/lumen-web-job
 HYPIT="$HYPIT_ROOT/bin/hypit.mjs"
 PROFILE="$PWD/hypit.runtime.json"
@@ -465,7 +468,14 @@ open('/opt/lumen-web-job/build.id', 'w').write(found['build']['id'])
 PY
 build_id=$(cat /opt/lumen-web-job/build.id)
 node /opt/hypit/bin/hypit.mjs get "$build_id" --output final.video --to /opt/lumen-web-job/visual.mp4 --workspace /opt/lumen-web-job
-test -s /opt/lumen-web-job/visual.mp4
+if [ ! -f /opt/lumen-web-job/visual.mp4 ] || [ ! -s /opt/lumen-web-job/visual.mp4 ]; then
+  echo PICTURE_MISSING >&2
+  ls -la /opt/lumen-web-job >&2 || true
+  exit 1
+fi
+# The next SSH can miss /opt/lumen-web-job. The volume keeps the finished file.
+cp -f /opt/lumen-web-job/visual.mp4 /workspace/lumen-picture.mp4
+test -s /workspace/lumen-picture.mp4
 '''
 
 
@@ -476,7 +486,10 @@ def _fetch(work, ip, port):
         try:
             with visual.open('wb') as out:
                 subprocess.run(
-                    _ssh_argv(ip, port) + ['cat /opt/lumen-web-job/visual.mp4'],
+                    _ssh_argv(ip, port) + [
+                        'if [ -s /workspace/lumen-picture.mp4 ]; then cat /workspace/lumen-picture.mp4; '
+                        'else cat /opt/lumen-web-job/visual.mp4; fi'
+                    ],
                     check=True, timeout=600, stdout=out, stderr=subprocess.PIPE,
                 )
             break
