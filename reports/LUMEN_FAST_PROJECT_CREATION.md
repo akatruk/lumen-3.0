@@ -70,9 +70,11 @@ Critical no-AI: create with empty `openrouter_api_key` + `llm_provider=none` →
 
 ## Deployment status
 
-Code + docs committed on feature branch. Feature flags default-safe for testing deploy.  
-Verify on `test.lumen.universalgravity.org` after merge to `deploy/testing`: upload without OpenRouter credits → project opens → Create video triggers deferred analysis.
+- Pushed: `origin/feat/media-library-cleanup-v1` (`f43163a`).
+- Feature flags default-safe (`FAST_PROJECT_CREATION_ENABLED=true`, `LLM_PROVIDER=none`).
+- **Blocker:** this `lumen-3.0` repo has no `deploy/testing` branch / CI path on the DO host (`ssh lumen` runs MorcaLabs `strom-v2`, not this app). No live lumen-3.0 uvicorn found; docker requires sudo password. Live upload verify deferred until the app’s deploy target is available.
+- Do not touch RunPod for this change.
 
 ## Git
 
-Commit SHA: `9c953fb30d28281525b823a4c5a750c3dcc0860a`
+Commit SHA: `f43163a4f19a875a92026430a12d128e48aa31f3` (docs SHA note on `9c953fb`)
