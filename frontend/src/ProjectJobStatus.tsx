@@ -123,7 +123,13 @@ export function ProjectJobStatus({
       ? [err, activityNote && activityNote !== err ? activityNote : ""].filter(Boolean).join(" — ")
       : p.result?.render_id
         ? w("Можно смотреть и скачать текущую версию.", "You can play and download the current version.", "可播放并下载当前版本。")
-        : w("Исходник сохранён. Можно создать видео.", "Your original is safe. You can create a video.", "原始素材已保留，可以创建视频。");
+        : p.metadata?.director_mode === "heuristic" || p.metadata?.analysis_quality === "local_baseline"
+          ? w(
+              "План локальный (без LLM Director). Качество не равно AI-режиссуре.",
+              "Local baseline plan (no LLM Director). Not AI-directed quality.",
+              "本地基线计划（非 LLM 导演），不等于 AI 导演质量。",
+            )
+          : w("Исходник сохранён. Можно создать видео.", "Your original is safe. You can create a video.", "原始素材已保留，可以创建视频。");
 
   return (
     <section

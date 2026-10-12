@@ -1,15 +1,23 @@
 ---
 name: lumen-deployment
 description: >-
-  DigitalOcean Lumen deploy, testing stack, media volume safety, rollback via
-  REMOTION_ENGINE_ENABLED. Do not restart GPU jobs for Remotion deploys.
+  Lumen 3.0 deploy on DigitalOcean lumen-test (not strom-v2). Media volume
+  safety; rollback via FAST_PROJECT_CREATION / LLM_PROVIDER / REMOTION flags.
+  Do not restart GPU jobs for app deploys.
 ---
 
 # Deployment
 
-- SSH: `ssh lumen` (see personal skill `lumen-prod-ssh`)
-- Testing: `strom-v2-testing` / test.lumen.universalgravity.org
-- Volume: `/mnt/volume_nyc1_1791446889637/`
-- Rollback: disable `REMOTION_ENGINE_ENABLED`; for create flow set `FAST_PROJECT_CREATION_ENABLED=0` + `LLM_PROVIDER=openrouter` (funded key)
-- Env: `FAST_PROJECT_CREATION_ENABLED` (default true), `LLM_PROVIDER` (default `none`)
-- Never mutate production without confirmation; prefer testing verify first
+## Lumen 3.0 (this repo)
+
+- Host: `root@142.93.248.163` (`lumen-fix`) — `https://lumen-fix.universalgravity.org`
+- App: `/opt/lumen-rebuild`
+- Services: `lumen-web`, `lumen-worker` only
+- Volume: `/mnt/volume_nyc1_1791446889637/` (100 GB)
+- Flags: `FAST_PROJECT_CREATION_ENABLED=1`, `LLM_PROVIDER=none` (default)
+- Rollback create: `FAST_PROJECT_CREATION_ENABLED=0` + `LLM_PROVIDER=openrouter` (funded)
+- Rollback Remotion: disable `REMOTION_ENGINE_ENABLED`
+- **Never** deploy this tree to SSH `Host lumen` (188.166.244.242 / strom-v2)
+- Heuristic Director at generation (`LLM_PROVIDER=none`) is **local_baseline** — never report as AI-directed quality
+
+See `docs/architecture/DEPLOYMENT.md` and `reports/LUMEN_FAST_CREATE_PRODUCTION.md`.

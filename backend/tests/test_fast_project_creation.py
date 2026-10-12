@@ -131,6 +131,8 @@ def test_deferred_analysis_on_create_video(client, monkeypatch):
     assert plan
     assert json.loads(plan)["recommendations"] == []
     assert job["status"] == "queued"
+    assert started.json().get("director_mode") == "heuristic"
+    assert started.json().get("analysis_quality") == "local_baseline"
 
 
 def test_analysis_cache_reuse(client, monkeypatch, tmp_path):

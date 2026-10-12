@@ -521,15 +521,24 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
     if duration <= 0:
         raise HTTPException(422, 'analysis_not_ready')
     # Deferred analysis: build/reuse source plan here — not during upload.
+    director_info = {}
     with connect() as db:
         s_pre = state(pid, db)
     if not s_pre or not s_pre.get('plan'):
         from .source_analysis import ensure_analysis
         try:
-            ensure_analysis(pid, language=body.language or p.get('language'))
+            director_info = ensure_analysis(pid, language=body.language or p.get('language'))
         except Exception as exc:
             raise HTTPException(422, str(exc) if str(exc) else 'analysis_not_ready') from None
         p = owned(pid, user)
+    else:
+        ctx = (s_pre.get('context') or {})
+        director_info = {
+            'director_mode': ctx.get('director_mode') or (p.get('metadata') or {}).get('director_mode'),
+            'director_provider': ctx.get('director_provider') or (p.get('metadata') or {}).get('director_provider'),
+            'analysis_quality': ctx.get('analysis_quality') or (p.get('metadata') or {}).get('analysis_quality'),
+            'reused': True,
+        }
     with connect() as db:
         db.lock()
         s = state(pid, db)
@@ -629,7 +638,12 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             job.update(assembly.job_fields())
             enqueue(db, pid, 'director_v3', job)
             db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
-            return {'ok': True}
+            return {
+                'ok': True,
+                'director_mode': director_info.get('director_mode'),
+                'director_provider': director_info.get('director_provider'),
+                'analysis_quality': director_info.get('analysis_quality'),
+            }
         from .schemas import Caption
         from .sound_effects import DURATIONS, SoundEffect
         captions = []
@@ -752,7 +766,12 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         job_payload.update(assembly.job_fields())
         enqueue(db, pid, 'studio_render', job_payload)
         db.execute("UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?", (pid,))
-    return {'ok': True}
+    return {
+        'ok': True,
+        'director_mode': director_info.get('director_mode'),
+        'director_provider': director_info.get('director_provider'),
+        'analysis_quality': director_info.get('analysis_quality'),
+    }
 
 def _analysis_plan(context):
     plan=['prepare']
@@ -842,6 +861,10 @@ Transfer general techniques with semantic fit to the owned script and creator pr
         update(pid,analysis=legacy)
     else:
         update(pid,analysis=legacy,status='ready',stage='ready',progress=100)
+    from .source_analysis import _stamp_director_mode
+    _stamp_director_mode(pid, director_mode='openrouter', director_provider='openrouter', analysis_quality='llm')
+    saved=(load_project(pid) or {}).get('metadata') or {}
+    update(pid, metadata={**saved, 'director_mode':'openrouter', 'director_provider':'openrouter', 'analysis_quality':'llm'})
     # DNA and source analysis feed the executable decision pass automatically.
     from .creative_plans import queue_plan
     with connect() as db:

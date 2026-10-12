@@ -87,7 +87,7 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
             source, language=language, duration=float(meta["duration"])
         )
 
-    director = get_director_provider("none")  # always heuristic here
+    director = get_director_provider("none")  # local baseline — never silent LLM claim
     plan = director.build_plan(
         duration=float(meta["duration"]),
         language=language,
@@ -95,13 +95,39 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
         dna=[],
     )
     media.validate_analysis(plan, meta["duration"])
-    return {"plan": plan, "metadata": meta, "transcript_provider": transcript_provider.name}
+    return {
+        "plan": plan,
+        "metadata": meta,
+        "transcript_provider": transcript_provider.name,
+        "director_provider": director.name,
+        "director_mode": "heuristic",
+        "analysis_quality": "local_baseline",
+    }
+
+
+def _stamp_director_mode(pid: str, *, director_mode: str, director_provider: str, analysis_quality: str, transcript_provider: str | None = None):
+    """Persist explicit provider mode — heuristic must never look like LLM Director."""
+    from .studio import state
+
+    with connect() as db:
+        current = state(pid, db) or {}
+        context = dict(current.get("context") or {})
+        context["director_mode"] = director_mode
+        context["director_provider"] = director_provider
+        context["analysis_quality"] = analysis_quality
+        if transcript_provider:
+            context["transcript_provider"] = transcript_provider
+        db.execute(
+            "UPDATE studio_projects SET context=? WHERE project_id=?",
+            (json.dumps(context, ensure_ascii=False), pid),
+        )
 
 
 def ensure_analysis(pid: str, *, language: str | None = None, force: bool = False) -> dict:
-    """Reuse cached plan when source checksum matches; else build locally.
+    """Reuse cached plan when source checksum matches; else build at generation time.
 
-    Does not call OpenRouter unless llm_provider=openrouter and force legacy analyze.
+    Create stays AI-free. Generation may use OpenRouter only when LLM_PROVIDER=openrouter
+    and a key is present — otherwise heuristic with explicit director_mode.
     """
     from .studio import state, validate_director
 
@@ -117,36 +143,80 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
 
     s = state(pid)
     if not force and s and s.get("plan") and _cache_valid(meta, source):
-        return {"reused": True, "plan": s["plan"], "metadata": meta}
+        mode = (s.get("context") or {}).get("director_mode") or meta.get("director_mode") or "unknown"
+        return {
+            "reused": True,
+            "plan": s["plan"],
+            "metadata": meta,
+            "director_mode": mode,
+            "director_provider": (s.get("context") or {}).get("director_provider") or meta.get("director_provider"),
+            "analysis_quality": (s.get("context") or {}).get("analysis_quality") or meta.get("analysis_quality"),
+        }
 
     llm = get_llm_provider()
-    # Optional paid path only when explicitly configured AND flag allows legacy analyze.
-    if (
-        llm.available()
-        and getattr(settings, "llm_provider", "none") in ("openrouter", "or")
-        and not getattr(settings, "fast_project_creation_enabled", True)
-    ):
+    # Generation-time LLM Director (optional). Fast create remains AI-free either way.
+    if llm.available() and getattr(settings, "llm_provider", "none") in ("openrouter", "or"):
         from .studio import analyze
         from .db import project as load_project
 
         analyze(load_project(pid))
+        _stamp_director_mode(
+            pid,
+            director_mode="openrouter",
+            director_provider="openrouter",
+            analysis_quality="llm",
+        )
+        with connect() as db:
+            row = db.execute("SELECT metadata FROM projects WHERE id=?", (pid,)).fetchone()
+        fresh_meta = json.loads(row["metadata"] or "{}") if row else meta
+        update(
+            pid,
+            metadata={
+                **fresh_meta,
+                "director_mode": "openrouter",
+                "director_provider": "openrouter",
+                "analysis_quality": "llm",
+            },
+        )
         s = state(pid)
-        return {"reused": False, "plan": s["plan"], "metadata": meta, "provider": "openrouter"}
+        return {
+            "reused": False,
+            "plan": s["plan"],
+            "metadata": fresh_meta,
+            "provider": "openrouter",
+            "director_mode": "openrouter",
+            "director_provider": "openrouter",
+            "analysis_quality": "llm",
+        }
 
     built = build_local_plan(pid, language=lang)
     plan = built["plan"]
     validate_director(plan, [])
     decisions = []
     legacy = plan.model_dump(exclude={"transfers"})
+    stamp = {
+        "analysis_provider": built["transcript_provider"],
+        "transcript_provider": built["transcript_provider"],
+        "director_provider": built["director_provider"],
+        "director_mode": built["director_mode"],
+        "analysis_quality": built["analysis_quality"],
+    }
     with connect() as db:
         db.execute(
             "UPDATE studio_projects SET plan=?,decisions=?,revision=revision+1 WHERE project_id=?",
             (plan.model_dump_json(), json.dumps(decisions), pid),
         )
+    _stamp_director_mode(
+        pid,
+        director_mode=built["director_mode"],
+        director_provider=built["director_provider"],
+        analysis_quality=built["analysis_quality"],
+        transcript_provider=built["transcript_provider"],
+    )
     update(
         pid,
         analysis=legacy,
-        metadata={**meta, **built["metadata"], "analysis_provider": built["transcript_provider"]},
+        metadata={**meta, **built["metadata"], **stamp},
         status="ready",
         stage="ready",
         progress=100,
@@ -155,7 +225,10 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
     return {
         "reused": False,
         "plan": plan.model_dump(),
-        "metadata": built["metadata"],
+        "metadata": {**built["metadata"], **stamp},
         "provider": built["transcript_provider"],
+        "director_mode": built["director_mode"],
+        "director_provider": built["director_provider"],
+        "analysis_quality": built["analysis_quality"],
         "built_at": time.time(),
     }

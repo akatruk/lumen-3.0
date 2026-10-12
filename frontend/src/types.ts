@@ -33,6 +33,10 @@ export type Metadata = {
   size: number;
   preview_ready?: boolean;
   activity?: AnalysisActivityState | null;
+  /** heuristic | openrouter — never treat heuristic as LLM Director quality */
+  director_mode?: string | null;
+  director_provider?: string | null;
+  analysis_quality?: string | null;
 };
 export type Analysis = {
   summary: Text;
