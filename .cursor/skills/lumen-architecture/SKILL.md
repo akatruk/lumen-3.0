@@ -31,4 +31,4 @@ Prompt index: `docs/prompts/README.md`. Hypit assembly: `backend/assembly_prompt
 - Do not restart RunPod for Remotion-only changes.
 - Feature flags: `FAST_PROJECT_CREATION_ENABLED` (default on), `LLM_PROVIDER` (default `none`), `REMOTION_ENGINE_ENABLED`.
 - Acceptance = downloaded MP4 (`docs/RELEASE_CHECKS.md`).
-- **Director V4 status:** blocked pending DigitalOcean Inference credentials on lumen-test (`reports/LUMEN_DIRECTOR_V4.md`). Providers today: `none` | `openrouter` only.
+- **Director LLM:** `LLM_PROVIDER=none|openrouter|runpod`. RunPod = local Ollama on `lumen-hypit-4090` (`reports/RUNPOD_DIRECTOR_V1.md`). Fail-closed when `runpod` (`RUNPOD_LLM_UNAVAILABLE`). No OpenRouter / DO Inference for that track.

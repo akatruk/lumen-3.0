@@ -1,0 +1,42 @@
+{
+  "latency_s": 21.42,
+  "error": null,
+  "heuristic": {
+    "name": "heuristic",
+    "ok": true,
+    "scenes": 4,
+    "roles": [
+      "hook",
+      "context",
+      "proof",
+      "product"
+    ],
+    "caps": 3,
+    "recs": 0,
+    "summary_en": "Local plan from source transcript (no external LLM)."
+  },
+  "runpod": {
+    "name": "runpod",
+    "ok": true,
+    "scenes": 3,
+    "roles": [
+      "hook",
+      "context",
+      "transition"
+    ],
+    "caps": 3,
+    "recs": 0,
+    "summary_en": "The video focuses on the process of obtaining a residence permit through real estate investments in three months."
+  },
+  "health": {
+    "ok": true,
+    "provider": "runpod",
+    "model": "qwen2.5:7b-instruct",
+    "models": [
+      "qwen3:8b",
+      "qwen2.5:7b-instruct"
+    ],
+    "base_url": "http://127.0.0.1:19134/v1",
+    "mode": "direct"
+  }
+}

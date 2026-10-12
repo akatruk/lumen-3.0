@@ -69,7 +69,21 @@ async def security(request,call_next):
 @app.get('/api/health')
 def health():
     with connect() as db: db.execute('SELECT 1')
-    return {'status':'ok','version':'0.1.0'}
+    return {
+        'status': 'ok',
+        'version': '0.1.0',
+        'llm_provider': settings.llm_provider,
+        'fast_project_creation': bool(settings.fast_project_creation_enabled),
+    }
+
+
+@app.get('/api/health/runpod-llm')
+def health_runpod_llm(user=Depends(current_user)):
+    """Authenticated deep probe of RunPod-local Ollama (SSH tunnel). Fail-closed signal."""
+    from . import runpod_llm
+
+    return runpod_llm.health_check(ensure_model=True)
+
 
 @app.get('/api/session')
 def session(user=Depends(current_user)):

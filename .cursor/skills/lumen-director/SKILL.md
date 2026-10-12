@@ -23,9 +23,9 @@ Index: `docs/prompts/README.md`. Hypit handoff is separate: `backend/assembly_pr
 - Registry types/variants: `motion/src/types/scene.ts`
 - Concept triggers: `motion/src/concepts/` + `media/library/concept_triggers.py`
 
-Director runs at **Create video**, not at project upload. Default plan builder is local heuristic (`backend/providers/director.py`); OpenRouter is optional via `LLM_PROVIDER=openrouter` (**do not use for Director V4** — task forbids it). Source transcript/cache: `backend/source_analysis.py`.
+Director runs at **Create video**, not at project upload. Default plan builder is local heuristic (`backend/providers/director.py`). Optional LLMs: `LLM_PROVIDER=openrouter` (forbidden on the RunPod Director track) or `LLM_PROVIDER=runpod` (Ollama on `lumen-hypit-4090`, fail-closed). Source transcript/cache: `backend/source_analysis.py`.
 
-**Director V4 blocker (2026-10-12):** lumen-test has no DigitalOcean Inference key (`MODEL_ACCESS_KEY` / `GRADIENT_MODEL_ACCESS_KEY` absent; endpoint would be `https://inference.do-ai.run/v1`). Only `OPENROUTER_API_KEY` exists. Do not invent model IDs or silently fall back to heuristic when `LLM_PROVIDER` requests a real LLM. See `reports/LUMEN_DIRECTOR_V4.md`.
+**RunPod Native Director V1 (2026-10-12):** replaces DO Inference blocker for this track — model `qwen2.5:7b-instruct`, runtime Ollama `/v1`, SSH tunnel only. See `reports/RUNPOD_DIRECTOR_V1.md`. When `LLM_PROVIDER=runpod`, never silent-heuristic; raise `RUNPOD_LLM_UNAVAILABLE`.
 
 Speaker presence is required. Same seed + versioned inputs → same visuals.
 Never emit CSS, React, or x/y from the Director.

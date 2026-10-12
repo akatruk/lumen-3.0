@@ -1,0 +1,79 @@
+{
+  "projectId": "9a9c116d8e0d4f7f927e7f60cb926562",
+  "source": "/mnt/volume_nyc1_1791446889637/lumen/9a9c116d8e0d4f7f927e7f60cb926562/source",
+  "out": "/opt/lumen-rebuild/output/runpod-director-v1/e-preview-20s.mp4",
+  "durationSeconds": 20,
+  "sourceDuration": 107.566667,
+  "speakerFile": "speaker.mp4",
+  "language": "ru-RU",
+  "generationId": "ordinary_9a9c116d_20s",
+  "visualSeed": 331706943,
+  "deliverySha256": "ef9de2b4782b857c1e512f88d3f9d1f78dfca4029e9e6083809bad3a9842a95d",
+  "metadata": {
+    "duration": 20.053333,
+    "width": 1080,
+    "height": 1920,
+    "has_audio": true,
+    "size": 7008740,
+    "codec": "h264",
+    "fps": 30.0,
+    "orientation": "portrait"
+  },
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "query": null,
+      "representation": "presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "residency",
+      "query": "family home doorway relocation",
+      "representation": "photo+presenter",
+      "background": "people_door_001",
+      "foreground": "rp_detail_001",
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "consult",
+      "query": "phone consultation office advisor",
+      "representation": "photo",
+      "background": "i2v_phone_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "beside",
+      "query": null,
+      "representation": "typography+presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "steps",
+      "query": null,
+      "representation": "diagram",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "return",
+      "query": null,
+      "representation": "presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    }
+  ],
+  "path": "plan_for_request≈resolve_plan → resolve_scene_plan → render_with_plan → DirectorV3Preview"
+}
