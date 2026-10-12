@@ -1,0 +1,2277 @@
+{
+  "generationId": "ordinary_9a9c116d_60s",
+  "engine": "remotion",
+  "engineVersion": "v1",
+  "composition": "DirectorV3Preview",
+  "locale": "ru-RU",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "durationSeconds": 60,
+  "visualSeed": 42,
+  "artDirection": "documentary",
+  "visualEnergy": "balanced",
+  "motionIntensity": "medium",
+  "editingControls": {},
+  "speakerFile": "source-edit.mp4",
+  "sourceRef": "/Users/akatruk_macbook/Documents/github/lumen-3.0/data/9a9c116d8e0d4f7f927e7f60cb926562/source",
+  "conceptTriggers": false,
+  "backgroundPlate": null,
+  "heroObject": null,
+  "motionRegistry": [
+    "kinetic_hook",
+    "big_number",
+    "progress_steps",
+    "speaker_focus",
+    "broll_caption",
+    "timeline",
+    "comparison",
+    "split_screen",
+    "checklist",
+    "stat_reveal",
+    "animated_diagram"
+  ],
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "semanticPurpose": "hook",
+      "query": null,
+      "representation": "presenter",
+      "speaker": {
+        "layout": "speaker_punch_in",
+        "treatment": "speaker_punch_in",
+        "framing": "fullscreen",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "treatment": "slow_zoom_in"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": "l3d_premium_suitcase",
+        "file": "motion/premium3d/l3d_premium_suitcase_slide_in.webm",
+        "background": "transparent",
+        "family": "premium_3d",
+        "staged": "picked/l3d_premium_suitcase_slide_in.webm"
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "pop",
+        "cardMode": "none",
+        "headline": "Планируете переезд"
+      },
+      "execution": {
+        "scenePurpose": "hook",
+        "speakerFraming": "fullscreen",
+        "speakerVisibility": "primary",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "camera+kinetic",
+        "cardMode": "none",
+        "kineticReveal": true,
+        "headline": "Планируете переезд",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "fullscreen speaker; supporting media; caption=speech"
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "high",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": "Планируете переезд",
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "hook",
+        "speakerLayout": "speaker_punch_in",
+        "speakerFraming": "fullscreen",
+        "motionFamily": "camera+kinetic",
+        "cardMode": "none",
+        "backgroundTreatment": "slow_zoom_in",
+        "transition": "cut",
+        "keywords": [
+          {
+            "id": "relocation",
+            "preset": "route_link",
+            "match": "переезд"
+          },
+          {
+            "id": "residency",
+            "preset": "document_stamp",
+            "match": "жительств"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_scene_mobility_001",
+          "file": "motion/premium/pm_scene_mobility_001.webm",
+          "motionFamily": "mobility",
+          "keyword": "relocation",
+          "display": "omit",
+          "staged": "picked/pm_scene_mobility_001.webm"
+        },
+        "weight": 90,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": {
+          "assetId": "l3d_premium_suitcase",
+          "variantId": "l3d_premium_suitcase__slide_in",
+          "motion": "slide_in",
+          "file": "motion/premium3d/l3d_premium_suitcase_slide_in.webm",
+          "concept": "relocation",
+          "background": "transparent",
+          "display": "float",
+          "family": "premium_3d",
+          "preferredPlacement": "speaker_left_lower",
+          "areaShare": 0.16,
+          "placement": "speaker_right_lower",
+          "silhouette": "l3d_premium_suitcase",
+          "staged": "picked/l3d_premium_suitcase_slide_in.webm",
+          "format": "webm_alpha"
+        },
+        "primarySubject": "speaker",
+        "secondaryVisual": "premium_3d"
+      },
+      "primaryVisualRole": "speaker",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.78,
+        "budget": 2.2,
+        "overBudget": false,
+        "reasons": [
+          "foreground_object"
+        ],
+        "role": "speaker"
+      }
+    },
+    {
+      "sceneId": "context",
+      "semanticPurpose": "context",
+      "query": "family home doorway relocation",
+      "representation": "photo+presenter",
+      "speaker": {
+        "layout": "speaker_with_foreground",
+        "treatment": "speaker_with_foreground",
+        "framing": "split",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": "people_door_001",
+        "file": "static/people/people_door_001.png",
+        "treatment": "mask_reveal",
+        "conceptId": null,
+        "staged": "picked/people_door_001.png"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": null,
+        "file": null,
+        "background": "transparent"
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cardMode": "none"
+      },
+      "execution": {
+        "scenePurpose": "context",
+        "speakerFraming": "split",
+        "speakerVisibility": "primary",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "media+route",
+        "cardMode": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "split speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "crossfade",
+      "motionIntensity": "high",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null,
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "context",
+        "speakerLayout": "speaker_with_foreground",
+        "speakerFraming": "split",
+        "motionFamily": "media+route",
+        "cardMode": "none",
+        "backgroundTreatment": "mask_reveal",
+        "transition": "crossfade",
+        "keywords": [
+          {
+            "id": "relocation",
+            "preset": "route_link",
+            "match": "переезд"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_scene_mobility_001",
+          "file": "motion/premium/pm_scene_mobility_001.webm",
+          "motionFamily": "mobility",
+          "keyword": "relocation",
+          "display": "omit",
+          "staged": "picked/pm_scene_mobility_001.webm"
+        },
+        "weight": 180,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": null,
+        "primarySubject": "speaker",
+        "secondaryVisual": "media_plate"
+      },
+      "primaryVisualRole": "speaker_media",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "reasons": [
+          "media_plate"
+        ],
+        "role": "speaker_media"
+      }
+    },
+    {
+      "sceneId": "problem",
+      "semanticPurpose": "tension",
+      "query": null,
+      "representation": "presenter",
+      "speaker": {
+        "layout": "speaker_closeup",
+        "treatment": "speaker_closeup",
+        "framing": "fullscreen",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "treatment": "subtle_drift"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": "l3d_generic_passport",
+        "file": "motion/premium3d/l3d_generic_passport_reveal.webm",
+        "background": "transparent",
+        "family": "premium_3d",
+        "staged": "picked/l3d_generic_passport_reveal.webm"
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "pop",
+        "cardMode": "none"
+      },
+      "execution": {
+        "scenePurpose": "tension",
+        "speakerFraming": "fullscreen",
+        "speakerVisibility": "primary",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "camera+kinetic",
+        "cardMode": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "fullscreen speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null,
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "tension",
+        "speakerLayout": "speaker_closeup",
+        "speakerFraming": "fullscreen",
+        "motionFamily": "camera+kinetic",
+        "cardMode": "none",
+        "backgroundTreatment": "subtle_drift",
+        "transition": "cut",
+        "keywords": [
+          {
+            "id": "residency",
+            "preset": "document_stamp",
+            "match": "жительств"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "document_approval_001",
+          "file": "motion/documents/document_approval_001.webm",
+          "motionFamily": "document",
+          "keyword": "residency",
+          "display": "omit",
+          "staged": "picked/document_approval_001.webm"
+        },
+        "weight": 210,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "document_approval_001",
+        "file": "motion/documents/document_approval_001.webm",
+        "motionFamily": "document",
+        "keyword": "residency",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": {
+          "assetId": "l3d_generic_passport",
+          "variantId": "l3d_generic_passport__reveal",
+          "motion": "reveal",
+          "file": "motion/premium3d/l3d_generic_passport_reveal.webm",
+          "concept": "residency",
+          "background": "transparent",
+          "display": "float",
+          "family": "premium_3d",
+          "preferredPlacement": "speaker_right_lower",
+          "areaShare": 0.16,
+          "placement": "speaker_right_lower",
+          "silhouette": "l3d_generic_passport",
+          "staged": "picked/l3d_generic_passport_reveal.webm",
+          "format": "webm_alpha"
+        },
+        "primarySubject": "speaker",
+        "secondaryVisual": "premium_3d"
+      },
+      "primaryVisualRole": "speaker",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.74,
+        "budget": 2.2,
+        "overBudget": false,
+        "reasons": [
+          "foreground_object"
+        ],
+        "role": "speaker"
+      }
+    },
+    {
+      "sceneId": "residency",
+      "semanticPurpose": "document",
+      "query": "document review desk paperwork",
+      "representation": "photo+presenter",
+      "speaker": {
+        "layout": "speaker_split_right",
+        "treatment": "speaker_split_right",
+        "framing": "split",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": "i2v_couple_001",
+        "file": "motion/people/i2v_couple_001.mp4",
+        "treatment": "parallax_depth",
+        "staged": "picked/i2v_couple_001.mp4"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": null,
+        "file": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cardMode": "none"
+      },
+      "execution": {
+        "scenePurpose": "document",
+        "speakerFraming": "split",
+        "speakerVisibility": "primary",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "media+document",
+        "cardMode": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "split speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null,
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "document",
+        "speakerLayout": "speaker_split_right",
+        "speakerFraming": "split",
+        "motionFamily": "media+document",
+        "cardMode": "none",
+        "backgroundTreatment": "parallax_depth",
+        "transition": "cut",
+        "keywords": [
+          {
+            "id": "program",
+            "preset": "steps_reveal",
+            "match": "программ"
+          },
+          {
+            "id": "documents",
+            "preset": "document_stamp",
+            "match": "документ"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_concept_folder_001",
+          "file": "motion/premium/pm_concept_folder_001.webm",
+          "motionFamily": "folder",
+          "keyword": "documents",
+          "display": "omit",
+          "staged": "picked/pm_concept_folder_001.webm"
+        },
+        "weight": 300,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": null,
+        "secondaryVisual": "media_plate",
+        "primarySubject": "speaker"
+      },
+      "primaryVisualRole": "speaker_media",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "reasons": [
+          "media_plate"
+        ],
+        "role": "speaker_media"
+      }
+    },
+    {
+      "sceneId": "consult",
+      "semanticPurpose": "proof",
+      "query": "consultation meeting advisor",
+      "representation": "photo",
+      "speaker": {
+        "layout": "speaker_with_media",
+        "treatment": "speaker_with_media",
+        "framing": "pip",
+        "visibility": "pip",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": "re_int_office",
+        "file": "static/real-estate/photos/re_int_office.png",
+        "treatment": "ambient_loop",
+        "staged": "picked/re_int_office.png"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": null,
+        "file": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cardMode": "none"
+      },
+      "execution": {
+        "scenePurpose": "proof",
+        "speakerFraming": "pip",
+        "speakerVisibility": "pip",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "broll",
+        "cardMode": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "pip speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null,
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "proof",
+        "speakerLayout": "speaker_with_media",
+        "speakerFraming": "pip",
+        "motionFamily": "broll",
+        "cardMode": "none",
+        "backgroundTreatment": "ambient_loop",
+        "transition": "cut",
+        "keywords": [
+          {
+            "id": "consult",
+            "preset": "comparison_columns",
+            "match": "консульт"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_hero_compare_001",
+          "file": "motion/premium/pm_hero_compare_001.webm",
+          "motionFamily": "compare",
+          "keyword": "consult",
+          "display": "omit",
+          "staged": "picked/pm_hero_compare_001.webm"
+        },
+        "weight": 240,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_hero_compare_001",
+        "file": "motion/premium/pm_hero_compare_001.webm",
+        "motionFamily": "compare",
+        "keyword": "consult",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": null,
+        "primarySubject": "media",
+        "secondaryVisual": "speaker_pip"
+      },
+      "primaryVisualRole": "broll",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "reasons": [
+          "media_plate"
+        ],
+        "role": "broll"
+      }
+    },
+    {
+      "sceneId": "beside",
+      "semanticPurpose": "criteria",
+      "query": null,
+      "representation": "typography+presenter",
+      "speaker": {
+        "layout": "speaker_split_left",
+        "treatment": "speaker_split_left",
+        "framing": "split",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "treatment": "static_editorial"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": null,
+        "file": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cardMode": "progressive_one",
+        "cards": [
+          {
+            "title": "Цели",
+            "explanation": "куда и зачем вы переезжаете"
+          },
+          {
+            "title": "Семья",
+            "explanation": "кто едет с вами и в какие сроки"
+          },
+          {
+            "title": "Бюджет",
+            "explanation": "какой бюджет программы реалистичен"
+          }
+        ]
+      },
+      "execution": {
+        "scenePurpose": "criteria",
+        "speakerFraming": "split",
+        "speakerVisibility": "primary",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "info_reveal",
+        "cardMode": "progressive_one",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "split speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [
+        {
+          "title": "Цели",
+          "explanation": "куда и зачем вы переезжаете"
+        },
+        {
+          "title": "Семья",
+          "explanation": "кто едет с вами и в какие сроки"
+        },
+        {
+          "title": "Бюджет",
+          "explanation": "какой бюджет программы реалистичен"
+        }
+      ],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null,
+      "cardMode": "progressive_one",
+      "shotPlan": {
+        "narrativePurpose": "criteria",
+        "speakerLayout": "speaker_split_left",
+        "speakerFraming": "split",
+        "motionFamily": "info_reveal",
+        "cardMode": "progressive_one",
+        "backgroundTreatment": "static_editorial",
+        "transition": "cut",
+        "keywords": [
+          {
+            "id": "family",
+            "preset": "family_cluster",
+            "match": "семь"
+          },
+          {
+            "id": "budget",
+            "preset": "budget_scale",
+            "match": "бюджет"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_concept_shield_001",
+          "file": "motion/premium/pm_concept_shield_001.webm",
+          "motionFamily": "shield",
+          "keyword": "family",
+          "display": "omit",
+          "staged": "picked/pm_concept_shield_001.webm"
+        },
+        "weight": 180,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_concept_shield_001",
+        "file": "motion/premium/pm_concept_shield_001.webm",
+        "motionFamily": "shield",
+        "keyword": "family",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": null,
+        "secondaryVisual": "none",
+        "primarySubject": "infographic"
+      },
+      "primaryVisualRole": "infographic",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.65,
+        "budget": 1.8,
+        "overBudget": false,
+        "reasons": [
+          "cards"
+        ],
+        "role": "infographic"
+      }
+    },
+    {
+      "sceneId": "steps",
+      "semanticPurpose": "process",
+      "query": null,
+      "representation": "diagram",
+      "speaker": {
+        "layout": "speaker_medium",
+        "treatment": "speaker_with_diagram",
+        "framing": "pip",
+        "visibility": "pip",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "treatment": "gradient_reveal"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": null,
+        "file": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cardMode": "none",
+        "stepsTitle": "Сопровождение",
+        "steps": [
+          "Консультация",
+          "Программа",
+          "Документы"
+        ]
+      },
+      "execution": {
+        "scenePurpose": "process",
+        "speakerFraming": "pip",
+        "speakerVisibility": "pip",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "infographic",
+        "cardMode": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "pip speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "low",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": "Сопровождение",
+      "steps": [
+        "Консультация",
+        "Программа",
+        "Документы"
+      ],
+      "headline": null,
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "process",
+        "speakerLayout": "speaker_with_diagram",
+        "speakerFraming": "pip",
+        "motionFamily": "infographic",
+        "cardMode": "none",
+        "backgroundTreatment": "gradient_reveal",
+        "transition": "cut",
+        "keywords": [
+          {
+            "id": "program",
+            "preset": "steps_reveal",
+            "match": "программ"
+          },
+          {
+            "id": "documents",
+            "preset": "document_stamp",
+            "match": "документ"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_concept_folder_001",
+          "file": "motion/premium/pm_concept_folder_001.webm",
+          "motionFamily": "folder",
+          "keyword": "documents",
+          "display": "omit",
+          "staged": "picked/pm_concept_folder_001.webm"
+        },
+        "weight": 150,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": null,
+        "primarySubject": "speaker",
+        "secondaryVisual": "none"
+      },
+      "primaryVisualRole": "speaker",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.7,
+        "budget": 2.2,
+        "overBudget": false,
+        "reasons": [
+          "steps"
+        ],
+        "role": "speaker"
+      }
+    },
+    {
+      "sceneId": "proof",
+      "semanticPurpose": "example",
+      "query": "phone consultation office advisor",
+      "representation": "photo",
+      "speaker": {
+        "layout": "speaker_with_media",
+        "treatment": "speaker_with_media",
+        "framing": "pip",
+        "visibility": "pip",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": "people_consult_001",
+        "file": "static/people/people_consult_001.png",
+        "treatment": "slow_zoom_in",
+        "conceptId": null,
+        "staged": "picked/people_consult_001.png"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": null,
+        "file": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cardMode": "none"
+      },
+      "execution": {
+        "scenePurpose": "example",
+        "speakerFraming": "pip",
+        "speakerVisibility": "pip",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "broll+object",
+        "cardMode": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "pip speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "crossfade",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null,
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "example",
+        "speakerLayout": "speaker_with_media",
+        "speakerFraming": "pip",
+        "motionFamily": "broll+object",
+        "cardMode": "none",
+        "backgroundTreatment": "slow_zoom_in",
+        "transition": "crossfade",
+        "keywords": [
+          {
+            "id": "program",
+            "preset": "steps_reveal",
+            "match": "программ"
+          },
+          {
+            "id": "documents",
+            "preset": "document_stamp",
+            "match": "документ"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_concept_folder_001",
+          "file": "motion/premium/pm_concept_folder_001.webm",
+          "motionFamily": "folder",
+          "keyword": "documents",
+          "display": "omit",
+          "staged": "picked/pm_concept_folder_001.webm"
+        },
+        "weight": 180,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": null,
+        "primarySubject": "media",
+        "secondaryVisual": "speaker_pip"
+      },
+      "primaryVisualRole": "broll",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "reasons": [
+          "media_plate"
+        ],
+        "role": "broll"
+      }
+    },
+    {
+      "sceneId": "payoff",
+      "semanticPurpose": "payoff",
+      "query": null,
+      "representation": "presenter",
+      "speaker": {
+        "layout": "speaker_medium",
+        "treatment": "speaker_medium",
+        "framing": "fullscreen",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "treatment": "slow_zoom_out"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": "l3d_premium_suitcase",
+        "file": "motion/premium3d/l3d_premium_suitcase_reveal.webm",
+        "background": "transparent",
+        "family": "premium_3d",
+        "staged": "picked/l3d_premium_suitcase_reveal.webm"
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cardMode": "none"
+      },
+      "execution": {
+        "scenePurpose": "payoff",
+        "speakerFraming": "fullscreen",
+        "speakerVisibility": "primary",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "camera",
+        "cardMode": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "fullscreen speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null,
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "payoff",
+        "speakerLayout": "speaker_medium",
+        "speakerFraming": "fullscreen",
+        "motionFamily": "camera",
+        "cardMode": "none",
+        "backgroundTreatment": "slow_zoom_out",
+        "transition": "cut",
+        "keywords": [
+          {
+            "id": "relocation",
+            "preset": "route_link",
+            "match": "переезд"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_scene_mobility_001",
+          "file": "motion/premium/pm_scene_mobility_001.webm",
+          "motionFamily": "mobility",
+          "keyword": "relocation",
+          "display": "omit",
+          "staged": "picked/pm_scene_mobility_001.webm"
+        },
+        "weight": 150,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "medium",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": {
+          "assetId": "l3d_premium_suitcase",
+          "variantId": "l3d_premium_suitcase__reveal",
+          "motion": "reveal",
+          "file": "motion/premium3d/l3d_premium_suitcase_reveal.webm",
+          "concept": "relocation",
+          "background": "transparent",
+          "display": "float",
+          "family": "premium_3d",
+          "preferredPlacement": "speaker_left_lower",
+          "areaShare": 0.16,
+          "placement": "speaker_left_lower",
+          "silhouette": "l3d_premium_suitcase",
+          "staged": "picked/l3d_premium_suitcase_reveal.webm",
+          "format": "webm_alpha"
+        },
+        "primarySubject": "speaker",
+        "secondaryVisual": "premium_3d"
+      },
+      "primaryVisualRole": "speaker",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "medium",
+      "visualComplexityScore": {
+        "score": 1.74,
+        "budget": 2.2,
+        "overBudget": false,
+        "reasons": [
+          "foreground_object"
+        ],
+        "role": "speaker"
+      }
+    },
+    {
+      "sceneId": "return",
+      "semanticPurpose": "cta",
+      "query": null,
+      "representation": "presenter",
+      "speaker": {
+        "layout": "speaker_fullscreen",
+        "treatment": "speaker_fullscreen",
+        "framing": "fullscreen",
+        "visibility": "primary",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        }
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "treatment": "static_editorial"
+      },
+      "foreground": {
+        "treatment": "scale_reveal",
+        "assetId": null,
+        "file": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade",
+        "cardMode": "none"
+      },
+      "execution": {
+        "scenePurpose": "cta",
+        "speakerFraming": "fullscreen",
+        "speakerVisibility": "primary",
+        "mediaRole": "supporting",
+        "captionMode": "speech",
+        "motionPreset": "camera",
+        "cardMode": "none",
+        "headline": "",
+        "cardText": "",
+        "caption": "",
+        "pip": {
+          "width": 360,
+          "height": 480,
+          "right": 36,
+          "bottom": 220
+        },
+        "safeZones": {
+          "faceBand": {
+            "top": 0.1,
+            "bottom": 0.46
+          },
+          "captionClearance": 160,
+          "sideMargin": 28
+        },
+        "timing": {
+          "entranceFrames": 14,
+          "holdMinFrames": 45,
+          "exitFrames": 12
+        },
+        "expectedResult": "fullscreen speaker; supporting media; caption=speech",
+        "kineticReveal": false
+      },
+      "repairs": [],
+      "transition": "crossfade",
+      "motionIntensity": "low",
+      "animateGraphics": true,
+      "overlayBudget": null,
+      "rejected": [],
+      "mediaGap": null,
+      "criteriaCards": [],
+      "stepsTitle": null,
+      "steps": [],
+      "headline": null,
+      "cardMode": "none",
+      "shotPlan": {
+        "narrativePurpose": "cta",
+        "speakerLayout": "speaker_fullscreen",
+        "speakerFraming": "fullscreen",
+        "motionFamily": "camera",
+        "cardMode": "none",
+        "backgroundTreatment": "static_editorial",
+        "transition": "crossfade",
+        "keywords": [
+          {
+            "id": "relocation",
+            "preset": "route_link",
+            "match": "переезд"
+          }
+        ],
+        "semanticMotion": {
+          "assetId": "pm_scene_mobility_001",
+          "file": "motion/premium/pm_scene_mobility_001.webm",
+          "motionFamily": "mobility",
+          "keyword": "relocation",
+          "display": "omit",
+          "staged": "picked/pm_scene_mobility_001.webm"
+        },
+        "weight": 120,
+        "choreography": [
+          {
+            "at": 0.0,
+            "action": "establish"
+          },
+          {
+            "at": 0.25,
+            "action": "motion_enter"
+          },
+          {
+            "at": 0.55,
+            "action": "emphasis"
+          },
+          {
+            "at": 0.85,
+            "action": "exit_prepare"
+          }
+        ]
+      },
+      "semanticMotion": {
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation",
+        "display": "omit"
+      },
+      "composition": {
+        "containerPolicy": "minimal",
+        "speakerProtection": true,
+        "captionRegion": "safe_lower_center",
+        "visualComplexity": "low",
+        "suppressHeadline": true,
+        "suppressHero": true,
+        "suppressConcepts": true,
+        "floatObject": null,
+        "primarySubject": "speaker",
+        "secondaryVisual": "none"
+      },
+      "primaryVisualRole": "speaker",
+      "containerPolicy": "minimal",
+      "speakerProtection": true,
+      "captionRegion": "safe_lower_center",
+      "visualComplexity": "low",
+      "visualComplexityScore": {
+        "score": 1.0,
+        "budget": 2.2,
+        "overBudget": false,
+        "reasons": [],
+        "role": "speaker"
+      }
+    }
+  ],
+  "executionCompliance": {
+    "version": "director_execution_v4",
+    "minPipWidthPx": 324,
+    "maxRepairAttempts": 3,
+    "repairs": []
+  },
+  "renderer": "remotion",
+  "directorMode": "heuristic",
+  "keywords": [
+    {
+      "id": "relocation",
+      "preset": "route_link",
+      "match": "переезд"
+    },
+    {
+      "id": "residency",
+      "preset": "document_stamp",
+      "match": "жительств"
+    },
+    {
+      "id": "program",
+      "preset": "steps_reveal",
+      "match": "программ"
+    },
+    {
+      "id": "consult",
+      "preset": "comparison_columns",
+      "match": "консульт"
+    },
+    {
+      "id": "documents",
+      "preset": "document_stamp",
+      "match": "документ"
+    },
+    {
+      "id": "family",
+      "preset": "family_cluster",
+      "match": "семь"
+    },
+    {
+      "id": "budget",
+      "preset": "budget_scale",
+      "match": "бюджет"
+    },
+    {
+      "id": "goals",
+      "preset": "comparison_columns",
+      "match": "целей"
+    }
+  ],
+  "shotPlanVersion": "v10",
+  "antiRepetition": {
+    "signatures": [
+      "fullscreen|speaker_punch_in|camera+kinetic",
+      "split|speaker_with_foreground|media+route",
+      "fullscreen|speaker_closeup|camera+kinetic",
+      "split|speaker_split_right|media+document",
+      "pip|speaker_with_media|broll",
+      "split|speaker_split_left|info_reveal",
+      "pip|speaker_with_diagram|infographic",
+      "pip|speaker_with_media|broll+object",
+      "fullscreen|speaker_medium|camera",
+      "fullscreen|speaker_fullscreen|camera"
+    ],
+    "maxSplitStreak": 1,
+    "pass": true,
+    "floatAssets": [
+      "imm_obj_suitcase",
+      "passport",
+      "imm_obj_pin"
+    ],
+    "silhouettes": [
+      "suitcase",
+      "passport",
+      "pin"
+    ],
+    "maxSameSilhouetteStreak": 1
+  },
+  "form": "long60",
+  "beatWeights": [
+    90,
+    180,
+    210,
+    300,
+    240,
+    180,
+    150,
+    180,
+    150,
+    120
+  ],
+  "semanticMotionAudit": {
+    "resolved": [
+      {
+        "sceneId": "hook",
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation"
+      },
+      {
+        "sceneId": "context",
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation"
+      },
+      {
+        "sceneId": "problem",
+        "assetId": "document_approval_001",
+        "file": "motion/documents/document_approval_001.webm",
+        "motionFamily": "document",
+        "keyword": "residency"
+      },
+      {
+        "sceneId": "residency",
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents"
+      },
+      {
+        "sceneId": "consult",
+        "assetId": "pm_hero_compare_001",
+        "file": "motion/premium/pm_hero_compare_001.webm",
+        "motionFamily": "compare",
+        "keyword": "consult"
+      },
+      {
+        "sceneId": "beside",
+        "assetId": "pm_concept_shield_001",
+        "file": "motion/premium/pm_concept_shield_001.webm",
+        "motionFamily": "shield",
+        "keyword": "family"
+      },
+      {
+        "sceneId": "steps",
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents"
+      },
+      {
+        "sceneId": "proof",
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents"
+      },
+      {
+        "sceneId": "payoff",
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation"
+      },
+      {
+        "sceneId": "return",
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation"
+      }
+    ],
+    "missing": [],
+    "resolvedCount": 10,
+    "pass": true
+  },
+  "compositionPolicy": "v9_clean",
+  "compositionAudit": {
+    "scenes": [
+      {
+        "sceneId": "hook",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "medium",
+        "score": 1.78,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": "imm_obj_suitcase",
+        "silhouette": "suitcase",
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "context",
+        "primaryVisualRole": "speaker_media",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "problem",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "medium",
+        "score": 1.74,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": "passport",
+        "silhouette": "passport",
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "residency",
+        "primaryVisualRole": "speaker_media",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "consult",
+        "primaryVisualRole": "broll",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "beside",
+        "primaryVisualRole": "infographic",
+        "visualComplexity": "medium",
+        "score": 1.65,
+        "budget": 1.8,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "steps",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "proof",
+        "primaryVisualRole": "broll",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "payoff",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "medium",
+        "score": 1.74,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": "imm_obj_pin",
+        "silhouette": "pin",
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "return",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "low",
+        "score": 1.0,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      }
+    ],
+    "uniqueFloatAssets": 3,
+    "uniqueSilhouettes": 3,
+    "overBudgetCount": 0,
+    "opaqueMotionBoxes": 0,
+    "pass": true
+  },
+  "premium3d": {
+    "bindings": [
+      {
+        "sceneId": "hook",
+        "assetId": "l3d_premium_suitcase",
+        "variantId": "l3d_premium_suitcase__slide_in",
+        "motion": "slide_in",
+        "file": "motion/premium3d/l3d_premium_suitcase_slide_in.webm",
+        "concept": "relocation",
+        "background": "transparent",
+        "display": "float",
+        "family": "premium_3d",
+        "preferredPlacement": "speaker_left_lower",
+        "areaShare": 0.16,
+        "placement": "speaker_right_lower",
+        "silhouette": "l3d_premium_suitcase"
+      },
+      {
+        "sceneId": "problem",
+        "assetId": "l3d_generic_passport",
+        "variantId": "l3d_generic_passport__reveal",
+        "motion": "reveal",
+        "file": "motion/premium3d/l3d_generic_passport_reveal.webm",
+        "concept": "residency",
+        "background": "transparent",
+        "display": "float",
+        "family": "premium_3d",
+        "preferredPlacement": "speaker_right_lower",
+        "areaShare": 0.16,
+        "placement": "speaker_right_lower",
+        "silhouette": "l3d_generic_passport"
+      },
+      {
+        "sceneId": "payoff",
+        "assetId": "l3d_premium_suitcase",
+        "variantId": "l3d_premium_suitcase__reveal",
+        "motion": "reveal",
+        "file": "motion/premium3d/l3d_premium_suitcase_reveal.webm",
+        "concept": "relocation",
+        "background": "transparent",
+        "display": "float",
+        "family": "premium_3d",
+        "preferredPlacement": "speaker_left_lower",
+        "areaShare": 0.16,
+        "placement": "speaker_left_lower",
+        "silhouette": "l3d_premium_suitcase"
+      }
+    ],
+    "registryCount": 15,
+    "boundCount": 3,
+    "pass": true
+  },
+  "audio": {
+    "speech": "source-edit.mp4",
+    "bed": "bed.mp3",
+    "speechDominant": true
+  },
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 5.362,
+      "text": "Планируете переезд второй вид на жительство или новый международный статус но не знаете",
+      "source": "source_transcript"
+    },
+    {
+      "start": 5.362,
+      "end": 6.6,
+      "text": "с чего начать?",
+      "source": "source_transcript"
+    },
+    {
+      "start": 7.4,
+      "end": 10.7,
+      "text": "Мы помогаем клиентам подобрать подходящую иммиграционную",
+      "source": "source_transcript"
+    },
+    {
+      "start": 10.7,
+      "end": 13.45,
+      "text": "программу с учетом их целей",
+      "source": "source_transcript"
+    },
+    {
+      "start": 13.45,
+      "end": 15.1,
+      "text": "семьи и бюджета",
+      "source": "source_transcript"
+    },
+    {
+      "start": 15.8,
+      "end": 17.933,
+      "text": "Мы сопровождаем весь процесс",
+      "source": "source_transcript"
+    },
+    {
+      "start": 17.933,
+      "end": 21.133,
+      "text": "от первичной консультации и выбора программы",
+      "source": "source_transcript"
+    },
+    {
+      "start": 21.133,
+      "end": 22.733,
+      "text": "до подготовки документов",
+      "source": "source_transcript"
+    },
+    {
+      "start": 22.733,
+      "end": 25.4,
+      "text": "подачи заявления и дальнейшего сопровождения",
+      "source": "source_transcript"
+    },
+    {
+      "start": 27.0,
+      "end": 31.092,
+      "text": "Наша задача сделать сложный иммиграционный процесс понятным",
+      "source": "source_transcript"
+    },
+    {
+      "start": 31.092,
+      "end": 34.6,
+      "text": "прозрачным и максимально организованным для клиента",
+      "source": "source_transcript"
+    },
+    {
+      "start": 46.5,
+      "end": 50.45,
+      "text": "HK Immigration мы помогаем клиентам подобрать подходящую иммиграционную",
+      "source": "source_transcript"
+    }
+  ],
+  "captionSource": "source_transcript",
+  "languageValidation": {
+    "ok": true,
+    "locale": "ru-RU",
+    "captionLocaleOk": true,
+    "cardLocaleOk": true,
+    "issues": []
+  },
+  "executionValidation": "passed",
+  "motionDiversity": {
+    "layouts": [
+      "speaker_punch_in",
+      "speaker_with_foreground",
+      "speaker_closeup",
+      "speaker_split_right",
+      "speaker_with_media",
+      "speaker_split_left",
+      "speaker_medium",
+      "speaker_with_media",
+      "speaker_medium",
+      "speaker_fullscreen"
+    ],
+    "uniqueLayouts": 8,
+    "backgroundTreatments": [
+      "slow_zoom_in",
+      "mask_reveal",
+      "subtle_drift",
+      "parallax_depth",
+      "ambient_loop",
+      "static_editorial",
+      "gradient_reveal",
+      "slow_zoom_in",
+      "slow_zoom_out",
+      "static_editorial"
+    ],
+    "uniqueBackgrounds": 8,
+    "transitions": [
+      "cut",
+      "crossfade",
+      "cut",
+      "cut",
+      "cut",
+      "cut",
+      "cut",
+      "crossfade",
+      "cut",
+      "crossfade"
+    ],
+    "consecutiveLayoutRepeats": 0,
+    "pass": true
+  },
+  "motionUsage": {
+    "shotPlanVersion": "v8",
+    "motionFamilies": [
+      "camera+kinetic",
+      "media+route",
+      "camera+kinetic",
+      "media+document",
+      "broll",
+      "info_reveal",
+      "infographic",
+      "broll+object",
+      "camera",
+      "camera"
+    ],
+    "uniqueMotionFamilies": 8,
+    "layouts": [
+      "speaker_punch_in",
+      "speaker_with_foreground",
+      "speaker_closeup",
+      "speaker_split_right",
+      "speaker_with_media",
+      "speaker_split_left",
+      "speaker_with_diagram",
+      "speaker_with_media",
+      "speaker_medium",
+      "speaker_fullscreen"
+    ],
+    "uniqueLayouts": 9,
+    "choreographyActions": 40,
+    "keywords": [
+      {
+        "id": "relocation",
+        "preset": "route_link",
+        "match": "переезд"
+      },
+      {
+        "id": "residency",
+        "preset": "document_stamp",
+        "match": "жительств"
+      },
+      {
+        "id": "program",
+        "preset": "steps_reveal",
+        "match": "программ"
+      },
+      {
+        "id": "consult",
+        "preset": "comparison_columns",
+        "match": "консульт"
+      },
+      {
+        "id": "documents",
+        "preset": "document_stamp",
+        "match": "документ"
+      },
+      {
+        "id": "family",
+        "preset": "family_cluster",
+        "match": "семь"
+      },
+      {
+        "id": "budget",
+        "preset": "budget_scale",
+        "match": "бюджет"
+      },
+      {
+        "id": "goals",
+        "preset": "comparison_columns",
+        "match": "целей"
+      }
+    ],
+    "antiRepetition": {
+      "signatures": [
+        "fullscreen|speaker_punch_in|camera+kinetic",
+        "split|speaker_with_foreground|media+route",
+        "fullscreen|speaker_closeup|camera+kinetic",
+        "split|speaker_split_right|media+document",
+        "pip|speaker_with_media|broll",
+        "split|speaker_split_left|info_reveal",
+        "pip|speaker_with_diagram|infographic",
+        "pip|speaker_with_media|broll+object",
+        "fullscreen|speaker_medium|camera",
+        "fullscreen|speaker_fullscreen|camera"
+      ],
+      "maxSplitStreak": 1,
+      "pass": true
+    },
+    "pass": true
+  }
+}

@@ -131,7 +131,9 @@ _SCENE = frozenset({
 
 
 def _tokens(text):
-    return [part for part in re.split(r"[^a-z0-9]+", normalize_query(text).lower()) if part]
+    # Latin + digits + Cyrillic + CJK — do not drop RU/ZH tags from the haystack.
+    blob = normalize_query(text).lower()
+    return re.findall(r"[a-z0-9]+|[\u0400-\u04ff]+|[\u4e00-\u9fff]+", blob)
 
 
 def _query_words(query):
@@ -239,7 +241,12 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
     category = asset.get("category") or ""
     mode = _query_mode(words)
     asset_mode = (asset.get("matchMode") or "").lower()
-    if family == "deterministic_motion":
+    if family == "premium_3d":
+        # High-end 3D object plates — preferred for conceptual object queries.
+        score += 2.1
+    if asset.get("kind") == "3d_motion":
+        score += 0.8
+    elif family == "deterministic_motion":
         score += 0.45
     elif family == "generative_motion":
         score += 0.35
@@ -259,6 +266,8 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
             score += 0.8
         elif family == "deterministic_motion":
             score += 1.2
+        elif family == "premium_3d":
+            score += 2.0
         elif decorative:
             score -= 3
         elif family in ("line", "") and category in ("icons", "immigration", "decorative"):
@@ -276,6 +285,10 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
         score += 1.5
     if mode == "literal" and family == "editorial_object":
         score += 1.2
+    if mode in ("literal", "conceptual") and family == "premium_3d":
+        score += 1.4
+    if preferred_scene_role in ("foreground_object", "semantic_object") and family == "premium_3d":
+        score += 1.8
     if mode == "situational" and decorative:
         score -= 2.5
     if mode == "literal" and decorative and not asks_mark:

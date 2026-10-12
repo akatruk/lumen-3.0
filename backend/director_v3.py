@@ -242,15 +242,16 @@ def run_job(p, payload):
             visual_plan, duration_seconds=seconds, transcript=cleaned, locale=locale,
         )
         visual_plan = director_v8.fill_media_for_scenes(visual_plan, seed=visual_plan.get('visualSeed'))
-        from . import director_v9
+        from . import director_v9, director_v10
         visual_plan = director_v9.apply_composition_intelligence(visual_plan)
+        visual_plan = director_v10.apply_premium_3d(visual_plan, seed=visual_plan.get('visualSeed'))
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path
         library = _Path(__file__).resolve().parent.parent / 'media' / 'library' / 'out'
         visual_plan = stage_backgrounds(visual_plan, public, library)
         visual_plan = director_v8.stage_semantic_motion(visual_plan, public, library)
-        visual_plan = director_v9.stage_float_objects(visual_plan, public, library)
+        visual_plan = director_v10.stage_premium_3d(visual_plan, public, library)
         transcript_early = cleaned
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=visual_plan,

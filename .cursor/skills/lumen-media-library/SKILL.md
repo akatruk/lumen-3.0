@@ -15,6 +15,7 @@ description: >-
 - Fields: `qualityScore`, `sceneRoles`, `textSafeAreas`, `visualFamily`, `conceptId`, `tags_ru`, `tags_zh`
 - Quarantine before delete (ADR-008). Do not wipe approved media.
 - Alpha: VP9 `yuva420p` only; never claim H.264 has alpha.
+- Premium 3D V1: `motion/premium3d/`, `models/premium3d/`, factory `media/library/3d_factory/`, index via `index_3d_assets.py --publish-binaries`. Family `premium_3d`.
 
 Implemented selection gates (2026-10-11):
 - Default search skips `quarantined` / `rejected` / `duplicate` / `corrupt` and holds `needs_review` / `unreviewed` / `restricted`.

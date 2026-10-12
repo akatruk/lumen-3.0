@@ -232,7 +232,7 @@ function SemanticMotionClip({
   );
 }
 
-/** V9: floating transparent SVG/PNG — no black rectangle container. */
+/** V9/V10: floating transparent SVG/PNG or VP9-alpha webm — no black rectangle. */
 function FloatingForeground({
   staged,
   frames,
@@ -248,11 +248,18 @@ function FloatingForeground({
   const enter = interpolate(frame, [0, 12], [0, 1], clamp);
   const exit = interpolate(frame, [Math.max(18, frames - 14), frames - 1], [1, 0], clamp);
   const scale = interpolate(frame, [0, Math.min(20, frames)], [0.86, 1], clamp);
-  const size = Math.round(Math.min(360, Math.max(220, PORTRAIT.width * areaShare * 2.4)));
+  const size = Math.round(Math.min(340, Math.max(220, PORTRAIT.width * areaShare * 2.2)));
   const rightSide = placement.includes("right");
-  // Face-safe: lower third, outside center face band (~y 280–900).
-  const bottom = PORTRAIT.captionClearance + 88;
-  const side = rightSide ? { right: 48 } : { left: 48 };
+  // Face-safe: lower shelf well below chin / mouth band.
+  const bottom = PORTRAIT.captionClearance + 160;
+  const side = rightSide ? { right: 36 } : { left: 36 };
+  const isVideo = /\.(webm|mov|mp4)$/i.test(staged);
+  const mediaStyle = {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain" as const,
+    background: "transparent",
+  };
   return (
     <AbsoluteFill style={{ pointerEvents: "none", opacity: enter * exit }}>
       <div
@@ -269,15 +276,11 @@ function FloatingForeground({
           transformOrigin: rightSide ? "bottom right" : "bottom left",
         }}
       >
-        <Img
-          src={media(staged)}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            background: "transparent",
-          }}
-        />
+        {isVideo ? (
+          <OffthreadVideo src={media(staged)} volume={0} transparent style={mediaStyle} />
+        ) : (
+          <Img src={media(staged)} style={mediaStyle} />
+        )}
       </div>
     </AbsoluteFill>
   );

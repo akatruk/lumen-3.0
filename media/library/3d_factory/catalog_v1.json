@@ -1,0 +1,65 @@
+{
+  "version": "v1",
+  "fps": 30,
+  "resolution": [1080, 1080],
+  "durationFrames": 90,
+  "engine": "BLENDER_EEVEE_NEXT",
+  "style": "lumen_editorial_premium",
+  "objects": [
+    {
+      "assetId": "l3d_generic_passport",
+      "conceptId": "passport",
+      "category": "immigration",
+      "semanticTags": ["passport", "second passport", "travel document", "identity", "mobility", "citizenship", "second"],
+      "tags_ru": ["паспорт", "второй паспорт", "документ", "переезд", "вид на жительство", "гражданство"],
+      "tags_zh": ["护照", "第二本护照", "证件", "移民"],
+      "motions": ["reveal", "open", "rotate_subtle"],
+      "preferredPlacement": "speaker_right_lower",
+      "materials": "leather_navy_gold"
+    },
+    {
+      "assetId": "l3d_premium_suitcase",
+      "conceptId": "relocation",
+      "category": "relocation",
+      "semanticTags": ["suitcase", "luggage", "relocation", "travel", "packing", "move"],
+      "tags_ru": ["чемодан", "переезд", "багаж", "путешествие", "упаковка"],
+      "tags_zh": ["行李箱", "搬家", "旅行", "打包"],
+      "motions": ["reveal", "slide_in", "floating_hold"],
+      "preferredPlacement": "speaker_left_lower",
+      "materials": "hard_shell_mint_metal"
+    },
+    {
+      "assetId": "l3d_global_mobility_globe",
+      "conceptId": "global_mobility",
+      "category": "immigration",
+      "semanticTags": ["globe", "world", "mobility", "international", "connections"],
+      "tags_ru": ["глобус", "мир", "международный", "мобильность"],
+      "tags_zh": ["地球仪", "国际", "流动"],
+      "motions": ["reveal", "rotate_subtle", "light_reveal"],
+      "preferredPlacement": "speaker_right_lower",
+      "materials": "navy_gold_editorial"
+    },
+    {
+      "assetId": "l3d_document_folder",
+      "conceptId": "documents",
+      "category": "immigration",
+      "semanticTags": ["folder", "documents", "paperwork", "files", "approval"],
+      "tags_ru": ["папка", "документы", "бумаги", "заявление"],
+      "tags_zh": ["文件夹", "文件", "材料"],
+      "motions": ["reveal", "open", "scale_reveal"],
+      "preferredPlacement": "speaker_left_lower",
+      "materials": "paper_manila_navy"
+    },
+    {
+      "assetId": "l3d_apartment_building",
+      "conceptId": "property",
+      "category": "real_estate",
+      "semanticTags": ["building", "apartment", "property", "real estate", "residence"],
+      "tags_ru": ["здание", "квартира", "недвижимость", "жилье"],
+      "tags_zh": ["公寓", "楼宇", "房产"],
+      "motions": ["reveal", "camera_push", "depth_entrance"],
+      "preferredPlacement": "speaker_right_lower",
+      "materials": "concrete_glass_warm"
+    }
+  ]
+}

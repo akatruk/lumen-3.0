@@ -22,3 +22,4 @@ One language-neutral library. RU/EN/ZH queries expand to English tags. Remotion 
 - Quarantine before delete (cleanup agents); never wipe approved media in engine work
 - Coordinate additively with other agents touching `search.py`
 - Do not claim H.264 has alpha — production alpha is `libvpx-vp9` `yuva420p`
+- **Premium 3D V1:** Blender factory `media/library/3d_factory/` → `motion/premium3d/*.webm` + `models/premium3d/*.glb` + BLEND sources. Registry rows in `premium-3d-v1-rows.json`. Director V10 selects by concept. Report: `reports/LUMEN_3D_ASSET_FACTORY_V1.md`. RunPod EXITED → local Blender pilot; do not resume GPU without auth.

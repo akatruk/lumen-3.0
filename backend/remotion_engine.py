@@ -244,6 +244,7 @@ def resolve_scene_plan(
         'semanticMotionAudit': plan.get('semanticMotionAudit') or {},
         'compositionPolicy': plan.get('compositionPolicy'),
         'compositionAudit': plan.get('compositionAudit') or {},
+        'premium3d': plan.get('premium3d') or {},
         'audio': {
             'speech': speaker_file,
             'bed': 'bed.mp3',
@@ -302,6 +303,7 @@ def visual_plan_from_render_plan(render_plan: dict) -> dict:
         'semanticMotionAudit': render_plan.get('semanticMotionAudit') or {},
         'compositionPolicy': render_plan.get('compositionPolicy'),
         'compositionAudit': render_plan.get('compositionAudit') or {},
+        'premium3d': render_plan.get('premium3d') or {},
     }
 
 
