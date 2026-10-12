@@ -3,7 +3,8 @@
 **Date:** 2026-04-12  
 **Branch:** `feat/media-library-cleanup-v1`  
 **Host:** lumen-test `142.93.248.163` `/opt/lumen-rebuild`  
-**Baseline Git (Director V4):** `dfb34b0`
+**Baseline Git (Director V4):** `dfb34b0`  
+**Cutover Git SHA:** `60a2560`
 
 ## Verdict
 
@@ -100,7 +101,7 @@ Contract preserved: `ru-RU` / `en-US` / `zh-CN`. Phrase grouping is locale-aware
 Target: `142.93.248.163:/opt/lumen-rebuild`  
 Preserve media volume · do not touch strom-v2 · do not restart RunPod · verify web+worker.
 
-*(Filled after deploy.)*
+See deployment subsection below (filled after deploy).
 
 ## Docs / skills updated
 
