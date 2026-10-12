@@ -3,7 +3,7 @@
 **Branch:** `feat/media-library-cleanup-v1`  
 **Preview:** `output/director-v7/director-v7-e-preview-20s.mp4`  
 **Desktop:** `~/Desktop/director-v7-e-preview-20s.mp4`  
-**SHA:** _(filled after commit)_
+**SHA:** `10ef0ca`
 
 ## Changes
 - `backend/director_shot_plan.py` — per-beat shot plans, choreography, keywords≠captions, anti-repetition
