@@ -1,0 +1,22 @@
+{
+  "pass": true,
+  "opaqueBoxCount": 0,
+  "speakerProtection": true,
+  "floatPlacements": [
+    {
+      "sceneId": "hook",
+      "placement": "speaker_right_lower",
+      "areaShare": 0.14
+    },
+    {
+      "sceneId": "problem",
+      "placement": "speaker_right_lower",
+      "areaShare": 0.12
+    },
+    {
+      "sceneId": "payoff",
+      "placement": "speaker_left_lower",
+      "areaShare": 0.12
+    }
+  ]
+}

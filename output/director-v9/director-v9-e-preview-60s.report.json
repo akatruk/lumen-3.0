@@ -1,0 +1,120 @@
+{
+  "projectId": "9a9c116d8e0d4f7f927e7f60cb926562",
+  "source": "/Users/akatruk_macbook/Documents/github/lumen-3.0/data/9a9c116d8e0d4f7f927e7f60cb926562/source",
+  "out": "/Users/akatruk_macbook/Documents/github/lumen-3.0/output/director-v9/director-v9-e-preview-60s.mp4",
+  "durationSeconds": 60,
+  "sourceDuration": 107.566667,
+  "speakerFile": "source-edit.mp4",
+  "language": "ru-RU",
+  "generationId": "ordinary_9a9c116d_60s",
+  "visualSeed": 42,
+  "deliverySha256": "22c80c5a43ad3bacece0a0d8cb52d438c174102d77ae41809b002840f32f55bb",
+  "renderer": "remotion",
+  "directorMode": "heuristic",
+  "executionValidation": "passed",
+  "captionSource": "source_transcript",
+  "captionCount": 12,
+  "metadata": {
+    "duration": 60.053333,
+    "width": 1080,
+    "height": 1920,
+    "has_audio": true,
+    "size": 21796648,
+    "codec": "h264",
+    "fps": 30.0,
+    "orientation": "portrait"
+  },
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "query": null,
+      "representation": "presenter",
+      "background": null,
+      "foreground": "imm_obj_suitcase",
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "context",
+      "query": "family home doorway relocation",
+      "representation": "photo+presenter",
+      "background": "people_door_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "problem",
+      "query": null,
+      "representation": "presenter",
+      "background": null,
+      "foreground": "passport",
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "residency",
+      "query": "document review desk paperwork",
+      "representation": "photo+presenter",
+      "background": "i2v_couple_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "consult",
+      "query": "consultation meeting advisor",
+      "representation": "photo",
+      "background": "re_int_office",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "beside",
+      "query": null,
+      "representation": "typography+presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "steps",
+      "query": null,
+      "representation": "diagram",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "proof",
+      "query": "phone consultation office advisor",
+      "representation": "photo",
+      "background": "people_consult_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "payoff",
+      "query": null,
+      "representation": "presenter",
+      "background": null,
+      "foreground": "imm_obj_pin",
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "return",
+      "query": null,
+      "representation": "presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    }
+  ],
+  "path": "plan_for_request≈resolve_plan → resolve_scene_plan → render_with_plan → DirectorV3Preview"
+}

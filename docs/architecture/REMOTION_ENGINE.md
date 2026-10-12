@@ -28,6 +28,7 @@ Original speaker video stays the protagonist. Library assets resolve by id befor
 - `should_use_remotion(pid)` gates Create Video (project «e» always)
 - V7: executes `shotPlan` (layouts, cardMode `progressive_one`, kinetic hook); caption Sequences skip empty text; bed duck ~0.34
 - V8: dynamic N-beat `SceneRouter` for `long60`; `SemanticMotionClip` renders staged `semanticMotion.staged` webm (~520px cover, face-safe); verify audit pass + actual frames, not presets alone
+- V9: `FloatingForeground` for transparent SVG/PNG; omit bordered webm shelves; `CleanSteps` speaker-led type; softer caption pills; honor `compositionPolicy=v9_clean`
 
 ## Contract
 

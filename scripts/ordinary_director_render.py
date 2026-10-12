@@ -94,12 +94,15 @@ def main():
         plan, duration_seconds=seconds, transcript=transcript, locale=args.language,
     )
     plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
+    from backend import director_v9
+    plan = director_v9.apply_composition_intelligence(plan)
     store_plan(settings.data_dir, args.project_id, plan)
 
     speaker = director_v3.speaker_for(seconds, dest_source)
     public = director_v3._public_director()
     plan = stage_backgrounds(plan, public, ROOT / 'media' / 'library' / 'out')
     plan = director_v8.stage_semantic_motion(plan, public, ROOT / 'media' / 'library' / 'out')
+    plan = director_v9.stage_float_objects(plan, public, ROOT / 'media' / 'library' / 'out')
 
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=plan,

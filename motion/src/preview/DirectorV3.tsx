@@ -47,7 +47,37 @@ export type SceneLook = {
   steps?: string[];
   cardMode?: "stack" | "progressive_one" | "none";
   shotPlan?: Record<string, unknown>;
-  semanticMotion?: { staged?: string | null; file?: string; assetId?: string; motionFamily?: string };
+  semanticMotion?: {
+    staged?: string | null;
+    file?: string;
+    assetId?: string;
+    motionFamily?: string;
+    display?: "float" | "cutaway" | "omit" | string;
+  };
+  /** V9 composition intelligence — one primary idea, minimal containers. */
+  composition?: {
+    containerPolicy?: string;
+    speakerProtection?: boolean;
+    captionRegion?: string;
+    visualComplexity?: string;
+    suppressHeadline?: boolean;
+    suppressHero?: boolean;
+    suppressConcepts?: boolean;
+    primarySubject?: string;
+    secondaryVisual?: string;
+    floatObject?: {
+      staged?: string | null;
+      file?: string;
+      assetId?: string;
+      placement?: string;
+      areaShare?: number;
+      background?: string;
+    } | null;
+  };
+  primaryVisualRole?: string;
+  containerPolicy?: string;
+  speakerProtection?: boolean;
+  captionRegion?: string;
 };
 
 export type EditingControls = {
@@ -83,6 +113,8 @@ export type VisualPlan = {
   motionIntensity?: "low" | "medium" | "high";
   form?: string;
   beatWeights?: number[];
+  compositionPolicy?: string;
+  shotPlanVersion?: string;
 };
 
 export type DirectorV3Props = {
@@ -160,6 +192,7 @@ export function beatsFor(frames: number, weights?: readonly number[] | number[])
   });
 }
 
+/** V8 legacy: opaque webm inside a bordered shelf — avoided by V9. */
 function SemanticMotionClip({
   staged,
   frames,
@@ -199,6 +232,57 @@ function SemanticMotionClip({
   );
 }
 
+/** V9: floating transparent SVG/PNG — no black rectangle container. */
+function FloatingForeground({
+  staged,
+  frames,
+  placement = "speaker_left_lower",
+  areaShare = 0.12,
+}: {
+  staged: string;
+  frames: number;
+  placement?: string;
+  areaShare?: number;
+}) {
+  const frame = useCurrentFrame();
+  const enter = interpolate(frame, [0, 12], [0, 1], clamp);
+  const exit = interpolate(frame, [Math.max(18, frames - 14), frames - 1], [1, 0], clamp);
+  const scale = interpolate(frame, [0, Math.min(20, frames)], [0.86, 1], clamp);
+  const size = Math.round(Math.min(360, Math.max(220, PORTRAIT.width * areaShare * 2.4)));
+  const rightSide = placement.includes("right");
+  // Face-safe: lower third, outside center face band (~y 280–900).
+  const bottom = PORTRAIT.captionClearance + 88;
+  const side = rightSide ? { right: 48 } : { left: 48 };
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", opacity: enter * exit }}>
+      <div
+        style={{
+          position: "absolute",
+          ...side,
+          bottom,
+          width: size,
+          height: size,
+          background: "transparent",
+          border: "none",
+          boxShadow: "none",
+          transform: `scale(${scale})`,
+          transformOrigin: rightSide ? "bottom right" : "bottom left",
+        }}
+      >
+        <Img
+          src={media(staged)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            background: "transparent",
+          }}
+        />
+      </div>
+    </AbsoluteFill>
+  );
+}
+
 function SceneRouter({
   look,
   file,
@@ -214,12 +298,23 @@ function SceneRouter({
 }) {
   const layout = look.speaker?.layout || "speaker_fullscreen";
   const sid = look.sceneId;
-  const motionStaged = look.semanticMotion?.staged || null;
+  const floatObj = look.composition?.floatObject;
+  const floatStaged = floatObj?.staged || null;
+  const motionDisplay = look.semanticMotion?.display;
+  const motionStaged =
+    motionDisplay === "omit" || floatStaged
+      ? null
+      : look.semanticMotion?.staged || null;
+  const suppressHeadline = Boolean(look.composition?.suppressHeadline);
   let body: ReactNode = null;
   if (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one") {
     body = <Beside file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (sid === "steps" || look.stepsTitle || look.typography?.stepsTitle) {
-    body = (
+    // V9: speaker-led progressive steps — no full-screen black card stack.
+    const clean = look.composition?.containerPolicy === "minimal" || look.composition?.suppressConcepts;
+    body = clean ? (
+      <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />
+    ) : (
       <Enter transition={look.transition}>
         <Steps frames={frames} locale={locale} look={look} />
       </Enter>
@@ -238,14 +333,34 @@ function SceneRouter({
   ) {
     body = <Residency file={file} from={from} frames={frames} look={look} />;
   } else if (sid === "hook" || sid === "problem") {
-    body = <Hook file={file} from={from} frames={frames} look={look} locale={locale} />;
+    body = (
+      <Hook
+        file={file}
+        from={from}
+        frames={frames}
+        look={look}
+        locale={locale}
+        suppressHeadline={suppressHeadline}
+      />
+    );
   } else {
     body = <Return file={file} from={from} frames={frames} look={look} />;
   }
   return (
     <AbsoluteFill>
       {body}
-      {motionStaged ? <SemanticMotionClip staged={motionStaged} frames={frames} /> : null}
+      {floatStaged ? (
+        <FloatingForeground
+          staged={floatStaged}
+          frames={frames}
+          placement={floatObj?.placement || "speaker_left_lower"}
+          areaShare={floatObj?.areaShare || 0.12}
+        />
+      ) : null}
+      {/* Legacy boxed webm only when V9 did not substitute a float object. */}
+      {!floatStaged && motionStaged && motionDisplay !== "omit" ? (
+        <SemanticMotionClip staged={motionStaged} frames={frames} />
+      ) : null}
     </AbsoluteFill>
   );
 }
@@ -436,18 +551,18 @@ function Caption({
         <div
           data-caption-backing="dark"
           style={{
-            maxWidth: 920,
-            padding: "22px 36px 26px",
-            borderRadius: 22,
-            background: "rgba(12, 11, 10, 0.78)",
-            boxShadow: "0 8px 28px rgba(0,0,0,0.4)",
+            maxWidth: 880,
+            padding: "14px 28px 16px",
+            borderRadius: 18,
+            background: "rgba(12, 11, 10, 0.55)",
+            boxShadow: "0 4px 18px rgba(0,0,0,0.28)",
           }}
         >
           <AutoFitText
             text={clean}
-            maxWidth={848}
-            maxHeight={168}
-            role={{ min: 64, max: 92, weight: 700, lineHeight: 1.1, tracking: -0.02 }}
+            maxWidth={824}
+            maxHeight={140}
+            role={{ min: 56, max: 78, weight: 700, lineHeight: 1.12, tracking: -0.02 }}
             align="center"
             vertical="center"
             wrapMode="auto"
@@ -539,17 +654,16 @@ function KineticHeadline({ text, locale }: { text: string; locale: SupportedLoca
       >
         <div
           style={{
-            padding: "20px 28px",
-            borderRadius: 20,
-            background: "rgba(12, 11, 10, 0.72)",
-            boxShadow: "0 10px 32px rgba(0,0,0,0.35)",
+            padding: "12px 8px",
+            background: "transparent",
+            boxShadow: "none",
           }}
         >
           <AutoFitText
             text={text}
             maxWidth={940}
             maxHeight={160}
-            role={{ min: 56, max: 88, weight: 800, lineHeight: 1.05, tracking: -0.03 }}
+            role={{ min: 64, max: 96, weight: 800, lineHeight: 1.05, tracking: -0.03 }}
             align="left"
             vertical="center"
             wrapMode="auto"
@@ -563,13 +677,27 @@ function KineticHeadline({ text, locale }: { text: string; locale: SupportedLoca
   );
 }
 
-function Hook({ file, from, frames, look, locale = "ru-RU" }: { file: string; from: number; frames: number; look: SceneLook; locale?: SupportedLocale }) {
+function Hook({
+  file,
+  from,
+  frames,
+  look,
+  locale = "ru-RU",
+  suppressHeadline = false,
+}: {
+  file: string;
+  from: number;
+  frames: number;
+  look: SceneLook;
+  locale?: SupportedLocale;
+  suppressHeadline?: boolean;
+}) {
   const frame = useCurrentFrame();
   const baseZoom = layoutZoom(look.speaker.layout);
   // Mid-hook punch keeps the opener from reading as a locked still when the beat stretches.
   const punchAt = Math.max(18, Math.round(frames * 0.42));
   const punch = interpolate(frame, [punchAt, punchAt + 16], [0, 0.12], clamp);
-  const headline = look.headline || look.typography?.headline || "";
+  const headline = suppressHeadline ? "" : look.headline || look.typography?.headline || "";
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill>
@@ -577,7 +705,7 @@ function Hook({ file, from, frames, look, locale = "ru-RU" }: { file: string; fr
           <Speaker file={file} startFrom={from} frames={frames} zoomTo={baseZoom + punch} />
         </Move>
         <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
-        <KineticHeadline text={headline} locale={locale} />
+        {headline ? <KineticHeadline text={headline} locale={locale} /> : null}
       </AbsoluteFill>
     </Enter>
   );
@@ -942,6 +1070,69 @@ function Steps({
   );
 }
 
+/** V9 steps: speaker stays primary; one large step label at a time — no card chrome. */
+function CleanSteps({
+  file,
+  from,
+  frames,
+  look,
+  locale = "ru-RU",
+}: {
+  file: string;
+  from: number;
+  frames: number;
+  look: SceneLook;
+  locale?: SupportedLocale;
+}) {
+  const frame = useCurrentFrame();
+  const copy = stepsCopy(locale);
+  const title = look.stepsTitle || look.typography?.stepsTitle || copy.title;
+  const stepLabels = look.steps?.length
+    ? look.steps
+    : look.typography?.steps?.length
+      ? look.typography.steps
+      : copy.steps.map((s) => s.label);
+  const count = Math.max(1, stepLabels.length);
+  const slot = Math.min(count - 1, Math.max(0, Math.floor((frame / Math.max(1, frames)) * count)));
+  const label = stepLabels[slot] || stepLabels[0];
+  const enter = interpolate(
+    frame,
+    [(slot * frames) / count, (slot * frames) / count + 10],
+    [0, 1],
+    clamp,
+  );
+  return (
+    <Enter transition={look.transition}>
+      <AbsoluteFill>
+        <Move treatment={look.background.treatment || "static_editorial"} intensity={look.motionIntensity} frames={frames}>
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.1} />
+        </Move>
+        <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+        <AbsoluteFill style={{ pointerEvents: "none" }}>
+          <div
+            style={{
+              position: "absolute",
+              left: 56,
+              right: 56,
+              top: 200,
+              opacity: enter,
+              transform: `translateY(${(1 - enter) * 20}px)`,
+            }}
+          >
+            <div style={{ fontSize: 28, fontWeight: 600, color: theme.color.muted, marginBottom: 12, letterSpacing: 0.04 }}>
+              {title}
+            </div>
+            <div style={{ fontSize: 72, fontWeight: 800, color: theme.color.paper, letterSpacing: -0.03, lineHeight: 1.05 }}>
+              <span style={{ color: theme.color.accent, marginRight: 18 }}>{slot + 1}</span>
+              {label}
+            </div>
+          </div>
+        </AbsoluteFill>
+      </AbsoluteFill>
+    </Enter>
+  );
+}
+
 function Return({ file, from, frames, look }: { file: string; from: number; frames: number; look: SceneLook }) {
   return (
     <Enter transition={look.transition}>
@@ -1009,8 +1200,9 @@ export function DirectorV3({
     });
   const controls = visualPlan?.editingControls || null;
   const motionGain = editingMotionGain(controls);
-  // Long-form needs more concept hits for visual rhythm.
-  const conceptCap = Math.max(editingConceptCap(controls), durationSeconds >= 45 ? 10 : 0);
+  const cleanV9 = visualPlan?.compositionPolicy === "v9_clean" || visualPlan?.shotPlanVersion === "v9";
+  // V9: composition budget — no competing concept stack on long-form.
+  const conceptCap = cleanV9 ? 0 : Math.max(editingConceptCap(controls), durationSeconds >= 45 ? 10 : 0);
   const conceptOn = visualPlan?.conceptTriggers !== false && conceptCap > 0;
   const concepts: SyncedConceptTrigger[] = conceptOn
     ? syncConceptTriggers(captions, 1).slice(0, conceptCap)
@@ -1035,7 +1227,7 @@ export function DirectorV3({
     .filter(Boolean) as { from: number; to: number }[];
   const plate = visualPlan?.backgroundPlate ?? null;
   const hookBeat = beatList[0];
-  const hero = visualPlan?.heroObject ?? null;
+  const hero = cleanV9 ? null : visualPlan?.heroObject ?? null;
   const heroBeat =
     beatList[sceneIds.indexOf("problem")] ||
     beatList[sceneIds.indexOf("hook")] ||

@@ -79,6 +79,9 @@ def attach_transcript_captions(
     target = locale or render_plan.get('locale')
     duration = float(render_plan.get('durationSeconds') or 0) or None
     phrases = phrases_from_transcript(transcript, locale=target, duration_s=duration)
+    if render_plan.get('compositionPolicy') == 'v9_clean' or render_plan.get('shotPlanVersion') == 'v9':
+        from .director_v9 import dedupe_looping_captions
+        phrases = dedupe_looping_captions(phrases)
     out = dict(render_plan)
     out['captions'] = phrases
     out['captionSource'] = caption_source_label(phrases, dubbed=dubbed)
@@ -189,6 +192,13 @@ def resolve_scene_plan(
             or (raw.get('shotPlan') or {}).get('cardMode'),
             'shotPlan': dict(raw.get('shotPlan') or {}),
             'semanticMotion': dict(raw.get('semanticMotion') or (raw.get('shotPlan') or {}).get('semanticMotion') or {}),
+            'composition': dict(raw.get('composition') or {}),
+            'primaryVisualRole': raw.get('primaryVisualRole'),
+            'containerPolicy': raw.get('containerPolicy') or (raw.get('composition') or {}).get('containerPolicy'),
+            'speakerProtection': raw.get('speakerProtection', (raw.get('composition') or {}).get('speakerProtection')),
+            'captionRegion': raw.get('captionRegion') or (raw.get('composition') or {}).get('captionRegion'),
+            'visualComplexity': raw.get('visualComplexity'),
+            'visualComplexityScore': dict(raw.get('visualComplexityScore') or {}),
         }
         # Strip director-illegal keys if a buggy planner leaked them.
         for bucket in ('speaker', 'background', 'foreground', 'typography'):
@@ -232,6 +242,8 @@ def resolve_scene_plan(
         'form': plan.get('form'),
         'beatWeights': list(plan.get('beatWeights') or []),
         'semanticMotionAudit': plan.get('semanticMotionAudit') or {},
+        'compositionPolicy': plan.get('compositionPolicy'),
+        'compositionAudit': plan.get('compositionAudit') or {},
         'audio': {
             'speech': speaker_file,
             'bed': 'bed.mp3',
@@ -288,6 +300,8 @@ def visual_plan_from_render_plan(render_plan: dict) -> dict:
         'form': render_plan.get('form'),
         'beatWeights': list(render_plan.get('beatWeights') or []),
         'semanticMotionAudit': render_plan.get('semanticMotionAudit') or {},
+        'compositionPolicy': render_plan.get('compositionPolicy'),
+        'compositionAudit': render_plan.get('compositionAudit') or {},
     }
 
 
