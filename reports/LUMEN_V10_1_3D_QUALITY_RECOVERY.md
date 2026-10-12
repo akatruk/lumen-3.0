@@ -1,6 +1,7 @@
 # Lumen V10.1 — Premium 3D Quality Recovery
 
 **Date:** 2026-10-13  
+**Git SHA:** `2d2594a`  
 **Preview:** `output/director-v10-1/director-v10-1-e-preview-60s.mp4`  
 **Desktop:** `~/Desktop/director-v10-1-e-preview-60s.mp4`  
 **Principle:** 3D is optional. Professional quality is mandatory.
