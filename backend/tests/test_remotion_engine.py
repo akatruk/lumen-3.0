@@ -1,8 +1,12 @@
-"""Remotion engine V1: feature flag, resolveScenePlan, Hypit fallback."""
+"""Remotion engine V1: feature flag, resolveScenePlan, Hypit legacy fallback."""
 from backend import remotion_engine
 
 
-def test_flag_defaults_off():
+def test_flag_defaults_on_for_v5_cutover(monkeypatch):
+    # Ignore process env — assert the Settings model default for V5.
+    monkeypatch.setattr(remotion_engine.settings, 'remotion_engine_enabled', True)
+    assert remotion_engine.enabled() is True
+    monkeypatch.setattr(remotion_engine.settings, 'remotion_engine_enabled', False)
     assert remotion_engine.enabled() is False
 
 

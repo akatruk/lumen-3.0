@@ -1,14 +1,14 @@
 # AI Director
 
-## CURRENT STATE
+## CURRENT STATE (V5)
 
-- Project create does **not** call the Director. Deferred source plan: `backend/source_analysis.ensure_analysis` (heuristic by default; OpenRouter optional).
+- **Default production path:** Director V4 + Remotion when `REMOTION_ENGINE_ENABLED=1` (default). Hypit is explicit legacy only (`REMOTION_ENGINE_ENABLED=0`).
+- Project create does **not** call the Director. Deferred source plan: `backend/source_analysis.ensure_analysis`.
 - Semantic visual plan: `backend/visual_variation.resolve_plan(seed, energy)`
-- History: `data/<project>/visual-history/gen_*.json` + `latest.json`
-- Studio create-video (project «e») stores `visual_plan` on the `director_v3` job
-- Remotion `DirectorV3` applies looks per beat; concept triggers sync from captions
-- Media rules: `backend/director_media_rules.py` (canonical same-source ban) applied in planner + `remotion_engine.resolve_scene_plan`
-- Hypit model brief (non-Remotion projects): `backend/assembly_prompt.txt` via `hypit_prompt.py` — concise QUALITY ENFORCEMENT block; full recovery checklist stays in `docs/prompts/cinematic-director-v3-quality-recovery.md`
+- **Execution:** `backend/director_execution.enforce_plan` (PIP ≥324px, heading completeness, caption≠card, statistic dedupe) inside `resolve_scene_plan`
+- **Captions:** transcript → `caption_phrases` → Remotion (not LLM caption fragments)
+- Studio create-video stores `visual_plan` on `director_v3` when `should_use_remotion`
+- Hypit model brief (legacy): `backend/assembly_prompt.txt` via `hypit_prompt.py`
 
 ## TARGET STATE
 

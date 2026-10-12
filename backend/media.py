@@ -579,6 +579,10 @@ def render(source,folder,metadata,analysis,recommendations,language,aspect,broll
     if manual:
         from .manual import Edit,check
         from .schemas import Caption
+        # Prompt-assembly bindings may ride on the job manual; Edit is Strict.
+        if isinstance(manual, dict):
+            for key in ('duration', 'width', 'height', 'aspect', 'visual_energy', 'promptBindings'):
+                manual.pop(key, None)
         dub_file = manual.pop('dub_audio', None) if isinstance(manual, dict) else None
         manual=Edit.model_validate(manual).model_dump()
         if dub_file:

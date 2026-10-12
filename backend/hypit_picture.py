@@ -292,11 +292,14 @@ def _picture_cut(source, work, clips, width, height):
         f'scale={int(width)}:{int(height)}:force_original_aspect_ratio=increase,'
         f'crop={int(width)}:{int(height)},fps={FPS},format=yuv420p'
     )
+    # FFmpeg 7+ dropped -filter_complex_script; keep the graph on disk for debug
+    # and pass the same string via -filter_complex.
     graph = work / 'picture.txt'
-    graph.write_text(f'[0:v]{chain}[v]\n')
+    filter_graph = f'[0:v]{chain}[v]'
+    graph.write_text(filter_graph + '\n')
     out = work / 'cut.mp4'
     ffmpeg(
-        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[v]', '-an',
+        '-i', str(source), '-filter_complex', filter_graph, '-map', '[v]', '-an',
         '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
         str(out), timeout=600,
     )
@@ -392,32 +395,47 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     motion = work / 'motion'
     motion.mkdir(exist_ok=True)
     shots = animation_shots(manual, program)
-    from .library_clips import stage, staged_media_block, write_assets_manifest
-    from .hypit_prompt import illustration_request
+    from .library_clips import stage, write_assets_manifest
     stage(motion, shots, width, height, ffmpeg)
     (motion / 'plan.json').write_text(json.dumps({
         'width': width,
         'height': height,
         'shots': shots,
     }, ensure_ascii=False))
-    # Persist the actual Hypit request + staged file map (not a reconstruction later).
-    prompt_text = illustration_request(manual)
-    staged_block = staged_media_block(shots)
-    final_prompt = prompt_text.rstrip() + '\n\n' + staged_block + '\n'
+    # Persist the actual Hypit request with filled OUTPUT/SOURCE placeholders + staged map.
+    from .prompt_modules.assemble import assemble_hypit_prompt
+    from .library_clips import staged_media_block as _staged_block
+    staged_block = _staged_block(shots)
+    speech_ref = './source.mp4 (embedded speech)'
+    if dub_path and dub_path.is_file():
+        speech_ref = './source.mp4 (dubbed target-language track)'
+    elif manual.get('voice_cleanup'):
+        speech_ref = './host-cleaned.wav when produced; else ./source.mp4 speech'
+    prompt_manual = dict(manual)
+    if language and not prompt_manual.get('language'):
+        prompt_manual['language'] = language
+    assembly = assemble_hypit_prompt(prompt_manual, extras={
+        'width': width,
+        'height': height,
+        'duration': program,
+        'source_video_reference': './source.mp4',
+        'speech_audio_reference': speech_ref,
+        'staged_asset_manifest': staged_block,
+    })
+    final_prompt = assembly.text.rstrip() + '\n'
     (work / 'final_prompt.txt').write_text(final_prompt, encoding='utf-8')
     write_assets_manifest(work, shots, prompt_text=final_prompt)
-    # Append staged paths into the SVML request Value so Hypit sees resolvable refs.
+    # Replace the SVML request Value with the filled final prompt Hypit should film.
     try:
         main = work / 'main.svml'
         body = main.read_text(encoding='utf-8')
         open_tag = '<text:Value id="request">'
         close_tag = '</text:Value>'
-        if open_tag in body and 'STAGED LIBRARY FILES' not in body:
+        if open_tag in body:
             start = body.index(open_tag) + len(open_tag)
             end = body.index(close_tag, start)
-            inject = html.escape(staged_block, quote=False)
-            body = body[:end] + '\n\n' + inject + body[end:]
-            main.write_text(body, encoding='utf-8')
+            inject = html.escape(final_prompt, quote=False)
+            main.write_text(body[:start] + inject + body[end:], encoding='utf-8')
     except (OSError, ValueError):
         pass
     shutil.copy(Path(__file__).resolve().parent / 'hypit_figures.py', work / 'hypit_figures.py')

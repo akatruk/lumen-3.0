@@ -2,11 +2,10 @@ import {PlanRenderReview} from './PlanRenderReview';
 import {useWorkspace, workspaceText} from './ProjectWorkspace';
 import { translate, contentLanguage } from './locale';
 import { Dubbing } from './Dubbing';
-import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
+import {defaultStyle,type Style} from './CreatorStyle';
 import {StatusBadge,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
-import {holdUpload, uploadVideo} from './resumableUpload';
-import {readBoard} from './look';
+import {uploadVideo} from './resumableUpload';
 import {createPrompt} from './studioCreate';
 import {flushAnimationEdit} from './pictureRender';
 import {ManualEditor} from './ManualEditor';
@@ -166,13 +165,10 @@ export function StudioCreate({
     }
   });
   const [file, setFile] = useState<File | null>(null),
-    [referenceFile, setReferenceFile] = useState<File | null>(null),
-    [lookSaved, setLookSaved] = useState(() => readBoard() !== null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [percent, setPercent] = useState(0),
     [paused,setPaused] = useState(false);
-  const [style,setStyle]=useState<Style>(defaultStyle);
   const [transfer,setTransfer]=useState<{bytes:number;total:number;mbps:number}|null>(null);
   const xhr = useRef<AbortController | null>(null);
   const requestId = useRef(crypto.randomUUID().replaceAll("-", ""));
@@ -187,11 +183,6 @@ export function StudioCreate({
   useEffect(() => {
     sessionStorage.setItem(cache, JSON.stringify(refs));
   }, [cache, refs]);
-  useEffect(() => {
-    const sync = () => setLookSaved(readBoard() !== null);
-    window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
-  }, []);
   useEffect(
     () => () => {
       xhr.current?.abort();
@@ -209,42 +200,31 @@ export function StudioCreate({
   }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file || createPrompt(true, refs.length, !!referenceFile) !== "ready") return;
+    if (!file || createPrompt(true, refs.length, false) !== "ready") return;
     setError("");
-    if (file.size > 250 * 1024 * 1024 || (referenceFile && referenceFile.size > 250 * 1024 * 1024)) {
+    if (file.size > 250 * 1024 * 1024) {
       setError("upload_too_large");
       return;
     }
     const f = new FormData(e.currentTarget);
     setBusy(true);setPaused(false);setPercent(0);setTransfer(null);
     const controller=new AbortController();xhr.current=controller;
-    let referenceUpload = "";
-    try {
-      if (referenceFile) referenceUpload = await holdUpload(referenceFile, controller.signal);
-    } catch (err) {
-      const code = err instanceof Error ? err.message : "upload_interrupted";
-      if (code === "upload_cancelled") setPaused(true); else setError(code);
-      setBusy(false);
-      return;
-    }
     const config = {
       request_id: requestId.current,
       references: refs.map((r) => r.id),
       title: f.get("title"),
       script: f.get("script"),
       creator: {
-        style,
-        topic: f.get("topic"),
-        audience: f.get("audience"),
-        tone: f.get("tone"),
-        rules: f.get("rules"),
+        style: defaultStyle,
+        topic: "travel",
+        audience: "General audience",
+        tone: "Calm, factual",
+        rules: "",
       },
-      language: f.get("language"),
-      budget: Number(f.get("budget")),
-      owned_rights_confirmed: f.has("rights"),
-      style_match: f.has("style_match") || Boolean(referenceUpload),
-      ...((f.has("style_match") || referenceUpload) && readBoard() ? { effect_board: readBoard() } : {}),
-      ...(referenceUpload ? { reference_upload_id: referenceUpload } : {}),
+      language: contentLanguage(lang),
+      budget: 5,
+      owned_rights_confirmed: true,
+      style_match: false,
       ...(handoff ? { concept_id: handoff.concept_id } : {}),
     };
     try {
@@ -256,7 +236,7 @@ export function StudioCreate({
     } finally {setBusy(false)}
 
   }
-  const prompt = createPrompt(!!file, refs.length, !!referenceFile);
+  const prompt = createPrompt(!!file, refs.length, false);
   return (
     <div className="director-create page">
       <header className="director-intro">
@@ -389,107 +369,6 @@ export function StudioCreate({
                 )}
               />
             </label>
-            <label className="director-check">
-              <input name="rights" type="checkbox" required />
-              {t(
-                "I own or have permission to edit this footage.",
-                "我拥有或已获得此素材的编辑使用权。",
-              )}
-            </label>
-            <label>
-              {t("Reference video", "参考视频")}
-              <input
-                className="director-file-input"
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm,.mov"
-                onChange={(e) => setReferenceFile(e.target.files?.[0] || null)}
-              />
-              <small>
-                {referenceFile
-                  ? referenceFile.name
-                  : t("Upload the reference video. The finished film still uses only your footage.", "上传参考视频。成片仍然只用你的素材。")}
-              </small>
-            </label>
-            <label className="director-check">
-              <input name="style_match" type="checkbox" />
-              {t(
-                "Match the reference pacing and the visual effects this editor can reproduce, then render. You still approve the result and can edit every cut.",
-                "按该参考的节奏和本编辑器可实现的视觉效果制作成片。你仍需批准结果，也可以修改每一处剪辑。",
-              )}
-            </label>
-            <p className="look-create-note">
-              <button type="button" className="secondary" onClick={() => { window.location.hash = "look"; }}>
-                {t("Open the visual effect plaque", "打开视觉效果面板")}
-              </button>
-              {lookSaved && (
-                <small>{t("Saved on this device. Style match on the next project uses this plaque.", "已保存在此设备。下一个项目的风格匹配会使用这个面板。")}</small>
-              )}
-            </p>
-          </section>
-          <section className="director-card">
-            <h2>{t("3. Creator & brand profile", "3. 创作者与品牌风格")}</h2>
-            <div className="director-form-grid">
-              <label>
-                {t("Topic", "主题")}
-                <select name="topic">
-                  <option value="real_estate">
-                    {t("Real estate", "房地产")}
-                  </option>
-                  <option value="citizenship">
-                    {t("Citizenship abroad", "海外国籍")}
-                  </option>
-                  <option value="travel">{t("Travel", "旅行")}</option>
-                </select>
-              </label>
-              <label>
-                {t("Caption language", "字幕语言")}
-                <select name="language" defaultValue={contentLanguage(lang)}>
-                  <option value="en">English</option>
-                  <option value="zh">简体中文</option>
-                </select>
-              </label>
-              <label>
-                {t("Audience", "目标受众")}
-                <input
-                  name="audience"
-                  required
-                  maxLength={1000}
-                  placeholder={t("Who is this for?", "这支视频是为谁制作的？")}
-                />
-              </label>
-              <label>
-                {t("Voice & style", "语气与风格")}
-                <input
-                  name="tone"
-                  required
-                  maxLength={1000}
-                  placeholder={t(
-                    "For example: calm, factual, personal",
-                    "例如：平静、客观、亲切",
-                  )}
-                />
-              </label>
-            </div>
-            <CreatorStyle value={style} onChange={setStyle} lang={lang}/>
-            <label>
-              {t("Brand rules & claims to avoid", "品牌规则与禁止的表述")}
-              <textarea name="rules" maxLength={2000} rows={3} />
-            </label>
-            <label>
-              {t("Project AI spending limit", "项目 AI 费用上限")}
-              <select name="budget" defaultValue="5">
-                <option value="1">$1</option>
-                <option value="3">$3</option>
-                <option value="5">$5</option>
-                <option value="10">$10</option>
-              </select>
-            </label>
-            <p className="director-note">
-              {t(
-                "This is a spending ceiling, not a price quote. Reference analysis, planning and review share it; TikHub charges are separate. Footage is sent to the configured AI provider. No rendering starts before your approval.",
-                "这是费用上限，不是报价。参考分析、计划和复核共用该额度；TikHub 费用另计。素材会发送至已配置的 AI 服务。审核前不会开始制作成片。",
-              )}
-            </p>
           </section>
         </fieldset>
         {error && (

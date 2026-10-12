@@ -548,9 +548,10 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             raise HTTPException(409, 'job_already_running')
         from .director_v3 import PROJECT_ID, output_seconds
         from . import remotion_engine
-        # Project «e» always Remotion. REMOTION_ENGINE_ENABLED reserves expansion;
-        # non-«e» create-video keeps Hypit until speaker staging is generalized.
-        if pid == PROJECT_ID:
+        # V5: Remotion is the default for supported projects when the flag is on
+        # (project «e» always). Hypit only when remotion_engine_enabled=0 — never
+        # a silent fallback after a Remotion failure.
+        if remotion_engine.should_use_remotion(pid):
             try:
                 chosen = output_seconds(body.duration_seconds, duration)
             except ValueError:
@@ -624,8 +625,13 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 'revision': s['revision'],
                 'composition': 'DirectorV3Preview',
                 'duration_seconds': chosen,
-                'visual_plan': visual,
+                'visual_plan': {
+                    **visual,
+                    'transcript': (s.get('plan') or {}).get('transcript') or [],
+                },
                 'picture_engine': 'remotion',
+                'renderer': 'remotion',
+                'director_mode': director_info.get('director_mode') or 'heuristic',
                 'language': short_code(locale),
                 'target_language': locale,
                 'source_language': source_locale,
@@ -633,6 +639,7 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 'voice_resolution': resolved,
                 'dubbed': resolved['mode'] == 'dubbed',
                 'plan': s.get('plan') or {},
+                'transcript': (s.get('plan') or {}).get('transcript') or [],
                 'editing_controls': visual.get('editingControls') or editing,
             }
             job.update(assembly.job_fields())
@@ -698,9 +705,17 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         )
         from .hypit_prompt import assemble_illustration
         energy = body.visual_energy or 'balanced'
+        meta = p.get('metadata') or {}
+        geom = {
+            'duration': duration,
+            'width': int(meta.get('width') or 1080),
+            'height': int(meta.get('height') or 1920),
+            'aspect': p.get('aspect') or '9:16',
+            'visual_energy': energy,
+        }
         assembly = assemble_illustration({
             **(edit.model_dump() if hasattr(edit, 'model_dump') else dict(edit)),
-            'visual_energy': energy,
+            **geom,
         })
         prompt = assembly.text
         edit = edit.model_copy(update={'presentation_prompt': prompt})
@@ -749,13 +764,20 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 'voice': voice_id,
                 'languageVersion': locale,
             }, ensure_ascii=False), encoding='utf-8')
+        manual_dump = edit.model_dump()
+        # Geometry/duration travel with the job so re-assembly matches the stored prompt.
+        manual_dump.update(geom)
         job_payload = {
             'revision': s['revision'],
             'plan': s['plan'],
             'decisions': [],
-            'manual': edit.model_dump(),
+            'manual': manual_dump,
             'quality_review': True,
             'illustration': True,
+            # Explicit legacy Hypit path (REMOTION_ENGINE_ENABLED=0 only).
+            'picture_engine': 'hypit',
+            'renderer': 'hypit',
+            'director_mode': director_info.get('director_mode') or 'heuristic',
             'language': code,
             'target_language': locale,
             'source_language': source_locale,

@@ -17,12 +17,15 @@
 Remotion owns typography, captions, graphics, layout, transitions, visual timing.
 Original speaker video stays the protagonist. Library assets resolve by id before render.
 
-## IMPLEMENTED (V1)
+## IMPLEMENTED (V1 → V5)
 
 - Validated scene schema + `normalizeScene` / `renderScene`
 - `animated_diagram` + concept-trigger overlays on Director V3
 - Backend `resolve_scene_plan()` → immutable render plan JSON
-- Feature flag `REMOTION_ENGINE_ENABLED` / `settings.remotion_engine_enabled`
+- Feature flag `REMOTION_ENGINE_ENABLED` / `settings.remotion_engine_enabled` (**default on in V5**)
+- Director V4 `director_execution.enforce_plan` inside resolve
+- Transcript captions via `caption_phrases` → `attach_transcript_captions` → Remotion props
+- `should_use_remotion(pid)` gates Create Video (project «e» always)
 
 ## Contract
 

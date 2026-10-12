@@ -67,15 +67,21 @@ def test_create_video_enqueues_the_short_prompt(client):
     assert isinstance(payload['promptAssembly']['modules'], list)
     text = illustration_request(payload['manual'])
     assert payload['manual']['presentation_prompt'] == text
+    assert payload['manual'].get('width') and payload['manual'].get('height')
+    assert payload['manual'].get('duration') == 40
     preview = client.get('/api/studio/picture-prompt?animation_percent=50&intensity_percent=40&motion_percent=80&density_percent=70')
-    assert preview.status_code == 200 and preview.json()['prompt'] == text
+    assert preview.status_code == 200
+    # Preview is slider-only (no project duration/transcript); bindings still match coverage.
     assert preview.json()['promptAssembly']['mainPromptVersion'] == payload['promptAssembly']['mainPromptVersion']
+    assert 'Graphics coverage: 50%' in preview.json()['prompt']
+    assert 'Интенсивность — 40' in preview.json()['prompt'] or 'Graphics intensity: 40' in preview.json()['prompt']
     assert 'Доля анимации — 50%' in text
     assert 'Интенсивность — 40' in text
-    assert 'Hypit is the only renderer' in text
-    assert "The source footage is the video." in text
-    assert 'MEDIA LIBRARY' in text
-    assert 'protected circle' in text or 'PIP' in text
+    assert 'FACE PROTECTION' in text
+    assert "The original presenter remains the protagonist." in text
+    assert 'Graphics coverage: 50%' in text
+    assert 'MEDIA LIBRARY' in text or 'supplied media-library' in text.lower() or 'SUPPLIED MEDIA LIBRARY' in text
+    assert 'PIP' in text or 'presenter-window' in text or 'circle' in text.lower()
     assert client.post(f'/api/studio/projects/{pid}/create-video', json={'animation_percent': 80}).status_code == 409
     other = create(client).json()['id']
     seed_plan(other)
@@ -96,7 +102,7 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     from backend.db import connect, project
     from backend.hypit_prompt import author_source, illustration_request
 
-    sentence = "The source footage is the video."
+    sentence = "The original presenter remains the protagonist."
     line = {
         'start': 1.0, 'end': 8.0,
         'original': 'Планируете переезд, второй вид на жительство',
@@ -118,19 +124,17 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     }
     dumped = illustration_request({**bare, 'translate_all': True})
     assert 'русский:' not in dumped and 'English:' not in dumped and '中文:' not in dumped
-    assert 'Планируете переезд' not in dumped and 'Are you planning a move' not in dumped
-    assert '您是否正在计划移居' not in dumped
     assert sentence in dumped
     russian = illustration_request({**bare, 'language': 'ru'})
     chinese = illustration_request({**bare, 'language': 'zh'})
     assert sentence in russian and '--- PROJECT LANGUAGE ---' in russian and '"locale": "ru-RU"' in russian
-    assert 'Планируете переезд' not in russian and '您是否正在计划移居' not in russian
+    assert 'Планируете переезд' in russian  # aligned transcript uses target-language rows
     assert sentence in chinese and '"locale": "zh-CN"' in chinese and '简体中文' in chinese
     assert '原始视频和脸部保持清晰' not in chinese
     filmed = author_source({**bare, 'language': 'ru'}, 464, 848, duration=40)
     value = filmed.split('id="request">', 1)[1].split('</text:Value>', 1)[0]
     assert sentence in value and 'ru-RU' in value
-    assert 'Планируете переезд' not in value and '您是否正在计划移居' not in value
+    assert 'Планируете переезд' in value
     assert 'русский:' not in filmed and 'English:' not in filmed and '中文:' not in filmed
     picture = filmed.split('<picture>', 1)[1].split('</picture>', 1)[0]
     assert picture.startswith('<Планируете переезд, второй вид на жительство|您是否正在计划移居，获取第二居留权>')
@@ -138,7 +142,7 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     assert 'Планируете переезд' in filmed and '您是否正在计划移居' not in filmed.split('id="motion-1">', 1)[1].split('</text:Value>', 1)[0]
     kept = author_source({**bare, 'language': 'zh'}, 464, 848, duration=40)
     assert '您是否正在计划移居' in kept and 'Планируете переезд' not in kept
-    assert 'src="./motion/1.mp4"' in filmed and 'Hypit is the only renderer' in value
+    assert 'src="./motion/1.mp4"' in filmed and 'FACE PROTECTION' in value
 
     pid = create(client).json()['id']
     seed_plan(pid)
@@ -162,7 +166,7 @@ def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(
     assert payload['manual']['effects_language'] == 'ru'
     assert payload['manual']['presentation_prompt'] == illustration_request(payload['manual'])
     assert sentence in payload['manual']['presentation_prompt']
-    assert 'Планируете переезд' not in payload['manual']['presentation_prompt']
+    assert 'Планируете переезд' in payload['manual']['presentation_prompt']  # aligned transcript
     assert [m['id'] for m in payload['promptAssembly']['modules']] == ['editing_controls', 'localization']
     assert payload['promptAssembly']['runParams']['targetLocale'] == 'ru-RU'
     assert 'MODULE LOCALIZATION RULES' in payload['manual']['presentation_prompt']

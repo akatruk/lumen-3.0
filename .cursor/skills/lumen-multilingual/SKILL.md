@@ -18,5 +18,4 @@ Locales: `ru-RU`, `en-US`, `zh-CN`.
   `data/<pid>/localization/<locale>/`.
 - EN/RU: never split words; ZH: CJK wrap without spaces
 - Library queries expand to English tags; binaries stay language-neutral
-- Remotion DirectorV3 caption *strings* may still be RU-pack until transcript
-  wiring — mark EN/ZH string checks unavailable there; Hypit path uses modules.
+- Remotion captions (V5): transcript → `backend/caption_phrases.py` (EN 2–6 / RU 2–5 / ZH CJK). Prefer `visualPlan.captions`; pack strings are legacy fallback only. Dubbed: target alignment → `captionSource=target_alignment`.

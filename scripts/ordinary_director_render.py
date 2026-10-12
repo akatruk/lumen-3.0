@@ -67,6 +67,21 @@ def main():
         source_ref=str(dest_source),
         generation_id=plan['generationId'],
     )
+    transcript = plan.get('transcript') or []
+    # Optional sidecar transcript next to source (stem or full name).
+    for side in (
+        source.with_suffix('.transcript.json'),
+        Path(str(source) + '.transcript.json'),
+        project_dir / 'source.transcript.json',
+        project_dir / 'transcript.json',
+    ):
+        if transcript:
+            break
+        if side.is_file():
+            transcript = json.loads(side.read_text(encoding='utf-8'))
+    render_plan = remotion_engine.attach_transcript_captions(
+        render_plan, transcript, locale=args.language,
+    )
     remotion_engine.store_render_plan(settings.data_dir, args.project_id, render_plan)
 
     out = args.out.resolve()
@@ -85,6 +100,11 @@ def main():
         'generationId': plan['generationId'],
         'visualSeed': plan.get('visualSeed'),
         'deliverySha256': digest,
+        'renderer': render_plan.get('renderer') or 'remotion',
+        'directorMode': render_plan.get('directorMode') or plan.get('directorMode') or 'heuristic',
+        'executionValidation': render_plan.get('executionValidation') or 'passed',
+        'captionSource': render_plan.get('captionSource') or 'unavailable',
+        'captionCount': len(render_plan.get('captions') or []),
         'metadata': accept,
         'scenes': [
             {

@@ -30,6 +30,11 @@ def test_project_e_create_video_queues_the_remotion_file(client, monkeypatch):
     assert payload['composition'] == 'DirectorV3Preview'
     assert payload['duration_seconds'] == 20
     assert 'illustration' not in payload and 'manual' not in payload
+    controls = (payload.get('visual_plan') or {}).get('editingControls') or payload.get('editing_controls')
+    assert controls
+    assert controls['animation'] == 100
+    assert controls['density'] == 100
+    assert (payload.get('promptAssembly') or {}).get('runParams', {}).get('editingControls')
 
 
 def test_project_e_english_queues_dubbed_remotion(client, monkeypatch):

@@ -41,11 +41,21 @@ export type EditingControls = {
   preset?: string;
 };
 
+export type TranscriptCaption = {
+  start: number;
+  end: number;
+  text: string;
+  source?: string;
+};
+
 export type VisualPlan = {
   generationId?: string;
   visualSeed: number;
   artDirection: string;
   scenes: SceneLook[];
+  /** Timed phrases from source/target transcript — preferred over caption packs. */
+  captions?: TranscriptCaption[];
+  captionSource?: string;
   /** When true (default), spoken captions drive concept viz overlays. */
   conceptTriggers?: boolean;
   backgroundPlate?: "ink_lift" | "paper_grain" | "navy_grid" | "gold_veil" | "soft_vignette" | null;
@@ -187,6 +197,29 @@ function captionsForBeats(beats: { from: number; duration: number }[], locale: s
           : Math.max(1, Math.round(beat.duration * share));
       rows.push({ from: cursor, duration, text: line.text, emphasis: line.emphasis });
       cursor += duration;
+    });
+  }
+  return rows;
+}
+
+/** Prefer real transcript phrases (seconds → frames). Pack is legacy fallback only. */
+function captionsFromTranscript(
+  phrases: TranscriptCaption[] | undefined,
+  totalFrames: number,
+  fps = DIRECTOR_V3_FPS,
+): { from: number; duration: number; text: string; emphasis?: string[] }[] {
+  if (!phrases?.length) return [];
+  const rows: { from: number; duration: number; text: string; emphasis?: string[] }[] = [];
+  for (const phrase of phrases) {
+    const text = String(phrase.text || "").trim();
+    if (!text) continue;
+    const from = Math.max(0, Math.round(Number(phrase.start || 0) * fps));
+    const end = Math.max(from + 1, Math.round(Number(phrase.end || 0) * fps));
+    if (from >= totalFrames) continue;
+    rows.push({
+      from,
+      duration: Math.min(totalFrames - from, end - from),
+      text,
     });
   }
   return rows;
@@ -717,7 +750,10 @@ export function DirectorV3({
   };
   const beatList = [hook, residency, consult, beside, steps, ret];
   const ids = ["hook", "residency", "consult", "beside", "steps", "return"] as const;
-  const captions = captionsForBeats(beatList, planLocale).map((row) => {
+  const transcriptCaptions = captionsFromTranscript(visualPlan?.captions, frames);
+  const packCaptions = captionsForBeats(beatList, planLocale);
+  const captionRows = transcriptCaptions.length ? transcriptCaptions : packCaptions;
+  const captions = captionRows.map((row) => {
     let sceneId: (typeof ids)[number] = "hook";
     beatList.forEach((beat, index) => {
       if (row.from >= beat.from) sceneId = ids[index];

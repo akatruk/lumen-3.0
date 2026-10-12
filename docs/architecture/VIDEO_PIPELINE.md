@@ -1,66 +1,45 @@
 # Video pipeline
 
-## CURRENT STATE
+## CURRENT STATE (V5 cutover)
 
 | Path | When | Engine |
 | --- | --- | --- |
-| Hypit prompt → GPU/worker picture | Most projects | `backend/hypit_prompt.py` + `media.render` (FFmpeg) |
-| Director V3 Remotion | Project «e» only (`director_v3.PROJECT_ID`) | `motion/` Remotion `DirectorV3Preview` |
+| **Director V4 + Remotion** | Default when `REMOTION_ENGINE_ENABLED=1` (default) · always for project «e» | `motion/` `DirectorV3Preview` via `director_v3` job |
+| **Hypit legacy** | Explicit only when `REMOTION_ENGINE_ENABLED=0` (non-«e») | `assembly_prompt.txt` → GPU Hypit |
 | Studio edit plan | All | `studio.state` + worker jobs |
-
-Flow today (typical project) — **fast project creation** (`FAST_PROJECT_CREATION_ENABLED`, default on):
 
 ```
 upload → ffprobe metadata → status=ready (no LLM)
-  → user opens project / sets language / voice / style
   → Create video
-       → reuse cached source analysis OR deferred local transcript + heuristic Director
-         (optional OpenRouter only if LLM_PROVIDER=openrouter)
-       → hypit prompt / Remotion («e»)
-       → picture job → downloadable MP4
+       → deferred transcript / Director plan
+       → if should_use_remotion(pid):
+            director_v3 job → resolve_scene_plan + enforce + transcript captions
+            → Remotion MP4 (renderer=remotion)
+         else:
+            studio_render illustration → Hypit (renderer=hypit, explicit)
 ```
 
-Invariant: **PROJECT CREATION MUST NOT REQUIRE AI INFERENCE.**
+**No silent Hypit fallback** after a Remotion failure.
 
-See `docs/architecture/PROJECT_CREATION_REFACTOR.md`.
+Invariant: **PROJECT CREATION MUST NOT REQUIRE AI INFERENCE** (`FAST_PROJECT_CREATION_ENABLED=1`).
 
-Project «e»:
+## Delivery transparency
 
-```
-create-video → visual_variation.plan_for_request
-  → job kind director_v3
-  → Remotion render → MP4 (no Hypit)
-```
+Every Remotion result records:
 
-## TARGET STATE
+| Field | Values |
+| --- | --- |
+| `renderer` | `remotion` \| `hypit` |
+| `directorMode` | `runpod_llm` \| `heuristic` \| … |
+| `executionValidation` | `passed` \| `repaired` \| `failed` |
+| `captionSource` | `source_transcript` \| `target_alignment` \| `unavailable` |
 
-```
-USER SOURCE VIDEO
-  → transcript / analysis
-  → AI Director (semantic scene plan)
-  → media library search + cards + motion registry
-  → voice / alignment / target timeline
-  → resolveScenePlan() → validated render plan
-  → Remotion composition (speaker central)
-  → FFmpeg probe / accept → final MP4
-```
+## Captions
 
-RunPod stays asset generation only. Hypit remains fallback when `REMOTION_ENGINE_ENABLED` is off.
+`backend/caption_phrases.py` groups real transcript rows (EN 2–6 / RU 2–5 / ZH CJK spans).
+Remotion prefers `visualPlan.captions`; caption-pack strings are legacy fallback only.
 
-## IMPLEMENTED (V1)
+## Rollback
 
-- Remotion package in `motion/` (registry, AutoFitText, Director V3, concept triggers)
-- Seeded visual plans in `backend/visual_variation.py`
-- `backend/remotion_engine.py`: feature flag, `resolve_scene_plan`, render-plan persistence
-- Project «e» Remotion delivery; flag-gated expansion hook for other projects
-
-## NOT IMPLEMENTED
-
-- Remotion as default for every project without the flag
-- Full localized timeline → Remotion props for all locales in production create-video
-- Automatic DO volume mount of the whole media library into Remotion `public/`
-
-## KNOWN LIMITATIONS
-
-- Local Mac manifests may lag DO (~636 vs ~811 assets)
-- Director V3 composition is still a fixed six-beat film; scene registry feeds overlays / diagrams, not a fully dynamic beat graph yet
+Set `REMOTION_ENGINE_ENABLED=0` on lumen-test → non-«e» Create Video returns to Hypit.
+Project «e» stays Remotion.

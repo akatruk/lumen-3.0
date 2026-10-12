@@ -28,9 +28,10 @@ class Settings(BaseSettings):
     max_upload_mb: int = 250
     max_duration_seconds: int = 420
     max_storage_gb: int = 8
-    # When true, create-video may use Remotion for non-«e» projects that request it.
-    # Project «e» always uses Director V3 Remotion. Hypit remains the default fallback.
-    remotion_engine_enabled: bool = False
+    # When true (default V5), Create Video uses Director V4 + Remotion for supported
+    # projects. Project «e» always Remotion. Hypit is explicit legacy when this is off
+    # or picture_engine=hypit is forced — never a silent fallback on Remotion failure.
+    remotion_engine_enabled: bool = True
     # Fast project creation: upload → metadata → ready. No LLM / analyze job on create.
     fast_project_creation_enabled: bool = True
     # LLM for Director/DNA. Default none — OpenRouter/RunPod optional at generation only.

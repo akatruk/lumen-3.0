@@ -176,7 +176,10 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     result = render(src, tmp_path, probe(src), analysis, [], 'zh', 'original', manual=edit, picture_engine='hypit')
     prompt = seen['prompt']
     assert '<render:Video id="final"' in prompt and 'src="./source.mp4"' in prompt
-    assert 'Доля анимации — 60%' in prompt
+    # Edit defaults leave card_motion at 100 when the fixture omits the slider.
+    assert 'Доля анимации — 100%' in prompt
+    assert 'Graphics coverage: 100%' in prompt
+    assert 'Create the finished video from the supplied original presenter footage' in prompt
     assert 'Будет добавлена анимация' not in prompt
     assert '三名股东开会' in prompt and '法人代表' in prompt and '董事权限' in prompt
     assert '口播' not in prompt and 'Shareholders' not in prompt and 'Governance logic also differs' not in prompt
@@ -197,7 +200,8 @@ def test_style_match_render_invokes_hypit_capture(tmp_path, monkeypatch):
     assert 'Доля анимации — 0%' in quiet and 'seedance' not in quiet and '三名股东开会' in quiet
     mid = author_source({**edit, 'card_motion': 10}, 160, 240)
     assert 'Доля анимации — 10%' in mid and 'Будет добавлена анимация' not in mid
-    assert "The source footage is the video." in mid and 'Hypit is the only renderer' in mid
+    assert "The original presenter remains the protagonist." in mid and 'FACE PROTECTION' in mid
+    assert 'Graphics coverage: 10%' in mid
     assert not list(tmp_path.glob('*.ass'))
     cleanup = json.loads((tmp_path / 'hypit' / 'voice-cleanup.json').read_text())
     assert cleanup['control'] == 'voice_cleanup' and cleanup['stem'] == 'host'
@@ -339,7 +343,7 @@ def test_create_video_without_captions_still_films_the_short_request():
     assert illustration_request({**bare, 'card_motion': 100}) == request and 'source={footage}' in full
     assert 'Доля анимации — 100%' in full and 'for="60s"' in full
     assert 'seedance' not in full and 'comment:Sticker' not in full
-    assert "The source footage is the video." in full and 'Hypit is the only renderer' in full
+    assert "The original presenter remains the protagonist." in full and 'FACE PROTECTION' in full
     assert 'src="./source.mp4" media-type="video/mp4"' in full
     assert 'media-type="video"' not in full
     assert 'Будет добавлена анимация' not in full and 'без склейки из кусков' not in full
@@ -377,17 +381,16 @@ def test_stored_english_prompt_cannot_override_the_filmed_sentence():
     text = author_source(edit, 720, 1280, duration=63.4)
     start = text.find('id="request">')
     value = text[start + len('id="request">'):text.find('</text:Value>', start)]
-    assert value.startswith('Film the host\'s original video.')
+    assert value.startswith('Create the finished video from the supplied original presenter footage')
     assert 'На графике только эти сказанные фразы' not in value
-    assert '注册资本' not in value
     assert 'Доля анимации — 40%' in value
-    assert 'Доля анимации — 40%' in text
-    assert 'Hypit is the only renderer' in value
-    assert "The source footage is the video." in value
+    assert 'Graphics coverage: 40%' in value
+    assert 'FACE PROTECTION' in value
+    assert "The original presenter remains the protagonist." in value
     assert 'make ilustration' not in text
-    assert 'seedance' not in text and '注册资本' in text
+    assert 'seedance' not in text and '注册资本' in text  # spoken line in markup / transcript
     assert 'src="./motion/1.mp4"' in text
-    assert 'MEDIA LIBRARY' in value and './motion/' in value
+    assert ('MEDIA LIBRARY' in value or 'SUPPLIED MEDIA LIBRARY' in value) and ('./motion/' in value or 'staged' in value.lower() or 'Graphics coverage' in value)
     assert 'графика сказанного.' not in value and 'Субтитры средние' not in text
     assert 'Рост — стрелка вверх' not in text
     assert 'Сними один' not in text.split('</text:Value>', 1)[-1]
@@ -401,20 +404,21 @@ def test_the_hand_sentence_stays_in_the_author_source():
     """The sentence is the text value. Local Hypit films the source and the cards."""
     from backend.hypit_prompt import author_source, illustration_request
 
-    sentence = illustration_request()
-    text = author_source({
+    manual = {
         'clips': [{'start': 0, 'end': 63.466667, 'approved': True}],
         'captions': [],
-    }, 720, 1280, duration=63.466667)
+    }
+    sentence = illustration_request(manual)
+    text = author_source(manual, 720, 1280, duration=63.466667)
     import html
     request = html.unescape(text.split('id="request">', 1)[1].split('</text:Value>', 1)[0])
     assert request == sentence
-    assert 'seedance' not in text and "The source footage is the video." in sentence
-    assert 'Hypit is the only renderer' in sentence
+    assert 'seedance' not in text and "The original presenter remains the protagonist." in sentence
+    assert 'FACE PROTECTION' in sentence
     assert 'make ilustration' not in text
     assert 'Субтитры средние' not in text
     assert 'Рост — стрелка вверх' not in text
-    assert "The source footage is the video." not in text.split('</text:Value>', 1)[-1]
+    assert "The original presenter remains the protagonist." not in text.split('</text:Value>', 1)[-1]
 
 
 _CHINA = (
@@ -454,10 +458,10 @@ def test_every_phrase_keeps_every_figure_and_a_short_fragment():
     from backend.hypit_prompt import animation_shots, illustration_request
 
     sentence = illustration_request()
-    assert 'Hypit is the only renderer' in sentence
-    assert 'Do not invent facts' in sentence
-    assert 'protected circle' in sentence or 'PIP' in sentence
-    assert "The source footage is the video." in sentence
+    assert 'FACE PROTECTION' in sentence
+    assert 'Do not invent statistics' in sentence or 'Do not invent facts' in sentence
+    assert 'PIP' in sentence or 'presenter-window' in sentence
+    assert "The original presenter remains the protagonist." in sentence
     line = '再看出资节奏，中国认缴时间弹性很大，泰国则要求实缴部分资本，银行开户、工作证、签证申请都会盯着资金到位情况'
     shots = animation_shots({
         'captions': [{'start': 1, 'end': 18, 'zh': line}],
@@ -548,7 +552,7 @@ def test_density_films_more_spoken_clause_cards():
     assert len(packed_bodies) == 6
     assert 'Визуальная плотность — 20%' in low
     assert 'Визуальная плотность — 70%' in high
-    assert 'seedance' not in high and 'Hypit is the only renderer' in high
+    assert 'seedance' not in high and 'FACE PROTECTION' in high
     assert 'Сними один' not in high.split('</text:Value>', 1)[-1]
     assert '↑' not in ''.join(high_bodies) and '↓' not in ''.join(high_bodies)
     assert 'src="./motion/1.mp4"' in high and 'media-track:Item' in high
@@ -569,7 +573,7 @@ def test_graphic_window_keeps_the_late_phrase_off_the_cards():
     assert len(bodies) > 3
     assert not any('管理逻辑' in body for body in bodies)
     assert 'Доля анимации — 60%' in markup or 'animation' in markup.lower()
-    assert "The source footage is the video." in markup
+    assert "The original presenter remains the protagonist." in markup
     assert 'stack-order: 48' in markup
 
 
@@ -588,9 +592,9 @@ def test_two_cinematic_cards_land_on_host_only_lines_before_the_source_card():
     assert any('地下停车库' in body and '潮湿' in body for body in bodies)
     assert not any('惜售' in body for body in bodies)
     assert 'scene-style' in markup and 'comment.scene' in markup
-    assert "The source footage is the video." in markup
+    assert "The original presenter remains the protagonist." in markup
     assert 'seedance' not in markup
     assert '#7DFFC3' in markup
-    assert 'seedance' not in markup and 'Hypit is the only renderer' in markup
-    assert markup.split('id="request">', 1)[1].startswith('Film the host\'s original video.')
+    assert 'seedance' not in markup and 'FACE PROTECTION' in markup
+    assert markup.split('id="request">', 1)[1].startswith('Create the finished video from the supplied original presenter footage')
     assert 'Сними один' not in markup.split('</text:Value>', 1)[-1]

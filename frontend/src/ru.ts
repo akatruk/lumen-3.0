@@ -8,7 +8,6 @@ export const ru: Record<string, string> = {
   "1. Your references": "1. Ваши референсы",
   "2. Edit subtitles and styling": "2. Отредактируйте субтитры и оформление",
   "2. Your own footage & script": "2. Ваше видео и сценарий",
-  "3. Creator & brand profile": "3. Профиль автора и бренда",
   "A clearer view.\nA stronger story.": "Яснее идея. Сильнее история.",
   "A close look at your visuals, voice, pacing and message.": "Подробный разбор изображения, речи, темпа и смысла.",
   "A cut splits a spoken phrase. Adjust the cut to preserve the complete phrase, then render again.": "Монтаж обрывает фразу. Сохраните её целиком и повторите рендер.",

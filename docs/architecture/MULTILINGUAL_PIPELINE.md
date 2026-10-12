@@ -5,14 +5,15 @@
 - Locales: `ru-RU`, `en-US`, `zh-CN` (`motion/src/localization/`, backend `language.py`)
 - Cards: `motion/src/cards/` registry + validation
 - Voice: `resolve_voice` — fails closed on `VOICE_SETUP_REQUIRED`
-- Captions: studio plan transcript → FFmpeg ASS for Hypit path; Remotion `AutoFitText` for Director V3
+- Captions (V5): **transcript-driven** — `backend/caption_phrases.py` groups source / target-aligned speech; Remotion reads `visualPlan.captions`. Caption-pack strings are legacy fallback only. Hypit path still uses ASS from studio plan.
 - Library search expands RU/ZH phrases to English tags
 
 ## Rules
 
 - Language is chosen on the project / Create video — not by creating separate projects
 - Source transcript is cached and reused across target languages; changing language does not retranscribe
-- Never split Latin/Cyrillic words; CJK wraps without inserted spaces
+- Phrase groups: EN 2–6 words, RU 2–5, ZH natural CJK spans; never mid-word splits; do not isolate CJK punctuation
 - Never invent statistics the source did not state
 - Never silently fall back to the wrong voice
 - Important text is Remotion text, not pixels in generated images
+- Dubbed versions: target script + target audio alignment → `captionSource=target_alignment`

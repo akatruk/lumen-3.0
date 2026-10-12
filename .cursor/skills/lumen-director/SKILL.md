@@ -44,4 +44,4 @@ Implemented (not aspirational):
 - `recent_asset_ids` reads all `visual-history/*.json` (not only `gen_*`); prefer non-recent plates; FG skips `concept_*`.
 - Consult: one cover + presenter PIP from `speakerFile` — never duplicate library inset.
 - **Director V4 execution compliance:** `backend/director_execution.py` validates/repairs structured `execution` (min PIP ≥324px, incomplete headings, fragment cards, redundant stats) inside `remotion_engine.resolve_scene_plan`. Remotion `pipRect()` enforces layout floor. Report: `reports/DIRECTOR_EXECUTION_COMPLIANCE.md`.
-- **Gap:** DirectorV3 caption *strings* still RU immigration pack — locale flag does not localize lines (EN/ZH unavailable until transcript wiring).
+- **V5 cutover:** `REMOTION_ENGINE_ENABLED` defaults **on**; `should_use_remotion` is the Create Video gate. Captions from `caption_phrases` / transcript (`captionSource`), not LLM fragments. Transparency: `renderer`, `directorMode`, `executionValidation`, `captionSource`. No silent Hypit fallback. Report: `reports/REMOTION_PRODUCTION_CUTOVER_V5.md`.

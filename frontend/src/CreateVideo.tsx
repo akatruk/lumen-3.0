@@ -14,8 +14,74 @@ type StudioState = {
     video_language?: string;
     reference_file?: boolean;
     references?: { aweme_id?: string; title?: string; author?: string }[];
+    visual_energy?: string;
+    visual_variation?: string;
+    editing_controls?: {
+      animation?: number;
+      intensity?: number;
+      motion?: number;
+      density?: number;
+      visualEnergy?: string;
+      preset?: string;
+    };
   };
 };
+
+type Energy = "calm" | "balanced" | "dynamic" | "custom";
+
+const ENERGY_PRESETS: Record<"calm" | "balanced" | "dynamic", { animation: number; intensity: number; motion: number; density: number }> = {
+  calm: { animation: 40, intensity: 40, motion: 40, density: 40 },
+  balanced: { animation: 60, intensity: 60, motion: 80, density: 70 },
+  dynamic: { animation: 85, intensity: 85, motion: 90, density: 85 },
+};
+
+function matchPreset(levels: { animation: number; intensity: number; motion: number; density: number }): Energy {
+  for (const id of ["calm", "balanced", "dynamic"] as const) {
+    const preset = ENERGY_PRESETS[id];
+    if (
+      levels.animation === preset.animation &&
+      levels.intensity === preset.intensity &&
+      levels.motion === preset.motion &&
+      levels.density === preset.density
+    ) {
+      return id;
+    }
+  }
+  return "custom";
+}
+
+function effectLine(
+  key: Share["key"],
+  value: number,
+  w: (ru: string, en: string, zh: string) => string,
+) {
+  if (key === "animation") {
+    return w(
+      `~${value}% сцен с осмысленной анимацией графики. Не добавляет лишние картинки.`,
+      `~${value}% of scenes get purposeful graphics motion. Does not invent extra plates.`,
+      `约 ${value}% 的场景有有意义的图形动画。不会硬塞无关画面。`,
+    );
+  }
+  if (key === "intensity") {
+    return w(
+      `Сила акцентов и переходов: ${value}%. Не меняет скорость речи.`,
+      `Accent and transition strength: ${value}%. Does not change speech rate.`,
+      `强调与转场强度：${value}%。不改变语速。`,
+    );
+  }
+  if (key === "motion") {
+    return w(
+      `Скорость/амплитуда камеры и элементов: ${value}%. Не скорость речи.`,
+      `Camera/element speed and amplitude: ${value}%. Not speech rate.`,
+      `镜头与元素运动幅度：${value}%。不是语速。`,
+    );
+  }
+  return w(
+    `Сколько доп. информации на экране сразу: ${value}%. Приоритет — смысл речи и лицо.`,
+    `How much extra info at once: ${value}%. Speech meaning and face stay first.`,
+    `同时显示的额外信息量：${value}%。语音含义与面部优先。`,
+  );
+}
 
 const VOICE_CHOICES: Record<Speech, { id: string; label: string }[]> = {
   "en-US": [
@@ -133,8 +199,9 @@ export function CreateVideo({
   const limit = durationLimit(sourceSeconds);
   const [length, setLength] = useState(limit.max >= 20 ? 20 : limit.max);
   const [variation, setVariation] = useState<"automatic" | "keep" | "remix">("automatic");
-  const [energy, setEnergy] = useState<"calm" | "balanced" | "dynamic">("balanced");
+  const [energy, setEnergy] = useState<Energy>("balanced");
   const [levels, setLevels] = useState({ animation: 60, intensity: 60, motion: 80, density: 70 });
+  const [hydrated, setHydrated] = useState(false);
   const [language, setLanguage] = useState<Speech | null>(null);
   const [debug, setDebug] = useState("");
   const [uploads, setUploads] = useState<StudioState | null>(null);
@@ -144,15 +211,36 @@ export function CreateVideo({
   const [voiceChoice, setVoiceChoice] = useState<string | null>(null);
   const [renditions, setRenditions] = useState<Record<string, RenditionSnap>>({});
   const notice = useRef<HTMLParagraphElement>(null);
+  const persistTimer = useRef<number | null>(null);
   useEffect(() => {
     let cancelled = false;
     fetch("/api/studio/projects/" + pid, { credentials: "same-origin" })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (!cancelled) setUploads(data);
+        if (cancelled) return;
+        setUploads(data);
+        const saved = data?.context?.editing_controls;
+        if (saved && typeof saved === "object") {
+          const next = {
+            animation: Number(saved.animation ?? 60),
+            intensity: Number(saved.intensity ?? 60),
+            motion: Number(saved.motion ?? 80),
+            density: Number(saved.density ?? 70),
+          };
+          setLevels(next);
+          const fromSaved = (saved.visualEnergy || data?.context?.visual_energy || matchPreset(next)) as Energy;
+          setEnergy(fromSaved === "custom" ? "custom" : matchPreset(next) === fromSaved ? fromSaved : matchPreset(next));
+        }
+        if (data?.context?.visual_variation && ["automatic", "keep", "remix"].includes(data.context.visual_variation)) {
+          setVariation(data.context.visual_variation);
+        }
+        setHydrated(true);
       })
       .catch(() => {
-        if (!cancelled) setUploads(null);
+        if (!cancelled) {
+          setUploads(null);
+          setHydrated(true);
+        }
       });
     fetch("/api/studio/projects/" + pid + "/rendition", { credentials: "same-origin" })
       .then((response) => (response.ok ? response.json() : null))
@@ -166,6 +254,40 @@ export function CreateVideo({
       cancelled = true;
     };
   }, [pid]);
+  function persistEditing(nextLevels: typeof levels, nextEnergy: Energy, nextVariation = variation) {
+    // Debounced save only — never enqueue render / TTS / GPU.
+    if (persistTimer.current) window.clearTimeout(persistTimer.current);
+    persistTimer.current = window.setTimeout(() => {
+      void fetch("/api/studio/projects/" + pid + "/editing-controls", {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          animation_percent: nextLevels.animation,
+          intensity_percent: nextLevels.intensity,
+          motion_percent: nextLevels.motion,
+          density_percent: nextLevels.density,
+          visual_energy: nextEnergy,
+          visual_variation: nextVariation,
+        }),
+      }).catch(() => undefined);
+    }, 400);
+  }
+  function chooseEnergy(next: "calm" | "balanced" | "dynamic") {
+    const preset = ENERGY_PRESETS[next];
+    setEnergy(next);
+    setLevels(preset);
+    if (hydrated) persistEditing(preset, next);
+  }
+  function changeLevel(key: Share["key"], value: number) {
+    setLevels((current) => {
+      const next = { ...current, [key]: value };
+      const matched = matchPreset(next);
+      setEnergy(matched);
+      if (hydrated) persistEditing(next, matched);
+      return next;
+    });
+  }
   const references = uploads?.context?.references ?? [];
   const videos = [
     w("Ваше видео", "Your video", "你的视频"),
@@ -284,7 +406,7 @@ export function CreateVideo({
           density_percent: levels.density,
           duration_seconds: length,
           visual_variation: variation,
-          visual_energy: energy,
+          visual_energy: energy === "custom" ? "balanced" : energy,
           language: speech,
           voice: voiceChoice,
         }),
@@ -352,11 +474,29 @@ export function CreateVideo({
             ["dynamic", w("Динамика", "Dynamic", "动感")],
           ] as const
         ).map(([id, label]) => (
-          <button key={id} type="button" role="radio" aria-checked={energy === id} onClick={() => setEnergy(id)}>
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={energy === id}
+            onClick={() => chooseEnergy(id)}
+          >
             {label}
           </button>
         ))}
+        {energy === "custom" && (
+          <button type="button" role="radio" aria-checked disabled>
+            {w("Свой", "Custom", "自定义")}
+          </button>
+        )}
       </div>
+      <p className="hint">
+        {w(
+          "Ползунки сохраняются сразу. Новый монтаж — только после «Создать видео» (не постобработка готового MP4).",
+          "Sliders save immediately. A new montage only after Create video (not a post-process of the finished MP4).",
+          "滑块会立即保存。新的剪辑只在「创建视频」后生效（不会后处理成品 MP4）。",
+        )}
+      </p>
       {SHARES.map((share) => (
         <label key={share.key}>
           {w(...share.label)}
@@ -367,11 +507,10 @@ export function CreateVideo({
             step={5}
             value={levels[share.key]}
             aria-valuetext={levels[share.key] + "%"}
-            onChange={(event) =>
-              setLevels((current) => ({ ...current, [share.key]: Number(event.target.value) }))
-            }
+            onChange={(event) => changeLevel(share.key, Number(event.target.value))}
           />
           <strong>{levels[share.key]}%</strong>
+          <span className="slider-effect">{effectLine(share.key, levels[share.key], w)}</span>
         </label>
       ))}
       <div className="create-actions">

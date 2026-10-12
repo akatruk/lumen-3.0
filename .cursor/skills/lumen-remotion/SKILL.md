@@ -19,6 +19,7 @@ Package: `motion/` — Remotion 4.x, canvas 1080×1920 @ 30fps.
 - Text: `AutoFitText` or `AnimatedCaption`. No important text in generated images.
 - Safe insets: `SAFE_INSET` in `themes/tokens.ts`.
 - Pipeline entry: `backend/remotion_engine.py` → Remotion CLI → MP4.
+- V5: default Create Video path when `REMOTION_ENGINE_ENABLED=1` (`should_use_remotion`). Transcript captions via `attach_transcript_captions`. Fail closed — never silent Hypit override.
 - Reuse `lumen-motion` for registry scenes; this skill covers engine integration.
 
 ## Check

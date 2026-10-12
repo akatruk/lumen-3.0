@@ -256,7 +256,12 @@ def render_job(p,payload):
             manual=attach_recommended_bed(pid, manual, current)
         from .assets import validate as validate_assets
         from .manual import Edit
-        with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
+        from .media import _without_dub
+        # Prompt-assembly bindings (duration/width/…) may ride on the job manual.
+        if isinstance(manual, dict):
+            for key in ('duration', 'width', 'height', 'aspect', 'visual_energy', 'promptBindings'):
+                manual.pop(key, None)
+        with connect() as db:asset_paths=validate_assets(Edit.model_validate(_without_dub(manual)),pid,db)
     voice_audio=render_audio.prepare(pid,delivery['voice'],render_folder,timeline) if delivery and delivery['voice'] and not payload.get('illustration') else None
     picture_engine='hypit'
     effect_board=None
@@ -286,8 +291,10 @@ def render_job(p,payload):
             manual['subtitles']=bool(manual['captions'])
         if payload.get('illustration'):
             from .hypit_prompt import illustration_request
+            from .media import _without_dub
             manual=dict(manual)
-            manual['presentation_prompt']=illustration_request(manual)
+            # Prompt assembly must not see the speech file path as an Edit field.
+            manual['presentation_prompt']=illustration_request(_without_dub(manual))
         picture_engine=engine_for((current or {}).get('context') if current else None)
     spoken=(delivery or {}).get('voice') or {}
     result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,presentation_language=spoken.get('language'),effect_board=effect_board if manual else None,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))

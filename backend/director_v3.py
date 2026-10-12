@@ -175,11 +175,15 @@ def _accept(path, seconds):
 
 
 def run_job(p, payload):
-    """Assemble a new picture for project «e». Never calls Hypit."""
-    if p['id'] != PROJECT_ID:
+    """Assemble picture via Director V4 + Remotion. Never calls Hypit."""
+    from . import remotion_engine
+    if not remotion_engine.should_use_remotion(p['id']):
         raise ValueError('director_v3_required')
     if (payload or {}).get('composition') not in (None, COMPOSITION):
         raise ValueError('director_v3_required')
+    # Explicit Hypit request must not be silently remapped.
+    if (payload or {}).get('picture_engine') == 'hypit':
+        raise ValueError('remotion_required_for_supported_project')
     seconds = output_seconds((payload or {}).get('duration_seconds'), (p.get('metadata') or {}).get('duration') or 20)
     render_id = uuid.uuid4().hex
     folder = settings.data_dir / p['id'] / 'renders' / render_id
@@ -187,7 +191,6 @@ def run_job(p, payload):
     dest = folder / 'result.mp4'
     visual_plan = (payload or {}).get('visual_plan')
     speaker = speaker_for(seconds, settings.data_dir / p['id'] / 'source')
-    from . import remotion_engine
     from .worker import progress
     target_locale = (
         (visual_plan or {}).get('language')
@@ -231,10 +234,19 @@ def run_job(p, payload):
         source_ref=str(settings.data_dir / p['id'] / 'source'),
         generation_id=(visual_plan or {}).get('generationId'),
     )
+    transcript = (
+        (payload or {}).get('transcript')
+        or ((payload or {}).get('plan') or {}).get('transcript')
+        or (visual_plan or {}).get('transcript')
+        or []
+    )
+    render_plan = remotion_engine.attach_transcript_captions(
+        render_plan, transcript, locale=target_locale, dubbed=dubbed,
+    )
     remotion_engine.store_render_plan(settings.data_dir, p['id'], render_plan)
     progress(
         p['id'], 'rendering', 55,
-        note=f'Remotion DirectorV3 · {seconds}s · speaker={speaker}',
+        note=f'Remotion DirectorV3 · {seconds}s · speaker={speaker} · captions={render_plan.get("captionSource")}',
     )
     digest = remotion_engine.render_with_plan(dest, render_plan)
     progress(p['id'], 'checking', 92, note='Probing finished MP4 (size, audio, duration)…')
@@ -242,12 +254,22 @@ def run_job(p, payload):
     from .db import event, update
     from .studio import state
     current = state(p['id']) or {}
+    director_mode = (
+        (payload or {}).get('director_mode')
+        or (current.get('context') or {}).get('director_mode')
+        or (p.get('metadata') or {}).get('director_mode')
+        or 'heuristic'
+    )
     result = {
         'render_id': render_id,
         'metadata': meta,
         'timeline': [[0.0, meta['duration']]],
-        'applied': ['director_v3', 'remotion_engine_v1'],
+        'applied': ['director_v3', 'remotion_engine_v1', 'director_execution_v4'],
         'picture_engine': 'remotion',
+        'renderer': 'remotion',
+        'directorMode': director_mode,
+        'executionValidation': render_plan.get('executionValidation') or 'passed',
+        'captionSource': render_plan.get('captionSource') or 'unavailable',
         'composition': COMPOSITION,
         'duration_seconds': seconds,
         'visual_seed': render_plan.get('visualSeed'),
@@ -261,7 +283,7 @@ def run_job(p, payload):
         'qa_status': 'unavailable',
         'generated_clips': 0,
         'music': None,
-        'captions_enabled': False,
+        'captions_enabled': bool(render_plan.get('captions')),
         'caption_master': False,
         'plan_revision': current.get('revision'),
         'manual_transcript': [],
@@ -271,6 +293,10 @@ def run_job(p, payload):
         'applied': ['director_v3'],
         'quality': 'unavailable',
         'engine': 'remotion',
+        'renderer': 'remotion',
+        'directorMode': director_mode,
+        'executionValidation': result['executionValidation'],
+        'captionSource': result['captionSource'],
         'composition': COMPOSITION,
         'assembled': True,
     }))

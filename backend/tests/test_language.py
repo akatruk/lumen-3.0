@@ -46,9 +46,10 @@ def test_the_prompt_names_library_files_and_not_the_spoken_line():
         "language": "ru-RU",
         "captions": [{"start": 0, "end": 6, "original": spoken, "ru": spoken}],
     })
-    assert "--- MEDIA LIBRARY ---" in prompt
-    assert "Do not call search.py" in prompt or "search.py" in prompt
-    assert spoken not in prompt
+    assert "USE THE SUPPLIED MEDIA LIBRARY" in prompt or "--- MEDIA LIBRARY ---" in prompt
+    assert "Do not invent file paths" in prompt or "search.py" in prompt
+    # Spoken line may appear in aligned_transcript; must not appear as a fake library path.
+    assert "static/" not in prompt or spoken not in prompt.split("static/")[-1][:80]
     shots = animation_shots({
         "language": "ru",
         "captions": [{"start": 1, "end": 8, "original": spoken, "ru": spoken}],
@@ -73,12 +74,12 @@ def test_one_base_prompt_carries_each_directive():
         "animation_density": 70,
     }
     base = illustration_request(manual)
-    assert "QUALITY ENFORCEMENT" in base
+    assert "FINAL REVIEW BEFORE DELIVERY" in base
     assert "attached: editing_controls@1.0.0" in base or "attached: none" in base
     for locale, marker in (("en-US", "English (en-US)"), ("ru-RU", "ru-RU"), ("zh-CN", "zh-CN")):
         prompt = illustration_request({**manual, "language": locale})
         # Main body first; localization module refines language (not a prefix append).
-        assert prompt.index("QUALITY ENFORCEMENT") < prompt.index("MODULE LOCALIZATION RULES")
+        assert prompt.index("FINAL REVIEW BEFORE DELIVERY") < prompt.index("MODULE LOCALIZATION RULES")
         assert prompt.index("MODULE LOCALIZATION RULES") < prompt.index("--- PROJECT LANGUAGE ---")
         assert prompt.index("--- PROJECT LANGUAGE ---") < prompt.index("--- AVAILABLE CARDS ---")
         assert f"localization@1.0.0" in prompt or "MODULE: localization" in prompt

@@ -1,107 +1,229 @@
-Film the host's original video. Hypit is the only renderer for this run.
+Create the finished video from the supplied original presenter footage, target-language audio, aligned transcript, and selected media-library files.
 
-Do not redesign the product. Do not invent a second composition engine.
-Do not invent facts, numbers, eligibility, returns, or claims the host did not say.
-Do not replace the host with a slideshow, stock montage, or generated presenter.
+OUTPUT
+- Aspect ratio: {{aspect_ratio}}
+- Resolution: {{output_resolution}}
+- Target language: {{target_language}}
+- Duration: {{output_duration}}
+- Graphics coverage: {{graphics_coverage_percent}}% of the complete video.
+- Graphics intensity: {{graphics_intensity}}
+- Selected voice settings: {{voice_settings}}
+- Selected caption settings: {{caption_settings}}
+- Selected music settings: {{music_settings}}
+- Additional user direction: {{picture_notes}}
 
-==================================================
-1. WHAT THIS RUN IS
-==================================================
+SOURCE MATERIAL
+Original presenter footage:
+{{source_video_reference}}
 
-The source footage is the video. Spoken meaning is the script.
-Studio controls in RUN PARAMS and STUDIO LEVELS are binding.
-Viewer-facing text follows the chosen video language (targetLocale).
+Final speech audio:
+{{speech_audio_reference}}
 
-Lumen already selected and staged supporting library clips into ./motion/
-when a match existed. Use those files. Do not call media/library/search.py.
-Do not ask for new downloads. Do not invent substitute drawings when a
-staged ./motion/N.mp4 exists for that beat.
+Transcript with target-language timing:
+{{aligned_transcript}}
 
-==================================================
-2. HOST TREATMENT
-==================================================
+Available selected library files:
+{{staged_asset_manifest}}
 
-While a graphic explains a spoken thought, keep the host in a protected
-circle / PIP. The face stays fully visible on every animation phase.
-Outside the animation share, show the host full frame per Studio levels.
-Footage stays sharp. Do not cover the face with cards, captions, or plates.
+The asset manifest supplies actual accessible file references, asset descriptions, and suggested semantic uses. Use only files supplied with this request. Do not invent file paths or assume access to an external library.
 
-==================================================
-3. GRAPHICS EXPLAIN THE WORDS
-==================================================
+EDITORIAL OBJECTIVE
 
-While a phrase is spoken, the foreground is a graphic of that thought.
-It is a composed motion scene: cards, a link between them, and a picture
-of a named place or object when the words include one.
-Layout changes from phrase to phrase. Not one centered title on a flat plate.
+Produce a coherent, carefully composed vertical explainer.
 
-- Profit / growth → arrow moving up
-- Risk / fall → arrow moving down
-- Spoken number → large figure (only if the host said it)
-- Steps → appear one by one
-- Comparison → two columns
-- Deadline → mark on a scale
-- Place / object named in speech → staged library still or motion when present
+The original presenter remains the protagonist. Preserve the speaker’s identity, authentic meaning, factual claims, and intended message.
 
-==================================================
-4. STUDIO LEVELS (BINDING)
-==================================================
+Visuals must explain what is being said at that moment. Do not turn the speech into a sequence of disconnected stock images or decorative title cards.
 
-Animation share, intensity, motion, and density come from STUDIO LEVELS /
-editingControls. At 100% the graphic treatment covers the whole minute.
-A lower percent covers that share of each minute; the rest is host full frame.
-Intensity is 5–100 step 5. Card pixel size is not an effect.
+Do not invent statistics, legal conclusions, promises, quotations, or a call to action absent from the source.
 
-==================================================
-5. CAPTIONS AND SAFE ZONES
-==================================================
+Use the supplied final speech audio. Do not generate another presenter, fabricate lip-sync, or substitute a different voice or language.
 
-Captions are large, readable, and never cropped.
-Subtitles and plates must not cross the face or the host PIP.
-Dark backing when needed. Sync to the spoken timeline in the target language.
+PLAN THE WHOLE VIDEO BEFORE COMPOSING
 
-==================================================
-6. MEDIA LIBRARY (STAGED FILES ONLY)
-==================================================
+Read the entire aligned transcript and organize it into complete semantic beats.
 
-Supporting visuals come from the Lumen media library when a semantic match
-was found for a spoken phrase. Matched files are already staged as:
+For each beat, choose:
+- the thought the viewer should understand;
+- presenter framing;
+- an appropriate visual explanation;
+- relevant supplied assets;
+- readable text;
+- entrance, emphasis, and exit motion.
 
-  ./motion/1.mp4, ./motion/2.mp4, …
+A semantic beat may span several subtitle phrases. Do not create a new graphic card for each fragment of speech.
 
-Use each staged clip at the moment described by its timed label in the
-author markup. Prefer photography / I2V motion over line icons when both
-exist. If a beat has no staged file, keep the host and speech; do not invent
-an asset. Record a media gap silently by omitting decoration — never fake
-library content.
+Build an opening, progression, and conclusion from the actual source. Do not force a generic marketing narrative onto educational speech.
 
-Do not paste DigitalOcean absolute paths. Only relative paths inside this
-workspace are valid.
+GRAPHICS COVERAGE THROUGHOUT THE VIDEO
 
-==================================================
-7. VOICE, MUSIC, PICTURE CONTROLS
-==================================================
+Apply the requested graphics coverage to the entire duration.
 
-Voice cleanup, loudness, captions, music, sound accents, and picture quality
-are part of this same request. Apply the Studio choices already encoded in
-RUN PARAMS and the author markup. Do not silently swap voice language.
+Distribute graphic scenes across the beginning, middle, and final third. Do not spend the entire graphics allowance in the first half.
 
-==================================================
-8. QUALITY ENFORCEMENT
-==================================================
+At 100% graphics coverage, every spoken beat receives a meaningful graphic treatment with the presenter visibly integrated.
 
-1) Prefer meaningful library plates for the spoken situation when staged.
-2) Face protection — overlays out of the face band; omit decoration rather
-   than cover the host.
-3) Captions — large, stable, readable; target-language timing.
-4) Same-source ban — do not use one identity as both main plate and inset.
-5) No invented claims or numbers.
-6) Language consistency for all viewer-facing text.
-7) Keep the host's meaning; graphics explain, they do not replace speech.
+At lower coverage, select the beats that benefit most from visual explanation and use full-frame presenter footage elsewhere.
 
-==================================================
-9. OUTPUT
-==================================================
+Do not insert irrelevant media to meet a percentage. Where no supplied asset fits, use a clear diagram or typographic explanation grounded in the speech.
 
-One vertical film from this prompt and the files in this workspace.
-No Remotion handoff. No parallel CSS plates. No seek-script geometry.
+Do not create a long, unexplained static presenter section after the graphics have ended. Allow longer presenter shots when the content warrants them.
+
+PRESENTER SIZE AND PRESENCE
+
+During graphic explanations, show the original presenter in a clearly visible circle or rounded PIP window.
+
+For a vertical frame, begin with a presenter-window width of approximately 28–35% of the frame width. Increase it when needed to keep facial expressions readable at phone size.
+
+The presenter must never become a tiny decorative avatar.
+
+Frame the face and shoulders naturally. Preserve facial detail, avoid excessive cropping, and keep the footage sharp.
+
+Use a small number of consistent presenter positions. Move the presenter only when the new composition requires it.
+
+Outside graphic explanations, use the original presenter full-frame with restrained, purposeful reframing.
+
+FACE PROTECTION — REQUIRED
+
+Reserve separate areas for:
+1. the presenter;
+2. the main graphic explanation;
+3. subtitles.
+
+No title, card, caption, caption backing, connector, or decorative object may cross the presenter’s face.
+
+Apply this rule throughout entrance, hold, emphasis, and exit animations, including overshoot.
+
+A translucent overlay still counts as an obstruction.
+
+When a collision occurs:
+- reposition the graphic or presenter window;
+- change the composition;
+- shorten the graphic text;
+- remove a secondary element.
+
+Do not solve collisions by making the presenter tiny or the subtitles unreadable.
+
+CAPTIONS — PHONE READABILITY
+
+Render captions in the target language, synchronized to the supplied target-language speech timing.
+
+Use large, strong typography with a contrasting backing. For 1080×1920 output, start around 56–72 pixels and adjust for the actual font and language while preserving phone readability.
+
+Use one or two lines. Keep comfortable side margins and clearance from platform controls.
+
+Split long sentences into short, meaningful timed phrases. Never squeeze a sentence into one tiny line or shrink text until it becomes unreadable.
+
+Keep words intact in English and Russian. Use appropriate Chinese phrase boundaries and punctuation.
+
+Keep the caption block stable during word highlighting. Do not make the line jump or resize as each word becomes active.
+
+Avoid letter-by-letter subtitle reveals that briefly display an isolated letter. Display readable phrases; use restrained keyword emphasis if appropriate.
+
+Position captions in their reserved area without covering the presenter’s face or the main information.
+
+GRAPHIC TEXT IS NOT A COPY OF EVERY SUBTITLE
+
+Graphic headings express complete ideas. Subtitles reproduce speech.
+
+Never use fragments such as “and the”, “but this”, or “usually” as standalone information cards.
+
+A heading should communicate the concept being explained, using concise wording in the target language.
+
+Do not duplicate the same sentence in a title, card, and subtitle simultaneously.
+
+FINISHED GRAPHIC SCENES
+
+Compose each graphic scene around one dominant idea.
+
+Use substantial, readable elements with clear hierarchy. Avoid a huge empty panel containing a tiny sentence.
+
+Choose the visual form from the meaning:
+- comparison: two clearly labeled alternatives;
+- ownership: participants and labeled shares;
+- process: steps appearing in order;
+- money movement: a labeled directional flow;
+- stated percentage: a large number with its actual explanation;
+- timeline: real events in their stated order;
+- location or property: a relevant supplied image with a concise contextual label.
+
+Use arrows only when the speech describes a direction, relationship, flow, rise, or fall.
+
+Do not animate counters toward invented figures. Do not imply growth when the source discusses ownership or control.
+
+Let elements reveal in a meaningful sequence: establish the idea, introduce supporting information, emphasize the conclusion, then transition.
+
+Allow enough time to read and understand. Avoid arbitrary flashes and constant motion.
+
+USE THE SUPPLIED MEDIA LIBRARY
+
+Use the selected library assets where they support the current spoken idea.
+
+Consider relevant assets throughout the entire video, including the final third. Do not confine library use to the opening.
+
+Use supplied photographs, approved motion clips, and objects as parts of composed scenes:
+- an explanatory background;
+- a contextual image;
+- a foreground object;
+- a supporting motion layer;
+- a short relevant cutaway.
+
+Preserve the presenter’s prominence during graphic treatments.
+
+Do not repeat a generic meeting, building, passport, or globe merely because it is available. Prefer semantic relevance over visual decoration.
+
+Respect asset aspect ratios, quality, transparency, and safe crop areas. Do not stretch images.
+
+If an asset is unavailable or unsuitable, omit it and use a source-grounded graphic explanation. Never substitute unrelated imagery.
+
+DESIGN AND MOTION
+
+Use one coherent visual system with:
+- readable typography;
+- strong contrast;
+- deliberate spacing;
+- a restrained palette;
+- consistent card and presenter-window treatment.
+
+Avoid thin decorative frames surrounding mostly empty space.
+
+Motion should explain relationships and guide attention. Use purposeful reveals, connected diagrams, comparisons, and restrained media movement.
+
+Vary compositions when the content changes. Do not repeat the same card layout through three consecutive semantic beats.
+
+Do not add random effects merely to increase visual variety.
+
+AUDIO
+
+Follow the supplied voice and music settings.
+
+When source and target language match, preserve the original speech unless the user explicitly selected a replacement voice.
+
+When they differ, use the supplied target-language audio and alignment. Do not reuse source-language subtitle timing.
+
+If music is enabled and a supplied approved track is available, mix it below speech with gentle ducking and smooth fades.
+
+If music is disabled, do not add it.
+
+Use subtle sound accents only where they improve a meaningful reveal. Avoid repeated whooshes.
+
+Maintain intelligible speech, continuous audio, and freedom from clipping.
+
+FINAL REVIEW BEFORE DELIVERY
+
+Review the entire rendered video, including transitions and the final third.
+
+Correct any occurrence of:
+- face obstruction;
+- tiny presenter window;
+- unreadable or clipped subtitles;
+- incomplete graphic headings;
+- unrelated library imagery;
+- empty oversized cards;
+- graphics concentrated only in the opening;
+- incorrect language;
+- invented claims;
+- poor speech synchronization;
+- music overpowering speech.
+
+The final result must be a complete, readable visual explanation of the original speech, with a recognizable presenter and relevant supplied media throughout the requested graphics coverage.

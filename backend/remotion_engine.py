@@ -54,11 +54,48 @@ def _hero_or_none(hero, scenes: list) -> str | None:
 
 
 def should_use_remotion(project_id: str) -> bool:
-    """Project «e» always uses Remotion. Others require the feature flag."""
+    """Supported production path: Remotion when enabled (default V5).
+
+    Project «e» always Remotion. When the flag is off, only «e» stays on Remotion;
+    other projects use explicit Hypit legacy — never a silent mix.
+    """
     from .director_v3 import PROJECT_ID
     if project_id == PROJECT_ID:
         return True
     return enabled()
+
+
+def attach_transcript_captions(
+    render_plan: dict,
+    transcript: list | None,
+    *,
+    locale: str | None = None,
+    dubbed: bool = False,
+) -> dict:
+    """Stamp timed caption phrases from real transcript onto the render plan."""
+    from .caption_phrases import caption_source_label, phrases_from_transcript
+
+    duration = float(render_plan.get('durationSeconds') or 0) or None
+    phrases = phrases_from_transcript(transcript, locale=locale or render_plan.get('locale'), duration_s=duration)
+    out = dict(render_plan)
+    out['captions'] = phrases
+    out['captionSource'] = caption_source_label(phrases, dubbed=dubbed)
+    compliance = dict(out.get('executionCompliance') or {})
+    repairs = compliance.get('repairs') or []
+    status = 'passed'
+    if repairs:
+        status = 'repaired'
+    if any((s.get('executionFailed') for s in out.get('scenes') or [])):
+        status = 'failed'
+    out['executionValidation'] = status
+    out['renderer'] = 'remotion'
+    if not out.get('directorMode'):
+        mode = (out.get('executionCompliance') or {}).get('directorMode')
+        if not mode:
+            provider = str(getattr(settings, 'llm_provider', None) or 'none').lower()
+            mode = 'runpod_llm' if provider == 'runpod' else 'heuristic'
+        out['directorMode'] = mode
+    return out
 
 
 def plans_dir(data_dir, project_id: str) -> Path:
@@ -141,6 +178,11 @@ def resolve_scene_plan(
         'motionRegistry': list(RENDERABLE_SCENE_TYPES),
         'scenes': scenes,
         'executionCompliance': plan.get('executionCompliance') or {},
+        'renderer': 'remotion',
+        'directorMode': plan.get('directorMode') or (
+            'runpod_llm' if str(getattr(settings, 'llm_provider', None) or 'none').lower() == 'runpod'
+            else 'heuristic'
+        ),
         'audio': {
             'speech': speaker_file,
             'bed': 'bed.mp3',
@@ -153,13 +195,17 @@ def resolve_scene_plan(
 def store_render_plan(data_dir, project_id: str, render_plan: dict) -> Path:
     folder = plans_dir(data_dir, project_id)
     dest = folder / f"{render_plan['generationId']}.json"
-    if not dest.exists():
-        dest.write_text(json.dumps(render_plan, ensure_ascii=False, indent=2), encoding='utf-8')
+    # Always overwrite — caption attachment + executionCompliance must persist.
+    dest.write_text(json.dumps(render_plan, ensure_ascii=False, indent=2), encoding='utf-8')
     (folder / 'latest.json').write_text(
         json.dumps({
             'generationId': render_plan['generationId'],
             'visualSeed': render_plan.get('visualSeed'),
             'composition': render_plan.get('composition'),
+            'renderer': render_plan.get('renderer') or 'remotion',
+            'directorMode': render_plan.get('directorMode'),
+            'captionSource': render_plan.get('captionSource'),
+            'executionValidation': render_plan.get('executionValidation'),
         }),
         encoding='utf-8',
     )
@@ -181,6 +227,10 @@ def visual_plan_from_render_plan(render_plan: dict) -> dict:
         'scenes': render_plan.get('scenes') or [],
         'language': render_plan.get('locale'),
         'executionCompliance': render_plan.get('executionCompliance') or {},
+        'captions': list(render_plan.get('captions') or []),
+        'captionSource': render_plan.get('captionSource') or 'unavailable',
+        'renderer': render_plan.get('renderer') or 'remotion',
+        'executionValidation': render_plan.get('executionValidation') or 'passed',
     }
 
 
