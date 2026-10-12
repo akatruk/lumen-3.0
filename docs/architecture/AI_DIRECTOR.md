@@ -31,3 +31,4 @@ Remotion decides HOW (pixels, easing, typography).
 
 - LLM-authored freeform scene graphs outside the registry
 - Per-phrase dynamic beat length from full Whisper alignment for all projects
+- **Director V4 production LLM** (DigitalOcean Gradient / `https://inference.do-ai.run/v1`) — blocked: no `MODEL_ACCESS_KEY` / `GRADIENT_MODEL_ACCESS_KEY` on lumen-test; OpenRouter forbidden for this track. Details: `reports/LUMEN_DIRECTOR_V4.md`.

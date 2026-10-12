@@ -19,5 +19,6 @@ description: >-
 - Rollback Remotion: disable `REMOTION_ENGINE_ENABLED`
 - **Never** deploy this tree to SSH `Host lumen` (188.166.244.242 / strom-v2)
 - Heuristic Director at generation (`LLM_PROVIDER=none`) is **local_baseline** — never report as AI-directed quality
+- **Director V4:** needs DO Inference `MODEL_ACCESS_KEY` (or `GRADIENT_MODEL_ACCESS_KEY`) on lumen-test before `LLM_PROVIDER=digitalocean`. OpenRouter key alone is insufficient when OpenRouter is forbidden. See `reports/LUMEN_DIRECTOR_V4.md`.
 
 See `docs/architecture/DEPLOYMENT.md` and `reports/LUMEN_FAST_CREATE_PRODUCTION.md`.

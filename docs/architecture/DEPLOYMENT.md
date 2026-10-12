@@ -34,6 +34,7 @@
 - FFmpeg with ASS
 - Volume mounts via systemd drop-ins (`data-volume.conf`, `volume.conf`)
 - Optional: `OPENROUTER_API_KEY` only if `LLM_PROVIDER=openrouter`
+- Director V4 (non-OpenRouter): requires `MODEL_ACCESS_KEY` or `GRADIENT_MODEL_ACCESS_KEY` for `https://inference.do-ai.run/v1` — **not present** on lumen-test as of 2026-10-12 (`reports/LUMEN_DIRECTOR_V4.md`)
 - RunPod keys only for Hypit GPU picture jobs
 
 ## Rollback

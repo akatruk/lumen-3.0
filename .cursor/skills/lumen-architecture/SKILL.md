@@ -31,3 +31,4 @@ Prompt index: `docs/prompts/README.md`. Hypit assembly: `backend/assembly_prompt
 - Do not restart RunPod for Remotion-only changes.
 - Feature flags: `FAST_PROJECT_CREATION_ENABLED` (default on), `LLM_PROVIDER` (default `none`), `REMOTION_ENGINE_ENABLED`.
 - Acceptance = downloaded MP4 (`docs/RELEASE_CHECKS.md`).
+- **Director V4 status:** blocked pending DigitalOcean Inference credentials on lumen-test (`reports/LUMEN_DIRECTOR_V4.md`). Providers today: `none` | `openrouter` only.
