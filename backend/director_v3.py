@@ -234,9 +234,21 @@ def run_job(p, payload):
     )
     if visual_plan is not None and transcript_early:
         from .director_semantics import enrich_plan_from_transcript
-        visual_plan = enrich_plan_from_transcript(
-            visual_plan, transcript_early, locale=target_locale or visual_plan.get('language'),
+        from . import director_v8
+        locale = target_locale or visual_plan.get('language')
+        cleaned = director_v8.filter_locale_transcript(transcript_early, locale)
+        visual_plan = enrich_plan_from_transcript(visual_plan, cleaned, locale=locale)
+        visual_plan = director_v8.expand_plan_for_duration(
+            visual_plan, duration_seconds=seconds, transcript=cleaned, locale=locale,
         )
+        visual_plan = director_v8.fill_media_for_scenes(visual_plan, seed=visual_plan.get('visualSeed'))
+        public = _public_director()
+        from .visual_variation import stage_backgrounds
+        from pathlib import Path as _Path
+        library = _Path(__file__).resolve().parent.parent / 'media' / 'library' / 'out'
+        visual_plan = stage_backgrounds(visual_plan, public, library)
+        visual_plan = director_v8.stage_semantic_motion(visual_plan, public, library)
+        transcript_early = cleaned
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=visual_plan,
         locale=target_locale,

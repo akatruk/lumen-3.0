@@ -16,7 +16,9 @@ const media = (name: string) => staticFile(`director-v3/${name}`);
 export const DIRECTOR_V3_FPS = 30;
 export const DIRECTOR_V3_FRAMES = 600;
 /** Shorter hook → earlier media beat; avoids 0–19s talking-head lock on 60s cuts. */
-const BEAT_FRAMES = [54, 168, 120, 132, 81, 45] as const;
+const BEAT_FRAMES_SHORT = [54, 168, 120, 132, 81, 45] as const;
+/** V8 long-form (~60s @ 30fps = 1800 frames). */
+const BEAT_FRAMES_LONG = [90, 180, 210, 300, 240, 180, 150, 180, 150, 120] as const;
 
 export type CriteriaCardLook = { title: string; explanation: string };
 
@@ -45,6 +47,7 @@ export type SceneLook = {
   steps?: string[];
   cardMode?: "stack" | "progressive_one" | "none";
   shotPlan?: Record<string, unknown>;
+  semanticMotion?: { staged?: string | null; file?: string; assetId?: string; motionFamily?: string };
 };
 
 export type EditingControls = {
@@ -78,6 +81,8 @@ export type VisualPlan = {
   language?: SupportedLocale;
   editingControls?: EditingControls | null;
   motionIntensity?: "low" | "medium" | "high";
+  form?: string;
+  beatWeights?: number[];
 };
 
 export type DirectorV3Props = {
@@ -132,10 +137,17 @@ export function framesForSeconds(seconds: number) {
   return Math.max(DIRECTOR_V3_FPS, Math.round(safe * DIRECTOR_V3_FPS));
 }
 
-export function beatsFor(frames: number) {
+export function beatsFor(frames: number, weights?: readonly number[] | number[]) {
+  const base =
+    weights && weights.length
+      ? [...weights]
+      : frames >= 45 * DIRECTOR_V3_FPS
+        ? [...BEAT_FRAMES_LONG]
+        : [...BEAT_FRAMES_SHORT];
+  const totalWeight = base.reduce((sum, w) => sum + w, 0) || 1;
   let cursor = 0;
-  const lengths = BEAT_FRAMES.slice(0, -1).map((weight) => {
-    const length = Math.max(1, Math.round((weight / DIRECTOR_V3_FRAMES) * frames));
+  const lengths = base.slice(0, -1).map((weight) => {
+    const length = Math.max(1, Math.round((weight / totalWeight) * frames));
     cursor += length;
     return length;
   });
@@ -146,6 +158,96 @@ export function beatsFor(frames: number) {
     from += duration;
     return beat;
   });
+}
+
+function SemanticMotionClip({
+  staged,
+  frames,
+}: {
+  staged: string;
+  frames: number;
+}) {
+  const frame = useCurrentFrame();
+  const enter = interpolate(frame, [0, 14], [0, 1], clamp);
+  const exit = interpolate(frame, [Math.max(16, frames - 16), frames - 1], [1, 0.25], clamp);
+  const scale = interpolate(frame, [0, Math.min(24, frames)], [0.92, 1], clamp);
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", opacity: enter * exit }}>
+      <div
+        style={{
+          position: "absolute",
+          left: 28,
+          bottom: PORTRAIT.captionClearance + 200,
+          width: 520,
+          height: 520,
+          borderRadius: PORTRAIT.radius,
+          overflow: "hidden",
+          boxShadow: theme.shadow.soft,
+          border: `2px solid ${theme.color.lineStrong}`,
+          background: "rgba(12,11,10,0.45)",
+          transform: `scale(${scale})`,
+          transformOrigin: "bottom left",
+        }}
+      >
+        <OffthreadVideo
+          src={media(staged)}
+          volume={0}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+function SceneRouter({
+  look,
+  file,
+  from,
+  frames,
+  locale,
+}: {
+  look: SceneLook;
+  file: string;
+  from: number;
+  frames: number;
+  locale: SupportedLocale;
+}) {
+  const layout = look.speaker?.layout || "speaker_fullscreen";
+  const sid = look.sceneId;
+  const motionStaged = look.semanticMotion?.staged || null;
+  let body: ReactNode = null;
+  if (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one") {
+    body = <Beside file={file} from={from} frames={frames} look={look} locale={locale} />;
+  } else if (sid === "steps" || look.stepsTitle || look.typography?.stepsTitle) {
+    body = (
+      <Enter transition={look.transition}>
+        <Steps frames={frames} locale={locale} look={look} />
+      </Enter>
+    );
+  } else if (
+    layout.includes("with_media") ||
+    sid === "consult" ||
+    sid === "proof"
+  ) {
+    body = <Consult file={file} from={from} frames={frames} look={look} />;
+  } else if (
+    layout.includes("split") ||
+    layout.includes("foreground") ||
+    sid === "residency" ||
+    sid === "context"
+  ) {
+    body = <Residency file={file} from={from} frames={frames} look={look} />;
+  } else if (sid === "hook" || sid === "problem") {
+    body = <Hook file={file} from={from} frames={frames} look={look} locale={locale} />;
+  } else {
+    body = <Return file={file} from={from} frames={frames} look={look} />;
+  }
+  return (
+    <AbsoluteFill>
+      {body}
+      {motionStaged ? <SemanticMotionClip staged={motionStaged} frames={frames} /> : null}
+    </AbsoluteFill>
+  );
 }
 
 type CaptionLine = { beat: number; text: string; emphasis?: string[]; share?: number };
@@ -870,33 +972,35 @@ export function DirectorV3({
   locale,
 }: DirectorV3Props) {
   const frames = framesForSeconds(durationSeconds);
-  const [hook, residency, consult, beside, steps, ret] = beatsFor(frames);
-  // targetLocale from the visual plan wins; composition defaultLocale is last resort only.
   const planLocale = (visualPlan?.language || locale || "en-US") as SupportedLocale;
-  const looks = {
-    hook: sceneLook(visualPlan, "hook"),
-    residency: sceneLook(visualPlan, "residency"),
-    consult: sceneLook(visualPlan, "consult"),
-    beside: sceneLook(visualPlan, "beside"),
-    steps: sceneLook(visualPlan, "steps"),
-    return: sceneLook(visualPlan, "return"),
-  };
-  const beatList = [hook, residency, consult, beside, steps, ret];
-  const ids = ["hook", "residency", "consult", "beside", "steps", "return"] as const;
+  const sceneIds =
+    visualPlan?.scenes?.length
+      ? visualPlan.scenes.map((s) => s.sceneId)
+      : ["hook", "residency", "consult", "beside", "steps", "return"];
+  const weights =
+    visualPlan?.beatWeights?.length === sceneIds.length
+      ? visualPlan.beatWeights
+      : undefined;
+  const beatList = beatsFor(frames, weights);
+  // Align beat count to scene count (pad/trim safely).
+  while (beatList.length < sceneIds.length) {
+    const last = beatList[beatList.length - 1] || { from: 0, duration: frames };
+    beatList.push({ from: last.from + last.duration, duration: Math.max(1, Math.round(frames / sceneIds.length)) });
+  }
+  const looks = Object.fromEntries(sceneIds.map((id) => [id, sceneLook(visualPlan, id)])) as Record<string, SceneLook>;
   const transcriptCaptions = captionsFromTranscript(visualPlan?.captions, frames);
   const packCaptions = captionsForBeats(beatList, planLocale);
   const captionRows = transcriptCaptions.length ? transcriptCaptions : packCaptions;
-  const hookHeadline = (looks.hook.headline || looks.hook.typography?.headline || "").trim();
+  const hookHeadline = (looks.hook?.headline || looks.hook?.typography?.headline || "").trim();
   const captions = captionRows
     .map((row) => {
-      let sceneId: (typeof ids)[number] = "hook";
+      let sceneId = sceneIds[0] || "hook";
       beatList.forEach((beat, index) => {
-        if (row.from >= beat.from) sceneId = ids[index];
+        if (row.from >= beat.from) sceneId = sceneIds[Math.min(index, sceneIds.length - 1)];
       });
-      const animate = (looks[sceneId].typography.animate || "fade") as "fade" | "pop" | "mask" | "slide";
+      const animate = (looks[sceneId]?.typography?.animate || "fade") as "fade" | "pop" | "mask" | "slide";
       return { ...row, animate, sceneId };
     })
-    // Avoid duplicate kinetic headline + identical bottom caption on the opener.
     .filter((row) => {
       if (!hookHeadline) return true;
       if (row.sceneId !== "hook") return true;
@@ -905,32 +1009,37 @@ export function DirectorV3({
     });
   const controls = visualPlan?.editingControls || null;
   const motionGain = editingMotionGain(controls);
-  const conceptCap = editingConceptCap(controls);
+  // Long-form needs more concept hits for visual rhythm.
+  const conceptCap = Math.max(editingConceptCap(controls), durationSeconds >= 45 ? 10 : 0);
   const conceptOn = visualPlan?.conceptTriggers !== false && conceptCap > 0;
-  // Captions already use composition frames — do not scale again.
   const concepts: SyncedConceptTrigger[] = conceptOn
     ? syncConceptTriggers(captions, 1).slice(0, conceptCap)
     : [];
-  // Editorial layouts already carry the idea — stacking concept cards causes face hits + black voids.
-  const layoutOwned = [
-    { from: hook.from, to: hook.from + hook.duration, skip: ["document_stamp", "family_cluster", "budget_scale"] },
-    { from: residency.from, to: residency.from + residency.duration, skip: ["document_stamp", "family_cluster", "budget_scale", "steps_reveal"] },
-    { from: consult.from, to: consult.from + consult.duration, skip: ["comparison_columns", "document_stamp", "steps_reveal", "family_cluster", "budget_scale"] },
-    { from: beside.from, to: beside.from + beside.duration, skip: ["family_cluster", "budget_scale", "comparison_columns"] },
-    { from: steps.from, to: steps.from + steps.duration, skip: ["steps_reveal"] },
-  ] as const;
-  // Consult mounts its own speaker PIP — skip concept circle to avoid double presenter.
-  const speakerPrimary = [
-    { from: hook.from, to: hook.from + hook.duration },
-    { from: residency.from, to: residency.from + residency.duration },
-    { from: consult.from, to: consult.from + consult.duration },
-    { from: beside.from, to: beside.from + beside.duration },
-    { from: ret.from, to: ret.from + ret.duration },
-  ];
+  // Skip only when the beat already owns a progressive card / steps diagram.
+  const layoutOwned = sceneIds.map((id, index) => {
+    const beat = beatList[index];
+    const skip: string[] = [];
+    if (id === "beside") skip.push("family_cluster", "budget_scale", "comparison_columns");
+    if (id === "steps") skip.push("steps_reveal");
+    return { from: beat.from, to: beat.from + beat.duration, skip };
+  });
+  const speakerPrimary = sceneIds
+    .map((id, index) => {
+      const framing = looks[id]?.speaker?.layout || "";
+      if (framing.includes("with_media") || framing.includes("diagram") || id === "consult" || id === "proof" || id === "steps") {
+        return null;
+      }
+      const beat = beatList[index];
+      return { from: beat.from, to: beat.from + beat.duration };
+    })
+    .filter(Boolean) as { from: number; to: number }[];
   const plate = visualPlan?.backgroundPlate ?? null;
-  // Prefer clean photographic residency over decorative SVG hero (passport rect+circle).
-  const residencyHasMedia = Boolean(looks.residency.background.staged);
-  const hero = residencyHasMedia ? null : visualPlan?.heroObject ?? null;
+  const hookBeat = beatList[0];
+  const hero = visualPlan?.heroObject ?? null;
+  const heroBeat =
+    beatList[sceneIds.indexOf("problem")] ||
+    beatList[sceneIds.indexOf("hook")] ||
+    hookBeat;
   return (
     <AbsoluteFill style={{ background: theme.color.bg, fontFamily: theme.font.sans }}>
       <LocaleProvider locale={planLocale}>
@@ -941,43 +1050,48 @@ export function DirectorV3({
           <BackgroundPlate treatment={plate} frames={frames} intensity={1} />
         </Sequence>
       ) : null}
-      <Sequence from={hook.from} durationInFrames={hook.duration} name="hook">
-        <ParallaxLayers
-          frames={hook.duration}
-          intensity={(looks.hook.motionIntensity === "high" ? 1.2 : 0.85) * motionGain}
-          layers={[{ depth: 0.4, children: <Hook file={speakerFile} from={hook.from} frames={hook.duration} look={looks.hook} locale={planLocale} /> }]}
-        />
-      </Sequence>
-      <Sequence from={residency.from} durationInFrames={residency.duration} name="residency">
-        <Residency file={speakerFile} from={residency.from} frames={residency.duration} look={looks.residency} />
-      </Sequence>
-      <Sequence from={consult.from} durationInFrames={consult.duration} name="consult">
-        <Consult file={speakerFile} from={consult.from} frames={consult.duration} look={looks.consult} />
-      </Sequence>
-      <Sequence from={beside.from} durationInFrames={beside.duration} name="beside">
-        <Beside file={speakerFile} from={beside.from} frames={beside.duration} look={looks.beside} locale={planLocale} />
-      </Sequence>
-      <Sequence from={steps.from} durationInFrames={steps.duration} name="steps">
-        <Enter transition={looks.steps.transition}>
-          <Steps frames={steps.duration} locale={planLocale} look={looks.steps} />
-        </Enter>
-      </Sequence>
-      <Sequence from={ret.from} durationInFrames={ret.duration} name="return">
-        <Return file={speakerFile} from={ret.from} frames={ret.duration} look={looks.return} />
-      </Sequence>
+      {sceneIds.map((id, index) => {
+        const beat = beatList[index];
+        const look = looks[id];
+        const intensity = (look.motionIntensity === "high" ? 1.2 : 0.85) * motionGain;
+        return (
+          <Sequence key={`${id}-${index}`} from={beat.from} durationInFrames={beat.duration} name={id}>
+            {id === "hook" ? (
+              <ParallaxLayers
+                frames={beat.duration}
+                intensity={intensity}
+                layers={[
+                  {
+                    depth: 0.4,
+                    children: (
+                      <SceneRouter
+                        look={look}
+                        file={speakerFile}
+                        from={beat.from}
+                        frames={beat.duration}
+                        locale={planLocale}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            ) : (
+              <SceneRouter
+                look={look}
+                file={speakerFile}
+                from={beat.from}
+                frames={beat.duration}
+                locale={planLocale}
+              />
+            )}
+          </Sequence>
+        );
+      })}
       {concepts.map((hit) => {
         const owned = layoutOwned.find((range) => hit.fromFrame >= range.from && hit.fromFrame < range.to);
-        if (owned && (owned.skip as readonly string[]).includes(hit.presetId)) return null;
-        // Clip concept to the current beat so overlays do not hang over an empty cut.
-        const beatEnd =
-          [hook, residency, consult, beside, steps, ret].find(
-            (beat) => hit.fromFrame >= beat.from && hit.fromFrame < beat.from + beat.duration,
-          )?.duration ?? hit.durationInFrames;
-        const beatFrom =
-          [hook, residency, consult, beside, steps, ret].find(
-            (beat) => hit.fromFrame >= beat.from && hit.fromFrame < beat.from + beat.duration,
-          )?.from ?? hit.fromFrame;
-        const dur = Math.max(1, Math.min(hit.durationInFrames, beatFrom + beatEnd - hit.fromFrame));
+        if (owned && owned.skip.includes(hit.presetId)) return null;
+        const beat = beatList.find((b) => hit.fromFrame >= b.from && hit.fromFrame < b.from + b.duration);
+        const dur = Math.max(1, Math.min(hit.durationInFrames, (beat ? beat.from + beat.duration : frames) - hit.fromFrame));
         const speakerOn = speakerPrimary.some((range) => hit.fromFrame >= range.from && hit.fromFrame < range.to);
         const showPip = !speakerOn && dur >= 36;
         return (
@@ -987,10 +1101,10 @@ export function DirectorV3({
           </Sequence>
         );
       })}
-      {hero ? (
-        <Sequence from={residency.from} durationInFrames={residency.duration} name="hero-object">
+      {hero && heroBeat ? (
+        <Sequence from={heroBeat.from} durationInFrames={Math.min(heroBeat.duration, Math.round(4.5 * DIRECTOR_V3_FPS))} name="hero-object">
           <AbsoluteFill style={{ pointerEvents: "none", opacity: 0.92 }}>
-            <HeroObject kind={hero} frames={residency.duration} />
+            <HeroObject kind={hero} frames={Math.min(heroBeat.duration, Math.round(4.5 * DIRECTOR_V3_FPS))} />
           </AbsoluteFill>
         </Sequence>
       ) : null}

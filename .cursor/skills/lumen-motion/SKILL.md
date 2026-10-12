@@ -14,6 +14,8 @@ Pipeline integration (feature-flagged) goes through `backend/remotion_engine.py`
 
 **V7:** Director `shotPlan` drives layout / `cardMode=progressive_one` / kinetic hook. Never mount empty caption plates. Prefer one hero card over dense stacks.
 
+**V8:** Spoken concepts bind to library webm (`director_v8.MOTION_BINDINGS` → mobility/document/folder/compare/shield). Prefer animated objects over static cards. `SemanticMotionClip` must cover ~520px speaker-safe — tiny insets = fail. Preview: `output/director-v8/`.
+
 ## Contract
 
 Director chooses: scene `type`, `variant`, duration, text/emphasis/media/data, transition (`cut|fade|slide|wipe`).

@@ -27,6 +27,7 @@ Original speaker video stays the protagonist. Library assets resolve by id befor
 - Transcript captions via `caption_phrases` → `attach_transcript_captions` → Remotion props
 - `should_use_remotion(pid)` gates Create Video (project «e» always)
 - V7: executes `shotPlan` (layouts, cardMode `progressive_one`, kinetic hook); caption Sequences skip empty text; bed duck ~0.34
+- V8: dynamic N-beat `SceneRouter` for `long60`; `SemanticMotionClip` renders staged `semanticMotion.staged` webm (~520px cover, face-safe); verify audit pass + actual frames, not presets alone
 
 ## Contract
 

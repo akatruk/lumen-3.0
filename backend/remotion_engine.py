@@ -188,6 +188,7 @@ def resolve_scene_plan(
             or (raw.get('execution') or {}).get('cardMode')
             or (raw.get('shotPlan') or {}).get('cardMode'),
             'shotPlan': dict(raw.get('shotPlan') or {}),
+            'semanticMotion': dict(raw.get('semanticMotion') or (raw.get('shotPlan') or {}).get('semanticMotion') or {}),
         }
         # Strip director-illegal keys if a buggy planner leaked them.
         for bucket in ('speaker', 'background', 'foreground', 'typography'):
@@ -228,6 +229,9 @@ def resolve_scene_plan(
         'keywords': list(plan.get('keywords') or []),
         'shotPlanVersion': plan.get('shotPlanVersion'),
         'antiRepetition': plan.get('antiRepetition') or {},
+        'form': plan.get('form'),
+        'beatWeights': list(plan.get('beatWeights') or []),
+        'semanticMotionAudit': plan.get('semanticMotionAudit') or {},
         'audio': {
             'speech': speaker_file,
             'bed': 'bed.mp3',
@@ -281,6 +285,9 @@ def visual_plan_from_render_plan(render_plan: dict) -> dict:
         'keywords': list(render_plan.get('keywords') or []),
         'shotPlanVersion': render_plan.get('shotPlanVersion'),
         'antiRepetition': render_plan.get('antiRepetition') or {},
+        'form': render_plan.get('form'),
+        'beatWeights': list(render_plan.get('beatWeights') or []),
+        'semanticMotionAudit': render_plan.get('semanticMotionAudit') or {},
     }
 
 

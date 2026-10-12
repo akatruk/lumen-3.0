@@ -86,13 +86,20 @@ def main():
 
     from backend.director_semantics import enrich_plan_from_transcript, motion_diversity_summary
     from backend.director_shot_plan import motion_usage_report
+    from backend import director_v8
+    transcript = director_v8.filter_locale_transcript(transcript, args.language)
     plan = enrich_plan_from_transcript(plan, transcript, locale=args.language)
     plan['language'] = args.language
+    plan = director_v8.expand_plan_for_duration(
+        plan, duration_seconds=seconds, transcript=transcript, locale=args.language,
+    )
+    plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
     store_plan(settings.data_dir, args.project_id, plan)
 
     speaker = director_v3.speaker_for(seconds, dest_source)
     public = director_v3._public_director()
     plan = stage_backgrounds(plan, public, ROOT / 'media' / 'library' / 'out')
+    plan = director_v8.stage_semantic_motion(plan, public, ROOT / 'media' / 'library' / 'out')
 
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=plan,
@@ -100,13 +107,17 @@ def main():
         duration_seconds=seconds,
         speaker_file=speaker,
         source_ref=str(dest_source),
-        generation_id=plan['generationId'],
+        generation_id=plan.get('generationId') or f"ordinary_{args.project_id[:8]}_{seconds}s",
     )
     render_plan = remotion_engine.attach_transcript_captions(
         render_plan, transcript, locale=args.language,
     )
     render_plan['motionDiversity'] = motion_diversity_summary(render_plan.get('scenes') or [])
-    render_plan['motionUsage'] = motion_usage_report({**plan, **render_plan})
+    render_plan['motionUsage'] = plan.get('motionUsage') or motion_usage_report({**plan, **render_plan})
+    render_plan['semanticMotionAudit'] = plan.get('semanticMotionAudit')
+    render_plan['form'] = plan.get('form')
+    render_plan['beatWeights'] = plan.get('beatWeights')
+    render_plan['shotPlanVersion'] = plan.get('shotPlanVersion') or render_plan.get('shotPlanVersion')
     remotion_engine.store_render_plan(settings.data_dir, args.project_id, render_plan)
 
     out = args.out.resolve()

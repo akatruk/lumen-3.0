@@ -9,6 +9,7 @@
 - **Captions:** transcript → `caption_phrases` → Remotion (not LLM caption fragments)
 - **V6:** `locale_consistency` + `director_semantics` — one viewer locale; speech-backed headlines/cards; layout diversity; reject EN captions under RU cards
 - **V7:** `director_shot_plan.py` — per-beat shot plans + choreography + keywords≠captions + anti-repetition (`maxSplitStreak < 3`). Progressive cards. Report: `reports/LUMEN_V7_PREMIUM_MOTION.md`
+- **V8:** `director_v8.py` — `long60` (10 beats) for ≥45s; semantic concept → library webm bindings; stage + `semanticMotionAudit`; Remotion mounts `SemanticMotionClip`. Report: `reports/LUMEN_V8_SEMANTIC_MOTION_60S.md`. Do not stretch a 20s preview.
 - Studio create-video stores `visual_plan` on `director_v3` when `should_use_remotion`
 - Hypit model brief (legacy): `backend/assembly_prompt.txt` via `hypit_prompt.py`
 

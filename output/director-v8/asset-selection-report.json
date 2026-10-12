@@ -1,0 +1,134 @@
+{
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "layout": "speaker_punch_in",
+      "background": null,
+      "semanticMotion": {
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation",
+        "staged": "picked/pm_scene_mobility_001.webm"
+      },
+      "query": null
+    },
+    {
+      "sceneId": "context",
+      "layout": "speaker_with_foreground",
+      "background": "people_door_001",
+      "semanticMotion": {
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation",
+        "staged": "picked/pm_scene_mobility_001.webm"
+      },
+      "query": "family home doorway relocation"
+    },
+    {
+      "sceneId": "problem",
+      "layout": "speaker_closeup",
+      "background": null,
+      "semanticMotion": {
+        "assetId": "document_approval_001",
+        "file": "motion/documents/document_approval_001.webm",
+        "motionFamily": "document",
+        "keyword": "residency",
+        "staged": "picked/document_approval_001.webm"
+      },
+      "query": null
+    },
+    {
+      "sceneId": "residency",
+      "layout": "speaker_split_right",
+      "background": "pm_scene_approval_001",
+      "semanticMotion": {
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents",
+        "staged": "picked/pm_concept_folder_001.webm"
+      },
+      "query": "document review desk paperwork"
+    },
+    {
+      "sceneId": "consult",
+      "layout": "speaker_with_media",
+      "background": "re_agent_docs",
+      "semanticMotion": {
+        "assetId": "pm_hero_compare_001",
+        "file": "motion/premium/pm_hero_compare_001.webm",
+        "motionFamily": "compare",
+        "keyword": "consult",
+        "staged": "picked/pm_hero_compare_001.webm"
+      },
+      "query": "consultation meeting advisor"
+    },
+    {
+      "sceneId": "beside",
+      "layout": "speaker_split_left",
+      "background": null,
+      "semanticMotion": {
+        "assetId": "pm_concept_shield_001",
+        "file": "motion/premium/pm_concept_shield_001.webm",
+        "motionFamily": "shield",
+        "keyword": "family",
+        "staged": "picked/pm_concept_shield_001.webm"
+      },
+      "query": null
+    },
+    {
+      "sceneId": "steps",
+      "layout": "speaker_with_diagram",
+      "background": null,
+      "semanticMotion": {
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents",
+        "staged": "picked/pm_concept_folder_001.webm"
+      },
+      "query": null
+    },
+    {
+      "sceneId": "proof",
+      "layout": "speaker_with_media",
+      "background": "people_consult_001",
+      "semanticMotion": {
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents",
+        "staged": "picked/pm_concept_folder_001.webm"
+      },
+      "query": "phone consultation office advisor"
+    },
+    {
+      "sceneId": "payoff",
+      "layout": "speaker_medium",
+      "background": null,
+      "semanticMotion": {
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation",
+        "staged": "picked/pm_scene_mobility_001.webm"
+      },
+      "query": null
+    },
+    {
+      "sceneId": "return",
+      "layout": "speaker_fullscreen",
+      "background": null,
+      "semanticMotion": {
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation",
+        "staged": "picked/pm_scene_mobility_001.webm"
+      },
+      "query": null
+    }
+  ]
+}

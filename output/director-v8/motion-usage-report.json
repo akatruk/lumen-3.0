@@ -1,0 +1,145 @@
+{
+  "durationSeconds": 60.053333,
+  "form": "long60",
+  "shotPlanVersion": "v8",
+  "sceneCount": 10,
+  "layouts": [
+    "speaker_punch_in",
+    "speaker_with_foreground",
+    "speaker_closeup",
+    "speaker_split_right",
+    "speaker_with_media",
+    "speaker_split_left",
+    "speaker_with_diagram",
+    "speaker_with_media",
+    "speaker_medium",
+    "speaker_fullscreen"
+  ],
+  "uniqueLayouts": 9,
+  "backgrounds": [
+    null,
+    "people_door_001",
+    null,
+    "pm_scene_approval_001",
+    "re_agent_docs",
+    null,
+    null,
+    "people_consult_001",
+    null,
+    null
+  ],
+  "uniqueBackgrounds": 4,
+  "semanticMotionStaged": [
+    "picked/pm_scene_mobility_001.webm",
+    "picked/pm_scene_mobility_001.webm",
+    "picked/document_approval_001.webm",
+    "picked/pm_concept_folder_001.webm",
+    "picked/pm_hero_compare_001.webm",
+    "picked/pm_concept_shield_001.webm",
+    "picked/pm_concept_folder_001.webm",
+    "picked/pm_concept_folder_001.webm",
+    "picked/pm_scene_mobility_001.webm",
+    "picked/pm_scene_mobility_001.webm"
+  ],
+  "semanticMotionAudit": {
+    "resolved": [
+      {
+        "sceneId": "hook",
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation"
+      },
+      {
+        "sceneId": "context",
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation"
+      },
+      {
+        "sceneId": "problem",
+        "assetId": "document_approval_001",
+        "file": "motion/documents/document_approval_001.webm",
+        "motionFamily": "document",
+        "keyword": "residency"
+      },
+      {
+        "sceneId": "residency",
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents"
+      },
+      {
+        "sceneId": "consult",
+        "assetId": "pm_hero_compare_001",
+        "file": "motion/premium/pm_hero_compare_001.webm",
+        "motionFamily": "compare",
+        "keyword": "consult"
+      },
+      {
+        "sceneId": "beside",
+        "assetId": "pm_concept_shield_001",
+        "file": "motion/premium/pm_concept_shield_001.webm",
+        "motionFamily": "shield",
+        "keyword": "family"
+      },
+      {
+        "sceneId": "steps",
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents"
+      },
+      {
+        "sceneId": "proof",
+        "assetId": "pm_concept_folder_001",
+        "file": "motion/premium/pm_concept_folder_001.webm",
+        "motionFamily": "folder",
+        "keyword": "documents"
+      },
+      {
+        "sceneId": "payoff",
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation"
+      },
+      {
+        "sceneId": "return",
+        "assetId": "pm_scene_mobility_001",
+        "file": "motion/premium/pm_scene_mobility_001.webm",
+        "motionFamily": "mobility",
+        "keyword": "relocation"
+      }
+    ],
+    "missing": [],
+    "resolvedCount": 10,
+    "pass": true
+  },
+  "antiRepetition": {
+    "signatures": [
+      "fullscreen|speaker_punch_in|camera+kinetic",
+      "split|speaker_with_foreground|media+route",
+      "fullscreen|speaker_closeup|camera+kinetic",
+      "split|speaker_split_right|media+document",
+      "pip|speaker_with_media|broll",
+      "split|speaker_split_left|info_reveal",
+      "pip|speaker_with_diagram|infographic",
+      "pip|speaker_with_media|broll+object",
+      "fullscreen|speaker_medium|camera",
+      "fullscreen|speaker_fullscreen|camera"
+    ],
+    "maxSplitStreak": 1,
+    "pass": true
+  },
+  "captionCount": 20,
+  "languageValidation": {
+    "ok": true,
+    "locale": "ru-RU",
+    "captionLocaleOk": true,
+    "cardLocaleOk": true,
+    "issues": []
+  }
+}
