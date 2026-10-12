@@ -3,7 +3,7 @@
 **Date:** 2026-10-12  
 **Host:** local Remotion + lumen-test deploy  
 **Baseline reference:** `~/Downloads/lumen-32012faa (3).mp4` (sha256 `4ed9555e…8831a`)  
-**Git commit:** _(filled at push)_  
+**Git commit:** `30106ca27d27389ccef2f490bbcd0a5b94d4bee4`  
 
 ## Phase 1 — Audit (baseline)
 
