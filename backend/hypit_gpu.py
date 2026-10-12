@@ -1,8 +1,9 @@
-"""Film one Hypit workspace on the RunPod RTX 4090.
+"""Film one Hypit workspace on the pinned RunPod GPU pod.
 
 The worker sets LUMEN_HYPIT_GPU=1. Tests leave it unset and keep the software
-profile on this machine. The pod starts on demand and stops when the last
-holder finishes. Speech uses the same pod. The other GPU pod is left alone.
+profile on this machine. Production resumes only LUMEN_GPU_POD_ID (default
+dznvwn90el5au4 / lumen-hypit-4090). Never terminate an existing pod and never
+create a new one. Speech uses the same pod. lumen-web-gpu is left alone.
 """
 import contextvars
 import fcntl
@@ -22,17 +23,9 @@ log = logging.getLogger('lumen.hypit')
 
 VOLUME_ID = 'spsiypcy8y'
 POD_NAME = 'lumen-hypit-4090'
-GPU_TYPES = (
-    'NVIDIA GeForce RTX 4090',
-    'NVIDIA RTX PRO 4500 Blackwell',
-    'NVIDIA L4',
-    'NVIDIA GeForce RTX 3090',
-    'NVIDIA RTX A5000',
-    'NVIDIA RTX A6000',
-    'NVIDIA RTX PRO 6000 Blackwell Workstation Edition',
-)
-IMAGE = 'runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404'
-DATA_CENTER = 'EU-RO-1'
+# Surviving pin after terminate+redeploy destroyed sovtlhobiu7wvt (2026-10-12).
+DEFAULT_POD_ID = 'dznvwn90el5au4'
+FORBIDDEN_POD_IDS = frozenset({'hufsgfs9f7gpga'})
 CHROME_LIBS = (
     'libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 '
     'libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 '
@@ -44,12 +37,22 @@ CHROME_LIBS = (
 _pod = contextvars.ContextVar('lumen_gpu_pod', default=None)
 
 
+def _pinned_pod_id():
+    raw = (os.environ.get('LUMEN_GPU_POD_ID') or DEFAULT_POD_ID).strip()
+    if not raw:
+        raise _note_failure(RuntimeError('hypit_unavailable'), 'LUMEN_GPU_POD_ID is empty')
+    if raw in FORBIDDEN_POD_IDS:
+        raise _note_failure(RuntimeError('hypit_unavailable'), f'gpu pod {raw} is forbidden')
+    return raw
+
+
 @contextmanager
 def pod_session():
-    """Start lumen-hypit-4090, or reuse the holder already running in this process.
+    """Resume the pinned Hypit pod, or reuse the holder already running in this process.
 
     The pod stops when the outermost holder exits. A nested speech call does
-    not shut the machine down in the middle of a picture.
+    not shut the machine down in the middle of a picture. Never terminates or
+    creates pods.
     """
     current = _pod.get()
     if current is not None:
@@ -61,8 +64,8 @@ def pod_session():
     lock = lock_path.open('a+')
     try:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        pods = _ours(_pods())
-        already = any(pod.get('desiredStatus') not in ('EXITED', 'TERMINATED') for pod in pods)
+        pinned = _find_pinned(_pods())
+        already = bool(pinned and pinned.get('desiredStatus') not in ('EXITED', 'TERMINATED'))
         ip, port, pod_id = _ensure_pod()
         token = _pod.set((ip, port, pod_id))
         try:
@@ -77,7 +80,7 @@ def pod_session():
 
 
 def film(work):
-    """Capture work/visual.mp4 on lumen-hypit-4090. Speech uses that same pod."""
+    """Capture work/visual.mp4 on the pinned Hypit pod. Speech uses that same pod."""
     work = Path(work)
     _hardware_runtime(work)
     try:
@@ -226,8 +229,21 @@ def _pods():
     return ((data.get('myself') or {}).get('pods')) or []
 
 
-def _ours(pods):
-    return [pod for pod in pods if pod.get('name') == POD_NAME]
+def _find_pinned(pods):
+    """Return the allowlisted Hypit pod only. Never touch forbidden ids."""
+    pinned_id = _pinned_pod_id()
+    match = next((pod for pod in pods if pod.get('id') == pinned_id), None)
+    if not match:
+        return None
+    if match.get('id') in FORBIDDEN_POD_IDS:
+        raise _note_failure(RuntimeError('hypit_unavailable'), f'gpu pod {match.get("id")} is forbidden')
+    name = match.get('name') or ''
+    if name and name != POD_NAME:
+        raise _note_failure(
+            RuntimeError('hypit_unavailable'),
+            f'gpu pod {pinned_id} name mismatch: want {POD_NAME}, got {name}',
+        )
+    return match
 
 
 def _ssh_endpoint(pod):
@@ -248,24 +264,8 @@ def _gpu_busy(exc):
     )
 
 
-def _gpu_type():
-    """Pick a free card in the volume's datacenter. The 4090 is first."""
-    data = _gql(
-        'query { gpuTypes { id lowestPrice(input: {gpuCount: 1, secureCloud: true, dataCenterId: "EU-RO-1"}) '
-        '{ stockStatus } } }'
-    )
-    stock = {
-        item.get('id'): ((item.get('lowestPrice') or {}).get('stockStatus') or 'None')
-        for item in (data.get('gpuTypes') or [])
-    }
-    for name in GPU_TYPES:
-        if stock.get(name) not in (None, '', 'None'):
-            return name
-    raise _note_failure(RuntimeError('hypit_unavailable'), 'no gpu free in EU-RO-1')
-
-
 def _ensure_pod():
-    """Wait while the datacenter has no free card. A full region is not a finished failure."""
+    """Resume the pinned pod only. Wait while the host has no free card; never create."""
     last = None
     for _attempt in range(40):
         try:
@@ -279,47 +279,42 @@ def _ensure_pod():
 
 
 def _start_pod():
-    pods = _ours(_pods())
-    live = next((pod for pod in pods if pod.get('desiredStatus') not in ('EXITED', 'TERMINATED')), None)
-    if live:
-        return _wait_ready(live['id'])
-    exited = next((pod for pod in pods if pod.get('desiredStatus') == 'EXITED'), None)
-    if exited:
-        try:
-            _gql('mutation($id: String!) { podResume(input: { podId: $id, gpuCount: 1 }) { id } }', {'id': exited['id']})
-            return _wait_ready(exited['id'])
-        except RuntimeError as exc:
-            if not _gpu_busy(exc):
-                raise
-            _gql('mutation($id: String!) { podTerminate(input: { podId: $id }) }', {'id': exited['id']})
-    pubkey = (_key_path().with_suffix('.pub')).read_text().strip()
-    created = _gql(
-        'mutation($input: PodFindAndDeployOnDemandInput!) { podFindAndDeployOnDemand(input: $input) { id } }',
-        {'input': {
-            'cloudType': 'SECURE',
-            'gpuCount': 1,
-            'gpuTypeId': _gpu_type(),
-            'name': POD_NAME,
-            'imageName': IMAGE,
-            'containerDiskInGb': 40,
-            'volumeMountPath': '/workspace',
-            'networkVolumeId': os.environ.get('LUMEN_GPU_VOLUME') or VOLUME_ID,
-            'startSsh': True,
-            'ports': '22/tcp',
-            'dataCenterId': DATA_CENTER,
-            'env': [{'key': 'PUBLIC_KEY', 'value': pubkey}],
-        }},
+    """Resume or attach the pinned pod. Never terminate. Never deploy on demand."""
+    pinned_id = _pinned_pod_id()
+    match = _find_pinned(_pods())
+    if not match:
+        raise _note_failure(
+            RuntimeError('hypit_unavailable'),
+            f'pinned gpu pod {pinned_id} not found; refuse create/terminate',
+        )
+    status = match.get('desiredStatus')
+    if status not in ('EXITED', 'TERMINATED') and status:
+        return _wait_ready(match['id'])
+    if status == 'TERMINATED':
+        raise _note_failure(
+            RuntimeError('hypit_unavailable'),
+            f'pinned gpu pod {pinned_id} is TERMINATED; refuse create',
+        )
+    if status != 'EXITED':
+        raise _note_failure(
+            RuntimeError('hypit_unavailable'),
+            f'pinned gpu pod {pinned_id} status {status!r}; refuse create/terminate',
+        )
+    # Resume only. Capacity errors bubble to _ensure_pod for wait/retry.
+    # Never terminate or deploy-on-demand — fail closed instead.
+    _gql(
+        'mutation($id: String!) { podResume(input: { podId: $id, gpuCount: 1 }) { id } }',
+        {'id': pinned_id},
     )
-    pod_id = ((created.get('podFindAndDeployOnDemand') or {}).get('id'))
-    if not pod_id:
-        raise _note_failure(RuntimeError('hypit_unavailable'), 'gpu pod did not start')
-    return _wait_ready(pod_id)
+    return _wait_ready(pinned_id)
 
 
 def _wait_ready(pod_id):
     deadline = time.time() + 360
     while time.time() < deadline:
-        match = next((pod for pod in _ours(_pods()) if pod.get('id') == pod_id), None)
+        match = next((pod for pod in _pods() if pod.get('id') == pod_id), None)
+        if match and match.get('id') in FORBIDDEN_POD_IDS:
+            raise _note_failure(RuntimeError('hypit_unavailable'), f'gpu pod {pod_id} is forbidden')
         endpoint = _ssh_endpoint(match) if match else None
         if endpoint and match.get('desiredStatus') == 'RUNNING':
             _wait_ssh(*endpoint)

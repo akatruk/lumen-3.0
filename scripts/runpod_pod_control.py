@@ -6,7 +6,8 @@ Usage (on a host that has RUNPOD_API_KEY in the environment):
   python3 scripts/runpod_pod_control.py resume
   python3 scripts/runpod_pod_control.py stop
 
-Only pod id sovtlhobiu7wvt (lumen-hypit-4090) is allowed. lumen-web-gpu is left alone.
+Only the pinned Hypit pod is allowed (LUMEN_GPU_POD_ID or default
+dznvwn90el5au4 / lumen-hypit-4090). lumen-web-gpu is left alone.
 """
 from __future__ import annotations
 
@@ -14,12 +15,24 @@ import json
 import os
 import sys
 import time
-import urllib.error
 import urllib.request
 
-ALLOWED_POD = "sovtlhobiu7wvt"
+DEFAULT_POD = "dznvwn90el5au4"
 ALLOWED_NAME = "lumen-hypit-4090"
 FORBIDDEN = {"hufsgfs9f7gpga"}
+
+
+def allowed_pod():
+    raw = (os.environ.get("LUMEN_GPU_POD_ID") or DEFAULT_POD).strip()
+    if not raw:
+        raise SystemExit("LUMEN_GPU_POD_ID is empty")
+    if raw in FORBIDDEN:
+        raise SystemExit("pod id is forbidden: " + raw)
+    return raw
+
+
+# Back-compat for importers / docs that read ALLOWED_POD at import time.
+ALLOWED_POD = DEFAULT_POD
 
 
 def _token():
@@ -56,9 +69,10 @@ def myself():
 
 
 def find_pod(pods):
-    match = next((p for p in pods if p.get("id") == ALLOWED_POD), None)
+    pinned = allowed_pod()
+    match = next((p for p in pods if p.get("id") == pinned), None)
     if not match:
-        raise SystemExit("allowed pod not found: " + ALLOWED_POD)
+        raise SystemExit("allowed pod not found: " + pinned)
     if match.get("name") and match["name"] != ALLOWED_NAME:
         raise SystemExit("pod name mismatch")
     for pod in pods:
@@ -80,6 +94,7 @@ def cmd_status():
     me = myself()
     pods = me.get("pods") or []
     pod = find_pod(pods)
+    pinned = allowed_pod()
     ip, port = ssh_endpoint(pod)
     print(
         json.dumps(
@@ -93,7 +108,7 @@ def cmd_status():
                 "other": [
                     {"id": p["id"], "name": p.get("name"), "desiredStatus": p.get("desiredStatus")}
                     for p in pods
-                    if p.get("id") != ALLOWED_POD
+                    if p.get("id") != pinned
                 ],
             },
             indent=2,
@@ -104,6 +119,7 @@ def cmd_status():
 def cmd_resume():
     me = myself()
     pod = find_pod(me.get("pods") or [])
+    pinned = allowed_pod()
     status = pod.get("desiredStatus")
     if status == "RUNNING":
         print("ALREADY_RUNNING", pod["id"])
@@ -113,7 +129,7 @@ def cmd_resume():
         raise SystemExit("refuse to resume from status " + str(status))
     gql(
         "mutation($id: String!) { podResume(input: { podId: $id, gpuCount: 1 }) { id } }",
-        {"id": ALLOWED_POD},
+        {"id": pinned},
     )
     for _ in range(60):
         time.sleep(5)
@@ -130,13 +146,14 @@ def cmd_resume():
 def cmd_stop():
     me = myself()
     pod = find_pod(me.get("pods") or [])
+    pinned = allowed_pod()
     if pod.get("desiredStatus") == "EXITED":
         print("ALREADY_EXITED", pod["id"])
         cmd_status()
         return
     gql(
         "mutation($id: String!) { podStop(input: { podId: $id }) { id desiredStatus } }",
-        {"id": ALLOWED_POD},
+        {"id": pinned},
     )
     for _ in range(36):
         time.sleep(5)

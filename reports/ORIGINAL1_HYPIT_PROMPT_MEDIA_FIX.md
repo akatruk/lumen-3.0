@@ -151,3 +151,16 @@ On lumen-test (`PYTHONPATH=/opt/lumen-rebuild`):
 ### Blocker (stop here)
 
 Cannot safely retry second render: allowed pod id `sovtlhobiu7wvt` **no longer exists**. Creating/resuming `dznvwn90el5au4` would violate “no new pods / only lumen-hypit-4090 4090 resume” without an explicit ops decision. Fix `hypit_gpu._start_pod` to **never terminate+redeploy** (fail closed / wait on pinned id or name+volume) before any further original1 Create Video.
+
+---
+
+## hypit_gpu safety fix (2026-10-12)
+
+| | |
+|---|---|
+| **Root cause** | `_start_pod` matched by name `lumen-hypit-4090` only; on GPU-busy resume it `podTerminate`d the EXITED pin then `podFindAndDeployOnDemand` → destroyed `sovtlhobiu7wvt`, spawned `dznvwn90el5au4` (Blackwell 4500, same name). |
+| **Fix** | `backend/hypit_gpu.py` resumes **only** `LUMEN_GPU_POD_ID` (default `dznvwn90el5au4`). **Never** terminate. **Never** deploy on demand. Busy/missing → fail-closed `hypit_unavailable`. |
+| **Control script** | `scripts/runpod_pod_control.py` ALLOWED default → `dznvwn90el5au4`; env override via `LUMEN_GPU_POD_ID`; `hufsgfs9f7gpga` still forbidden. |
+| **Tests** | `backend/tests/test_hypit_gpu_pin.py` asserts terminate+create cannot run when a pinned pod exists / on busy resume. |
+| **Accepted delivery** | `5dd1527b…` unchanged (sha256 `c8c1fa…`). |
+| **Do not** | Create a new RunPod pod; terminate `dznvwn90el5au4` except stop→EXITED after smoke; flip `LLM_PROVIDER`. |
