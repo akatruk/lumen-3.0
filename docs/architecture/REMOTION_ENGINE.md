@@ -7,8 +7,10 @@
 - Registry: `motion/src/registry/` — Director picks type/variant/data only
 - Typography: `AutoFitText`, `AnimatedCaption` — never bake text into gens
 - Compositions: `DirectorV3Preview`, showcase, real-estate, immigration clips
+- Library clips entry: `motion/src/clips/` (`ClipRoot` + `premium/` V4 calibration heroes/concepts/FG/BG/scenes)
 - Concept triggers: `motion/src/concepts/` (spoken phrase → viz preset)
 - Cinematic plates: `motion/src/cinematic/`
+- Premium clip encode: PNG sequence → system ffmpeg `libvpx-vp9 -pix_fmt yuva420p -auto-alt-ref 0` (`media/library/render_premium_motion_v4.py`)
 
 ## TARGET STATE
 

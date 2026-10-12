@@ -1,0 +1,1037 @@
+[
+  {
+    "id": "pm_hero_growth_001",
+    "type": "video",
+    "category": "conceptual",
+    "tags": [
+      "growth",
+      "profit",
+      "progress",
+      "arrow",
+      "up"
+    ],
+    "tags_ru": [
+      "рост",
+      "прибыль",
+      "прогресс"
+    ],
+    "tags_zh": [
+      "增长",
+      "利润",
+      "进步"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (hero), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (hero), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（hero），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_hero_growth_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "hero",
+      "explanation"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "cutaway",
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "a6d6f09478dfc528e6767fd0b1bb028a5551e7d078fce5dc1d06d2034bd0465b",
+    "bytes": 505056
+  },
+  {
+    "id": "pm_hero_risk_001",
+    "type": "video",
+    "category": "conceptual",
+    "tags": [
+      "risk",
+      "decline",
+      "fall",
+      "arrow",
+      "down"
+    ],
+    "tags_ru": [
+      "риск",
+      "падение",
+      "снижение"
+    ],
+    "tags_zh": [
+      "风险",
+      "下降",
+      "回落"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (hero), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (hero), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（hero），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_hero_risk_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "hero",
+      "explanation"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "cutaway",
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "5e04645ab7eed013467839fa67a323ddbcdca18b63baa4a86396627f217c23c3",
+    "bytes": 324610
+  },
+  {
+    "id": "pm_hero_deadline_001",
+    "type": "video",
+    "category": "conceptual",
+    "tags": [
+      "deadline",
+      "timeline",
+      "urgency",
+      "milestone"
+    ],
+    "tags_ru": [
+      "срок",
+      "дедлайн",
+      "веха"
+    ],
+    "tags_zh": [
+      "截止日期",
+      "时间线",
+      "节点"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (hero), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (hero), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（hero），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_hero_deadline_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "hero",
+      "process"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "cutaway",
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "59fe8360b655917c946b8aabba384fe7a113bc9384b12ba306d3cf7387ed07cd",
+    "bytes": 71547
+  },
+  {
+    "id": "pm_hero_steps_001",
+    "type": "video",
+    "category": "conceptual",
+    "tags": [
+      "steps",
+      "process",
+      "sequence",
+      "plan"
+    ],
+    "tags_ru": [
+      "шаги",
+      "процесс",
+      "план"
+    ],
+    "tags_zh": [
+      "步骤",
+      "流程",
+      "计划"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (hero), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (hero), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（hero），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_hero_steps_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "hero",
+      "process"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "cutaway",
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "9424a045791ff5487f09aa8aadf7f07d619c4d8c5eb470427ca36ced7e8ba2b0",
+    "bytes": 321205
+  },
+  {
+    "id": "pm_hero_compare_001",
+    "type": "video",
+    "category": "conceptual",
+    "tags": [
+      "comparison",
+      "options",
+      "choice",
+      "columns"
+    ],
+    "tags_ru": [
+      "сравнение",
+      "варианты",
+      "выбор"
+    ],
+    "tags_zh": [
+      "对比",
+      "选项",
+      "选择"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (hero), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (hero), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（hero），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_hero_compare_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "hero",
+      "explanation"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "cutaway",
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "15c5e7a49690e8b41df9a4abaef028c036e323f1f26816f73e49350372b55f3b",
+    "bytes": 296035
+  },
+  {
+    "id": "pm_concept_shield_001",
+    "type": "video",
+    "category": "conceptual",
+    "tags": [
+      "shield",
+      "protection",
+      "security",
+      "trust"
+    ],
+    "tags_ru": [
+      "защита",
+      "безопасность",
+      "щит"
+    ],
+    "tags_zh": [
+      "盾牌",
+      "保护",
+      "安全"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (concept), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (concept), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（concept），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_concept_shield_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": true,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "explanation",
+      "insert"
+    ],
+    "energy": "low",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "cd8081e255929ec657ea3d83cadfaca5207cfc5d91062105c523e00708f6fdea",
+    "bytes": 815143
+  },
+  {
+    "id": "pm_concept_folder_001",
+    "type": "video",
+    "category": "documents",
+    "tags": [
+      "folder",
+      "documents",
+      "filing",
+      "application"
+    ],
+    "tags_ru": [
+      "папка",
+      "документы",
+      "заявление"
+    ],
+    "tags_zh": [
+      "文件夹",
+      "文件",
+      "申请"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (concept), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (concept), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（concept），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_concept_folder_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "explanation",
+      "process"
+    ],
+    "energy": "low",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "475b126d7b589af8e94adeac430c63cde1b7e992e2e546f5f1af97a8adad9a8f",
+    "bytes": 125824
+  },
+  {
+    "id": "pm_concept_path_001",
+    "type": "video",
+    "category": "conceptual",
+    "tags": [
+      "path",
+      "journey",
+      "route",
+      "investment"
+    ],
+    "tags_ru": [
+      "путь",
+      "маршрут",
+      "инвестиции"
+    ],
+    "tags_zh": [
+      "路径",
+      "旅程",
+      "投资"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (concept), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (concept), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（concept），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_concept_path_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "explanation",
+      "process"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "48eba497280e1add491a1cb3da5358aab3d220826d7417e289ad675f706a16dc",
+    "bytes": 80443
+  },
+  {
+    "id": "pm_concept_check_001",
+    "type": "video",
+    "category": "documents",
+    "tags": [
+      "approval",
+      "check",
+      "success",
+      "completion"
+    ],
+    "tags_ru": [
+      "одобрение",
+      "галочка",
+      "успех"
+    ],
+    "tags_zh": [
+      "批准",
+      "勾选",
+      "完成"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (concept), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (concept), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（concept），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_concept_check_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "explanation",
+      "process"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "820cc3048fcddc4923249860480f998338cda0ee3475f6c5dfc9980b646014b8",
+    "bytes": 177374
+  },
+  {
+    "id": "pm_fg_wipe_001",
+    "type": "video",
+    "category": "decorative",
+    "tags": [
+      "wipe",
+      "transition",
+      "arc",
+      "foreground"
+    ],
+    "tags_ru": [
+      "переход",
+      "дуга",
+      "передний план"
+    ],
+    "tags_zh": [
+      "转场",
+      "弧线",
+      "前景"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (fg), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (fg), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（fg），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_fg_wipe_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "transition",
+      "overlay"
+    ],
+    "energy": "low",
+    "emotion": [],
+    "motionPotential": "low",
+    "recommendedTreatments": [
+      "kinetic_overlay"
+    ],
+    "matchMode": "decorative",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "21f7d7bb8fdade774c483396e7397eb912a3dad2066182836e3d9109b7a0af42",
+    "bytes": 788239
+  },
+  {
+    "id": "pm_fg_ring_001",
+    "type": "video",
+    "category": "decorative",
+    "tags": [
+      "ring",
+      "reveal",
+      "focus",
+      "foreground"
+    ],
+    "tags_ru": [
+      "кольцо",
+      "фокус",
+      "раскрытие"
+    ],
+    "tags_zh": [
+      "圆环",
+      "揭示",
+      "焦点"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (fg), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (fg), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（fg），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_fg_ring_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "overlay",
+      "insert"
+    ],
+    "energy": "low",
+    "emotion": [],
+    "motionPotential": "low",
+    "recommendedTreatments": [
+      "kinetic_overlay"
+    ],
+    "matchMode": "decorative",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "49dafac41d2613f2b1e76dc25427a738c2fafc21a6a71b0479e52f112aef8114",
+    "bytes": 1023543
+  },
+  {
+    "id": "pm_fg_mask_001",
+    "type": "video",
+    "category": "decorative",
+    "tags": [
+      "mask",
+      "diagonal",
+      "wipe",
+      "foreground"
+    ],
+    "tags_ru": [
+      "маска",
+      "диагональ",
+      "вайп"
+    ],
+    "tags_zh": [
+      "遮罩",
+      "对角",
+      "擦除"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (fg), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (fg), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（fg），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_fg_mask_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "transition",
+      "overlay"
+    ],
+    "energy": "low",
+    "emotion": [],
+    "motionPotential": "low",
+    "recommendedTreatments": [
+      "kinetic_overlay"
+    ],
+    "matchMode": "decorative",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "f1e0cc3af3142bf06e7f47f6ad4d4a7f338f0552286ad343cbba5b7baf14c18f",
+    "bytes": 488701
+  },
+  {
+    "id": "pm_bg_navy_001",
+    "type": "video",
+    "category": "backgrounds",
+    "tags": [
+      "background",
+      "navy",
+      "atmosphere",
+      "field"
+    ],
+    "tags_ru": [
+      "фон",
+      "атмосфера",
+      "поле"
+    ],
+    "tags_zh": [
+      "背景",
+      "氛围",
+      "深蓝"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (bg), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (bg), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（bg），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_bg_navy_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "opaque",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": true,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "background"
+    ],
+    "energy": "low",
+    "emotion": [],
+    "motionPotential": "low",
+    "recommendedTreatments": [
+      "behind_type"
+    ],
+    "matchMode": "decorative",
+    "hasAlpha": false,
+    "codec": "vp9",
+    "pixelFormat": "yuv420p",
+    "reviewStatus": "approved",
+    "sha256": "1db455859873ab674a5eec389f77eff4aee38dc0e91e3005526de118295c518f",
+    "bytes": 156344
+  },
+  {
+    "id": "pm_bg_grid_001",
+    "type": "video",
+    "category": "backgrounds",
+    "tags": [
+      "background",
+      "grid",
+      "structure",
+      "subtle"
+    ],
+    "tags_ru": [
+      "фон",
+      "сетка",
+      "структура"
+    ],
+    "tags_zh": [
+      "背景",
+      "网格",
+      "结构"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (bg), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (bg), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（bg），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_bg_grid_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "opaque",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": true,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "background"
+    ],
+    "energy": "low",
+    "emotion": [],
+    "motionPotential": "low",
+    "recommendedTreatments": [
+      "behind_type"
+    ],
+    "matchMode": "decorative",
+    "hasAlpha": false,
+    "codec": "vp9",
+    "pixelFormat": "yuv420p",
+    "reviewStatus": "approved",
+    "sha256": "7ad1b258cb792b5d08226b85a602e27e451c4aff4a3c88a4594cf298eb6a8f32",
+    "bytes": 1034855
+  },
+  {
+    "id": "pm_bg_dust_001",
+    "type": "video",
+    "category": "backgrounds",
+    "tags": [
+      "background",
+      "particles",
+      "gold",
+      "atmosphere"
+    ],
+    "tags_ru": [
+      "фон",
+      "частицы",
+      "золото"
+    ],
+    "tags_zh": [
+      "背景",
+      "粒子",
+      "金色"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (bg), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (bg), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（bg），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_bg_dust_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "opaque",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": true,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "background"
+    ],
+    "energy": "low",
+    "emotion": [],
+    "motionPotential": "low",
+    "recommendedTreatments": [
+      "behind_type"
+    ],
+    "matchMode": "decorative",
+    "hasAlpha": false,
+    "codec": "vp9",
+    "pixelFormat": "yuv420p",
+    "reviewStatus": "approved",
+    "sha256": "adafad3c1454f214ba86785d286fa0a207838e41812d70ac09d127486386649b",
+    "bytes": 65699
+  },
+  {
+    "id": "pm_scene_approval_001",
+    "type": "video",
+    "category": "documents",
+    "tags": [
+      "approval",
+      "documents",
+      "desk",
+      "scene"
+    ],
+    "tags_ru": [
+      "одобрение",
+      "документы",
+      "сцена"
+    ],
+    "tags_zh": [
+      "批准",
+      "文件",
+      "场景"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (scene), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (scene), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（scene），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_scene_approval_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "explanation",
+      "hero"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "cutaway",
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "86f693299c9b88a5b32095ce0949a69e32c8a6b3aba0e655a7c201cd478ae0d4",
+    "bytes": 216412
+  },
+  {
+    "id": "pm_scene_mobility_001",
+    "type": "video",
+    "category": "global",
+    "tags": [
+      "mobility",
+      "pins",
+      "global",
+      "relocation",
+      "route"
+    ],
+    "tags_ru": [
+      "мобильность",
+      "глобальный",
+      "переезд"
+    ],
+    "tags_zh": [
+      "流动",
+      "全球",
+      "搬迁"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (scene), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (scene), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（scene），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_scene_mobility_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "explanation",
+      "hero"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "cutaway",
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "d9905b5176c0f2d267a26ef2a5aae2a5363b841b4d73ecdd82b80786c4c601dd",
+    "bytes": 234709
+  },
+  {
+    "id": "pm_scene_choice_001",
+    "type": "video",
+    "category": "conceptual",
+    "tags": [
+      "choice",
+      "fork",
+      "options",
+      "decision",
+      "paths"
+    ],
+    "tags_ru": [
+      "выбор",
+      "развилка",
+      "решения"
+    ],
+    "tags_zh": [
+      "选择",
+      "分叉",
+      "决策"
+    ],
+    "description": {
+      "en": "Premium Remotion motion clip (scene), four seconds, no type.",
+      "ru": "Премиальный Remotion-клип (scene), четыре секунды, без текста.",
+      "zh": "高级 Remotion 动态素材（scene），四秒，无文字。"
+    },
+    "file": "motion/premium/pm_scene_choice_001.webm",
+    "aspectRatio": "9:16",
+    "composition": "center",
+    "background": "transparent",
+    "qualityScore": 0.92,
+    "textSafe": true,
+    "source": "remotion",
+    "duration": 4.0,
+    "fps": 30,
+    "width": 1080,
+    "height": 1920,
+    "loopable": false,
+    "visualFamily": "deterministic_motion",
+    "batch": "premium-motion-v4-calibration",
+    "sceneRoles": [
+      "explanation",
+      "hero"
+    ],
+    "energy": "medium",
+    "emotion": [],
+    "motionPotential": "high",
+    "recommendedTreatments": [
+      "cutaway",
+      "kinetic_overlay"
+    ],
+    "matchMode": "conceptual",
+    "hasAlpha": true,
+    "codec": "vp9",
+    "pixelFormat": "yuva420p",
+    "reviewStatus": "approved",
+    "sha256": "6d14b3033f9e5906fe4816efa3c3610039908b47f0a9f694e4cdc79baf413958",
+    "bytes": 105432
+  }
+]

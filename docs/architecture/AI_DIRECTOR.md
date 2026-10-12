@@ -23,6 +23,7 @@ Remotion decides HOW (pixels, easing, typography).
 - Concept-trigger presets for spoken-concept viz
 - Eligibility-before-rank library search; situational queries; no passport placeholder when photo exists
 - Same-source ban: main plate and inset cannot share canonical identity (still + i2v)
+- Premium motion V4 (`pm_*` deterministic WebM) is searchable via multilingual tags; prefer for conceptual/hero overlay beats when Remotion engine is enabled
 - Consult beat: one cover plate + presenter PIP from original speaker timing (never duplicate library inset)
 - Long-form captions follow `beatsFor` (not fixed 20s stamps); ordinary full-render helper: `scripts/ordinary_director_render.py`
 - Recent-history anti-repeat scans all `visual-history/*.json` and prefers never-recent plates

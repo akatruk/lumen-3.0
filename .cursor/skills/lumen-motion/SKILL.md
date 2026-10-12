@@ -32,6 +32,8 @@ Deferred: quote, process_flow, image_focus, final_cta.
 
 Canvas: 1080×1920, 30 fps. Storage: volume `lumen-motion` or `motion/output`.
 
+Library micro-clips: `motion/src/clips/` (legacy + `premium/` V4). Encode with `media/library/render_premium_motion_v4.py` → `app-library/motion/premium/`.
+
 ```bash
 cd motion && npm test && npm run typecheck
 ```

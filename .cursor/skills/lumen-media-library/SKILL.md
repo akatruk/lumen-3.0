@@ -7,12 +7,14 @@ description: >-
 
 # Media library
 
-- Search: `media/library/search.py` (additive changes only)
+- Search: `media/library/search.py` (additive changes only) — includes `tags_ru` / `tags_zh`
 - Concepts: `concepts.py`, `concept_triggers.py`
-- Manifest: `media/library/out/manifest.json` or DO `app-library`
+- Manifest: `media/library/out/manifest.json` or DO `app-library` (authoritative on volume)
+- Premium motion V4: `motion/premium/pm_*.webm`, recipes `recipes/premium-motion-v4-calibration.json`, report `reports/PREMIUM_MOTION_LIBRARY_V4.md`
 - Prefer `search_assets` over hardcoded filenames
-- Fields: `qualityScore`, `sceneRoles`, `textSafeAreas`, `visualFamily`, `conceptId`
+- Fields: `qualityScore`, `sceneRoles`, `textSafeAreas`, `visualFamily`, `conceptId`, `tags_ru`, `tags_zh`
 - Quarantine before delete (ADR-008). Do not wipe approved media.
+- Alpha: VP9 `yuva420p` only; never claim H.264 has alpha.
 
 Implemented selection gates (2026-10-11):
 - Default search skips `quarantined` / `rejected` / `duplicate` / `corrupt` and holds `needs_review` / `unreviewed` / `restricted`.

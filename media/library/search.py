@@ -175,6 +175,8 @@ def _hay(asset):
         asset.get("energy", ""),
         asset.get("motionPotential", ""),
         _localized(asset.get("tags")),
+        _joined(asset.get("tags_ru")),
+        _joined(asset.get("tags_zh")),
         " ".join(asset.get("subjects") or []),
         " ".join(asset.get("mood") or []),
         " ".join(asset.get("emotion") or []),

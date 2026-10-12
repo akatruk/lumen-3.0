@@ -1,0 +1,386 @@
+{
+  "batch": "premium-motion-v4-calibration",
+  "model": {
+    "chosen": "remotion_deterministic",
+    "rejected": [
+      "Wan / LTX / SVD \u2014 no checkpoints under /workspace (only ollama lumen-llm + hypit runtime)",
+      "SDXL I2V \u2014 no safetensors on attached volume; balance ~$9.70 insufficient for download+gen"
+    ],
+    "gpu": {
+      "pod": "nxi1rfwb94eufx",
+      "name": "lumen-hypit-4090",
+      "statusAtAudit": "RUNNING idle \u2192 stopped after audit (no busy jobs, no video weights)",
+      "balanceUsd": 9.7,
+      "hourlyUsd": 0.89
+    }
+  },
+  "results": [
+    {
+      "file": "motion/premium/pm_hero_growth_001.webm",
+      "bytes": 505056,
+      "sha256": "a6d6f09478dfc528e6767fd0b1bb028a5551e7d078fce5dc1d06d2034bd0465b",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_hero_growth_001.preview.jpg",
+      "id": "pm_hero_growth_001",
+      "role": "hero",
+      "composition": "GrowthArrow",
+      "category": "conceptual",
+      "tags": [
+        "growth",
+        "profit",
+        "progress",
+        "arrow",
+        "up"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_hero_risk_001.webm",
+      "bytes": 324610,
+      "sha256": "5e04645ab7eed013467839fa67a323ddbcdca18b63baa4a86396627f217c23c3",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_hero_risk_001.preview.jpg",
+      "id": "pm_hero_risk_001",
+      "role": "hero",
+      "composition": "RiskFall",
+      "category": "conceptual",
+      "tags": [
+        "risk",
+        "decline",
+        "fall",
+        "arrow",
+        "down"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_hero_deadline_001.webm",
+      "bytes": 71547,
+      "sha256": "59fe8360b655917c946b8aabba384fe7a113bc9384b12ba306d3cf7387ed07cd",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_hero_deadline_001.preview.jpg",
+      "id": "pm_hero_deadline_001",
+      "role": "hero",
+      "composition": "DeadlineScale",
+      "category": "conceptual",
+      "tags": [
+        "deadline",
+        "timeline",
+        "urgency",
+        "milestone"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_hero_steps_001.webm",
+      "bytes": 321205,
+      "sha256": "9424a045791ff5487f09aa8aadf7f07d619c4d8c5eb470427ca36ced7e8ba2b0",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_hero_steps_001.preview.jpg",
+      "id": "pm_hero_steps_001",
+      "role": "hero",
+      "composition": "StepCascade",
+      "category": "conceptual",
+      "tags": [
+        "steps",
+        "process",
+        "sequence",
+        "plan"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_hero_compare_001.webm",
+      "bytes": 296035,
+      "sha256": "15c5e7a49690e8b41df9a4abaef028c036e323f1f26816f73e49350372b55f3b",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_hero_compare_001.preview.jpg",
+      "id": "pm_hero_compare_001",
+      "role": "hero",
+      "composition": "CompareColumns",
+      "category": "conceptual",
+      "tags": [
+        "comparison",
+        "options",
+        "choice",
+        "columns"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_concept_shield_001.webm",
+      "bytes": 815143,
+      "sha256": "cd8081e255929ec657ea3d83cadfaca5207cfc5d91062105c523e00708f6fdea",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_concept_shield_001.preview.jpg",
+      "id": "pm_concept_shield_001",
+      "role": "concept",
+      "composition": "ShieldPulse",
+      "category": "conceptual",
+      "tags": [
+        "shield",
+        "protection",
+        "security",
+        "trust"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_concept_folder_001.webm",
+      "bytes": 125824,
+      "sha256": "475b126d7b589af8e94adeac430c63cde1b7e992e2e546f5f1af97a8adad9a8f",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_concept_folder_001.preview.jpg",
+      "id": "pm_concept_folder_001",
+      "role": "concept",
+      "composition": "FolderReveal",
+      "category": "documents",
+      "tags": [
+        "folder",
+        "documents",
+        "filing",
+        "application"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_concept_path_001.webm",
+      "bytes": 80443,
+      "sha256": "48eba497280e1add491a1cb3da5358aab3d220826d7417e289ad675f706a16dc",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_concept_path_001.preview.jpg",
+      "id": "pm_concept_path_001",
+      "role": "concept",
+      "composition": "PathDraw",
+      "category": "conceptual",
+      "tags": [
+        "path",
+        "journey",
+        "route",
+        "investment"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_concept_check_001.webm",
+      "bytes": 177374,
+      "sha256": "820cc3048fcddc4923249860480f998338cda0ee3475f6c5dfc9980b646014b8",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_concept_check_001.preview.jpg",
+      "id": "pm_concept_check_001",
+      "role": "concept",
+      "composition": "CheckStamp",
+      "category": "documents",
+      "tags": [
+        "approval",
+        "check",
+        "success",
+        "completion"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_fg_wipe_001.webm",
+      "bytes": 788239,
+      "sha256": "21f7d7bb8fdade774c483396e7397eb912a3dad2066182836e3d9109b7a0af42",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_fg_wipe_001.preview.jpg",
+      "id": "pm_fg_wipe_001",
+      "role": "fg",
+      "composition": "WipeArc",
+      "category": "decorative",
+      "tags": [
+        "wipe",
+        "transition",
+        "arc",
+        "foreground"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_fg_ring_001.webm",
+      "bytes": 1023543,
+      "sha256": "49dafac41d2613f2b1e76dc25427a738c2fafc21a6a71b0479e52f112aef8114",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_fg_ring_001.preview.jpg",
+      "id": "pm_fg_ring_001",
+      "role": "fg",
+      "composition": "RingReveal",
+      "category": "decorative",
+      "tags": [
+        "ring",
+        "reveal",
+        "focus",
+        "foreground"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_fg_mask_001.webm",
+      "bytes": 488701,
+      "sha256": "f1e0cc3af3142bf06e7f47f6ad4d4a7f338f0552286ad343cbba5b7baf14c18f",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_fg_mask_001.preview.jpg",
+      "id": "pm_fg_mask_001",
+      "role": "fg",
+      "composition": "DiagonalMask",
+      "category": "decorative",
+      "tags": [
+        "mask",
+        "diagonal",
+        "wipe",
+        "foreground"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_bg_navy_001.webm",
+      "bytes": 156344,
+      "sha256": "1db455859873ab674a5eec389f77eff4aee38dc0e91e3005526de118295c518f",
+      "alphaProbe": false,
+      "preview": "motion/premium/pm_bg_navy_001.preview.jpg",
+      "id": "pm_bg_navy_001",
+      "role": "bg",
+      "composition": "NavyBreathe",
+      "category": "backgrounds",
+      "tags": [
+        "background",
+        "navy",
+        "atmosphere",
+        "field"
+      ],
+      "alphaRequired": false,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_bg_grid_001.webm",
+      "bytes": 1034855,
+      "sha256": "7ad1b258cb792b5d08226b85a602e27e451c4aff4a3c88a4594cf298eb6a8f32",
+      "alphaProbe": false,
+      "preview": "motion/premium/pm_bg_grid_001.preview.jpg",
+      "id": "pm_bg_grid_001",
+      "role": "bg",
+      "composition": "SoftGrid",
+      "category": "backgrounds",
+      "tags": [
+        "background",
+        "grid",
+        "structure",
+        "subtle"
+      ],
+      "alphaRequired": false,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_bg_dust_001.webm",
+      "bytes": 65699,
+      "sha256": "adafad3c1454f214ba86785d286fa0a207838e41812d70ac09d127486386649b",
+      "alphaProbe": false,
+      "preview": "motion/premium/pm_bg_dust_001.preview.jpg",
+      "id": "pm_bg_dust_001",
+      "role": "bg",
+      "composition": "GoldDust",
+      "category": "backgrounds",
+      "tags": [
+        "background",
+        "particles",
+        "gold",
+        "atmosphere"
+      ],
+      "alphaRequired": false,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_scene_approval_001.webm",
+      "bytes": 216412,
+      "sha256": "86f693299c9b88a5b32095ce0949a69e32c8a6b3aba0e655a7c201cd478ae0d4",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_scene_approval_001.preview.jpg",
+      "id": "pm_scene_approval_001",
+      "role": "scene",
+      "composition": "ApprovalDesk",
+      "category": "documents",
+      "tags": [
+        "approval",
+        "documents",
+        "desk",
+        "scene"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_scene_mobility_001.webm",
+      "bytes": 234709,
+      "sha256": "d9905b5176c0f2d267a26ef2a5aae2a5363b841b4d73ecdd82b80786c4c601dd",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_scene_mobility_001.preview.jpg",
+      "id": "pm_scene_mobility_001",
+      "role": "scene",
+      "composition": "MobilityPins",
+      "category": "global",
+      "tags": [
+        "mobility",
+        "pins",
+        "global",
+        "relocation",
+        "route"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    },
+    {
+      "file": "motion/premium/pm_scene_choice_001.webm",
+      "bytes": 105432,
+      "sha256": "6d14b3033f9e5906fe4816efa3c3610039908b47f0a9f694e4cdc79baf413958",
+      "alphaProbe": true,
+      "preview": "motion/premium/pm_scene_choice_001.preview.jpg",
+      "id": "pm_scene_choice_001",
+      "role": "scene",
+      "composition": "ChoiceFork",
+      "category": "conceptual",
+      "tags": [
+        "choice",
+        "fork",
+        "options",
+        "decision",
+        "paths"
+      ],
+      "alphaRequired": true,
+      "qa": "pass"
+    }
+  ],
+  "approved": [
+    "pm_hero_growth_001",
+    "pm_hero_risk_001",
+    "pm_hero_deadline_001",
+    "pm_hero_steps_001",
+    "pm_hero_compare_001",
+    "pm_concept_shield_001",
+    "pm_concept_folder_001",
+    "pm_concept_path_001",
+    "pm_concept_check_001",
+    "pm_fg_wipe_001",
+    "pm_fg_ring_001",
+    "pm_fg_mask_001",
+    "pm_bg_navy_001",
+    "pm_bg_grid_001",
+    "pm_bg_dust_001",
+    "pm_scene_approval_001",
+    "pm_scene_mobility_001",
+    "pm_scene_choice_001"
+  ],
+  "rejected": []
+}
