@@ -121,4 +121,6 @@ Implementation commit: `d5c67f70617053b2881f50f10b5a0c6d28a38451` on `feat/media
 
 ## Deployment
 
-Not deployed in this commit. Flag stays off. Do not set `SCENE_COMPOSER_V16_ENABLED` on lumen-fix until this picture is accepted. strom-v2 and RunPod were not touched.
+Host `lumen-fix` (`142.93.248.163`, `/opt/lumen-rebuild`). `DEPLOY_SHA.txt` is `1b2fabb9eabc8e2dbf6f04ad4b17b43fde46f53c`. `lumen-web` and `lumen-worker` restarted and are active. Health: `status=ok`, `fast_project_creation=true`, visual intelligence off, pgvector `0.6.0`.
+
+`scene_composer_v16.enabled()` is `False`. `director_v15.enabled()` is `False`. `SCENE_COMPOSER_V16_ENABLED`, `SEMANTIC_MOTION_V14_ENABLED`, and `SEMANTIC_MOTION_V15_ENABLED` are unset. `FAST_PROJECT_CREATION_ENABLED=1`. `VISUAL_INTELLIGENCE_ENABLED=0`. `VISUAL_EXPERIENCE_MEMORY_ENABLED=0`. strom-v2, RunPod, Postgres storage, source videos, and approved media binaries were not touched.
