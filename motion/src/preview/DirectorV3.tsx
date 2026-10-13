@@ -278,12 +278,14 @@ function FloatingForeground({
       : { minPx: minPx ?? 220, maxPx: maxPx ?? 340 });
   const lo = minPx ?? limits.minPx;
   const hi = maxPx ?? limits.maxPx;
-  const size = Math.round(Math.min(hi, Math.max(lo, PORTRAIT.width * areaShare * 2.2)));
+  const rawSize = Math.round(Math.min(hi, Math.max(lo, PORTRAIT.width * areaShare * 2.2)));
   const rightSide = placement.includes("right");
-  // Face-safe: stay in lower third, outside the central face column.
-  // Hero floats over speaker are capped — true heroes need cutaway layouts, not face overlays.
-  const bottom = PORTRAIT.captionClearance + (scaleProfile === "hero" ? 140 : 160);
-  const side = rightSide ? { right: 48 } : { left: 48 };
+  // Face-safe: keep the float box in the lower third, outside the face column.
+  // Hero cutaways belong in a dedicated layout — never grow into the mouth/eye band.
+  const bottom = PORTRAIT.captionClearance + (scaleProfile === "hero" ? 100 : 140);
+  const side = rightSide ? { right: 36 } : { left: 36 };
+  const faceSafeMax = Math.round(PORTRAIT.height * 0.34);
+  const size = Math.min(rawSize, faceSafeMax);
   const isPngSeq = format === "png_seq" || (!/\.(webm|mov|mp4|svg|png|jpg|jpeg|webp)$/i.test(staged) && Boolean(frameCount));
   const isVideo = !isPngSeq && /\.(webm|mov|mp4)$/i.test(staged);
   const mediaStyle = {

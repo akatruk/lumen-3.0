@@ -79,7 +79,7 @@ def attach_transcript_captions(
     target = locale or render_plan.get('locale')
     duration = float(render_plan.get('durationSeconds') or 0) or None
     phrases = phrases_from_transcript(transcript, locale=target, duration_s=duration)
-    if render_plan.get('compositionPolicy') == 'v9_clean' or render_plan.get('shotPlanVersion') in ('v9', 'v10', 'v10.1'):
+    if render_plan.get('compositionPolicy') == 'v9_clean' or render_plan.get('shotPlanVersion') in ('v9', 'v10', 'v10.1', 'v10.2'):
         from .director_v9 import dedupe_looping_captions
         phrases = dedupe_looping_captions(phrases)
     out = dict(render_plan)

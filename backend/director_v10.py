@@ -105,7 +105,11 @@ def apply_premium_3d(plan: dict, *, seed: int | None = None) -> dict:
     """
     import os
 
-    mode = (os.environ.get("PREMIUM_3D_MODE") or "v10.1").strip().lower()
+    mode = (os.environ.get("PREMIUM_3D_MODE") or "v10.2").strip().lower()
+    if mode in ("v10.2", "v102"):
+        from . import director_v10_2
+
+        return director_v10_2.apply_premium_3d_v102(plan, seed=seed)
     if mode in ("v10.1", "v101", "gate", ""):
         from . import director_v10_1
 
@@ -172,7 +176,11 @@ def stage_premium_3d(plan: dict, public_dir: Path, library: Path | None = None) 
     """Stage gated PNG sequences (V10.1) or legacy webm when PREMIUM_3D_MODE=v10_legacy."""
     import os
 
-    mode = (os.environ.get("PREMIUM_3D_MODE") or "v10.1").strip().lower()
+    mode = (os.environ.get("PREMIUM_3D_MODE") or "v10.2").strip().lower()
+    if mode in ("v10.2", "v102"):
+        from . import director_v10_2
+
+        return director_v10_2.stage_premium_3d_v102(plan, public_dir, library)
     if mode in ("v10.1", "v101", "gate", ""):
         from . import director_v10_1
 

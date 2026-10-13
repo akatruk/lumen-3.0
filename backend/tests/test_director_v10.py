@@ -63,8 +63,8 @@ def test_apply_keeps_clean_policy(monkeypatch):
         ],
     }
     out = apply_premium_3d(plan, seed=7)
-    # Default path is V10.1 quality gate — no unverified 3D on hook.
-    assert out["shotPlanVersion"] == "v10.1"
+    # Default path is V10.2 quality gate — no unverified 3D on hook.
+    assert out["shotPlanVersion"] == "v10.2"
     assert out["compositionPolicy"] == "v9_clean"
     fo = (out["scenes"][0].get("composition") or {}).get("floatObject") or {}
     assert fo.get("family") != "premium_3d"
