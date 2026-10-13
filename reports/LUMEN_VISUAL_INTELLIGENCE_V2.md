@@ -87,4 +87,4 @@ Server, `lumen_qa`: 25 passed (`test_experience_memory`, `test_semantic_rerank`,
 
 Host `142.93.248.163`, app `/opt/lumen-rebuild`. `lumen-web` and `lumen-worker` restarted. Postgres, RunPod, strom-v2, and media binaries were not touched.
 
-Git SHA: filled in after the commit.
+Git SHA: `42e1a022a22de1c8880b91e5a83128402fa050cb` on `feat/media-library-cleanup-v1`.
