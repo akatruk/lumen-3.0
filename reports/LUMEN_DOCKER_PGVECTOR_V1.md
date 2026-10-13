@@ -84,4 +84,4 @@ No queued or running jobs. RunPod was not restarted. strom-v2 was not touched.
 
 ## Git
 
-Commit SHA is stamped in the follow-up docs commit on `feat/media-library-cleanup-v1`.
+Branch `feat/media-library-cleanup-v1`. Implementation commit `9d4dddf0d718bf87aba2ff1506f90d6c59b0429c`. `DEPLOY_SHA.txt` on lumen-fix matches that commit.
