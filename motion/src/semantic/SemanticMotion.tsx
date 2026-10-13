@@ -2,7 +2,7 @@
  * Semantic motion V14 — five components, three layouts, one renderer.
  * Frame-driven. Labels are props (RU/EN/ZH). No invented amounts or counts.
  */
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, interpolate, Sequence, useCurrentFrame } from "remotion";
 import { theme } from "../themes/tokens";
 import { AutoFitText } from "../typography/AutoFitText";
 import type { SupportedLocale } from "../localization/language-config";
@@ -16,7 +16,7 @@ import {
 } from "../utils/adaptiveLineStyle";
 import { ConnectorLine } from "../preview/ConnectorStroke";
 import { motionDuration } from "./design";
-import { resolveLayout, type LayoutVariant, type MediaSide } from "./layouts";
+import { compositionClears, resolveLayout, type LayoutVariant, type MediaSide } from "./layouts";
 import { V15Body } from "./componentsV15";
 import type { SemanticMotionPayload, SplitValue } from "./types";
 
@@ -470,8 +470,11 @@ export function SemanticMotion({
   const mediaSide: MediaSide = payload.mediaSide === "right" ? "right" : "left";
   const requested = (payload.layout || "overlay") as LayoutVariant;
   const resolved = resolveLayout(requested, mediaSide);
-  const rect = resolved.rect;
-  const scrim = resolved.layout === "overlay";
+  const composed = payload.motionRect && compositionClears(payload.motionRect, payload.faceRect, payload.captionRect)
+    ? payload.motionRect
+    : null;
+  const rect = composed || resolved.rect;
+  const scrim = Boolean(payload.columnScrim) || (!composed && resolved.layout === "overlay");
   const paint = scrim
     ? { ...payload, sceneTheme: "ink" as const, connectorBackground: "#12110F" }
     : payload;
@@ -494,7 +497,9 @@ export function SemanticMotion({
           boxSizing: "border-box",
         }}
       >
-        <Body payload={paint} palette={palette} locale={locale} compact={rect.width < 780} />
+        <Sequence from={Math.max(0, payload.enterFrame || 0)} durationInFrames={Math.max(1, frames - Math.max(0, payload.enterFrame || 0))}>
+          <Body payload={paint} palette={palette} locale={locale} compact={rect.width < 780} />
+        </Sequence>
       </div>
     </AbsoluteFill>
   );

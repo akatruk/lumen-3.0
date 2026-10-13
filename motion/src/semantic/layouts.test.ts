@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { captionBand, faceBandRect, layoutIsSafe, pipSafeRect, rectsOverlap, regionFor, resolveLayout } from "./layouts";
+import { captionBand, compositionClears, faceBandRect, layoutIsSafe, pipSafeRect, rectsOverlap, regionFor, resolveLayout } from "./layouts";
 import { galleryShot, galleryShots } from "./galleryScript";
 
 describe("semantic motion layout safety", () => {
@@ -21,6 +21,15 @@ describe("semantic motion layout safety", () => {
   it("keeps speaker-visual graphics out of the speaker column", () => {
     assert.equal(layoutIsSafe("speaker_visual", "left"), true);
     assert.equal(layoutIsSafe("speaker_visual", "right"), true);
+  });
+
+  it("rejects a diagram that covers the measured face or the caption plate", () => {
+    const face = { left: 400, top: 600, width: 320, height: 280 };
+    const caption = { left: 64, top: 1400, width: 952, height: 200 };
+    const band = { left: 72, top: 998, width: 936, height: 354 };
+    assert.equal(compositionClears(band, face, caption), true);
+    assert.equal(compositionClears({ ...band, top: 700, height: 400 }, face, caption), false);
+    assert.equal(compositionClears({ left: 72, top: 1300, width: 936, height: 200 }, face, caption), false);
   });
 
   it("falls back when a layout would be unsafe", () => {

@@ -27,6 +27,7 @@ Package: `motion/` — Remotion 4.x, canvas 1080×1920 @ 30fps.
 - Adaptive contrast: `motion/src/utils/adaptiveLineStyle.ts` + `ConnectorStroke` — analyze full connector path vs plate; outline/recolor gold on beige. Tests in `adaptiveLineStyle.test.ts`.
 - V14: `DirectorV3` mounts `SemanticMotion` from `scene.semanticMotionV14` and skips `BusinessMotion` on that beat. `resolveLayout` refuses face-band and caption overlap. Flag `SEMANTIC_MOTION_V14_ENABLED` default off.
 - V15: `componentsV15.tsx` uses that same mount and `resolveLayout`. Gallery `SemanticMotionV15Gallery`. Flag `SEMANTIC_MOTION_V15_ENABLED` default off.
+- V16: honor `motionRect`, `speakerRect`, `captionRect`, `enterFrame`, `columnScrim` on that payload. `compositionClears` rejects a rect that hits the face or the caption plate. Flag `SCENE_COMPOSER_V16_ENABLED` default off.
 - Reuse `lumen-motion` for registry scenes; this skill covers engine integration.
 
 ## Check

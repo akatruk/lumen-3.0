@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     semantic_motion_v14_enabled: bool = False
     # V15 library expansion. Default off. Does not replace V14 or V11.2.
     semantic_motion_v15_enabled: bool = False
+    # V16 scene composer. Default off. Does not change V11.2, V14, or V15.
+    scene_composer_v16_enabled: bool = False
     # Empty uses the media volume when mounted, otherwise data/embedding-models.
     experience_embedding_cache: str = ''
     experience_text_model: str = 'sentence-transformers/clip-ViT-B-32-multilingual-v1'

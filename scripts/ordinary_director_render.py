@@ -135,6 +135,11 @@ def main():
         plan = director_v15.apply_semantic_motion_v15(plan, transcript, locale=args.language)
     store_plan(settings.data_dir, args.project_id, plan)
 
+    from backend import scene_composer_v16
+    plan = scene_composer_v16.apply_scene_composer(
+        plan, transcript, locale=args.language, source=dest_source,
+    )
+    store_plan(settings.data_dir, args.project_id, plan)
     speaker = director_v3.speaker_for(seconds, dest_source)
     public = director_v3._public_director()
     plan = stage_backgrounds(plan, public, ROOT / 'media' / 'library' / 'out')

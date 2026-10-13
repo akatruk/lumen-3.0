@@ -11,13 +11,21 @@ export type MediaSide = "left" | "right";
 
 export type Rect = { left: number; top: number; width: number; height: number };
 
-export function rectsOverlap(a: Rect, b: Rect): boolean {
+export function rectsOverlap(a: Rect, b: Rect, gap = 0): boolean {
   return (
-    a.left < b.left + b.width &&
-    a.left + a.width > b.left &&
-    a.top < b.top + b.height &&
-    a.top + a.height > b.top
+    a.left < b.left + b.width + gap &&
+    a.left + a.width + gap > b.left &&
+    a.top < b.top + b.height + gap &&
+    a.top + a.height + gap > b.top
   );
+}
+
+/** Composer rects are used only when they clear the measured face and the caption plate. */
+export function compositionClears(motion: Rect, face?: Rect | null, caption?: Rect | null): boolean {
+  if (motion.width < 300 || motion.height < 200) return false;
+  if (face && rectsOverlap(motion, face, 8)) return false;
+  if (caption && rectsOverlap(motion, caption, 12)) return false;
+  return true;
 }
 
 /** Caption plate is ~210px tall and sits on top of the bottom clearance. */

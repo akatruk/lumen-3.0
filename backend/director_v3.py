@@ -266,6 +266,11 @@ def run_job(p, payload):
         visual_plan = director_v15.apply_semantic_motion_v15(
             visual_plan, transcript_early, locale=locale,
         )
+        from . import scene_composer_v16
+        visual_plan = scene_composer_v16.apply_scene_composer(
+            visual_plan, transcript_early, locale=locale,
+            source=settings.data_dir / p['id'] / 'source',
+        )
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path

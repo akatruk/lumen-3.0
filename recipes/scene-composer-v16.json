@@ -1,0 +1,13 @@
+{
+  "version": "v16.0",
+  "flag": "SCENE_COMPOSER_V16_ENABLED",
+  "default": "0",
+  "recipes": [
+    {"id": "speaker_capital_flow", "componentId": "motion.capital_flow.v1", "layouts": ["motion_overlay", "motion_beside", "speaker_left", "speaker_right"]},
+    {"id": "speaker_shareholder_network", "componentId": "motion.shareholder_network.v1", "layouts": ["speaker_left", "speaker_right"]},
+    {"id": "speaker_investment_broll", "media": "cev6_i2v_inv_glass_002", "layouts": ["speaker_left", "speaker_right"]},
+    {"id": "speaker_comparison", "componentId": "motion.business_comparison.v1", "layouts": ["motion_overlay", "motion_beside", "speaker_left", "speaker_right"]},
+    {"id": "speaker_timeline", "componentId": "motion.process_timeline.v1", "layouts": ["speaker_left", "speaker_right", "motion_overlay"]},
+    {"id": "speaker_financial_metrics", "componentId": "motion.financial_metrics.v1", "layouts": ["speaker_left", "speaker_right"]}
+  ]
+}

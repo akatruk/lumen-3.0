@@ -85,6 +85,14 @@ export type SemanticMotionPayload = {
   before?: string;
   after?: string;
   evidence?: EvidenceRef;
+  /** V16 composer. Absent on the V14/V15 path. */
+  speakerMode?: "fullscreen" | "split";
+  motionRect?: { left: number; top: number; width: number; height: number };
+  speakerRect?: { left: number; top: number; width: number; height: number };
+  faceRect?: { left: number; top: number; width: number; height: number };
+  captionRect?: { left: number; top: number; width: number; height: number };
+  columnScrim?: boolean;
+  enterFrame?: number;
   sceneTheme?: SceneTheme;
   connectorBackground?: BackgroundProbe;
   preview?: boolean;

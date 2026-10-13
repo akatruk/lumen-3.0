@@ -93,6 +93,11 @@ export type SceneLook = {
   businessMotion?: BusinessMotionPayload | null;
   /** V14 semantic diagram. Present only when SEMANTIC_MOTION_V14_ENABLED stamped the plan. */
   semanticMotionV14?: SemanticMotionPayload | null;
+  /** V16 layout decision. Absent when the composer flag is off. */
+  sceneComposition?: {
+    speakerPresentation?: "fullscreen" | "split" | string;
+    layout?: string;
+  } | null;
 };
 
 export type EditingControls = {
@@ -350,6 +355,53 @@ function V14Stage({
   look: SceneLook;
 }) {
   const layout = look.semanticMotionV14?.layout || "overlay";
+  const mode = look.semanticMotionV14?.speakerMode;
+  const speakerRect = look.semanticMotionV14?.speakerRect;
+  if (mode === "split" && speakerRect) {
+    const staged = look.background.staged;
+    const motionRect = look.semanticMotionV14?.motionRect;
+    const motionPlate = Boolean(staged && /\.(mp4|webm|mov)$/i.test(staged));
+    const plate = motionRect
+      ? { left: motionRect.left, top: motionRect.top, width: motionRect.width, height: 1920 - motionRect.top }
+      : null;
+    return (
+      <Enter transition={look.transition}>
+        <AbsoluteFill style={{ background: theme.color.bg }}>
+          {plate && staged ? (
+            <div style={{ position: "absolute", ...plate, overflow: "hidden", borderRadius: PORTRAIT.radius }}>
+              {motionPlate ? (
+                <OffthreadVideo src={media(staged)} volume={0} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <Img src={media(staged)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              )}
+            </div>
+          ) : null}
+          <div
+            style={{
+              position: "absolute",
+              left: speakerRect.left,
+              top: speakerRect.top,
+              width: speakerRect.width,
+              height: speakerRect.height,
+              overflow: "hidden",
+            }}
+          >
+            <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.02} />
+          </div>
+        </AbsoluteFill>
+      </Enter>
+    );
+  }
+  if (mode === "fullscreen" || layout === "overlay") {
+    return (
+      <Enter transition={look.transition}>
+        <AbsoluteFill>
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.04} />
+          <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+        </AbsoluteFill>
+      </Enter>
+    );
+  }
   if (layout === "speaker_visual") {
     const mediaSide = look.semanticMotionV14?.mediaSide === "right" ? "right" : "left";
     const speakerSide = mediaSide === "left" ? "right" : "left";
@@ -436,6 +488,15 @@ function SceneRouter({
   let body: ReactNode = null;
   if (v14) {
     body = <V14Stage file={file} from={from} frames={frames} look={look} />;
+  } else if (look.sceneComposition?.speakerPresentation === "fullscreen") {
+    body = (
+      <Enter transition={look.transition}>
+        <AbsoluteFill>
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.04} />
+          <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+        </AbsoluteFill>
+      </Enter>
+    );
   } else if (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one") {
     body = <Beside file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (sid === "steps" || look.stepsTitle || look.typography?.stepsTitle) {
