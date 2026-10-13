@@ -1,0 +1,59 @@
+{
+  "version": "v11.2",
+  "policy": {
+    "version": "v11.2",
+    "mobileMinPx": 56,
+    "mobileMaxPx": 84,
+    "maxLines": 2,
+    "backing": "dark_soft",
+    "backingOpacity": 0.55,
+    "avoidHugePlates": true,
+    "preserveSpeechTiming": true
+  },
+  "captionSource": "source_transcript",
+  "captionCount": 28,
+  "mobileTypography": {
+    "version": "v11.2",
+    "mobileMinPx": 56,
+    "mobileMaxPx": 84,
+    "maxLines": 2,
+    "backing": "dark_soft",
+    "backingOpacity": 0.55,
+    "avoidHugePlates": true,
+    "preserveSpeechTiming": true
+  },
+  "ok": true,
+  "issues": [],
+  "sample": [
+    {
+      "start": 0.66,
+      "end": 3.491,
+      "text": "Many people think that foreign investment companies only"
+    },
+    {
+      "start": 3.491,
+      "end": 5.26,
+      "text": "change the language of China"
+    },
+    {
+      "start": 5.26,
+      "end": 7.66,
+      "text": "but the first step of a Chinese investment"
+    },
+    {
+      "start": 7.66,
+      "end": 10.36,
+      "text": "company is completely different The core of Chinese investment"
+    },
+    {
+      "start": 56.895,
+      "end": 58.706,
+      "text": "China company formation looks at the numbers"
+    },
+    {
+      "start": 58.706,
+      "end": 60.0,
+      "text": "Thailand looks at the structure"
+    }
+  ]
+}

@@ -400,11 +400,13 @@ function SceneRouter({
   const showBusiness =
     Boolean(business?.component) &&
     !(sid === "beside" && (look.typography?.cards?.length || look.criteriaCards?.length));
+  // V11.2: when BusinessMotion owns the beat, skip decorative float (avoids face/hair pile-up).
+  const showFloat = Boolean(floatStaged) && !showBusiness;
   return (
     <AbsoluteFill>
       {body}
       {showBusiness && business ? <BusinessMotion motion={business} frames={frames} /> : null}
-      {floatStaged ? (
+      {showFloat && floatStaged ? (
         <FloatingForeground
           staged={floatStaged}
           frames={frames}
@@ -630,17 +632,17 @@ function Caption({
           data-caption-backing="dark"
           style={{
             maxWidth: 920,
-            padding: "16px 32px 18px",
-            borderRadius: 20,
-            background: "rgba(8, 7, 6, 0.72)",
-            boxShadow: "0 6px 22px rgba(0,0,0,0.36)",
+            padding: "12px 28px 14px",
+            borderRadius: 18,
+            background: "rgba(8, 7, 6, 0.55)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.28)",
           }}
         >
           <AutoFitText
             text={clean}
             maxWidth={860}
-            maxHeight={168}
-            role={{ min: 64, max: 88, weight: 700, lineHeight: 1.14, tracking: -0.02 }}
+            maxHeight={152}
+            role={{ min: 56, max: 84, weight: 700, lineHeight: 1.14, tracking: -0.02 }}
             align="center"
             vertical="center"
             wrapMode="auto"
@@ -1200,8 +1202,11 @@ function CleanSteps({
             <div style={{ fontSize: 28, fontWeight: 600, color: theme.color.muted, marginBottom: 12, letterSpacing: 0.04 }}>
               {title}
             </div>
+            {/* V11.2: never paint "{n} {label}" as one phrase — reads as invented headcount ("2 Shareholders"). */}
+            <div style={{ fontSize: 28, fontWeight: 600, color: theme.color.accent, marginBottom: 8, letterSpacing: 0.06 }}>
+              {locale.startsWith("zh") ? `步骤 ${slot + 1}` : locale.startsWith("en") ? `Step ${slot + 1}` : `Шаг ${slot + 1}`}
+            </div>
             <div style={{ fontSize: 72, fontWeight: 800, color: theme.color.paper, letterSpacing: -0.03, lineHeight: 1.05 }}>
-              <span style={{ color: theme.color.accent, marginRight: 18 }}>{slot + 1}</span>
               {label}
             </div>
           </div>

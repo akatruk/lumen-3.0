@@ -23,6 +23,7 @@ Package: `motion/` — Remotion 4.x, canvas 1080×1920 @ 30fps.
 - V8 (≥45s): `director_v8` expands to `long60`, stages semantic webm into `motion/public/picked/`; `DirectorV3` mounts `SemanticMotionClip` from plan `semanticMotion.staged`. Audit `semanticMotionAudit.pass` before claiming motion is live.
 - V9/V10.1: prefer `FloatingForeground` (transparent SVG/PNG or `format: png_seq` RGBA). yuv420p webm ≠ alpha. Honor `compositionPolicy=v9_clean` / scale profiles. Do not float large 3D over the face — cutaway layouts only when `production_ready`.
 - V11.1: `DirectorV3` mounts `BusinessMotion` from `scene.businessMotion` (provenance-stamped). `BigFigure` renders only with spoken evidence — never default `2`. Captions: larger dark pill (min ~64px), phrase group 1–2 lines.
+- V11.2: `CleanSteps` uses `Step N` + label on separate lines (never `{n} Shareholders`). `BusinessMotion` respects `placement` / `shelfTop` / `faceSafe` (media column or below face band); transparent node fills; simultaneous node reveal when `showCount`. Caption plate opacity ~0.55.
 - Reuse `lumen-motion` for registry scenes; this skill covers engine integration.
 
 ## Check

@@ -1,0 +1,126 @@
+{
+  "version": "v11.1",
+  "enabled": true,
+  "usage": [
+    {
+      "sceneId": "hook",
+      "component": "capital_investment",
+      "conceptId": "capital_investment",
+      "sourceSegmentId": "seg_002",
+      "sourceStart": 8.86,
+      "sourceEnd": 11.86,
+      "originalSourceText": "The core of Chinese investment companies is the capital investment",
+      "showCount": null,
+      "nodeCount": null,
+      "foreignRatio": null
+    },
+    {
+      "sceneId": "context",
+      "component": "capital_investment",
+      "conceptId": "capital_investment",
+      "sourceSegmentId": "seg_002",
+      "sourceStart": 8.86,
+      "sourceEnd": 11.86,
+      "originalSourceText": "The core of Chinese investment companies is the capital investment",
+      "showCount": null,
+      "nodeCount": null,
+      "foreignRatio": null
+    },
+    {
+      "sceneId": "problem",
+      "component": "business_process",
+      "conceptId": "government_leadership",
+      "sourceSegmentId": "seg_003",
+      "sourceStart": 11.86,
+      "sourceEnd": 16.46,
+      "originalSourceText": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card",
+      "showCount": null,
+      "nodeCount": null,
+      "foreignRatio": null
+    },
+    {
+      "sceneId": "residency",
+      "component": "shareholder_structure",
+      "conceptId": "shareholder_responsibility",
+      "sourceSegmentId": "seg_004",
+      "sourceStart": 16.46,
+      "sourceEnd": 19.46,
+      "originalSourceText": "The shareholder responsibility and the capital judgment will be around it",
+      "showCount": false,
+      "nodeCount": null,
+      "foreignRatio": null
+    },
+    {
+      "sceneId": "consult",
+      "component": "financial_comparison",
+      "conceptId": "capital_judgment",
+      "sourceSegmentId": "seg_004",
+      "sourceStart": 16.46,
+      "sourceEnd": 19.46,
+      "originalSourceText": "The shareholder responsibility and the capital judgment will be around it",
+      "showCount": null,
+      "nodeCount": null,
+      "foreignRatio": null
+    },
+    {
+      "sceneId": "beside",
+      "component": "shareholder_structure",
+      "conceptId": "thai_shareholder_count",
+      "sourceSegmentId": "seg_006",
+      "sourceStart": 22.66,
+      "sourceEnd": 26.06,
+      "originalSourceText": "Ordinary Thai companies usually need at least three shareholders",
+      "showCount": true,
+      "nodeCount": 3,
+      "foreignRatio": null
+    },
+    {
+      "sceneId": "steps",
+      "component": "business_process",
+      "conceptId": "deferred_payment",
+      "sourceSegmentId": "seg_003",
+      "sourceStart": 11.86,
+      "sourceEnd": 16.46,
+      "originalSourceText": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card",
+      "showCount": null,
+      "nodeCount": null,
+      "foreignRatio": null
+    },
+    {
+      "sceneId": "proof",
+      "component": "equity_distribution",
+      "conceptId": "foreign_ownership_ratio",
+      "sourceSegmentId": "seg_007",
+      "sourceStart": 26.06,
+      "sourceEnd": 28.86,
+      "originalSourceText": "so the foreign capital ratio is usually less than 49%",
+      "showCount": null,
+      "nodeCount": null,
+      "foreignRatio": 49.0
+    },
+    {
+      "sceneId": "payoff",
+      "component": "company_control",
+      "conceptId": "company_control",
+      "sourceSegmentId": "seg_008",
+      "sourceStart": 29.26,
+      "sourceEnd": 34.46,
+      "originalSourceText": "In other words, the control power is locked in from the moment of the investment, and the money is returned",
+      "showCount": null,
+      "nodeCount": null,
+      "foreignRatio": null
+    },
+    {
+      "sceneId": "return",
+      "component": "investment_flow",
+      "conceptId": "capital_return",
+      "sourceSegmentId": "seg_008",
+      "sourceStart": 29.26,
+      "sourceEnd": 34.46,
+      "originalSourceText": "In other words, the control power is locked in from the moment of the investment, and the money is returned",
+      "showCount": null,
+      "nodeCount": null,
+      "foreignRatio": null
+    }
+  ]
+}

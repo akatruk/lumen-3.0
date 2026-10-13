@@ -1,0 +1,102 @@
+{
+  "version": "v11.1",
+  "factualGrounding": {
+    "ok": true,
+    "issueCount": 0,
+    "issues": [],
+    "accepted": [
+      {
+        "sceneId": "hook",
+        "component": "capital_investment",
+        "sourceSegmentId": "seg_002",
+        "originalSourceText": "The core of Chinese investment companies is the capital investment",
+        "nodeCount": null,
+        "foreignRatio": null
+      },
+      {
+        "sceneId": "context",
+        "component": "capital_investment",
+        "sourceSegmentId": "seg_002",
+        "originalSourceText": "The core of Chinese investment companies is the capital investment",
+        "nodeCount": null,
+        "foreignRatio": null
+      },
+      {
+        "sceneId": "problem",
+        "component": "business_process",
+        "sourceSegmentId": "seg_003",
+        "originalSourceText": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card",
+        "nodeCount": null,
+        "foreignRatio": null
+      },
+      {
+        "sceneId": "residency",
+        "component": "shareholder_structure",
+        "sourceSegmentId": "seg_004",
+        "originalSourceText": "The shareholder responsibility and the capital judgment will be around it",
+        "nodeCount": null,
+        "foreignRatio": null
+      },
+      {
+        "sceneId": "consult",
+        "component": "financial_comparison",
+        "sourceSegmentId": "seg_004",
+        "originalSourceText": "The shareholder responsibility and the capital judgment will be around it",
+        "nodeCount": null,
+        "foreignRatio": null
+      },
+      {
+        "sceneId": "beside",
+        "component": "shareholder_structure",
+        "sourceSegmentId": "seg_006",
+        "originalSourceText": "Ordinary Thai companies usually need at least three shareholders",
+        "nodeCount": 3,
+        "foreignRatio": null
+      },
+      {
+        "sceneId": "steps",
+        "component": "business_process",
+        "sourceSegmentId": "seg_003",
+        "originalSourceText": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card",
+        "nodeCount": null,
+        "foreignRatio": null
+      },
+      {
+        "sceneId": "proof",
+        "component": "equity_distribution",
+        "sourceSegmentId": "seg_007",
+        "originalSourceText": "so the foreign capital ratio is usually less than 49%",
+        "nodeCount": null,
+        "foreignRatio": 49.0
+      },
+      {
+        "sceneId": "payoff",
+        "component": "company_control",
+        "sourceSegmentId": "seg_008",
+        "originalSourceText": "In other words, the control power is locked in from the moment of the investment, and the money is returned",
+        "nodeCount": null,
+        "foreignRatio": null
+      },
+      {
+        "sceneId": "return",
+        "component": "investment_flow",
+        "sourceSegmentId": "seg_008",
+        "originalSourceText": "In other words, the control power is locked in from the moment of the investment, and the money is returned",
+        "nodeCount": null,
+        "foreignRatio": null
+      }
+    ],
+    "version": "v11.2",
+    "extraIssues": []
+  },
+  "shareholderFinding": {
+    "spokenCount": 3,
+    "sourceSegmentId": "seg_006",
+    "sourceStart": 22.66,
+    "sourceEnd": 26.06,
+    "originalSourceText": "Ordinary Thai companies usually need at least three shareholders",
+    "verdict": "at_least_three",
+    "rejectedInventedTwo": true
+  },
+  "rejected": []
+}

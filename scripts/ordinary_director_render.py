@@ -100,10 +100,12 @@ def main():
         plan['transcript'] = transcript
     plan = director_v9.apply_composition_intelligence(plan)
     # V11: speech-first semantic intelligence — scrub domain contamination before 3D.
-    from backend import director_v11, director_v11_1
+    from backend import director_v11, director_v11_1, director_v11_2
     plan = director_v11.apply_semantic_intelligence(plan, transcript, locale=args.language)
     # V11.1: factual provenance + business semantic motion (no invented numbers).
     plan = director_v11_1.apply_factual_business_motion(plan, transcript, locale=args.language)
+    # V11.2: scrub "2 Shareholders" step artifact + face-safe composition.
+    plan = director_v11_2.apply_composition_repair(plan, transcript, locale=args.language)
     # Re-fill media after query scrub (investment queries replace immigration plates).
     plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
     plan = director_v9.apply_composition_intelligence(plan)
@@ -121,6 +123,9 @@ def main():
     if 'director-v11' in out_s:
         director_v11.export_semantic_artifacts(plan, args.out.parent)
     if 'director-v11-1' in out_s or 'director-v11.1' in out_s:
+        director_v11.export_semantic_artifacts(plan, args.out.parent)
+        director_v11_1.export_factual_artifacts(plan, args.out.parent)
+    if 'director-v11-2' in out_s or 'director-v11.2' in out_s:
         director_v11.export_semantic_artifacts(plan, args.out.parent)
         director_v11_1.export_factual_artifacts(plan, args.out.parent)
 
@@ -181,6 +186,26 @@ def main():
     }
     report_path = out.with_suffix('.report.json')
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    if 'director-v11-2' in out_s or 'director-v11.2' in out_s:
+        caps = render_plan.get('captions') or []
+        director_v11_2.export_v11_2_artifacts(
+            plan,
+            args.out.parent,
+            caption_meta={
+                'captionSource': render_plan.get('captionSource') or 'unavailable',
+                'captionCount': len(caps),
+                'mobileTypography': (plan.get('captionPolicy') or {}),
+                'ok': True,
+                'issues': [],
+                'sample': [
+                    {'start': c.get('start'), 'end': c.get('end'), 'text': c.get('text')}
+                    for c in caps[:4]
+                ] + [
+                    {'start': c.get('start'), 'end': c.get('end'), 'text': c.get('text')}
+                    for c in caps[-2:]
+                ],
+            },
+        )
     print(json.dumps({'ok': True, 'out': str(out), 'seconds': seconds, 'sha': digest[:16], 'report': str(report_path)}))
 
 

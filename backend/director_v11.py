@@ -202,10 +202,13 @@ _CRITERIA_PACKS: dict[str, dict[str, tuple[dict[str, str], ...]]] = {
 }
 
 _STEPS_PACKS: dict[str, dict[str, dict[str, Any]]] = {
+    # Never use bare "Shareholders"/"Акционеры"/"股东" as a numbered step label —
+    # CleanSteps paints "{n} {label}" which reads as invented headcount ("2 Shareholders").
+    # Ownership count belongs on evidenced cards (V11.1+), not step indices.
     'investment': {
-        'en': {'title': 'Formation path', 'steps': ['Capital', 'Shareholders', 'Control']},
-        'ru': {'title': 'Путь создания', 'steps': ['Капитал', 'Акционеры', 'Контроль']},
-        'zh': {'title': '设立路径', 'steps': ['资本', '股东', '控制权']},
+        'en': {'title': 'Formation path', 'steps': ['Capital', 'Structure', 'Control']},
+        'ru': {'title': 'Путь создания', 'steps': ['Капитал', 'Структура', 'Контроль']},
+        'zh': {'title': '设立路径', 'steps': ['资本', '结构', '控制权']},
     },
     'immigration': {
         'en': {'title': 'Guided process', 'steps': ['Consult', 'Program', 'Documents']},

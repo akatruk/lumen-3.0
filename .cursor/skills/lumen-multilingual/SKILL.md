@@ -21,3 +21,4 @@ Locales: `ru-RU`, `en-US`, `zh-CN`.
 - Remotion captions (V5/V6/V11.1): transcript → `backend/caption_phrases.py` (EN ~3–8 words, no dangling `at`/`of`; RU 3–7; ZH CJK). No cross-pause merges (&gt;0.35s). Prefer `visualPlan.captions`; pack strings are legacy fallback only. Dubbed: target alignment → `captionSource=target_alignment`.
 - V6: `locale_consistency` rejects wrong-script fields; do not fall back EN→RU. Cards/headlines must match `project.language`.
 - V11.1 factual cards: localized titles (`≥3 Shareholders` / `≥3 акционеров` / `≥3名股东`) keep the **same numeral** across locales.
+- V11.2: investment steps are Capital/Structure/Control (RU/ZH equivalents) — never numbered “Shareholders/Акционеры/股东” (reads as headcount). CleanSteps `Step N` / `Шаг N` / `步骤 N` is separate from the label.

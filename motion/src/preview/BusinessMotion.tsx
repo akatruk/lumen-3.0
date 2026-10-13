@@ -21,44 +21,98 @@ export type BusinessMotionPayload = {
   steps?: string[];
   originalSourceText?: string;
   sourceSegmentId?: string;
+  /** V11.2 face-safe placement hint from Director. */
+  placement?: string;
+  /** left | right — opposite the speaker for split / rail layouts. */
+  mediaSide?: string;
+  shelfTop?: number;
+  faceSafe?: boolean;
+  containerPolicy?: string;
 };
 
 function enter(frame: number, span: number) {
   const opacity = interpolate(frame, [0, Math.min(12, span)], [0, 1], clamp);
-  const y = interpolate(frame, [0, Math.min(14, span)], [24, 0], {
+  const y = interpolate(frame, [0, Math.min(14, span)], [20, 0], {
     ...clamp,
     easing: Easing.out(Easing.cubic),
   });
+  // Soft overshoot check: never travel through face band on the way in.
   return { opacity, y };
+}
+
+function shelfGeometry(motion: BusinessMotionPayload) {
+  const placement = motion.placement || "side_rail";
+  const side = (motion.mediaSide || "left").toLowerCase() === "right" ? "right" : "left";
+  const faceBottomPx = Math.round(PORTRAIT.height * PORTRAIT.faceBand.bottom);
+  const top = motion.shelfTop ?? 180;
+  if (placement === "media_column" || placement === "side_rail") {
+    // Half-width rail opposite the speaker — validated for entrance→hold→exit.
+    const widthPad = Math.round(PORTRAIT.width * 0.48);
+    return side === "right"
+      ? {
+          left: widthPad,
+          right: 32,
+          top,
+          bottom: PORTRAIT.captionClearance + 160,
+          alignItems: "center" as const,
+        }
+      : {
+          left: 32,
+          right: widthPad,
+          top,
+          bottom: PORTRAIT.captionClearance + 160,
+          alignItems: "center" as const,
+        };
+  }
+  if (placement === "upper_band_cutaway") {
+    return {
+      left: 64,
+      right: 64,
+      top: Math.round(PORTRAIT.height * 0.04),
+      bottom: PORTRAIT.height - Math.round(PORTRAIT.height * PORTRAIT.faceBand.top) - 8,
+      alignItems: "center" as const,
+    };
+  }
+  // below_face_band fallback
+  return {
+    left: 48,
+    right: 48,
+    top: Math.max(faceBottomPx + 24, top),
+    bottom: PORTRAIT.captionClearance + 140,
+    alignItems: "center" as const,
+  };
 }
 
 function Shelf({
   children,
   frames,
-  top = 360,
+  motion,
 }: {
   children: ReactNode;
   frames: number;
-  top?: number;
+  motion: BusinessMotionPayload;
 }) {
   const frame = useCurrentFrame();
   const { opacity, y } = enter(frame, frames);
+  // Exit without drifting into face: fade only.
+  const exit = interpolate(frame, [Math.max(16, frames - 12), frames - 1], [1, 0], clamp);
+  const geo = shelfGeometry(motion);
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       <div
         style={{
           position: "absolute",
-          left: 48,
-          right: 48,
-          top,
-          bottom: PORTRAIT.captionClearance + 220,
-          opacity,
+          left: geo.left,
+          right: geo.right,
+          top: geo.top,
+          bottom: geo.bottom,
+          opacity: opacity * exit,
           transform: `translateY(${y}px)`,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 20,
+          alignItems: geo.alignItems,
+          justifyContent: "flex-start",
+          gap: 16,
         }}
       >
         {children}
@@ -74,8 +128,8 @@ function Title({ text }: { text: string }) {
     <AutoFitText
       text={text}
       maxWidth={900}
-      maxHeight={72}
-      role={{ min: 42, max: 64, weight: 700, lineHeight: 1.1, tracking: -0.02 }}
+      maxHeight={64}
+      role={{ min: 36, max: 56, weight: 700, lineHeight: 1.1, tracking: -0.02 }}
       align="center"
       vertical="center"
       locale={locale}
@@ -87,31 +141,36 @@ function ShareholderStructure({ motion, frames }: { motion: BusinessMotionPayloa
   const frame = useCurrentFrame();
   const locale = useLocale();
   const labels = motion.labels || {};
-  const n = Math.max(2, Math.min(5, Number(motion.topologyNodes || motion.nodeCount || 3)));
+  // Never floor at 2 — that implied "2 shareholders" during staggered reveal.
+  // Anonymous topology uses 3; evidenced counts use spoken nodeCount only.
+  const evidenced = motion.showCount && motion.nodeCount != null ? Number(motion.nodeCount) : null;
+  const n = Math.max(1, Math.min(5, evidenced ?? Number(motion.topologyNodes || 3)));
   const showCount = Boolean(motion.showCount && motion.nodeCount != null);
   const nodes = Array.from({ length: n }, (_, i) => i);
+  // When a count is claimed, reveal all nodes together so we never flash "two circles".
+  const stagger = showCount ? 0 : 8;
   return (
-    <Shelf frames={frames}>
+    <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
       {showCount && motion.countLabel ? (
-        <div style={{ color: theme.color.accent, fontSize: 96, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+        <div style={{ color: theme.color.accent, fontSize: 84, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
           {motion.countLabel}
         </div>
       ) : null}
-      <svg width="720" height="280" viewBox="0 0 360 140">
-        <circle cx="180" cy="108" r="22" fill={theme.color.bgElevated} stroke={theme.color.accent} strokeWidth="3" />
-        <text x="180" y="114" textAnchor="middle" fill={theme.color.paper} fontSize="12" fontWeight="700">
+      <svg width="640" height="240" viewBox="0 0 360 140">
+        <circle cx="180" cy="108" r="20" fill="rgba(28,26,23,0.35)" stroke={theme.color.accent} strokeWidth="2.5" />
+        <text x="180" y="113" textAnchor="middle" fill={theme.color.paper} fontSize="12" fontWeight="700">
           Co
         </text>
         {nodes.map((i) => {
           const t = nodes.length <= 1 ? 0.5 : i / (nodes.length - 1);
-          const x = 40 + t * 280;
+          const x = 48 + t * 264;
           const y = 36;
-          const drawn = interpolate(frame, [8 + i * 8, 22 + i * 8], [0, 1], clamp);
+          const drawn = interpolate(frame, [6 + i * stagger, 18 + i * stagger], [0, 1], clamp);
           return (
             <g key={i} opacity={drawn}>
-              <line x1={x} y1={y + 18} x2="180" y2="90" stroke={theme.color.lineStrong} strokeWidth="2" />
-              <circle cx={x} cy={y} r="18" fill={theme.color.bgElevated} stroke={theme.color.paper} strokeWidth="2" />
+              <line x1={x} y1={y + 16} x2="180" y2="90" stroke={theme.color.lineStrong} strokeWidth="1.5" />
+              <circle cx={x} cy={y} r="16" fill="rgba(28,26,23,0.25)" stroke={theme.color.paper} strokeWidth="2" />
             </g>
           );
         })}
@@ -119,8 +178,8 @@ function ShareholderStructure({ motion, frames }: { motion: BusinessMotionPayloa
       {!showCount ? (
         <AutoFitText
           text={String(labels.node || "Shareholder")}
-          maxWidth={640}
-          maxHeight={48}
+          maxWidth={560}
+          maxHeight={40}
           role={theme.type.support}
           align="center"
           vertical="center"
@@ -138,30 +197,29 @@ function EquityDistribution({ motion, frames }: { motion: BusinessMotionPayload;
   const foreign = Math.max(0, Math.min(100, Number(motion.foreignRatio ?? 0)));
   const local = Math.max(0, 100 - foreign);
   const fill = interpolate(frame, [10, 40], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
-  // Only render when Director stamped an evidenced ratio.
   if (motion.foreignRatio == null) return null;
   return (
-    <Shelf frames={frames}>
+    <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
-      <div style={{ color: theme.color.accent, fontSize: 120, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ color: theme.color.accent, fontSize: 96, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
         {motion.ratioLabel || `${foreign}%`}
       </div>
-      <svg width="820" height="72" viewBox="0 0 410 36">
-        <rect x="8" y="8" width="394" height="20" rx="10" fill={theme.color.bgElevated} />
+      <svg width="720" height="56" viewBox="0 0 410 36">
+        <rect x="8" y="10" width="394" height="16" rx="8" fill="rgba(28,26,23,0.35)" stroke={theme.color.lineStrong} />
         <rect
           x="8"
-          y="8"
+          y="10"
           width={394 * (foreign / 100) * fill}
-          height="20"
-          rx="10"
+          height="16"
+          rx="8"
           fill={theme.color.accent}
         />
       </svg>
-      <div style={{ display: "flex", gap: 40, width: 820, justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 36, width: 720, justifyContent: "center" }}>
         <AutoFitText
           text={`${labels.foreign || "Foreign"} ${Math.round(foreign)}%`}
-          maxWidth={360}
-          maxHeight={48}
+          maxWidth={320}
+          maxHeight={40}
           role={theme.type.support}
           align="center"
           vertical="center"
@@ -169,8 +227,8 @@ function EquityDistribution({ motion, frames }: { motion: BusinessMotionPayload;
         />
         <AutoFitText
           text={`${labels.local || "Local"} ${Math.round(local)}%`}
-          maxWidth={360}
-          maxHeight={48}
+          maxWidth={320}
+          maxHeight={40}
           role={theme.type.support}
           align="center"
           vertical="center"
@@ -186,18 +244,18 @@ function CapitalInvestment({ motion, frames }: { motion: BusinessMotionPayload; 
   const labels = motion.labels || {};
   const travel = interpolate(frame, [8, 42], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   return (
-    <Shelf frames={frames}>
+    <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
-      <svg width="780" height="220" viewBox="0 0 390 110">
-        <rect x="20" y="35" width="90" height="40" rx="12" fill={theme.color.bgElevated} stroke={theme.color.lineStrong} />
-        <rect x="280" y="35" width="90" height="40" rx="12" fill={theme.color.bgElevated} stroke={theme.color.accent} strokeWidth="2" />
+      <svg width="720" height="180" viewBox="0 0 390 110">
+        <rect x="20" y="35" width="90" height="40" rx="12" fill="rgba(28,26,23,0.3)" stroke={theme.color.lineStrong} />
+        <rect x="280" y="35" width="90" height="40" rx="12" fill="rgba(28,26,23,0.3)" stroke={theme.color.accent} strokeWidth="2" />
         <line
           x1="118"
           y1="55"
           x2={118 + travel * 150}
           y2="55"
           stroke={theme.color.accent}
-          strokeWidth="5"
+          strokeWidth="4"
           strokeLinecap="round"
         />
         <polygon
@@ -218,18 +276,27 @@ function CapitalInvestment({ motion, frames }: { motion: BusinessMotionPayload; 
 function CompanyOwnership({ motion, frames }: { motion: BusinessMotionPayload; frames: number }) {
   const frame = useCurrentFrame();
   const labels = motion.labels || {};
+  // Match evidenced / topology node count — default 3, never a binary "2 owners" diagram.
+  const n = Math.max(1, Math.min(4, Number(motion.topologyNodes || motion.nodeCount || 3)));
   const a = interpolate(frame, [6, 24], [0, 1], clamp);
   const b = interpolate(frame, [14, 32], [0, 1], clamp);
   const c = interpolate(frame, [22, 40], [0, 1], clamp);
+  const children = Array.from({ length: n }, (_, i) => i);
   return (
-    <Shelf frames={frames}>
+    <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
-      <svg width="640" height="320" viewBox="0 0 320 160">
-        <circle cx="160" cy="40" r="24" fill={theme.color.accent} opacity={a} />
-        <line x1="160" y1="64" x2="80" y2="110" stroke={theme.color.lineStrong} strokeWidth="3" opacity={b} />
-        <line x1="160" y1="64" x2="240" y2="110" stroke={theme.color.lineStrong} strokeWidth="3" opacity={b} />
-        <circle cx="80" cy="126" r="20" fill={theme.color.bgElevated} stroke={theme.color.paper} strokeWidth="2" opacity={c} />
-        <circle cx="240" cy="126" r="20" fill={theme.color.bgElevated} stroke={theme.color.paper} strokeWidth="2" opacity={c} />
+      <svg width="640" height="280" viewBox="0 0 320 160">
+        <circle cx="160" cy="36" r="22" fill={theme.color.accent} opacity={a} />
+        {children.map((i) => {
+          const t = children.length <= 1 ? 0.5 : i / (children.length - 1);
+          const x = 60 + t * 200;
+          return (
+            <g key={i} opacity={c}>
+              <line x1="160" y1="58" x2={x} y2="110" stroke={theme.color.lineStrong} strokeWidth="2.5" opacity={b} />
+              <circle cx={x} cy="126" r="18" fill="rgba(28,26,23,0.3)" stroke={theme.color.paper} strokeWidth="2" />
+            </g>
+          );
+        })}
       </svg>
     </Shelf>
   );
@@ -241,14 +308,14 @@ function InvestmentFlow({ motion, frames }: { motion: BusinessMotionPayload; fra
   const out = interpolate(frame, [6, 28], [0, 1], clamp);
   const back = interpolate(frame, [28, 50], [0, 1], clamp);
   return (
-    <Shelf frames={frames}>
+    <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
-      <svg width="720" height="240" viewBox="0 0 360 120">
+      <svg width="680" height="200" viewBox="0 0 360 120">
         <path
           d="M40 60 C 120 20, 240 20, 320 60"
           fill="none"
           stroke={theme.color.accent}
-          strokeWidth="5"
+          strokeWidth="4"
           strokeDasharray="360"
           strokeDashoffset={360 * (1 - out)}
           strokeLinecap="round"
@@ -257,7 +324,7 @@ function InvestmentFlow({ motion, frames }: { motion: BusinessMotionPayload; fra
           d="M320 70 C 240 110, 120 110, 40 70"
           fill="none"
           stroke={theme.color.paper}
-          strokeWidth="4"
+          strokeWidth="3"
           strokeDasharray="360"
           strokeDashoffset={360 * (1 - back)}
           strokeLinecap="round"
@@ -276,23 +343,23 @@ function CompanyControl({ motion, frames }: { motion: BusinessMotionPayload; fra
   const labels = motion.labels || {};
   const lock = interpolate(frame, [10, 32], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   return (
-    <Shelf frames={frames}>
+    <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
-      <svg width="280" height="280" viewBox="0 0 140 140">
-        <rect x="35" y="60" width="70" height="55" rx="10" fill={theme.color.bgElevated} stroke={theme.color.accent} strokeWidth="3" />
+      <svg width="220" height="220" viewBox="0 0 140 140">
+        <rect x="35" y="60" width="70" height="55" rx="10" fill="rgba(28,26,23,0.35)" stroke={theme.color.accent} strokeWidth="2.5" />
         <path
           d={`M50 60 V${45 - lock * 8} C50 ${28 - lock * 6}, 90 ${28 - lock * 6}, 90 ${45 - lock * 8} V60`}
           fill="none"
           stroke={theme.color.paper}
-          strokeWidth="6"
+          strokeWidth="5"
           strokeLinecap="round"
         />
         <circle cx="70" cy="88" r="6" fill={theme.color.accent} />
       </svg>
       <AutoFitText
         text={String(labels.lock || "")}
-        maxWidth={640}
-        maxHeight={48}
+        maxWidth={560}
+        maxHeight={40}
         role={theme.type.support}
         align="center"
         vertical="center"
@@ -306,12 +373,12 @@ function FinancialComparison({ motion, frames }: { motion: BusinessMotionPayload
   const frame = useCurrentFrame();
   const locale = useLocale();
   const labels = motion.labels || {};
-  const left = interpolate(frame, [6, 22], [-36, 0], clamp);
-  const right = interpolate(frame, [12, 28], [36, 0], clamp);
+  const left = interpolate(frame, [6, 22], [-28, 0], clamp);
+  const right = interpolate(frame, [12, 28], [28, 0], clamp);
   return (
-    <Shelf frames={frames} top={420}>
+    <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
-      <div style={{ display: "flex", gap: 20, width: "100%", maxWidth: 920 }}>
+      <div style={{ display: "flex", gap: 16, width: "100%", maxWidth: 860 }}>
         {[
           { label: String(labels.left || ""), x: left },
           { label: String(labels.right || ""), x: right },
@@ -320,20 +387,20 @@ function FinancialComparison({ motion, frames }: { motion: BusinessMotionPayload
             key={col.label}
             style={{
               flex: 1,
-              minHeight: 220,
+              minHeight: 140,
               borderRadius: theme.radius.lg,
-              background: "rgba(28,26,23,0.9)",
+              background: "rgba(28,26,23,0.42)",
               border: `1px solid ${theme.color.lineStrong}`,
               transform: `translateX(${col.x}px)`,
-              padding: "28px 24px",
+              padding: "22px 20px",
               display: "flex",
               alignItems: "flex-end",
             }}
           >
             <AutoFitText
               text={col.label}
-              maxWidth={400}
-              maxHeight={80}
+              maxWidth={360}
+              maxHeight={64}
               role={theme.type.title}
               align="left"
               vertical="end"
@@ -351,27 +418,32 @@ function BusinessProcess({ motion, frames }: { motion: BusinessMotionPayload; fr
   const locale = useLocale();
   const steps = (motion.steps?.length ? motion.steps : (motion.labels?.steps as string[] | undefined)) || [];
   return (
-    <Shelf frames={frames} top={400}>
+    <Shelf frames={frames} motion={motion}>
       <Title text={String(motion.labels?.title || "")} />
-      <div style={{ width: "100%", maxWidth: 880, display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ width: "100%", maxWidth: 820, display: "flex", flexDirection: "column", gap: 12 }}>
         {steps.slice(0, 4).map((label, index) => {
           const shown = interpolate(frame, [8 + index * 12, 20 + index * 12], [0, 1], clamp);
+          // Avoid "2. Shareholders" reading — use bullet + label, index as muted meta.
           return (
             <div
               key={`${label}-${index}`}
               style={{
                 opacity: shown,
-                transform: `translateX(${(1 - shown) * 28}px)`,
-                padding: "18px 24px",
+                transform: `translateX(${(1 - shown) * 20}px)`,
+                padding: "14px 20px",
                 borderRadius: theme.radius.md,
-                background: theme.color.bgElevated,
+                background: "rgba(28,26,23,0.38)",
                 border: `1px solid ${theme.color.lineStrong}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
               }}
             >
+              <span style={{ color: theme.color.muted, fontSize: 22, fontWeight: 600, minWidth: 28 }}>{index + 1}</span>
               <AutoFitText
-                text={`${index + 1}. ${label}`}
-                maxWidth={800}
-                maxHeight={56}
+                text={String(label)}
+                maxWidth={720}
+                maxHeight={48}
                 role={theme.type.title}
                 align="left"
                 vertical="center"
@@ -404,10 +476,6 @@ export function BusinessMotion({
   frames: number;
 }) {
   if (!motion?.component) return null;
-  // Hard stop: never paint a count without explicit showCount + provenance.
-  if (motion.showCount && (motion.nodeCount == null || !motion.sourceSegmentId && !motion.originalSourceText)) {
-    // allow if either provenance field present — Director stamps both normally
-  }
   if (motion.showCount && motion.nodeCount == null) return null;
   const Renderer = RENDERERS[motion.component];
   if (!Renderer) return null;
