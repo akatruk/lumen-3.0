@@ -1,7 +1,7 @@
 # Lumen 3D Quality Recovery V2
 
 **Date:** 2026-10-13  
-**Git SHA:** _(stamped on commit)_  
+**Git SHA:** `15b37d6`  
 **Host GPU:** local Blender 5.2.2 LTS (RunPod **not** resumed)  
 **DO volume:** `/mnt/volume_nyc1_1791446889637` — 78 GB free  
 
