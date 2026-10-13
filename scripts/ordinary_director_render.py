@@ -95,6 +95,9 @@ def main():
     )
     plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
     from backend import director_v9, director_v10
+    # Keep transcript on plan so experimental 3D speech-match can see real speech.
+    if transcript and not plan.get('transcript'):
+        plan['transcript'] = transcript
     plan = director_v9.apply_composition_intelligence(plan)
     plan = director_v10.apply_premium_3d(plan, seed=plan.get('visualSeed'))
     store_plan(settings.data_dir, args.project_id, plan)

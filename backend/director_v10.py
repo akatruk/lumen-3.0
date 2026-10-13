@@ -110,6 +110,10 @@ def apply_premium_3d(plan: dict, *, seed: int | None = None) -> dict:
         from . import director_v10_2
 
         return director_v10_2.apply_premium_3d_v102(plan, seed=seed)
+    if mode in ("experimental", "exp", "test_override", "test-override"):
+        from . import director_v10_2
+
+        return director_v10_2.apply_premium_3d_experimental(plan, seed=seed)
     if mode in ("v10.1", "v101", "gate", ""):
         from . import director_v10_1
 
@@ -180,6 +184,11 @@ def stage_premium_3d(plan: dict, public_dir: Path, library: Path | None = None) 
     if mode in ("v10.2", "v102"):
         from . import director_v10_2
 
+        return director_v10_2.stage_premium_3d_v102(plan, public_dir, library)
+    if mode in ("experimental", "exp", "test_override", "test-override"):
+        from . import director_v10_2
+
+        # Same PNG-seq staging as v10.2; experimental only changes bind policy.
         return director_v10_2.stage_premium_3d_v102(plan, public_dir, library)
     if mode in ("v10.1", "v101", "gate", ""):
         from . import director_v10_1
