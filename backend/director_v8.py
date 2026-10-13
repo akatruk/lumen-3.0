@@ -407,6 +407,20 @@ def _max_streak(flags: list[bool]) -> int:
     return best
 
 
+def query_respecting_source(scene: dict):
+    """Transcript evidence wins when a template query is still about immigration."""
+    query = scene.get('query')
+    concepts = [item for item in (scene.get('semanticConcepts') or []) if isinstance(item, dict)]
+    domains = {item.get('domain') for item in concepts}
+    if not query or 'investment' not in domains or 'immigration' in domains:
+        return query
+    from .director_v11 import _query_is_immigration
+    if not _query_is_immigration(query):
+        return query
+    evidence = next((str(item.get('evidence')) for item in concepts if item.get('evidence')), '')
+    return evidence or query
+
+
 def fill_media_for_scenes(plan: dict, *, seed: int | None = None) -> dict:
     """Library search for long-form scenes that have a query but no asset yet."""
     from . import visual_variation as vv
@@ -420,6 +434,11 @@ def fill_media_for_scenes(plan: dict, *, seed: int | None = None) -> dict:
     for scene in plan.get('scenes') or []:
         scene = dict(scene)
         bg = dict(scene.get('background') or {})
+        source_query = query_respecting_source(scene)
+        if source_query and source_query != scene.get('query'):
+            scene['query'] = source_query
+            for key in ('assetId', 'file', 'staged', 'conceptId'):
+                bg.pop(key, None)
         if scene.get('query') and not bg.get('assetId'):
             asset, chosen = vv._background(
                 rng,

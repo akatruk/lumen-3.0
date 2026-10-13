@@ -58,6 +58,7 @@ import "./style.css";
 import { DouyinSearch } from "./DouyinSearch";
 import { StudioCreate } from "./Studio";
 import { CreateVideo } from "./CreateVideo";
+import { QualityFeedback } from "./QualityFeedback";
 import "./workspace.css";
 import "./apple-design.css";
 const Locale = createContext<{ lang: Lang; t: (key: string) => string }>({
@@ -1473,6 +1474,9 @@ function ProjectView({
                 ))}
               </div>
             </div>
+            {p.result && (
+              <QualityFeedback lang={lang} projectId={p.id} timestamp={time} />
+            )}
           </div>
           }
           {working && <AnalysisActivity project={p} lang={lang} />}

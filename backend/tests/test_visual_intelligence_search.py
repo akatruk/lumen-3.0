@@ -63,15 +63,15 @@ def test_flag_off_keeps_keyword_results(tmp_path, monkeypatch):
     assert 'plate_office' not in ids
 
 
-def test_hybrid_uses_vectors_and_blocks_rejected_and_experimental_3d(tmp_path, monkeypatch):
+def test_hybrid_blocks_rejected_experimental_3d_and_cosine_only_hits(tmp_path, monkeypatch):
     path = _manifest(tmp_path)
     monkeypatch.setattr(settings, 'visual_intelligence_enabled', True)
     monkeypatch.setattr('media.library.search._vector_bonuses', lambda query: {
-        'plate_office': 0.62,
+        'plate_office': 0.99,
         'bad_rejected': 0.99,
         'held_quarantine': 0.99,
         'l3d_passport': 0.99,
     })
     hits = search_assets('family planning relocation', limit=5, path=path)
     ids = [hit['id'] for hit in hits]
-    assert ids == ['plate_office']
+    assert ids == []

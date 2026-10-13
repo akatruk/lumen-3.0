@@ -18,6 +18,7 @@ from backend.experience_memory import (
     add_incident,
     add_review,
     add_scene_feedback,
+    asset_relevance_penalties,
     attach_to_visual_plan,
     bounded_context,
     context_for_transcript,
@@ -59,8 +60,8 @@ def test_migration_is_idempotent_and_pgvector_visible():
     info = _ready()
     again = _ready()
     assert info['pgvector']
-    assert info['migration'] == '002_media_embeddings'
-    assert again['migration'] == '002_media_embeddings'
+    assert info['migration'] == '003_quality_feedback'
+    assert again['migration'] == '003_quality_feedback'
     with connect() as db:
         db.execute('SELECT frame_seconds, embedding_model FROM asset_embeddings LIMIT 0')
         db.execute('SELECT asset_id, embedding_version, created_at, embedding FROM media_embeddings LIMIT 0')
@@ -336,3 +337,48 @@ def test_director_context_skips_unapproved_3d(monkeypatch):
     opened = context_for_transcript(project_id, [{'text': 'passport'}], domain='immigration')
     assert opened is not None
     assert opened['overridesSourceFacts'] is False
+
+
+def test_video_rating_and_scene_flag_use_real_generation_ids():
+    _ready()
+    project_id = 'rate_' + uuid.uuid4().hex
+    generation_id = 'gen_' + uuid.uuid4().hex
+    other_id = 'gen_' + uuid.uuid4().hex
+    remember_generation(project_id=project_id, generation_id=generation_id, plan={'scenes': []})
+    remember_generation(project_id=project_id, generation_id=other_id, plan={'scenes': []})
+    review_id = add_review(
+        project_id=project_id, generation_id=generation_id, review_source='user',
+        user_quality_rating=8, comments='Shareholder scene was clear',
+        dimensions={'story': 8, 'media_relevance': 7, 'captions': 6},
+    )
+    flag_id = add_scene_feedback(
+        project_id=project_id, generation_id=generation_id, scene_index=3, review_source='user',
+        scene_id='residency', timestamp_seconds=18.5, asset_ids=['passport_open'],
+        treatment='slow_zoom_in', issue_category='irrelevant_media', comments='Passport on a company scene',
+    )
+    with pytest.raises(Exception):
+        add_scene_feedback(
+            project_id=project_id, generation_id=generation_id, scene_index=0, review_source='user',
+            issue_category='not_a_real_flag',
+        )
+    with connect() as db:
+        review = db.execute('SELECT * FROM generation_reviews WHERE id=?', (review_id,)).fetchone()
+        flag = db.execute('SELECT * FROM scene_feedback WHERE id=?', (flag_id,)).fetchone()
+    assert review['user_quality_rating'] == 8
+    assert json.loads(review['dimension_ratings'])['media_relevance'] == 7
+    assert flag['user_quality_rating'] is None
+    assert flag['scene_id'] == 'residency'
+    assert flag['timestamp_seconds'] == 18.5
+    assert json.loads(flag['asset_ids']) == ['passport_open']
+    assert flag['treatment'] == 'slow_zoom_in'
+    assert asset_relevance_penalties(force=True) == {}
+    add_scene_feedback(
+        project_id=project_id, generation_id=other_id, scene_index=1, review_source='user',
+        scene_id='consult', asset_ids=['passport_open'], issue_category='irrelevant_media',
+    )
+    assert asset_relevance_penalties(force=True) == {'passport_open': 0.35}
+    add_scene_feedback(
+        project_id=project_id, generation_id=generation_id, scene_index=4, review_source='user',
+        scene_id='proof', asset_ids=['caption_plate'], issue_category='caption_problem',
+    )
+    assert 'caption_plate' not in asset_relevance_penalties(force=True)

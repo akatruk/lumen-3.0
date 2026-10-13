@@ -185,6 +185,25 @@ def test_ru_zh_locale_packs():
         assert cards[0]['title'] == title
 
 
+def test_residency_id_does_not_keep_an_immigration_query_on_investment_speech():
+    from backend.director_v8 import query_respecting_source
+    scene = {
+        'sceneId': 'residency',
+        'query': 'family home doorway relocation',
+        'semanticConcepts': [{
+            'conceptId': 'thailand_company_structure',
+            'domain': 'investment',
+            'evidence': 'Thailand company shareholder structure',
+        }],
+    }
+    assert query_respecting_source(scene) == 'Thailand company shareholder structure'
+    assert query_respecting_source({
+        'sceneId': 'residency',
+        'query': 'corporate boardroom shareholders meeting',
+        'semanticConcepts': [{'domain': 'investment', 'evidence': 'ignored once the query is already corporate'}],
+    }) == 'corporate boardroom shareholders meeting'
+
+
 def test_validate_flags_contaminated_plan():
     sm = build_semantic_map(ORIGIN1_TRANSCRIPT, 'en-US')
     dirty = {

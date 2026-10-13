@@ -23,6 +23,8 @@ def main():
     parser.add_argument('--energy', default='balanced')
     parser.add_argument('--duration', type=int, default=None, help='seconds (step 5); default=max from source')
     parser.add_argument('--seed', type=int, default=None)
+    parser.add_argument('--frozen-plan', type=Path, default=None,
+                        help='Reuse this scene plan and replace only background retrieval')
     args = parser.parse_args()
 
     from backend import remotion_engine, director_v3, media
@@ -43,7 +45,10 @@ def main():
         dest_source.write_bytes(source.read_bytes())
 
     # Same entry as studio.create_video (recent_ids + history).
-    if args.seed is not None:
+    if args.frozen_plan:
+        plan = json.loads(args.frozen_plan.read_text(encoding='utf-8'))
+        transcript = plan.get('transcript') or []
+    elif args.seed is not None:
         from backend.visual_variation import recent_asset_ids
         plan = resolve_plan(args.seed, args.energy, 'automatic', recent_asset_ids(settings.data_dir))
         plan['generationId'] = f'ordinary_{args.project_id[:8]}_{seconds}s'
@@ -86,37 +91,44 @@ def main():
 
     from backend.director_semantics import enrich_plan_from_transcript, motion_diversity_summary
     from backend.director_shot_plan import motion_usage_report
-    from backend import director_v8
-    transcript = director_v8.filter_locale_transcript(transcript, args.language)
-    plan = enrich_plan_from_transcript(plan, transcript, locale=args.language)
-    plan['language'] = args.language
-    plan = director_v8.expand_plan_for_duration(
-        plan, duration_seconds=seconds, transcript=transcript, locale=args.language,
-    )
-    plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
-    from backend import director_v9, director_v10
-    # Keep transcript on plan so experimental 3D speech-match can see real speech.
-    if transcript and not plan.get('transcript'):
-        plan['transcript'] = transcript
-    plan = director_v9.apply_composition_intelligence(plan)
-    # V11: speech-first semantic intelligence — scrub domain contamination before 3D.
-    from backend import director_v11, director_v11_1, director_v11_2
-    plan = director_v11.apply_semantic_intelligence(plan, transcript, locale=args.language)
-    # V11.1: factual provenance + business semantic motion (no invented numbers).
-    plan = director_v11_1.apply_factual_business_motion(plan, transcript, locale=args.language)
-    # V11.2: scrub "2 Shareholders" step artifact + face-safe composition.
-    plan = director_v11_2.apply_composition_repair(plan, transcript, locale=args.language)
-    # Optional Remotion cinematic plate (premium media factory / contrast QA).
-    import os
-    plate = (os.environ.get('LUMEN_BACKGROUND_PLATE') or '').strip()
-    if plate:
-        plan['backgroundPlate'] = plate
-        # Re-stamp connector contrast theme after plate assignment.
-        plan = director_v11_2.stamp_face_safe_business_motion(plan)
-    # Re-fill media after query scrub (investment queries replace immigration plates).
-    plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
-    plan = director_v9.apply_composition_intelligence(plan)
-    plan = director_v10.apply_premium_3d(plan, seed=plan.get('visualSeed'))
+    from backend import director_v8, director_v9, director_v10, director_v11, director_v11_1, director_v11_2
+    if args.frozen_plan:
+        scenes = []
+        for scene in plan.get('scenes') or []:
+            scene = dict(scene)
+            bg = dict(scene.get('background') or {})
+            for key in ('assetId', 'file', 'staged', 'conceptId'):
+                bg.pop(key, None)
+            scene['background'] = bg
+            scenes.append(scene)
+        plan['scenes'] = scenes
+        if args.seed is not None:
+            plan['visualSeed'] = args.seed
+        plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
+        base_id = plan.get('generationId') or f"ordinary_{args.project_id[:8]}_{seconds}s"
+        plan['generationId'] = f'{base_id}_rerank'
+    else:
+        transcript = director_v8.filter_locale_transcript(transcript, args.language)
+        plan = enrich_plan_from_transcript(plan, transcript, locale=args.language)
+        plan['language'] = args.language
+        plan = director_v8.expand_plan_for_duration(
+            plan, duration_seconds=seconds, transcript=transcript, locale=args.language,
+        )
+        plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
+        if transcript and not plan.get('transcript'):
+            plan['transcript'] = transcript
+        plan = director_v9.apply_composition_intelligence(plan)
+        plan = director_v11.apply_semantic_intelligence(plan, transcript, locale=args.language)
+        plan = director_v11_1.apply_factual_business_motion(plan, transcript, locale=args.language)
+        plan = director_v11_2.apply_composition_repair(plan, transcript, locale=args.language)
+        import os
+        plate = (os.environ.get('LUMEN_BACKGROUND_PLATE') or '').strip()
+        if plate:
+            plan['backgroundPlate'] = plate
+            plan = director_v11_2.stamp_face_safe_business_motion(plan)
+        plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
+        plan = director_v9.apply_composition_intelligence(plan)
+        plan = director_v10.apply_premium_3d(plan, seed=plan.get('visualSeed'))
     store_plan(settings.data_dir, args.project_id, plan)
 
     speaker = director_v3.speaker_for(seconds, dest_source)
@@ -128,7 +140,7 @@ def main():
     from backend.experience_memory import attach_to_visual_plan, enabled as memory_enabled, record_render_output
     if args.seed is not None:
         plan['visualSeed'] = args.seed
-    if memory_enabled():
+    if memory_enabled() and not args.frozen_plan:
         plan = attach_to_visual_plan(plan, args.project_id)
     # Persist V11 / V11.1 artifacts beside the MP4.
     out_s = str(args.out)
@@ -162,6 +174,7 @@ def main():
 
     out = args.out.resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
+    out.with_suffix('.plan.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     from backend.experience_embeddings import release_models
     release_models()
     digest = remotion_engine.render_with_plan(out, render_plan)

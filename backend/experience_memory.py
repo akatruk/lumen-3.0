@@ -17,6 +17,16 @@ from .database import connect
 
 MIGRATION_VERSION = '001_experience_memory'
 MIGRATION_MEDIA = '002_media_embeddings'
+MIGRATION_FEEDBACK = '003_quality_feedback'
+SCENE_ISSUES = (
+    'irrelevant_media', 'poor_animation', 'visual_clutter', 'caption_problem',
+    'face_overlap', 'weak_composition', 'factual_error',
+)
+_REVIEW_DIMENSIONS = (
+    'story', 'media_relevance', 'motion', 'captions', 'composition', 'audio', 'overall',
+)
+_ASSET_FAILURE = 'irrelevant_media'
+_penalty_cache = [0.0, {}]
 DIRECTOR_VERSION = 'v11.2'
 PROMPT_VERSION = 'experience-context-v1'
 MAX_ITEMS = 8
@@ -297,6 +307,61 @@ def _applied_versions(db) -> set[str]:
     return {row['version'] for row in db.execute('SELECT version FROM memory_schema_migrations')}
 
 
+STATEMENTS_003 = (
+    'ALTER TABLE generation_reviews ADD COLUMN IF NOT EXISTS dimension_ratings TEXT',
+    'ALTER TABLE scene_feedback ADD COLUMN IF NOT EXISTS scene_id TEXT',
+    'ALTER TABLE scene_feedback ADD COLUMN IF NOT EXISTS timestamp_seconds DOUBLE PRECISION',
+    'ALTER TABLE scene_feedback ADD COLUMN IF NOT EXISTS asset_ids TEXT',
+    'ALTER TABLE scene_feedback ADD COLUMN IF NOT EXISTS issue_category TEXT',
+)
+
+
+def _widen_feedback_checks(db):
+    """User video scores are 1–10. A scene flag can be stored without a fake number."""
+    rows = db.execute(
+        '''SELECT c.conname AS name, t.relname AS table_name
+           FROM pg_constraint c
+           JOIN pg_class t ON t.oid = c.conrelid
+           JOIN pg_namespace n ON n.oid = t.relnamespace
+           WHERE n.nspname = current_schema()
+             AND t.relname IN ('generation_reviews', 'scene_feedback')
+             AND c.contype = 'c' ''',
+    ).fetchall()
+    for row in rows:
+        name = str(row['name'])
+        table = str(row['table_name'])
+        if not name.replace('_', '').isalnum() or not table.replace('_', '').isalnum():
+            continue
+        db.execute(f'ALTER TABLE {table} DROP CONSTRAINT {name}')
+    db.execute(
+        '''ALTER TABLE generation_reviews ADD CONSTRAINT generation_reviews_source
+           CHECK (review_source IN ('user', 'automated'))''',
+    )
+    db.execute(
+        '''ALTER TABLE generation_reviews ADD CONSTRAINT generation_reviews_score
+           CHECK (
+             (review_source = 'user' AND automated_qa_score IS NULL AND user_quality_rating BETWEEN 1 AND 10)
+             OR
+             (review_source = 'automated' AND user_quality_rating IS NULL AND automated_qa_score IS NOT NULL)
+           )''',
+    )
+    db.execute(
+        '''ALTER TABLE scene_feedback ADD CONSTRAINT scene_feedback_source
+           CHECK (review_source IN ('user', 'automated'))''',
+    )
+    db.execute(
+        '''ALTER TABLE scene_feedback ADD CONSTRAINT scene_feedback_score
+           CHECK (
+             (review_source = 'user' AND automated_qa_score IS NULL AND (
+                user_quality_rating BETWEEN 1 AND 10
+                OR (user_quality_rating IS NULL AND issue_category IS NOT NULL)
+             ))
+             OR
+             (review_source = 'automated' AND user_quality_rating IS NULL AND automated_qa_score IS NOT NULL)
+           )''',
+    )
+
+
 def _mark(db, version: str):
     db.execute(
         'INSERT INTO memory_schema_migrations(version, applied_at) VALUES(?, ?) ON CONFLICT (version) DO NOTHING',
@@ -324,10 +389,16 @@ def init(db):
             db.execute(statement)
         _mark(db, MIGRATION_MEDIA)
         changed = True
+    if MIGRATION_FEEDBACK not in _applied_versions(db):
+        for statement in STATEMENTS_003:
+            db.execute(statement)
+        _widen_feedback_checks(db)
+        _mark(db, MIGRATION_FEEDBACK)
+        changed = True
     _register_defaults(db)
     return {
         'applied': changed,
-        'version': MIGRATION_MEDIA,
+        'version': MIGRATION_FEEDBACK,
         'pgvector': version,
         'reason': 'applied' if changed else 'current',
     }
@@ -542,7 +613,7 @@ def _review_values(source: str, user_rating, qa_score):
     if source == 'user':
         if user_rating is None or qa_score is not None:
             raise MemoryUnavailable('user_rating_must_be_separate')
-        if int(user_rating) < 1 or int(user_rating) > 5:
+        if int(user_rating) < 1 or int(user_rating) > 10:
             raise MemoryUnavailable('user_rating_range')
         return int(user_rating), None
     if source == 'automated':
@@ -552,8 +623,23 @@ def _review_values(source: str, user_rating, qa_score):
     raise MemoryUnavailable('review_source')
 
 
-def add_review(*, project_id: str, generation_id: str, review_source: str, user_quality_rating=None, automated_qa_score=None, comments: str = '', defects=None, fixes: str = '', issue_category: str = '') -> str:
+def _dimension_ratings(dimensions) -> str | None:
+    if not dimensions:
+        return None
+    out = {}
+    for key in _REVIEW_DIMENSIONS:
+        if key not in dimensions or dimensions[key] in (None, ''):
+            continue
+        value = int(dimensions[key])
+        if value < 1 or value > 10:
+            raise MemoryUnavailable('dimension_range')
+        out[key] = value
+    return json.dumps(out) if out else None
+
+
+def add_review(*, project_id: str, generation_id: str, review_source: str, user_quality_rating=None, automated_qa_score=None, comments: str = '', defects=None, fixes: str = '', issue_category: str = '', dimensions=None) -> str:
     rating, score = _review_values(review_source, user_quality_rating, automated_qa_score)
+    extra = _dimension_ratings(dimensions)
     row_id = uuid.uuid4().hex
     with connect() as db:
         _prepare(db)
@@ -565,11 +651,11 @@ def add_review(*, project_id: str, generation_id: str, review_source: str, user_
             raise MemoryUnavailable('generation_not_found')
         db.execute(
             '''INSERT INTO generation_reviews
-               (id, project_id, generation_id, review_source, user_quality_rating, automated_qa_score, review_comments, known_defects, fixes, created, issue_category)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+               (id, project_id, generation_id, review_source, user_quality_rating, automated_qa_score, review_comments, known_defects, fixes, created, issue_category, dimension_ratings)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''',
             (row_id, project_id, generation_id, review_source, rating, score, comments,
              json.dumps(list(defects or []), ensure_ascii=False), fixes, time.time(),
-             (issue_category or '')[:80] or None),
+             (issue_category or '')[:80] or None, extra),
         )
     return row_id
 
@@ -602,8 +688,16 @@ def record_render_output(generation_id: str, render_output: str) -> None:
         )
 
 
-def add_scene_feedback(*, project_id: str, generation_id: str, scene_index: int, review_source: str, layout: str = '', treatment: str = '', user_quality_rating=None, automated_qa_score=None, comments: str = '', defects=None, fixes: str = '') -> str:
-    rating, score = _review_values(review_source, user_quality_rating, automated_qa_score)
+def add_scene_feedback(*, project_id: str, generation_id: str, scene_index: int, review_source: str, layout: str = '', treatment: str = '', user_quality_rating=None, automated_qa_score=None, comments: str = '', defects=None, fixes: str = '', scene_id: str = '', timestamp_seconds=None, asset_ids=None, issue_category: str = '') -> str:
+    issue = (issue_category or '')[:80]
+    if review_source == 'user' and user_quality_rating is None:
+        if issue not in SCENE_ISSUES or automated_qa_score is not None:
+            raise MemoryUnavailable('scene_issue')
+        rating, score = None, None
+    else:
+        rating, score = _review_values(review_source, user_quality_rating, automated_qa_score)
+        if issue and issue not in SCENE_ISSUES:
+            raise MemoryUnavailable('scene_issue')
     from .experience_embeddings import content_hash
     spec = _embed(f'{layout}\n{treatment}\n{comments}\n{fixes}')
     literal, model, revision, dim = _vector(spec)
@@ -616,16 +710,83 @@ def add_scene_feedback(*, project_id: str, generation_id: str, scene_index: int,
         ).fetchone()
         if not owned:
             raise MemoryUnavailable('generation_not_found')
+        stored_assets = [str(asset_id) for asset_id in (asset_ids or []) if asset_id][:12]
+        stamp = None if timestamp_seconds is None else float(timestamp_seconds)
         db.execute(
             '''INSERT INTO scene_feedback
                (id, project_id, generation_id, scene_index, layout, treatment, review_source, user_quality_rating, automated_qa_score,
-                comments, defects, fixes, content_hash, embedding, embedding_model, model_version, vector_dimension, created)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?, ?, ?::public.vector, ?,?,?,?)''',
+                comments, defects, fixes, content_hash, embedding, embedding_model, model_version, vector_dimension, created,
+                scene_id, timestamp_seconds, asset_ids, issue_category)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?, ?, ?::public.vector, ?,?,?,?, ?,?,?,?)''',
             (row_id, project_id, generation_id, scene_index, layout or None, treatment or None, review_source,
              rating, score, comments, json.dumps(list(defects or []), ensure_ascii=False), fixes,
-             content_hash(comments or treatment or layout or row_id), literal, model, revision, dim, time.time()),
+             content_hash(comments or treatment or layout or issue or row_id), literal, model, revision, dim, time.time(),
+             (scene_id or '')[:80] or None, stamp,
+             json.dumps(stored_assets, ensure_ascii=False), issue or None),
         )
     return row_id
+
+
+def list_generations(project_id: str) -> list[dict]:
+    with connect() as db:
+        if not db.postgres:
+            return []
+        _prepare(db)
+        try:
+            rows = db.execute(
+                '''SELECT id, created, director_version FROM generation_history
+                   WHERE project_id=? ORDER BY created DESC LIMIT 20''',
+                (project_id,),
+            ).fetchall()
+        except Exception:
+            return []
+    return [
+        {'id': row['id'], 'created': row['created'], 'directorVersion': row['director_version']}
+        for row in rows
+    ]
+
+
+def asset_relevance_penalties(*, force: bool = False) -> dict[str, float]:
+    """Penalize an asset only after irrelevant_media on two different generations.
+
+    A low video score, a caption miss, or one bad scene does not move the asset.
+    """
+    now = time.time()
+    if not force and now - _penalty_cache[0] < 60:
+        return dict(_penalty_cache[1])
+    counts: dict[str, set[str]] = {}
+    try:
+        with connect() as db:
+            if not db.postgres:
+                return {}
+            _prepare(db)
+            for row in db.execute(
+                '''SELECT generation_id, asset_ids FROM scene_feedback
+                   WHERE review_source='user' AND issue_category=?''',
+                (_ASSET_FAILURE,),
+            ).fetchall():
+                try:
+                    ids = json.loads(row['asset_ids'] or '[]')
+                except json.JSONDecodeError:
+                    ids = []
+                generation = row['generation_id'] or ''
+                for asset_id in ids:
+                    if isinstance(asset_id, str) and asset_id and generation:
+                        counts.setdefault(asset_id, set()).add(generation)
+            for row in db.execute(
+                '''SELECT generation_id, asset_id FROM asset_feedback
+                   WHERE review_source='user' AND issue_category=?''',
+                (_ASSET_FAILURE,),
+            ).fetchall():
+                generation = row['generation_id'] or ''
+                if row['asset_id'] and generation:
+                    counts.setdefault(row['asset_id'], set()).add(generation)
+    except Exception:
+        return {}
+    result = {asset_id: 0.35 for asset_id, generations in counts.items() if len(generations) >= 2}
+    _penalty_cache[0] = now
+    _penalty_cache[1] = result
+    return dict(result)
 
 
 def store_asset_embedding(*, asset_id: str, modality: str, spec: dict, project_id: str | None = None, scope: str = 'library', locale: str = '') -> str:
@@ -753,14 +914,15 @@ def bounded_context(project_id: str, query: str, domain: str = '', query_embeddi
     with connect() as db:
         _prepare(db)
         sources = (
+            ('scene_feedback', "coalesce(treatment,'') || ' ' || coalesce(comments,'') || ' ' || coalesce(fixes,'')",
+             'AND review_source=\'user\' AND user_quality_rating >= 8', 'successful_scene'),
+            ('scene_feedback', "coalesce(treatment,'') || ' ' || coalesce(comments,'') || ' ' || coalesce(issue_category,'')",
+             'AND review_source=\'user\' AND (user_quality_rating <= 3 OR (user_quality_rating IS NULL AND issue_category IS NOT NULL))',
+             'failed_scene'),
+            ('incidents', "summary || ' ' || defect || ' ' || resolution", '', 'incidents'),
             ('engineering_memory', "title || ' ' || body", '', 'engineering_memory'),
             ('architecture_decisions', "title || ' ' || body", "AND status='active'", 'architecture_decisions'),
-            ('incidents', "summary || ' ' || defect || ' ' || resolution", '', 'incidents'),
             ('generation_history', "concepts || ' ' || motion_treatments", '', 'generation_history'),
-            ('scene_feedback', "coalesce(treatment,'') || ' ' || coalesce(comments,'') || ' ' || coalesce(fixes,'')",
-             'AND review_source=\'user\' AND user_quality_rating >= 4', 'successful_scene'),
-            ('scene_feedback', "coalesce(treatment,'') || ' ' || coalesce(comments,'') || ' ' || coalesce(defects,'')",
-             'AND review_source=\'user\' AND user_quality_rating <= 2', 'failed_scene'),
         )
         for table, label, extra, kind in sources:
             clause = extra
@@ -769,13 +931,35 @@ def bounded_context(project_id: str, query: str, domain: str = '', query_embeddi
                 clause = f'{extra} {domain_sql}'
                 params = domain_params
             for row in _nearest(db, table, label, project_id, literal, clause, params):
+                score = float(row['score'])
+                if kind in ('successful_scene', 'failed_scene') and score < 0.30:
+                    continue
                 items.append({
                     'kind': kind,
                     'id': row['id'],
-                    'score': round(float(row['score']), 4),
+                    'score': round(score, 4),
                     'summary': str(row['label'] or '')[:MAX_SUMMARY],
                     'untrusted': True,
+                    'verified': kind in ('successful_scene', 'failed_scene'),
                 })
+        try:
+            for row in db.execute(
+                '''SELECT id, user_quality_rating, review_comments
+                   FROM generation_reviews
+                   WHERE project_id=? AND review_source='user'
+                   ORDER BY created DESC LIMIT 3''',
+                (project_id,),
+            ).fetchall():
+                items.append({
+                    'kind': 'user_review',
+                    'id': row['id'],
+                    'score': 1.0,
+                    'summary': f"rating {row['user_quality_rating']}/10 {row['review_comments'] or ''}"[:MAX_SUMMARY],
+                    'untrusted': True,
+                    'verified': True,
+                })
+        except Exception:
+            pass
         from .experience_embeddings import IMAGE_MODEL_ID, TEXT_MODEL_ID
         text_model = settings.experience_text_model or TEXT_MODEL_ID
         image_model = settings.experience_image_model or IMAGE_MODEL_ID
@@ -800,7 +984,7 @@ def bounded_context(project_id: str, query: str, domain: str = '', query_embeddi
                 'summary': f"{row['asset_id']} ({row['modality']})",
                 'untrusted': True,
             })
-    items.sort(key=lambda item: item['score'], reverse=True)
+    items.sort(key=lambda item: (1 if item.get('verified') else 0, item['score']), reverse=True)
     selected = []
     encoded = json.dumps(base, ensure_ascii=False)
     for item in items:
