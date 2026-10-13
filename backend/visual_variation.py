@@ -53,7 +53,8 @@ PROFILE_WEIGHTS = {
 
 SCENES = (
     {'id': 'hook', 'intent': 'hook', 'kind': 'speaker', 'base': 'high', 'representation': 'presenter'},
-    # Residency beat: prefer lived situations (family/home/arrival) over decorative docs.
+    # Internal beat id. Not a semantic label. Investment speech replaces these
+    # default queries in director_v11 before media selection.
     {'id': 'residency', 'intent': 'document', 'kind': 'speaker_object', 'base': 'medium',
      'role': 'hero', 'representation': 'photo+presenter', 'query': (
         'family home doorway relocation',
@@ -169,7 +170,7 @@ def _intensity(base, energy):
     return order[min(cap, max(floor, index))]
 
 
-def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8, preferred_scene_role='explanation'):
+def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8, preferred_scene_role='explanation', locale=None):
     import sys
     # Search module lives next to the real library package, not next to a
     # monkeypatched LIBRARY path used in tests.
@@ -186,6 +187,7 @@ def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8, pr
         path=LIBRARY / 'manifest.json',
         recent_ids=recent,
         exclude_ids=blocked,
+        locale=locale,
     ):
         if asset.get('id') in blocked:
             continue
@@ -250,15 +252,15 @@ def _choose_asset(rng, found, recent=(), used_concepts=(), used_prefixes=()):
     return rng.choice(band)
 
 
-def _background(rng, scene, exclude, recent=(), used_concepts=(), used_prefixes=()):
+def _background(rng, scene, exclude, recent=(), used_concepts=(), used_prefixes=(), locale=None):
     if not scene.get('query'):
         return None, None
     options = scene['query']
     query = _pick(rng, options) if isinstance(options, (list, tuple)) else options
     role = scene.get('role') or 'explanation'
-    found = _candidates(query, exclude, recent, preferred_scene_role=role)
+    found = _candidates(query, exclude, recent, preferred_scene_role=role, locale=locale)
     if not found and role != 'explanation':
-        found = _candidates(query, exclude, recent, preferred_scene_role='explanation')
+        found = _candidates(query, exclude, recent, preferred_scene_role='explanation', locale=locale)
     if not found:
         return None, query
     return _choose_asset(rng, found, recent, used_concepts, used_prefixes), query
@@ -342,7 +344,7 @@ def recent_asset_ids(data_dir, limit=12):
     return seen
 
 
-def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
+def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=(), language=None):
     """One coherent plan. The same seed and energy always return the same choices."""
     if energy not in ENERGY:
         raise ValueError('visual_energy')
@@ -364,6 +366,7 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
         if scene.get('query'):
             asset, chosen_query = _background(
                 rng, scene, used_assets, recent_ids, used_concepts, used_prefixes,
+                locale=language,
             )
         else:
             asset, chosen_query = None, None
@@ -473,6 +476,7 @@ def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=()):
         'visualEnergy': energy,
         'motionIntensity': ENERGY[energy],
         'scenes': scenes,
+        **({'language': language} if language else {}),
     }
 
 
@@ -539,7 +543,7 @@ def plan_for_request(data_dir, project_id, variation, energy, language=None, edi
         plan['language'] = language
     else:
         seed = new_seed()
-        plan = resolve_plan(seed, energy, variation, recent_asset_ids(data_dir))
+        plan = resolve_plan(seed, energy, variation, recent_asset_ids(data_dir), language=language)
         plan['generationId'] = f"gen_{seed}"
         if language:
             plan['language'] = language

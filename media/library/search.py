@@ -76,6 +76,21 @@ _QUERY_ALIASES = (
     ("проверка документов", "document review"),
     ("на столе", "desk"),
     ("заявление на внж", "residency application residence permit"),
+    # Cinematic Env Factory V6 — environmental cinema (not V5 abstract plates)
+    ("premium business meeting background", "premium business meeting office cinematic background"),
+    ("премиальный фон деловой встречи", "premium business meeting office cinematic background"),
+    ("高端商务会议背景", "premium business meeting office cinematic background"),
+    ("modern condominium interior", "premium condominium apartment interior cinematic background"),
+    ("современный интерьер кондоминиума", "premium condominium apartment interior cinematic background"),
+    ("现代公寓室内", "premium condominium apartment interior cinematic background"),
+    ("financial district skyline", "premium financial district skyline city cinematic background"),
+    ("скайлайн финансового района", "premium financial district skyline city cinematic background"),
+    ("金融区天际线", "premium financial district skyline city cinematic background"),
+    ("киноматографичный фон", "cinematic environment background"),
+    ("电影环境背景", "cinematic environment background"),
+    ("деловая встреча инвесторов", "business investment meeting investors"),
+    ("投资者商务会议", "business investment meeting investors"),
+    ("business investment meeting", "business investment meeting investors"),
 )
 
 
@@ -91,7 +106,9 @@ def normalize_query(text):
         from media.library.concept_triggers import expand_query as _expand_concept
     # Case-fold Latin/Cyrillic so «ВНЖ» still hits the «внж» phrase.
     folded = query.casefold()
-    for source, english in list(PHRASES) + list(_QUERY_ALIASES):
+    pairs = list(PHRASES) + list(_QUERY_ALIASES)
+    pairs.sort(key=lambda item: len(item[0]), reverse=True)
+    for source, english in pairs:
         needle = source.casefold()
         start = 0
         while True:
@@ -146,10 +163,34 @@ def _query_words(query):
     return list(dict.fromkeys(words))
 
 
+def _overlay_path():
+    return Path(__file__).resolve().parent / "localized_overlay.json"
+
+
 def load(path=None):
     file = Path(path) if path else MANIFEST
     data = json.loads(file.read_text())
-    return data["assets"] if isinstance(data, dict) else data
+    assets = data["assets"] if isinstance(data, dict) else data
+    overlay_file = _overlay_path()
+    if not overlay_file.is_file():
+        return assets
+    overlay = json.loads(overlay_file.read_text())
+    rows = overlay.get("assets") if isinstance(overlay, dict) else overlay
+    by_id = {row.get("id"): row for row in rows or [] if row.get("id")}
+    if not by_id:
+        return assets
+    merged = []
+    for asset in assets:
+        extra = by_id.get(asset.get("id"))
+        if not extra:
+            merged.append(asset)
+            continue
+        row = dict(asset)
+        for key in ("tags_ru", "tags_zh", "localized", "conceptId"):
+            if extra.get(key) and not row.get(key):
+                row[key] = extra[key]
+        merged.append(row)
+    return merged
 
 
 def _joined(value):
@@ -231,12 +272,30 @@ def _query_mode(words):
     return "contextual"
 
 
-def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy, preferred_composition=None, recent_ids=(), allow_empty=False):
+def _locale_blob(asset, locale):
+    loc = asset.get("localized") or {}
+    block = loc.get(locale) or {}
+    parts = [
+        block.get("title") or "",
+        block.get("description") or "",
+        " ".join(block.get("terms") or []),
+    ]
+    if str(locale).startswith("ru"):
+        parts.append(_joined(asset.get("tags_ru")))
+    elif str(locale).startswith("zh"):
+        parts.append(_joined(asset.get("tags_zh")))
+    return _tokens(" ".join(parts))
+
+
+def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy, preferred_composition=None, recent_ids=(), allow_empty=False, locale=None):
     hay = _hay(asset)
     overlap = sum(1 for word in words if word in hay)
     if overlap == 0 and not allow_empty:
         return None
     score = overlap * 2 + (asset.get("qualityScore") or 0)
+    if locale:
+        local = _locale_blob(asset, locale)
+        score += 1.4 * sum(1 for word in words if word in local)
     family = asset.get("visualFamily") or ""
     category = asset.get("category") or ""
     mode = _query_mode(words)
@@ -246,6 +305,9 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
         score += 2.1
     if asset.get("kind") == "3d_motion":
         score += 0.8
+    elif family == "cinematic_environment":
+        # V6 photoreal env stills/I2V — preferred for real-world background queries.
+        score += 1.35
     elif family == "deterministic_motion":
         score += 0.45
     elif family == "generative_motion":
@@ -254,12 +316,27 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
         score += 0.25
     elif category == "icons":
         score -= 0.25
+    # V5 abstract Remotion plates must not win environmental / photographic BG asks.
+    env_ask = bool(set(words) & {
+        "background", "skyline", "office", "meeting", "condo", "condominium",
+        "apartment", "city", "district", "cinematic", "environment", "boardroom",
+        "lobby", "interior", "фон", "背景",
+    })
+    if env_ask and (asset.get("batch") or "") == "premium-media-factory-v5-batch1":
+        if str(asset.get("id") or "").startswith("pmv5_bg_"):
+            score -= 4.0
+    if env_ask and family == "cinematic_environment":
+        score += 2.0
+        if (asset.get("type") or "") == "video":
+            score += 0.8
     matched_scene = [word for word in words if word in _SCENE and word in hay]
     decorative = category == "decorative" or asset_mode == "decorative"
     asks_mark = any(word in words for word in ("arrow", "mark", "overlay", "transition", "wipe"))
     if matched_scene:
         if family == "photography":
             score += 2.4
+        elif family == "cinematic_environment":
+            score += 2.6
         elif family == "generative_motion":
             score += 2.1
         elif family == "editorial_object":
@@ -283,12 +360,16 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
     score += 1.1 * len(set(words) & rels)
     if mode == "situational" and family == "photography":
         score += 1.5
+    if mode == "situational" and family == "cinematic_environment":
+        score += 1.7
     if mode == "literal" and family == "editorial_object":
         score += 1.2
     if mode in ("literal", "conceptual") and family == "premium_3d":
         score += 1.4
     if preferred_scene_role in ("foreground_object", "semantic_object") and family == "premium_3d":
         score += 1.8
+    if preferred_scene_role == "background" and family == "cinematic_environment":
+        score += 1.6
     if mode == "situational" and decorative:
         score -= 2.5
     if mode == "literal" and decorative and not asks_mark:
@@ -305,11 +386,12 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
     if preferred_composition and asset.get("composition") == preferred_composition:
         score += 1.6
     if asset.get("id") in set(recent_ids or ()):
-        score -= 2.2
+        score -= 4.5
     # Curated editorial people plates beat anonymous RunPod stills when both match.
     if (asset.get("id") or "").startswith("people_") and family == "photography":
         score += 0.7
-    if asset.get("source") == "runpod" and mode == "situational":
+    # V6 cinematic env masters are intentional runpod photography/I2V — do not penalize.
+    if asset.get("source") == "runpod" and mode == "situational" and family != "cinematic_environment":
         score -= 0.35
     return score
 
@@ -317,7 +399,7 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
 # Manifest status values hidden from default search (cleanup V1). Ids preserved.
 _HIDDEN_STATUS = frozenset({"quarantined", "rejected", "duplicate", "corrupt"})
 # Not auto-retrieved until reviewed; ids stay in the manifest.
-_HOLD_STATUS = frozenset({"needs_review", "unreviewed", "restricted"})
+_HOLD_STATUS = frozenset({"needs_review", "unreviewed", "restricted", "planned"})
 # Quality tiers that must not win auto ranking (cleanup classify).
 _BLOCKED_QUALITY = frozenset({"LOW", "LEGACY", "UNCERTAIN", "CORRUPT"})
 _MIN_QUALITY_SCORE = 0.35
@@ -400,7 +482,7 @@ def search_assets(
     role = preferred_scene_role or scene_role
     safe = text_safe or text_position
     found = []
-    del locale
+    stage = []
     for asset in load(path):
         if asset.get("id") in skipped:
             continue
@@ -419,12 +501,31 @@ def search_assets(
         if domain and not _same_domain(asset, domain):
             continue
         bonus = float(bonuses.get(asset.get("id")) or 0)
+        if intelligence:
+            # Stage 1: keyword score, or a vector candidate when the keyword missed.
+            # Cosine is not added here. Stage 2 reranks the pool.
+            if not words:
+                stage.append((asset.get("qualityScore") or 0, True, asset))
+                continue
+            score = _rank_score(
+                asset, words, safe, role, preferred_energy,
+                preferred_composition or composition, recent_ids, locale=locale,
+            )
+            if score is None:
+                if bonus < 0.36:
+                    continue
+                stage.append((0.0, False, asset))
+                continue
+            if composition and asset.get("composition") == composition:
+                score += 1.2
+            stage.append((score, True, asset))
+            continue
         if not words:
             score = (asset.get("qualityScore") or 0) + bonus * 3
         else:
             score = _rank_score(
                 asset, words, safe, role, preferred_energy,
-                preferred_composition or composition, recent_ids,
+                preferred_composition or composition, recent_ids, locale=locale,
             )
             if score is None:
                 if bonus < _VECTOR_ONLY_MIN:
@@ -432,7 +533,7 @@ def search_assets(
                 score = _rank_score(
                     asset, words, safe, role, preferred_energy,
                     preferred_composition or composition, recent_ids,
-                    allow_empty=True,
+                    allow_empty=True, locale=locale,
                 )
                 if score is None:
                     continue
@@ -442,5 +543,22 @@ def search_assets(
             if composition and asset.get("composition") == composition:
                 score += 1.2
         found.append((score, asset.get("qualityScore") or 0, asset))
+    if intelligence:
+        stage.sort(key=lambda item: item[0], reverse=True)
+        lexical = [item for item in stage if item[1]][:24]
+        vector_only = [item for item in stage if not item[1]]
+        vector_only.sort(key=lambda item: float(bonuses.get(item[2].get("id")) or 0), reverse=True)
+        pool = lexical + vector_only[: max(0, 28 - len(lexical))]
+        penalties = {}
+        try:
+            from backend.experience_memory import asset_relevance_penalties
+            penalties = asset_relevance_penalties()
+        except Exception:
+            penalties = {}
+        try:
+            from media.library.rerank import rerank_candidates
+        except ImportError:
+            from rerank import rerank_candidates
+        return rerank_candidates(pool, words=words, bonuses=bonuses, limit=limit, penalties=penalties)
     found.sort(key=lambda item: (item[0], item[1]), reverse=True)
     return [asset for _, _, asset in found[:limit]]

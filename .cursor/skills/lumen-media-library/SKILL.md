@@ -7,17 +7,18 @@ description: >-
 
 # Media library
 
-- Search: `media/library/search.py` (additive changes only) — includes `tags_ru` / `tags_zh`
+- Search: `media/library/search.py` (additive changes only) — includes `tags_ru` / `tags_zh` and `locale`. Overlay: `localized_overlay.json`. Every approved asset must be discoverable in en-US / ru-RU / zh-CN. Do not duplicate files per language.
 - Concepts: `concepts.py`, `concept_triggers.py`
 - Manifest: `media/library/out/manifest.json` or DO `app-library` (authoritative on volume)
 - Premium motion V4: `motion/premium/pm_*.webm`, recipes `recipes/premium-motion-v4-calibration.json`, report `reports/PREMIUM_MOTION_LIBRARY_V4.md`
-- Premium Media Factory V5 batch1: `recipes/premium-media-factory-v5-batch1.json`, `scripts/index_premium_media_v5_batch1.py`, contact `media/library/out/contact-sheets/premium-media-v5-batch1.html`, report `reports/LUMEN_PREMIUM_MEDIA_FACTORY_V5.md`. GPU: `reports/PREMIUM_GPU_SELECTION.md` — do not resume EXITED pods without spend auth.
+- Premium Media Factory V5 batch1: `recipes/premium-media-factory-v5-batch1.json`, `scripts/index_premium_media_v5_batch1.py`, contact `media/library/out/contact-sheets/premium-media-v5-batch1.html`, report `reports/LUMEN_PREMIUM_MEDIA_FACTORY_V5.md`. GPU: `reports/PREMIUM_GPU_SELECTION.md` — do not resume EXITED pods without spend auth. **V5 `pmv5_bg_*` abstract plates are NOT environmental cinema** — keep files, do not promote as real-world backgrounds.
+- **Cinematic Env Factory V6 batch1:** photoreal env stills + SVD I2V clips — plans `media/library/plans/cinematic-env-v6-*.jsonl`, recipe `recipes/cinematic-env-factory-v6-batch1.json`, indexer `scripts/index_cinematic_env_v6_batch1.py`, pod runner `scripts/run_cinematic_env_v6_on_pod.sh`, family `cinematic_environment`, storage `motion/cinematic-env-v6/{stills,clips}/`, reports `reports/CINEMATIC_ENV_FACTORY_V6*.md`. GPU: resume only `dznvwn90el5au4`. No OpenRouter image APIs.
 - Prefer `search_assets` over hardcoded filenames
 - Fields: `qualityScore`, `sceneRoles`, `textSafeAreas`, `visualFamily`, `conceptId`, `tags_ru`, `tags_zh`
 - Quarantine before delete (ADR-008). Do not wipe approved media.
 - Alpha: VP9 `yuva420p` only; never claim H.264 has alpha.
 - Premium 3D V1: `motion/premium3d/`, `models/premium3d/`, factory `media/library/3d_factory/`, index via `index_3d_assets.py --publish-binaries`. Family `premium_3d`.
-- Experience embeddings: text (`tags` / `tags_ru` / `tags_zh`) via multilingual CLIP text model; images and video keyframes via CLIP vision, with `frame_seconds` on video rows. Stored in PostgreSQL `asset_embeddings` (view `media_embeddings`), not in the manifest file. `scripts/index_experience_assets.py --approved`. Hybrid rank is `VISUAL_INTELLIGENCE_ENABLED` (default off) and still applies the quality gate.
+- Experience embeddings: text (`tags` / `tags_ru` / `tags_zh`) via multilingual CLIP text model; images and video keyframes via CLIP vision, with `frame_seconds` on video rows. Stored in PostgreSQL `asset_embeddings` (view `media_embeddings`), not in the manifest file. `scripts/index_experience_assets.py --approved`. `VISUAL_INTELLIGENCE_ENABLED` (default off) runs keyword retrieval, then `media/library/rerank.py`. Cosine does not outrank a keyword hit. Reviewed intents: `media/library/relevance/intents_v2.json`. Do not treat tag overlap as ground truth.
 
 Implemented selection gates (2026-10-11):
 - Default search skips `quarantined` / `rejected` / `duplicate` / `corrupt` and holds `needs_review` / `unreviewed` / `restricted`.

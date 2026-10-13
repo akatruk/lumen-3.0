@@ -17,7 +17,7 @@ Locales: `ru-RU`, `en-US`, `zh-CN`.
   VO + all visible text; timing from target VO; cache under
   `data/<pid>/localization/<locale>/`.
 - EN/RU: never split words; ZH: CJK wrap without spaces
-- Library queries expand to English tags; binaries stay language-neutral
+- Library queries expand to English tags; binaries stay language-neutral. One asset id. `media/library/localize.py` + `localized_overlay.json`. `search_assets(..., locale=)` ranks `tags_ru` / `tags_zh` / `localized`. Do not enable hybrid search while zh-CN Precision@5 is below keyword. New approvals: `media/library/ingest.register_approved`.
 - Remotion captions (V5/V6/V11.1): transcript → `backend/caption_phrases.py` (EN ~3–8 words, no dangling `at`/`of`; RU 3–7; ZH CJK). No cross-pause merges (&gt;0.35s). Prefer `visualPlan.captions`; pack strings are legacy fallback only. Dubbed: target alignment → `captionSource=target_alignment`.
 - V6: `locale_consistency` rejects wrong-script fields; do not fall back EN→RU. Cards/headlines must match `project.language`.
 - V11.1 factual cards: localized titles (`≥3 Shareholders` / `≥3 акционеров` / `≥3名股东`) keep the **same numeral** across locales.
