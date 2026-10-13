@@ -8,6 +8,7 @@
 - Captions (V5/V6): **transcript-driven** — `backend/caption_phrases.py` groups source / target-aligned speech; Remotion reads `visualPlan.captions`. Caption-pack strings are legacy fallback only. Hypit path still uses ASS from studio plan.
 - **V6 locale gate:** `backend/locale_consistency.py` — captions/cards/headlines must match `project.language` script; mismatched captions are dropped (never silent EN+RU mix).
 - Library search expands RU/ZH phrases to English tags
+- **V14 motion labels** are props (`locale` + localized strings), one component for ru-RU / en-US / zh-CN. `AutoFitText` keeps EN/RU words whole and wraps CJK. No per-language component copies and no text baked into PNG.
 
 ## Rules
 

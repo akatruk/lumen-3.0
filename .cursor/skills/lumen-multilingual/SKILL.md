@@ -22,3 +22,4 @@ Locales: `ru-RU`, `en-US`, `zh-CN`.
 - V6: `locale_consistency` rejects wrong-script fields; do not fall back EN→RU. Cards/headlines must match `project.language`.
 - V11.1 factual cards: localized titles (`≥3 Shareholders` / `≥3 акционеров` / `≥3名股东`) keep the **same numeral** across locales.
 - V11.2: investment steps are Capital/Structure/Control (RU/ZH equivalents) — never numbered “Shareholders/Акционеры/股东” (reads as headcount). CleanSteps `Step N` / `Шаг N` / `步骤 N` is separate from the label.
+- V14 semantic motion: one Remotion component, localized label props for ru-RU / en-US / zh-CN. Numerals stay identical. Do not bake labels into assets.

@@ -11,6 +11,8 @@ import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
 import { PORTRAIT, criteriaCardsFor, pipRect, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
 import { sceneThemeFromPlate } from "../utils/adaptiveLineStyle";
 import { BusinessMotion, type BusinessMotionPayload } from "./BusinessMotion";
+import { SemanticMotion } from "../semantic/SemanticMotion";
+import type { SemanticMotionPayload } from "../semantic/types";
 import type { BackgroundPlateTreatment } from "../cinematic/BackgroundPlate";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
@@ -89,6 +91,8 @@ export type SceneLook = {
   captionRegion?: string;
   /** V11.1 evidence-backed business semantic motion (Remotion deterministic). */
   businessMotion?: BusinessMotionPayload | null;
+  /** V14 semantic diagram. Present only when SEMANTIC_MOTION_V14_ENABLED stamped the plan. */
+  semanticMotionV14?: SemanticMotionPayload | null;
 };
 
 export type EditingControls = {
@@ -334,6 +338,75 @@ function FloatingForeground({
   );
 }
 
+function V14Stage({
+  file,
+  from,
+  frames,
+  look,
+}: {
+  file: string;
+  from: number;
+  frames: number;
+  look: SceneLook;
+}) {
+  const layout = look.semanticMotionV14?.layout || "overlay";
+  if (layout === "speaker_visual") {
+    const mediaSide = look.semanticMotionV14?.mediaSide === "right" ? "right" : "left";
+    const speakerSide = mediaSide === "left" ? "right" : "left";
+    const box = splitSpeakerRect(speakerSide);
+    return (
+      <Enter transition={look.transition}>
+        <AbsoluteFill style={{ background: theme.color.bg }}>
+          <div
+            style={{
+              position: "absolute",
+              left: box.left,
+              top: box.top,
+              width: box.width,
+              height: box.height,
+              borderRadius: PORTRAIT.radius,
+              overflow: "hidden",
+            }}
+          >
+            <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.08} />
+          </div>
+        </AbsoluteFill>
+      </Enter>
+    );
+  }
+  if (layout === "full_frame") {
+    const pip = pipRect();
+    return (
+      <Enter transition={look.transition}>
+        <AbsoluteFill style={{ background: "#0F1720" }}>
+          <div
+            style={{
+              position: "absolute",
+              right: pip.right,
+              bottom: pip.bottom,
+              width: pip.width,
+              height: pip.height,
+              borderRadius: PORTRAIT.radius,
+              overflow: "hidden",
+              border: `1px solid ${theme.color.line}`,
+            }}
+          >
+            <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.12} />
+          </div>
+        </AbsoluteFill>
+      </Enter>
+    );
+  }
+  return (
+    <Enter transition={look.transition}>
+      <AbsoluteFill>
+        <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.04} />
+        <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+      </AbsoluteFill>
+    </Enter>
+  );
+}
+
 function SceneRouter({
   look,
   file,
@@ -359,8 +432,11 @@ function SceneRouter({
       ? null
       : look.semanticMotion?.staged || null;
   const suppressHeadline = Boolean(look.composition?.suppressHeadline);
+  const v14 = look.semanticMotionV14?.componentId ? look.semanticMotionV14 : null;
   let body: ReactNode = null;
-  if (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one") {
+  if (v14) {
+    body = <V14Stage file={file} from={from} frames={frames} look={look} />;
+  } else if (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one") {
     body = <Beside file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (sid === "steps" || look.stepsTitle || look.typography?.stepsTitle) {
     // V9: speaker-led progressive steps — no full-screen black card stack.
@@ -402,6 +478,7 @@ function SceneRouter({
   const business = look.businessMotion;
   // Beside progressive cards already carry the claim — skip overlapping diagram.
   const showBusiness =
+    !v14 &&
     Boolean(business?.component) &&
     !(sid === "beside" && (look.typography?.cards?.length || look.criteriaCards?.length));
   // V11.2: when BusinessMotion owns the beat, skip decorative float (avoids face/hair pile-up).
@@ -409,6 +486,15 @@ function SceneRouter({
   return (
     <AbsoluteFill>
       {body}
+      {v14 ? (
+        <SemanticMotion
+          payload={{
+            ...v14,
+            sceneTheme: v14.sceneTheme || sceneThemeFromPlate(plate) || "photo",
+          }}
+          frames={frames}
+        />
+      ) : null}
       {showBusiness && business ? (
         <BusinessMotion
           motion={{

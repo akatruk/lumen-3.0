@@ -1,0 +1,37 @@
+{
+  "version": "v14.1",
+  "flag": "SEMANTIC_MOTION_V14_ENABLED",
+  "default": "0",
+  "recipes": [
+    {
+      "id": "capital_flow_explainer",
+      "componentId": "motion.capital_flow.v1",
+      "layers": ["speaker", "cinematic_background", "motion.capital_flow.v1", "captions"],
+      "layouts": ["full_frame", "speaker_visual", "overlay"]
+    },
+    {
+      "id": "shareholder_structure_explainer",
+      "componentId": "motion.shareholder_network.v1",
+      "layers": ["speaker", "cinematic_background", "motion.shareholder_network.v1", "captions"],
+      "layouts": ["full_frame", "speaker_visual", "overlay"]
+    },
+    {
+      "id": "business_comparison_explainer",
+      "componentId": "motion.business_comparison.v1",
+      "layers": ["speaker", "cinematic_background", "motion.business_comparison.v1", "captions"],
+      "layouts": ["full_frame", "speaker_visual", "overlay"]
+    },
+    {
+      "id": "ownership_split_explainer",
+      "componentId": "motion.ownership_split.v1",
+      "layers": ["speaker", "cinematic_background", "motion.ownership_split.v1", "captions"],
+      "layouts": ["full_frame", "speaker_visual", "overlay"]
+    },
+    {
+      "id": "process_timeline_explainer",
+      "componentId": "motion.process_timeline.v1",
+      "layers": ["speaker", "cinematic_background", "motion.process_timeline.v1", "captions"],
+      "layouts": ["full_frame", "speaker_visual", "overlay"]
+    }
+  ]
+}

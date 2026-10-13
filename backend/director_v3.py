@@ -258,6 +258,10 @@ def run_job(p, payload):
         )
         visual_plan = director_v9.apply_composition_intelligence(visual_plan)
         visual_plan = director_v10.apply_premium_3d(visual_plan, seed=visual_plan.get('visualSeed'))
+        from . import director_v14
+        visual_plan = director_v14.apply_semantic_motion(
+            visual_plan, transcript_early, locale=locale,
+        )
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path
@@ -330,6 +334,11 @@ def run_job(p, payload):
         'manual_transcript': [],
     }
     update(p['id'], result=result, status='complete', stage='complete', progress=100, error=None)
+    try:
+        from .render_retention import prune_pictures
+        prune_pictures(p['id'], render_id)
+    except Exception:
+        log.exception('render retention failed for %s', p['id'])
     event(p['id'], 'render_complete', json.dumps({
         'applied': ['director_v3'],
         'quality': 'unavailable',

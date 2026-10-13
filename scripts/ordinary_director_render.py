@@ -129,6 +129,8 @@ def main():
         plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
         plan = director_v9.apply_composition_intelligence(plan)
         plan = director_v10.apply_premium_3d(plan, seed=plan.get('visualSeed'))
+        from backend import director_v14
+        plan = director_v14.apply_semantic_motion(plan, transcript, locale=args.language)
     store_plan(settings.data_dir, args.project_id, plan)
 
     speaker = director_v3.speaker_for(seconds, dest_source)

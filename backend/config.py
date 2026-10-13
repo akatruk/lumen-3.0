@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     # Hybrid media retrieval + Director experience. Default off. Does not
     # replace keyword search until this process sets it to 1.
     visual_intelligence_enabled: bool = False
+    # Premium semantic motion V14. Default off — V11.2 path stays the production picture.
+    semantic_motion_v14_enabled: bool = False
     # Empty uses the media volume when mounted, otherwise data/embedding-models.
     experience_embedding_cache: str = ''
     experience_text_model: str = 'sentence-transformers/clip-ViT-B-32-multilingual-v1'

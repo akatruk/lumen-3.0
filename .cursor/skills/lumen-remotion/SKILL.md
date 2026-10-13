@@ -25,6 +25,7 @@ Package: `motion/` — Remotion 4.x, canvas 1080×1920 @ 30fps.
 - V11.1: `DirectorV3` mounts `BusinessMotion` from `scene.businessMotion` (provenance-stamped). `BigFigure` renders only with spoken evidence — never default `2`. Captions: larger dark pill (min ~64px), phrase group 1–2 lines.
 - V11.2: `CleanSteps` uses `Step N` + label on separate lines (never `{n} Shareholders`). `BusinessMotion` respects `placement` / `shelfTop` / `faceSafe` (media column or below face band); transparent node fills; simultaneous node reveal when `showCount`. Caption plate opacity ~0.55.
 - Adaptive contrast: `motion/src/utils/adaptiveLineStyle.ts` + `ConnectorStroke` — analyze full connector path vs plate; outline/recolor gold on beige. Tests in `adaptiveLineStyle.test.ts`.
+- V14: `DirectorV3` mounts `SemanticMotion` from `scene.semanticMotionV14` and skips `BusinessMotion` on that beat. `resolveLayout` refuses face-band and caption overlap. Flag `SEMANTIC_MOTION_V14_ENABLED` default off.
 - Reuse `lumen-motion` for registry scenes; this skill covers engine integration.
 
 ## Check
