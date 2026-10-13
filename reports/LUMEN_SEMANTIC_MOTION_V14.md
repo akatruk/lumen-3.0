@@ -82,8 +82,10 @@ Inspected gallery frames and origin1 frames at 12s, 21s, 30s, 38s, 44s.
 
 ## Git
 
-Implementation commit: `51652cc7f4ca78aad9c4b7dafcefe34b055f17cf` on `feat/media-library-cleanup-v1`.
+Implementation commit: `51652cc7f4ca78aad9c4b7dafcefe34b055f17cf`. Report commit and branch tip: `49e902e1689b444bf85e5fd43bd95da3e1a4f2ef` on `feat/media-library-cleanup-v1`.
 
 ## Deployment
 
-Code deploys to lumen-fix (`142.93.248.163`, `/opt/lumen-rebuild`) with `SEMANTIC_MOTION_V14_ENABLED` left unset (default 0). `FAST_PROJECT_CREATION_ENABLED` stays 1. `VISUAL_INTELLIGENCE_ENABLED` and `VISUAL_EXPERIENCE_MEMORY_ENABLED` stay 0. strom-v2, RunPod, Postgres storage, and approved media binaries are not touched.
+Verified host `lumen-fix` at `142.93.248.163`, app `/opt/lumen-rebuild`. Code synced behind the flag. `DEPLOY_SHA.txt` is `49e902e1689b444bf85e5fd43bd95da3e1a4f2ef`. `lumen-web` and `lumen-worker` restarted and are active. `GET /api/health` returned `status=ok`, `fast_project_creation=true`, visual intelligence off, pgvector `0.6.0`.
+
+`SEMANTIC_MOTION_V14_ENABLED` is unset, so the setting stays `false`. `FAST_PROJECT_CREATION_ENABLED=1`. `VISUAL_INTELLIGENCE_ENABLED=0`. `VISUAL_EXPERIENCE_MEMORY_ENABLED=0`. strom-v2, RunPod, Postgres storage, source videos, and approved media binaries were not touched.
