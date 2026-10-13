@@ -68,8 +68,10 @@ https://lumen-fix.universalgravity.org/ opens the sign-in wall. No review was su
 
 ## Git
 
-Implementation commit recorded after commit on `feat/media-library-cleanup-v1`.
+Implementation commit: `483956fc2b9d1cfb6127a5f39bfc98026138aa26` on `feat/media-library-cleanup-v1`.
 
 ## Deployment
 
-Not deployed in this file yet. Do not set `MOTION_QUALITY_V17_ENABLED`. Do not insert synthetic reviews.
+Host `lumen-fix` (`142.93.248.163`, `/opt/lumen-rebuild`). `DEPLOY_SHA.txt` is `483956fc2b9d1cfb6127a5f39bfc98026138aa26`. Health: `status=ok`, `fast_project_creation=true`, visual intelligence off, pgvector `0.6.0`.
+
+`motion_quality_v17.enabled()` is `False`. `MOTION_QUALITY_V17_ENABLED` is unset. `index_components(embed=False)` wrote 45 description rows in 84.65 ms and embedded 0 vectors. `motion_experience` stays empty. User reviews stay 0. No synthetic reviews. strom-v2 and RunPod were not touched.
