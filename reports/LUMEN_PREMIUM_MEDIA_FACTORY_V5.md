@@ -99,4 +99,11 @@ Rejected from production auto-mount: plastic/flicker/text-in-image/bad-alpha; al
 
 ## Deploy / git
 
-Recorded after push in this report’s footer (SHA).
+| Item | Value |
+| --- | --- |
+| Git SHA | `bb1583d576848d8e7c7558cadc42757676d976d7` |
+| Branch | `feat/media-library-cleanup-v1` (pushed) |
+| Deploy host | `142.93.248.163` `/opt/lumen-rebuild` |
+| Health | `http://127.0.0.1:8018/api/health` → **200** |
+| Volume manifest | `/mnt/volume_nyc1_1791446889637/app-library/manifest.json` (692 assets, 23 pmv5) |
+| RunPod after deploy | both pods still **EXITED** |
