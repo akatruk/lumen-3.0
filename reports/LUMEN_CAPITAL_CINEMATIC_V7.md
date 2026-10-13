@@ -1,5 +1,7 @@
 # Capital & business cinematic factory V7
 
+Commit: `af80abcb68a5b83785bd98b9e919da0c721c17a7` on `feat/media-library-cleanup-v1`.
+
 Date: 2026-10-14. Host: `lumen-fix` `142.93.248.163` `/opt/lumen-rebuild`. Volume: `/mnt/volume_nyc1_1791446889637/app-library` (~80G free before the batch). Pinned pod only: `dznvwn90el5au4` / `lumen-hypit-4090` / RTX PRO 4500. `hufsgfs9f7gpga` left EXITED. strom-v2 not touched. No OpenRouter.
 
 ## Result
