@@ -12,6 +12,7 @@ from backend.database import connect
 from backend.db import init_db
 from backend.experience_memory import (
     PREAMBLE,
+    add_asset_feedback,
     add_decision,
     add_engineering_memory,
     add_incident,
@@ -58,8 +59,11 @@ def test_migration_is_idempotent_and_pgvector_visible():
     info = _ready()
     again = _ready()
     assert info['pgvector']
-    assert info['migration'] == '001_experience_memory'
-    assert again['migration'] == '001_experience_memory'
+    assert info['migration'] == '002_media_embeddings'
+    assert again['migration'] == '002_media_embeddings'
+    with connect() as db:
+        db.execute('SELECT frame_seconds, embedding_model FROM asset_embeddings LIMIT 0')
+        db.execute('SELECT asset_id, embedding_version, created_at, embedding FROM media_embeddings LIMIT 0')
     assert info['counts']['engineering_memory'] == 0
     with connect() as db:
         row = db.execute("SELECT extversion FROM pg_extension WHERE extname='vector'").fetchone()
@@ -280,3 +284,55 @@ def test_runpod_prompt_keeps_memory_advisory(monkeypatch):
     assert 'ADVISORY EXPERIENCE MEMORY' in captured['prompt']
     assert 'Do not override source transcript facts' in captured['prompt']
     assert 'Do not invent a shareholder count' in captured['prompt']
+
+
+def test_asset_feedback_keeps_human_and_automated_apart():
+    _ready()
+    project_id = 'asset_' + uuid.uuid4().hex
+    generation_id = 'gen_' + uuid.uuid4().hex
+    remember_generation(project_id=project_id, generation_id=generation_id, plan={
+        'visualSeed': 42,
+        'scenes': [{'sceneId': 'hook', 'query': 'family relocation', 'speaker': {'layout': 'speaker_fullscreen'}}],
+    })
+    user_id = add_asset_feedback(
+        project_id=project_id, asset_id='pm_family', review_source='user',
+        user_quality_rating=4, comments='matches the move', issue_category='relevance',
+        generation_id=generation_id,
+    )
+    with pytest.raises(Exception):
+        add_asset_feedback(
+            project_id=project_id, asset_id='pm_family', review_source='user',
+            user_quality_rating=4, automated_qa_score=90,
+        )
+    with connect() as db:
+        row = db.execute('SELECT * FROM asset_feedback WHERE id=?', (user_id,)).fetchone()
+        history = db.execute('SELECT visual_seed, model_config FROM generation_history WHERE id=?', (generation_id,)).fetchone()
+    assert row['user_quality_rating'] == 4
+    assert row['automated_qa_score'] is None
+    assert row['issue_category'] == 'relevance'
+    assert history['visual_seed'] == '42'
+    assert 'clip-ViT-B-32' in history['model_config']
+
+
+def test_director_context_skips_unapproved_3d(monkeypatch):
+    _ready()
+    from backend.experience_embeddings import content_hash
+    spec = {
+        'embedding': _axis(6),
+        'embedding_model': settings.experience_image_model,
+        'model_version': 'clip-vit-b-32',
+        'vector_dimension': 512,
+        'modality': 'image',
+        'content_hash': content_hash(b'experimental-3d'),
+    }
+    store_asset_embedding(asset_id='l3d_v2_passport', modality='image', spec=spec, scope='library')
+    project_id = 'gate_' + uuid.uuid4().hex
+    context = bounded_context(project_id, 'passport', query_embedding=_axis(6))
+    assert all(item.get('assetId') != 'l3d_v2_passport' for item in context['items'])
+    monkeypatch.setattr(settings, 'visual_experience_memory_enabled', False)
+    monkeypatch.setattr(settings, 'visual_intelligence_enabled', False)
+    assert context_for_transcript(project_id, [{'text': 'passport'}]) is None
+    monkeypatch.setattr(settings, 'visual_intelligence_enabled', True)
+    opened = context_for_transcript(project_id, [{'text': 'passport'}], domain='immigration')
+    assert opened is not None
+    assert opened['overridesSourceFacts'] is False

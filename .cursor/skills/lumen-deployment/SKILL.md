@@ -21,6 +21,6 @@ description: >-
 - **Never** deploy this tree to SSH `Host lumen` (188.166.244.242 / strom-v2)
 - Heuristic Director at generation (`LLM_PROVIDER=none`) is **local_baseline** — never report as AI-directed quality
 - **RunPod Director:** `LLM_PROVIDER=runpod` + `RUNPOD_LLM_MODEL=qwen2.5:7b-instruct`; Ollama on `lumen-hypit-4090` must be up. Fail-closed. See `reports/RUNPOD_DIRECTOR_V1.md`. Do not use DO Inference / OpenRouter for that track.
-- **Experience memory:** reuse PostgreSQL 16 on this host with `postgresql-16-pgvector` `0.6.0-1`. Flag `VISUAL_EXPERIENCE_MEMORY_ENABLED=0`. No second Postgres, no Docker on this VM, no public 5432. Dumps: `/mnt/volume_nyc1_1791446889637/lumen-db-backups`. Doc: `docs/architecture/AI_MEMORY.md`.
+- **Experience memory:** reuse PostgreSQL 16 on this host with `postgresql-16-pgvector` `0.6.0-1`. Flags `VISUAL_EXPERIENCE_MEMORY_ENABLED=0` and `VISUAL_INTELLIGENCE_ENABLED=0`. No second Postgres, no Docker on this VM, no public 5432. Dumps: `/mnt/volume_nyc1_1791446889637/lumen-db-backups`. Doc: `docs/architecture/AI_MEMORY.md`.
 
 See `docs/architecture/DEPLOYMENT.md` and `reports/LUMEN_FAST_CREATE_PRODUCTION.md`.

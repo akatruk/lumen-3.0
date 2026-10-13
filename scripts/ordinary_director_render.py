@@ -125,6 +125,11 @@ def main():
     plan = director_v8.stage_semantic_motion(plan, public, ROOT / 'media' / 'library' / 'out')
     plan = director_v9.stage_float_objects(plan, public, ROOT / 'media' / 'library' / 'out')
     plan = director_v10.stage_premium_3d(plan, public, ROOT / 'media' / 'library' / 'out')
+    from backend.experience_memory import attach_to_visual_plan, enabled as memory_enabled, record_render_output
+    if args.seed is not None:
+        plan['visualSeed'] = args.seed
+    if memory_enabled():
+        plan = attach_to_visual_plan(plan, args.project_id)
     # Persist V11 / V11.1 artifacts beside the MP4.
     out_s = str(args.out)
     if 'director-v11' in out_s:
@@ -157,8 +162,12 @@ def main():
 
     out = args.out.resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
+    from backend.experience_embeddings import release_models
+    release_models()
     digest = remotion_engine.render_with_plan(out, render_plan)
     accept = director_v3._accept(out, seconds)
+    if memory_enabled() and plan.get('generationId'):
+        record_render_output(plan['generationId'], str(out))
 
     report = {
         'projectId': args.project_id,

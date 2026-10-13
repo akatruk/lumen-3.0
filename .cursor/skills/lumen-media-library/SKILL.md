@@ -17,7 +17,7 @@ description: >-
 - Quarantine before delete (ADR-008). Do not wipe approved media.
 - Alpha: VP9 `yuva420p` only; never claim H.264 has alpha.
 - Premium 3D V1: `motion/premium3d/`, `models/premium3d/`, factory `media/library/3d_factory/`, index via `index_3d_assets.py --publish-binaries`. Family `premium_3d`.
-- Experience embeddings: text (`tags` / `tags_ru` / `tags_zh`) via multilingual CLIP text model; images and video keyframes via CLIP vision. Stored in PostgreSQL `asset_embeddings`, not in the manifest file. `scripts/index_experience_assets.py`.
+- Experience embeddings: text (`tags` / `tags_ru` / `tags_zh`) via multilingual CLIP text model; images and video keyframes via CLIP vision, with `frame_seconds` on video rows. Stored in PostgreSQL `asset_embeddings` (view `media_embeddings`), not in the manifest file. `scripts/index_experience_assets.py --approved`. Hybrid rank is `VISUAL_INTELLIGENCE_ENABLED` (default off) and still applies the quality gate.
 
 Implemented selection gates (2026-10-11):
 - Default search skips `quarantined` / `rejected` / `duplicate` / `corrupt` and holds `needs_review` / `unreviewed` / `restricted`.

@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # Persistent visual experience memory (pgvector). Default off so Director
     # generation stays unchanged until retrieval is validated.
     visual_experience_memory_enabled: bool = False
+    # Hybrid media retrieval + Director experience. Default off. Does not
+    # replace keyword search until this process sets it to 1.
+    visual_intelligence_enabled: bool = False
     # Empty uses the media volume when mounted, otherwise data/embedding-models.
     experience_embedding_cache: str = ''
     experience_text_model: str = 'sentence-transformers/clip-ViT-B-32-multilingual-v1'

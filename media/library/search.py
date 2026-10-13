@@ -231,10 +231,10 @@ def _query_mode(words):
     return "contextual"
 
 
-def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy, preferred_composition=None, recent_ids=()):
+def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy, preferred_composition=None, recent_ids=(), allow_empty=False):
     hay = _hay(asset)
     overlap = sum(1 for word in words if word in hay)
-    if overlap == 0:
+    if overlap == 0 and not allow_empty:
         return None
     score = overlap * 2 + (asset.get("qualityScore") or 0)
     family = asset.get("visualFamily") or ""
@@ -342,6 +342,39 @@ def _eligible_for_auto(asset, *, include_hidden=False) -> bool:
     return True
 
 
+def _unapproved_3d(asset) -> bool:
+    if (asset.get("visualFamily") or "") == "premium_3d":
+        return True
+    if str(asset.get("id") or "").startswith("l3d_"):
+        return True
+    if asset.get("kind") == "3d_motion":
+        return True
+    return False
+
+
+def _intelligence_on() -> bool:
+    try:
+        from backend.config import settings
+    except Exception:
+        return False
+    return bool(getattr(settings, "visual_intelligence_enabled", False))
+
+
+# Cosine below this does not admit an asset that has no keyword overlap.
+_VECTOR_ONLY_MIN = 0.28
+
+
+def _vector_bonuses(query: str) -> dict:
+    """Asset id → cosine similarity. Empty when the flag is off or pgvector is unavailable."""
+    if not _intelligence_on():
+        return {}
+    try:
+        from backend.visual_intelligence import asset_similarities
+        return asset_similarities(query)
+    except Exception:
+        return {}
+
+
 def search_assets(
     query, type=None, category=None, aspect_ratio=None, composition=None, limit=5,
     path=None, text_safe=None, domain=None, exclude_ids=(), preferred_scene_role=None,
@@ -361,6 +394,8 @@ def search_assets(
     words = _query_words(query)
     if (query or "").strip() and not words:
         return []
+    intelligence = _intelligence_on()
+    bonuses = _vector_bonuses(query) if intelligence and (query or "").strip() else {}
     skipped = set(exclude_ids or ()) | set(excluded_asset_ids or ())
     role = preferred_scene_role or scene_role
     safe = text_safe or text_position
@@ -370,6 +405,8 @@ def search_assets(
         if asset.get("id") in skipped:
             continue
         if not _eligible_for_auto(asset, include_hidden=include_hidden):
+            continue
+        if intelligence and _unapproved_3d(asset):
             continue
         if type and asset.get("type") != type:
             continue
@@ -381,15 +418,27 @@ def search_assets(
             continue
         if domain and not _same_domain(asset, domain):
             continue
+        bonus = float(bonuses.get(asset.get("id")) or 0)
         if not words:
-            score = asset.get("qualityScore") or 0
+            score = (asset.get("qualityScore") or 0) + bonus * 3
         else:
             score = _rank_score(
                 asset, words, safe, role, preferred_energy,
                 preferred_composition or composition, recent_ids,
             )
             if score is None:
-                continue
+                if bonus < _VECTOR_ONLY_MIN:
+                    continue
+                score = _rank_score(
+                    asset, words, safe, role, preferred_energy,
+                    preferred_composition or composition, recent_ids,
+                    allow_empty=True,
+                )
+                if score is None:
+                    continue
+                score += bonus * 4
+            else:
+                score += bonus * 3
             if composition and asset.get("composition") == composition:
                 score += 1.2
         found.append((score, asset.get("qualityScore") or 0, asset))

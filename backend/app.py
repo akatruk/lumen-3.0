@@ -68,7 +68,10 @@ async def security(request,call_next):
 
 @app.get('/api/health')
 def health():
-    memory = {'enabled': bool(settings.visual_experience_memory_enabled)}
+    memory = {
+        'enabled': bool(settings.visual_experience_memory_enabled),
+        'visual_intelligence': bool(settings.visual_intelligence_enabled),
+    }
     with connect() as db:
         db.execute('SELECT 1')
         if db.postgres:
@@ -101,7 +104,8 @@ def memory_status(user=Depends(current_user)):
 def memory_context(pid: str, q: str = '', user=Depends(current_user)):
     if not project(pid, user['id']):
         raise HTTPException(404, 'not_found')
-    if not settings.visual_experience_memory_enabled:
+    from .experience_memory import enabled as memory_enabled
+    if not memory_enabled():
         return {'enabled': False, 'items': [], 'overridesSourceFacts': False, 'overridesSafetyRules': False}
     from .experience_memory import bounded_context
     return bounded_context(pid, q[:1800])
@@ -111,7 +115,8 @@ def memory_context(pid: str, q: str = '', user=Depends(current_user)):
 def memory_review(pid: str, body: MemoryReviewBody, user=Depends(current_user)):
     if not project(pid, user['id']):
         raise HTTPException(404, 'not_found')
-    if not settings.visual_experience_memory_enabled:
+    from .experience_memory import enabled as memory_enabled
+    if not memory_enabled():
         raise HTTPException(404, 'memory_disabled')
     from .experience_memory import MemoryUnavailable, add_review
     try:
