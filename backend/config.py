@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     runpod_llm_api_key: str = 'lumen-runpod'
     # Transcript at generation: auto | whisperx | placeholder
     transcript_provider: str = 'auto'
+    # Persistent visual experience memory (pgvector). Default off so Director
+    # generation stays unchanged until retrieval is validated.
+    visual_experience_memory_enabled: bool = False
+    # Empty uses the media volume when mounted, otherwise data/embedding-models.
+    experience_embedding_cache: str = ''
+    experience_text_model: str = 'sentence-transformers/clip-ViT-B-32-multilingual-v1'
+    experience_image_model: str = 'sentence-transformers/clip-ViT-B-32'
+    experience_vector_dimension: int = 512
 
 settings = Settings()
 settings.data_dir.mkdir(parents=True, exist_ok=True)

@@ -43,6 +43,8 @@ def init_db():
         init_variants(db)
         from .trends import init as init_trends
         init_trends(db)
+        from .experience_memory import init as init_experience_memory
+        init_experience_memory(db)
         if 'auth_method' not in db.columns('sessions'):
             db.execute("ALTER TABLE sessions ADD COLUMN auth_method TEXT NOT NULL DEFAULT 'password'")
 

@@ -16,7 +16,7 @@ def _t(en: str, zh: str | None = None) -> Text:
 class DirectorProvider(Protocol):
     name: str
 
-    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None):
+    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None, experience: dict | None = None):
         ...
 
 
@@ -25,7 +25,7 @@ class HeuristicDirectorProvider:
 
     name = "heuristic"
 
-    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None):
+    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None, experience: dict | None = None):
         from ..studio import Director
 
         step = min(20.0, max(6.0, duration / 4 if duration else 10.0))
@@ -107,7 +107,7 @@ class HeuristicDirectorProvider:
 class OpenRouterDirectorProvider:
     name = "openrouter"
 
-    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None):
+    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None, experience: dict | None = None):
         raise RuntimeError("use_studio_analyze_for_openrouter")
 
 
@@ -116,7 +116,7 @@ class RunPodDirectorProvider:
 
     name = "runpod"
 
-    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None):
+    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None, experience: dict | None = None):
         from .. import runpod_llm
         from ..providers.llm import RunPodLLMProvider
         from ..studio import Director
@@ -142,6 +142,10 @@ Return ONLY JSON with these shapes (strict):
 - transfers: []
 Do not invent claims or metrics. Prefer 4–8 semantic scenes. Times within 0..{duration}.
 """
+        from ..experience_memory import prompt_addon
+        addon = prompt_addon(experience)
+        if addon:
+            prompt += "\n\n" + addon
         system = (
             "You are Lumen AI Director V4 on a private RunPod GPU. Output ONLY JSON. "
             "Every bilingual field is an object with en and zh keys only."

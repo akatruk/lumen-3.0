@@ -1,0 +1,33 @@
+# Local/CI PostgreSQL + pgvector only.
+# Production lumen-fix already runs PostgreSQL 16.15 (peer auth, localhost).
+# Do not start this file on 142.93.248.163 — that would be a second database.
+services:
+  lumen-memory-postgres:
+    image: pgvector/pgvector:0.6.0-pg16
+    environment:
+      POSTGRES_USER: lumen
+      POSTGRES_PASSWORD: ${LUMEN_MEMORY_TEST_PASSWORD:?set LUMEN_MEMORY_TEST_PASSWORD}
+      POSTGRES_DB: lumen_qa
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - lumen_memory_pg:/var/lib/postgresql/data
+      - ./postgres/init-test-extension.sql:/docker-entrypoint-initdb.d/00-vector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumen -d lumen_qa"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.0
+    networks:
+      - memory
+
+networks:
+  memory:
+    name: lumen_memory_test
+
+volumes:
+  lumen_memory_pg:
+    name: lumen_memory_pg

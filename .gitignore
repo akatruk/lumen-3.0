@@ -51,3 +51,8 @@ media/library/out/motion/premium3d/
 media/library/out/models/premium3d/
 media/library/out/thumbnails/premium3d/
 output/director-v10/*.mp4
+
+# Database dumps and embedding weights stay off Git.
+*.dump
+*.pgdump
+embedding-models/

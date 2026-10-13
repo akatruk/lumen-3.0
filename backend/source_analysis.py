@@ -128,11 +128,13 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
     )
 
     director = get_director_provider("none")  # local baseline — never silent LLM claim
+    from .experience_memory import context_for_transcript
     plan = director.build_plan(
         duration=float(meta["duration"]),
         language=language,
         transcript=segments,
         dna=[],
+        experience=context_for_transcript(pid, segments),
     )
     media.validate_analysis(plan, meta["duration"])
     return {
@@ -211,7 +213,14 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
         if not (folder / "analysis.mp4").exists():
             media.prepare(source, folder)
             meta = {**meta, "preview_ready": True}
-        plan = director.build_plan(duration=duration, language=lang, transcript=segments, dna=[])
+        from .experience_memory import context_for_transcript
+        plan = director.build_plan(
+            duration=duration,
+            language=lang,
+            transcript=segments,
+            dna=[],
+            experience=context_for_transcript(pid, segments),
+        )
         validate_director(plan, [])
         stamp = {
             "analysis_provider": transcript_name,

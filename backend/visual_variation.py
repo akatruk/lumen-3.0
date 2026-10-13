@@ -553,6 +553,8 @@ def plan_for_request(data_dir, project_id, variation, energy, language=None, edi
         # Fresh plan without slider payload — Balanced defaults once.
         plan = apply_editing_controls(plan, {'visualEnergy': energy})
     # Language/keep reuse with no new editing keeps prior editingControls as-is.
+    from .experience_memory import attach_to_visual_plan
+    plan = attach_to_visual_plan(plan, project_id)
     store_plan(data_dir, project_id, plan)
     return plan
 

@@ -68,13 +68,65 @@ async def security(request,call_next):
 
 @app.get('/api/health')
 def health():
-    with connect() as db: db.execute('SELECT 1')
+    memory = {'enabled': bool(settings.visual_experience_memory_enabled)}
+    with connect() as db:
+        db.execute('SELECT 1')
+        if db.postgres:
+            row = db.execute("SELECT extversion FROM pg_extension WHERE extname='vector'").fetchone()
+            memory['pgvector'] = row['extversion'] if row else None
     return {
         'status': 'ok',
         'version': '0.1.0',
         'llm_provider': settings.llm_provider,
         'fast_project_creation': bool(settings.fast_project_creation_enabled),
+        'visual_experience_memory': memory,
     }
+
+
+class MemoryReviewBody(BaseModel):
+    generation_id: str = Field(min_length=4, max_length=80)
+    rating: int = Field(ge=1, le=5)
+    comments: str = ''
+    defects: list[str] = Field(default_factory=list)
+    fixes: str = ''
+
+
+@app.get('/api/memory/status')
+def memory_status(user=Depends(current_user)):
+    from .experience_memory import status
+    return status()
+
+
+@app.get('/api/projects/{pid}/memory/context')
+def memory_context(pid: str, q: str = '', user=Depends(current_user)):
+    if not project(pid, user['id']):
+        raise HTTPException(404, 'not_found')
+    if not settings.visual_experience_memory_enabled:
+        return {'enabled': False, 'items': [], 'overridesSourceFacts': False, 'overridesSafetyRules': False}
+    from .experience_memory import bounded_context
+    return bounded_context(pid, q[:1800])
+
+
+@app.post('/api/projects/{pid}/memory/reviews', status_code=201)
+def memory_review(pid: str, body: MemoryReviewBody, user=Depends(current_user)):
+    if not project(pid, user['id']):
+        raise HTTPException(404, 'not_found')
+    if not settings.visual_experience_memory_enabled:
+        raise HTTPException(404, 'memory_disabled')
+    from .experience_memory import MemoryUnavailable, add_review
+    try:
+        review_id = add_review(
+            project_id=pid,
+            generation_id=body.generation_id,
+            review_source='user',
+            user_quality_rating=body.rating,
+            comments=body.comments[:4000],
+            defects=body.defects[:20],
+            fixes=body.fixes[:4000],
+        )
+    except MemoryUnavailable as exc:
+        raise HTTPException(422, str(exc)) from None
+    return {'id': review_id, 'review_source': 'user'}
 
 
 @app.get('/api/health/runpod-llm')
