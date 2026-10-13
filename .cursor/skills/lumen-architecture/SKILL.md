@@ -26,6 +26,7 @@ Prompt index: `docs/prompts/README.md`. Hypit assembly: `backend/assembly_prompt
 | Director V14 | `backend/director_v14.py` | semantic motion components; flag default off |
 | Director V15 | `backend/director_v15.py` | ten more diagrams on the same mount; flag default off |
 | Scene composer V16 | `backend/scene_composer_v16.py` | layout pass after V15, before staging; flag default off |
+| Motion quality V17 | `backend/motion_quality_v17.py` | experience retrieval after classification; flag default off |
 | Media library | `media/library/` | assets + search |
 | Worker | `backend/worker.py` | job kinds |
 

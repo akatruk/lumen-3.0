@@ -25,5 +25,6 @@ description: >-
 - **Semantic motion V14:** `SEMANTIC_MOTION_V14_ENABLED=0` on lumen-fix until a visual QA sign-off. Do not flip it in production env as part of a code deploy.
 - **Semantic motion V15:** `SEMANTIC_MOTION_V15_ENABLED=0` on lumen-fix. Do not flip it during deploy.
 - **Scene composer V16:** `SCENE_COMPOSER_V16_ENABLED=0` on lumen-fix. Do not flip it during deploy.
+- **Motion quality V17:** `MOTION_QUALITY_V17_ENABLED=0` on lumen-fix. Do not flip it during deploy. Do not insert synthetic reviews.
 
 See `docs/architecture/DEPLOYMENT.md` and `reports/LUMEN_FAST_CREATE_PRODUCTION.md`.

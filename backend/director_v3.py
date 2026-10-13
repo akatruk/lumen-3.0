@@ -303,6 +303,15 @@ def run_job(p, payload):
         note=f'Remotion DirectorV3 · {seconds}s · speaker={speaker} · captions={render_plan.get("captionSource")}',
     )
     digest = remotion_engine.render_with_plan(dest, render_plan)
+    try:
+        from . import motion_quality_v17
+        motion_quality_v17.record_completed(
+            p['id'],
+            str((visual_plan or {}).get('generationId') or render_id),
+            visual_plan or {},
+        )
+    except Exception:
+        log.exception('motion quality record failed for %s', p['id'])
     progress(p['id'], 'checking', 92, note='Probing finished MP4 (size, audio, duration)…')
     meta = _accept(dest, seconds)
     from .db import event, update

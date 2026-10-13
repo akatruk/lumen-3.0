@@ -24,6 +24,8 @@ Created in the current schema (`public` in production) by migration `001_experie
 
 `engineering_memory`, `architecture_decisions`, `incidents`, `prompt_versions`, `model_configs`, `generation_history`, `generation_reviews`, `scene_feedback`, `asset_embeddings`, `scene_embeddings`.
 
+Migration `004_motion_quality` adds `motion_component_index` and `motion_experience` in the same database. Motion text uses `vector(512)` and `sentence-transformers/clip-ViT-B-32-multilingual-v1` only. Those rows are not written into `asset_embeddings`, so they are not queried as CLIP image neighbors. A render does not load the embedding weights. `MOTION_QUALITY_V17_ENABLED` defaults to 0. Five agreeing user scene flags are required before a component or a layout is demoted. A caption miss or a fact mismatch does not demote the component. No review means the deterministic selector is unchanged.
+
 `generation_reviews.review_source` is `user` or `automated`. A user row stores `user_quality_rating` (1–10) and a null QA score. Optional `dimension_ratings` may hold story, media relevance, motion, captions, composition, audio, and overall. An automated row stores `automated_qa_score` and a null user rating. A scene flag (`irrelevant_media`, `poor_animation`, `visual_clutter`, `caption_problem`, `face_overlap`, `weak_composition`, `factual_error`) can be stored with a null rating. Only `irrelevant_media` on two generations applies an asset penalty. A low video score does not downrank an asset.
 
 Rows are project-scoped. Library asset embeddings use `scope=library` and a null `project_id`. Retrieval never returns another project's rows.

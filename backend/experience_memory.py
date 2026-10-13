@@ -18,6 +18,7 @@ from .database import connect
 MIGRATION_VERSION = '001_experience_memory'
 MIGRATION_MEDIA = '002_media_embeddings'
 MIGRATION_FEEDBACK = '003_quality_feedback'
+MIGRATION_MOTION = '004_motion_quality'
 SCENE_ISSUES = (
     'irrelevant_media', 'poor_animation', 'visual_clutter', 'caption_problem',
     'face_overlap', 'weak_composition', 'factual_error',
@@ -307,6 +308,46 @@ def _applied_versions(db) -> set[str]:
     return {row['version'] for row in db.execute('SELECT version FROM memory_schema_migrations')}
 
 
+STATEMENTS_004 = (
+    '''CREATE TABLE IF NOT EXISTS motion_component_index (
+        id TEXT PRIMARY KEY,
+        component_id TEXT NOT NULL,
+        component_version TEXT NOT NULL,
+        locale TEXT NOT NULL,
+        visual_intent TEXT NOT NULL,
+        body TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        embedding public.vector(512),
+        embedding_model TEXT,
+        model_version TEXT,
+        vector_dimension INTEGER,
+        created DOUBLE PRECISION NOT NULL,
+        UNIQUE (component_id, locale, content_hash)
+    )''',
+    'CREATE INDEX IF NOT EXISTS motion_component_index_locale ON motion_component_index(locale)',
+    'CREATE INDEX IF NOT EXISTS motion_component_index_hnsw ON motion_component_index USING hnsw (embedding vector_cosine_ops)',
+    '''CREATE TABLE IF NOT EXISTS motion_experience (
+        id TEXT PRIMARY KEY,
+        generation_id TEXT NOT NULL REFERENCES generation_history(id) ON DELETE CASCADE,
+        project_id TEXT NOT NULL,
+        scene_id TEXT NOT NULL,
+        concepts TEXT NOT NULL,
+        component_id TEXT,
+        component_version TEXT,
+        layout TEXT,
+        asset_id TEXT,
+        animation_json TEXT NOT NULL DEFAULT '{}',
+        caption_geometry TEXT,
+        speaker_geometry TEXT,
+        render_ms DOUBLE PRECISION,
+        created DOUBLE PRECISION NOT NULL,
+        UNIQUE (generation_id, scene_id)
+    )''',
+    'CREATE INDEX IF NOT EXISTS motion_experience_component ON motion_experience(component_id, layout)',
+    'CREATE INDEX IF NOT EXISTS motion_experience_project ON motion_experience(project_id, created)',
+)
+
+
 STATEMENTS_003 = (
     'ALTER TABLE generation_reviews ADD COLUMN IF NOT EXISTS dimension_ratings TEXT',
     'ALTER TABLE scene_feedback ADD COLUMN IF NOT EXISTS scene_id TEXT',
@@ -395,10 +436,15 @@ def init(db):
         _widen_feedback_checks(db)
         _mark(db, MIGRATION_FEEDBACK)
         changed = True
+    if MIGRATION_MOTION not in _applied_versions(db):
+        for statement in STATEMENTS_004:
+            db.execute(statement)
+        _mark(db, MIGRATION_MOTION)
+        changed = True
     _register_defaults(db)
     return {
         'applied': changed,
-        'version': MIGRATION_FEEDBACK,
+        'version': MIGRATION_MOTION,
         'pgvector': version,
         'reason': 'applied' if changed else 'current',
     }
@@ -1102,6 +1148,7 @@ def status() -> dict:
             'engineering_memory', 'architecture_decisions', 'incidents', 'prompt_versions',
             'model_configs', 'generation_history', 'generation_reviews', 'scene_feedback',
             'asset_embeddings', 'scene_embeddings', 'asset_feedback',
+            'motion_component_index', 'motion_experience',
         ):
             payload['counts'][table] = db.execute(f'SELECT COUNT(*) AS n FROM {table}').fetchone()['n']
     return payload

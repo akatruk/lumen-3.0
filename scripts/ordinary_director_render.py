@@ -188,6 +188,12 @@ def main():
     release_models()
     digest = remotion_engine.render_with_plan(out, render_plan)
     accept = director_v3._accept(out, seconds)
+    from backend import motion_quality_v17
+    motion_quality_v17.record_completed(
+        args.project_id,
+        str(plan.get('generationId') or ''),
+        plan,
+    )
     if memory_enabled() and plan.get('generationId'):
         record_render_output(plan['generationId'], str(out))
 

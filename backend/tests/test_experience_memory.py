@@ -60,8 +60,8 @@ def test_migration_is_idempotent_and_pgvector_visible():
     info = _ready()
     again = _ready()
     assert info['pgvector']
-    assert info['migration'] == '003_quality_feedback'
-    assert again['migration'] == '003_quality_feedback'
+    assert info['migration'] == '004_motion_quality'
+    assert again['migration'] == '004_motion_quality'
     with connect() as db:
         db.execute('SELECT frame_seconds, embedding_model FROM asset_embeddings LIMIT 0')
         db.execute('SELECT asset_id, embedding_version, created_at, embedding FROM media_embeddings LIMIT 0')

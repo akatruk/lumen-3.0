@@ -76,7 +76,8 @@ def _labels(bucket: str) -> dict[str, dict[str, str]]:
 
 def _party_pair(text: str, bucket: str) -> tuple[str, str] | None:
     for zh, en, ru in _PARTIES:
-        if all(name in text for name in zh) or all(name.lower() in text.lower() for name in en):
+        groups = (zh, en, ru)
+        if any(all(name.lower() in text.lower() for name in group) for group in groups):
             if bucket == "zh":
                 return zh
             if bucket == "ru":
@@ -335,6 +336,15 @@ def apply_semantic_motion(
             spec = 6
         proposals.append((spec, index, payload))
     proposals.sort(key=lambda item: (-item[0], item[1]))
+    advice = None
+    try:
+        from . import motion_quality_v17
+        if motion_quality_v17.enabled():
+            advice = motion_quality_v17.advise(out, proposals, locale)
+            proposals = motion_quality_v17.apply_advice(proposals, advice)
+    except Exception:
+        advice = {'enabled': True, 'fallback': 'deterministic'}
+    out['motionQualityV17'] = advice
     assigned: dict[int, dict[str, Any]] = {}
     used: set[str] = set()
     scene_count = len(out.get("scenes") or [])
@@ -362,6 +372,9 @@ def apply_semantic_motion(
             layout, side = _choose_layout(scene)
             if best.get("visualIntent") == "ownership_split" and layout == "overlay":
                 layout = "full_frame"
+            if advice and not advice.get("fallback"):
+                from . import motion_quality_v17 as _motion_quality
+                layout = _motion_quality.layout_after_advice(best["componentId"], layout, advice)
             theme = None
             bm = scene.get("businessMotion") or {}
             if isinstance(bm, dict):
