@@ -4,10 +4,15 @@ import { CANVAS, theme } from "../themes/tokens";
 import { AutoFitText } from "../typography/AutoFitText";
 import { useLocale } from "../typography/locale";
 import { CountUp } from "../primitives/marks";
+import { ConnectorLine } from "../preview/ConnectorStroke";
+import { adaptiveLineStyle } from "../utils/adaptiveLineStyle";
 import { presetById } from "./presets";
 import type { ConceptPresetId, ConceptTriggerHit } from "./schema";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
+
+/** Concept overlays sit on speaker / mixed plates — probe mid-path beige risk. */
+const CONCEPT_BG = { kind: "samples" as const, colors: ["#2A2520", "#E8DFD0", "#1C1A17"] };
 
 function enter(frame: number, span: number) {
   const opacity = interpolate(frame, [0, Math.min(12, span)], [0, 1], clamp);
@@ -25,14 +30,46 @@ function GrowthArrow({ frames }: { frames: number }) {
     ...clamp,
     easing: Easing.out(Easing.cubic),
   });
+  const y2 = 40 + travel;
+  const headStyle = adaptiveLineStyle({
+    background: CONCEPT_BG,
+    path: [
+      { x: 100, y: 200 },
+      { x: 100, y: (200 + y2) / 2 },
+      { x: 100, y: y2 },
+    ],
+    preferredColor: theme.color.accent,
+    strokeWidth: 8,
+    sceneTheme: "photo",
+  });
   return (
     <AbsoluteFill style={{ opacity, transform: `translateY(${y}px)`, alignItems: "center", justifyContent: "center" }}>
       <svg width="420" height="520" viewBox="0 0 200 260">
-        <line x1="100" y1={200} x2="100" y2={40 + travel} stroke={theme.color.accent} strokeWidth="8" strokeLinecap="round" />
+        <ConnectorLine
+          x1={100}
+          y1={200}
+          x2={100}
+          y2={y2}
+          strokeWidth={8}
+          preferredColor={theme.color.accent}
+          background={CONCEPT_BG}
+          sceneTheme="photo"
+          strokeLinecap="round"
+        />
+        {headStyle.outlineColor && headStyle.outlineWidth > 0 ? (
+          <polyline
+            points={`70,${70 + travel} 100,${36 + travel} 130,${70 + travel}`}
+            fill="none"
+            stroke={headStyle.outlineColor}
+            strokeWidth={8 + headStyle.outlineWidth * 2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
         <polyline
           points={`70,${70 + travel} 100,${36 + travel} 130,${70 + travel}`}
           fill="none"
-          stroke={theme.color.accent}
+          stroke={headStyle.strokeColor}
           strokeWidth="8"
           strokeLinecap="round"
           strokeLinejoin="round"

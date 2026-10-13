@@ -34,6 +34,7 @@ _BUSINESS_MOTION_BINDINGS: dict[str, str] = {
     'thailand_company_structure': 'company_ownership',
     'foreign_ownership_ratio': 'equity_distribution',
     'capital_investment': 'capital_investment',
+    'capital_flow': 'capital_flow',
     'capital_judgment': 'financial_comparison',
     'capital_return': 'investment_flow',
     'company_control': 'company_control',
@@ -70,6 +71,11 @@ _LABELS: dict[str, dict[str, dict[str, Any]]] = {
         'en': {'title': 'Capital investment', 'from': 'Commit', 'to': 'Company'},
         'ru': {'title': 'Капитал', 'from': 'Вложение', 'to': 'Компания'},
         'zh': {'title': '资本投入', 'from': '出资', 'to': '公司'},
+    },
+    'capital_flow': {
+        'en': {'title': 'Capital flow', 'from': 'Cap', 'via': 'Hold', 'to': 'Co'},
+        'ru': {'title': 'Поток капитала', 'from': 'Кап', 'via': 'Холд', 'to': 'Ко'},
+        'zh': {'title': '资本流转', 'from': '资本', 'via': '持股', 'to': '公司'},
     },
     'company_ownership': {
         'en': {'title': 'Ownership structure'},

@@ -11,11 +11,13 @@ description: >-
 - Concepts: `concepts.py`, `concept_triggers.py`
 - Manifest: `media/library/out/manifest.json` or DO `app-library` (authoritative on volume)
 - Premium motion V4: `motion/premium/pm_*.webm`, recipes `recipes/premium-motion-v4-calibration.json`, report `reports/PREMIUM_MOTION_LIBRARY_V4.md`
+- Premium Media Factory V5 batch1: `recipes/premium-media-factory-v5-batch1.json`, `scripts/index_premium_media_v5_batch1.py`, contact `media/library/out/contact-sheets/premium-media-v5-batch1.html`, report `reports/LUMEN_PREMIUM_MEDIA_FACTORY_V5.md`. GPU: `reports/PREMIUM_GPU_SELECTION.md` — do not resume EXITED pods without spend auth.
 - Prefer `search_assets` over hardcoded filenames
 - Fields: `qualityScore`, `sceneRoles`, `textSafeAreas`, `visualFamily`, `conceptId`, `tags_ru`, `tags_zh`
 - Quarantine before delete (ADR-008). Do not wipe approved media.
 - Alpha: VP9 `yuva420p` only; never claim H.264 has alpha.
 - Premium 3D V1: `motion/premium3d/`, `models/premium3d/`, factory `media/library/3d_factory/`, index via `index_3d_assets.py --publish-binaries`. Family `premium_3d`.
+- Experience embeddings: text (`tags` / `tags_ru` / `tags_zh`) via multilingual CLIP text model; images and video keyframes via CLIP vision. Stored in PostgreSQL `asset_embeddings`, not in the manifest file. `scripts/index_experience_assets.py`.
 
 Implemented selection gates (2026-10-11):
 - Default search skips `quarantined` / `rejected` / `duplicate` / `corrupt` and holds `needs_review` / `unreviewed` / `restricted`.

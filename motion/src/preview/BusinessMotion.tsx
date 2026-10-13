@@ -2,8 +2,10 @@
 import type { ReactElement, ReactNode } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { theme } from "../themes/tokens";
+import type { BackgroundProbe, SceneTheme } from "../utils/adaptiveLineStyle";
 import { AutoFitText } from "../typography/AutoFitText";
 import { useLocale } from "../typography/locale";
+import { ConnectorLine, ConnectorPolygon } from "./ConnectorStroke";
 import { PORTRAIT } from "./portraitLayouts";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
@@ -28,6 +30,9 @@ export type BusinessMotionPayload = {
   shelfTop?: number;
   faceSafe?: boolean;
   containerPolicy?: string;
+  /** Plate under connectors — drives adaptive contrast (paper vs ink). */
+  sceneTheme?: SceneTheme;
+  connectorBackground?: BackgroundProbe;
 };
 
 function enter(frame: number, span: number) {
@@ -137,10 +142,26 @@ function Title({ text }: { text: string }) {
   );
 }
 
+/** Warm speaker / paper plates are the gold-on-beige failure mode — default photo-mid. */
+function connectorCtx(motion: BusinessMotionPayload) {
+  const sceneTheme: SceneTheme = motion.sceneTheme || "photo";
+  const background: BackgroundProbe =
+    motion.connectorBackground ||
+    (sceneTheme === "paper"
+      ? theme.color.paper
+      : sceneTheme === "navy"
+        ? "#0F1720"
+        : sceneTheme === "ink"
+          ? theme.color.bg
+          : { kind: "samples", colors: ["#3A332C", "#E8DFD0", "#2A2520"] });
+  return { sceneTheme, background };
+}
+
 function ShareholderStructure({ motion, frames }: { motion: BusinessMotionPayload; frames: number }) {
   const frame = useCurrentFrame();
   const locale = useLocale();
   const labels = motion.labels || {};
+  const { sceneTheme, background } = connectorCtx(motion);
   // Never floor at 2 — that implied "2 shareholders" during staggered reveal.
   // Anonymous topology uses 3; evidenced counts use spoken nodeCount only.
   const evidenced = motion.showCount && motion.nodeCount != null ? Number(motion.nodeCount) : null;
@@ -169,7 +190,16 @@ function ShareholderStructure({ motion, frames }: { motion: BusinessMotionPayloa
           const drawn = interpolate(frame, [6 + i * stagger, 18 + i * stagger], [0, 1], clamp);
           return (
             <g key={i} opacity={drawn}>
-              <line x1={x} y1={y + 16} x2="180" y2="90" stroke={theme.color.lineStrong} strokeWidth="1.5" />
+              <ConnectorLine
+                x1={x}
+                y1={y + 16}
+                x2={180}
+                y2={90}
+                strokeWidth={1.5}
+                preferredColor={theme.color.lineStrong}
+                background={background}
+                sceneTheme={sceneTheme}
+              />
               <circle cx={x} cy={y} r="16" fill="rgba(28,26,23,0.25)" stroke={theme.color.paper} strokeWidth="2" />
             </g>
           );
@@ -242,25 +272,36 @@ function EquityDistribution({ motion, frames }: { motion: BusinessMotionPayload;
 function CapitalInvestment({ motion, frames }: { motion: BusinessMotionPayload; frames: number }) {
   const frame = useCurrentFrame();
   const labels = motion.labels || {};
+  const { sceneTheme, background } = connectorCtx(motion);
   const travel = interpolate(frame, [8, 42], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const tipX = 118 + travel * 150;
   return (
     <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
       <svg width="720" height="180" viewBox="0 0 390 110">
         <rect x="20" y="35" width="90" height="40" rx="12" fill="rgba(28,26,23,0.3)" stroke={theme.color.lineStrong} />
         <rect x="280" y="35" width="90" height="40" rx="12" fill="rgba(28,26,23,0.3)" stroke={theme.color.accent} strokeWidth="2" />
-        <line
-          x1="118"
-          y1="55"
-          x2={118 + travel * 150}
-          y2="55"
-          stroke={theme.color.accent}
-          strokeWidth="4"
+        <ConnectorLine
+          x1={118}
+          y1={55}
+          x2={tipX}
+          y2={55}
+          strokeWidth={4}
+          preferredColor={theme.color.accent}
+          background={background}
+          sceneTheme={sceneTheme}
           strokeLinecap="round"
         />
-        <polygon
-          points={`${118 + travel * 150},55 ${108 + travel * 150},48 ${108 + travel * 150},62`}
-          fill={theme.color.accent}
+        <ConnectorPolygon
+          points={`${tipX},55 ${tipX - 10},48 ${tipX - 10},62`}
+          pathPoints={[
+            { x: 118, y: 55 },
+            { x: (118 + tipX) / 2, y: 55 },
+            { x: tipX, y: 55 },
+          ]}
+          preferredColor={theme.color.accent}
+          background={background}
+          sceneTheme={sceneTheme}
         />
         <text x="65" y="60" textAnchor="middle" fill={theme.color.paper} fontSize="14" fontWeight="700">
           {String(labels.from || "In")}
@@ -276,6 +317,7 @@ function CapitalInvestment({ motion, frames }: { motion: BusinessMotionPayload; 
 function CompanyOwnership({ motion, frames }: { motion: BusinessMotionPayload; frames: number }) {
   const frame = useCurrentFrame();
   const labels = motion.labels || {};
+  const { sceneTheme, background } = connectorCtx(motion);
   // Match evidenced / topology node count — default 3, never a binary "2 owners" diagram.
   const n = Math.max(1, Math.min(4, Number(motion.topologyNodes || motion.nodeCount || 3)));
   const a = interpolate(frame, [6, 24], [0, 1], clamp);
@@ -292,7 +334,18 @@ function CompanyOwnership({ motion, frames }: { motion: BusinessMotionPayload; f
           const x = 60 + t * 200;
           return (
             <g key={i} opacity={c}>
-              <line x1="160" y1="58" x2={x} y2="110" stroke={theme.color.lineStrong} strokeWidth="2.5" opacity={b} />
+              <g opacity={b}>
+                <ConnectorLine
+                  x1={160}
+                  y1={58}
+                  x2={x}
+                  y2={110}
+                  strokeWidth={2.5}
+                  preferredColor={theme.color.lineStrong}
+                  background={background}
+                  sceneTheme={sceneTheme}
+                />
+              </g>
               <circle cx={x} cy="126" r="18" fill="rgba(28,26,23,0.3)" stroke={theme.color.paper} strokeWidth="2" />
             </g>
           );
@@ -305,33 +358,84 @@ function CompanyOwnership({ motion, frames }: { motion: BusinessMotionPayload; f
 function InvestmentFlow({ motion, frames }: { motion: BusinessMotionPayload; frames: number }) {
   const frame = useCurrentFrame();
   const labels = motion.labels || {};
+  const { sceneTheme, background } = connectorCtx(motion);
   const out = interpolate(frame, [6, 28], [0, 1], clamp);
   const back = interpolate(frame, [28, 50], [0, 1], clamp);
   return (
     <Shelf frames={frames} motion={motion}>
       <Title text={String(labels.title || "")} />
       <svg width="680" height="200" viewBox="0 0 360 120">
-        <path
+        <ConnectorLine
           d="M40 60 C 120 20, 240 20, 320 60"
-          fill="none"
-          stroke={theme.color.accent}
-          strokeWidth="4"
-          strokeDasharray="360"
+          strokeWidth={4}
+          preferredColor={theme.color.accent}
+          background={background}
+          sceneTheme={sceneTheme}
+          strokeDasharray={360}
           strokeDashoffset={360 * (1 - out)}
           strokeLinecap="round"
         />
-        <path
+        <ConnectorLine
           d="M320 70 C 240 110, 120 110, 40 70"
-          fill="none"
-          stroke={theme.color.paper}
-          strokeWidth="3"
-          strokeDasharray="360"
+          strokeWidth={3}
+          preferredColor={theme.color.paper}
+          background={background}
+          sceneTheme={sceneTheme}
+          strokeDasharray={360}
           strokeDashoffset={360 * (1 - back)}
           strokeLinecap="round"
           opacity={0.85}
         />
         <text x="40" y="95" fill={theme.color.muted} fontSize="14">{String(labels.out || "")}</text>
         <text x="260" y="30" fill={theme.color.muted} fontSize="14">{String(labels.back || "")}</text>
+      </svg>
+    </Shelf>
+  );
+}
+
+/** Capital flow — multi-hop arrow; no numeric claims unless Director stamped ratios. */
+function CapitalFlow({ motion, frames }: { motion: BusinessMotionPayload; frames: number }) {
+  const frame = useCurrentFrame();
+  const labels = motion.labels || {};
+  const { sceneTheme, background } = connectorCtx(motion);
+  const a = interpolate(frame, [6, 24], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const b = interpolate(frame, [18, 40], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  return (
+    <Shelf frames={frames} motion={motion}>
+      <Title text={String(labels.title || "")} />
+      <svg width="720" height="200" viewBox="0 0 400 120">
+        <rect x="16" y="40" width="72" height="36" rx="10" fill="rgba(28,26,23,0.35)" stroke={theme.color.lineStrong} />
+        <rect x="164" y="40" width="72" height="36" rx="10" fill="rgba(28,26,23,0.35)" stroke={theme.color.lineStrong} />
+        <rect x="312" y="40" width="72" height="36" rx="10" fill="rgba(28,26,23,0.35)" stroke={theme.color.accent} strokeWidth="2" />
+        <ConnectorLine
+          x1={92}
+          y1={58}
+          x2={92 + a * 64}
+          y2={58}
+          strokeWidth={4}
+          preferredColor={theme.color.accent}
+          background={background}
+          sceneTheme={sceneTheme}
+        />
+        <ConnectorLine
+          x1={240}
+          y1={58}
+          x2={240 + b * 64}
+          y2={58}
+          strokeWidth={4}
+          preferredColor={theme.color.accent}
+          background={background}
+          sceneTheme={sceneTheme}
+        />
+        <text x="52" y="63" textAnchor="middle" fill={theme.color.paper} fontSize="13" fontWeight="700">
+          {String(labels.from || "Cap")}
+        </text>
+        <text x="200" y="63" textAnchor="middle" fill={theme.color.paper} fontSize="13" fontWeight="700">
+          {String(labels.via || "Hold")}
+        </text>
+        <text x="348" y="63" textAnchor="middle" fill={theme.color.paper} fontSize="13" fontWeight="700">
+          {String(labels.to || "Co")}
+        </text>
       </svg>
     </Shelf>
   );
@@ -461,6 +565,7 @@ const RENDERERS: Record<string, (p: { motion: BusinessMotionPayload; frames: num
   shareholder_structure: ShareholderStructure,
   equity_distribution: EquityDistribution,
   capital_investment: CapitalInvestment,
+  capital_flow: CapitalFlow,
   company_ownership: CompanyOwnership,
   investment_flow: InvestmentFlow,
   company_control: CompanyControl,

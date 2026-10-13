@@ -39,3 +39,9 @@ PREMIUM_3D_MODE=v10.2 .venv/bin/python scripts/ordinary_director_render.py \
 ## Report
 
 `reports/LUMEN_3D_QUALITY_RECOVERY_V2.md`
+
+## Media Factory V5
+
+- First-batch 3D candidates stay `needs_review`; `production_ready` remains `[]`.
+- Prefer local Blender regrade of `l3d_v2_*`; do not auto-resume RunPod (see `reports/PREMIUM_GPU_SELECTION.md`).
+- Factory V5 report: `reports/LUMEN_PREMIUM_MEDIA_FACTORY_V5.md`.

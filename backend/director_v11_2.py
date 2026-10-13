@@ -46,6 +46,7 @@ _FACE_RISK_COMPONENTS = frozenset({
     'company_ownership',
     'company_control',
     'capital_investment',
+    'capital_flow',
     'equity_distribution',
     'business_process',
     'financial_comparison',
@@ -210,6 +211,17 @@ def stamp_face_safe_business_motion(plan: dict) -> dict:
             bm['shelfTop'] = shelfTop
             bm['faceSafe'] = True
             bm['containerPolicy'] = 'transparent_float'
+            # Adaptive connector contrast — paper plates need outlines on gold arrows.
+            plate = str(out.get('backgroundPlate') or scene.get('backgroundPlate') or '')
+            if any(k in plate for k in ('paper', 'mist', 'sand', 'warm_slate')):
+                bm['sceneTheme'] = 'paper'
+                bm['connectorBackground'] = '#F4EFE6'
+            elif any(k in plate for k in ('navy', 'teal', 'midnight')):
+                bm['sceneTheme'] = 'navy'
+            elif any(k in plate for k in ('gold', 'amber')):
+                bm['sceneTheme'] = 'gold_veil'
+            else:
+                bm.setdefault('sceneTheme', 'photo')
             scene['businessMotion'] = bm
             report.append({
                 'sceneId': sid,

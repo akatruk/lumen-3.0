@@ -106,6 +106,13 @@ def main():
     plan = director_v11_1.apply_factual_business_motion(plan, transcript, locale=args.language)
     # V11.2: scrub "2 Shareholders" step artifact + face-safe composition.
     plan = director_v11_2.apply_composition_repair(plan, transcript, locale=args.language)
+    # Optional Remotion cinematic plate (premium media factory / contrast QA).
+    import os
+    plate = (os.environ.get('LUMEN_BACKGROUND_PLATE') or '').strip()
+    if plate:
+        plan['backgroundPlate'] = plate
+        # Re-stamp connector contrast theme after plate assignment.
+        plan = director_v11_2.stamp_face_safe_business_motion(plan)
     # Re-fill media after query scrub (investment queries replace immigration plates).
     plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
     plan = director_v9.apply_composition_intelligence(plan)

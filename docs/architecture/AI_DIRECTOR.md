@@ -15,7 +15,9 @@
 - **V11:** `director_v11.py` — semantic content map from transcript; topic domain (`investment` / `immigration` / `mixed`); evidence-required visual selection; rejects immigration cards/queries on unrelated speech (e.g. origin1 capital/shareholder/Thailand). After V9, before optional 3D. Report: `reports/DIRECTOR_V11_SEMANTIC_INTELLIGENCE.md`.
 - **V11.1:** `director_v11_1.py` — factual grounding + provenance (`sourceSegmentId/start/end/originalSourceText`) for numbers/legal/ownership claims; Remotion `BusinessMotion` components (shareholder_structure, equity_distribution, capital_investment, …); rejects invented counts (no BigFigure default `2`). After V11, before optional 3D. Report: `reports/DIRECTOR_V11_1_FACTUAL_GROUNDING.md`. Origin1: spoken **≥3 shareholders**, not 2.
 - **V11.2:** `director_v11_2.py` — composition repair on V11.1. Remaining “2 Shareholders” was CleanSteps `{n}+Shareholders` step label (not BigFigure). Scrubs fake headcount labels; face-safe BusinessMotion placement; softer captions. Report: `reports/DIRECTOR_V11_2_COMPOSITION_REPAIR.md`.
+- **V11.2 + Media Factory V5:** stamps `sceneTheme` / `connectorBackground` on BusinessMotion from `backgroundPlate` for adaptive connector contrast. Editorial baseline stays V11.2; `PREMIUM_3D_MODE=off`; `quality_gate_v2.production_ready` empty. Origin1 A/B: `output/premium-media-v5/{baseline-v11-2,premium-motion-v12-test}.mp4`.
 - Studio create-video stores `visual_plan` on `director_v3` when `should_use_remotion`
+- **Experience memory** (`VISUAL_EXPERIENCE_MEMORY_ENABLED`, default off): before a plan is stored, `attach_to_visual_plan` may attach at most 8 advisory hits (`experienceMemory`). RunPod and OpenRouter prompts get the same bounded block. Memory does not rewrite scenes, captions, or spoken facts. Off = those paths do not query pgvector. See `docs/architecture/AI_MEMORY.md`.
 - Hypit model brief (legacy): `backend/assembly_prompt.txt` via `hypit_prompt.py`
 
 ## TARGET STATE

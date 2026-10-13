@@ -9,8 +9,12 @@
 - Compositions: `DirectorV3Preview`, showcase, real-estate, immigration clips
 - Library clips entry: `motion/src/clips/` (`ClipRoot` + `premium/` V4 calibration heroes/concepts/FG/BG/scenes)
 - Concept triggers: `motion/src/concepts/` (spoken phrase → viz preset)
-- Cinematic plates: `motion/src/cinematic/`
+- Cinematic plates: `motion/src/cinematic/` (V5 batch1 treatments: mist_paper, teal_depth, midnight_ridge, graphite_drift, …)
+- **Adaptive connector contrast:** `motion/src/utils/adaptiveLineStyle.ts` → `adaptiveLineStyle({background, path, preferredColor, strokeWidth, sceneTheme})`. Wired into `BusinessMotion` / `ConnectorStroke` / ConceptViz growth arrows. Full-path sampling (not endpoints). Fixes gold/light strokes on beige paper plates.
+- Transitions: `soft_pull`, `cross_blur`, `iris_soft` in `SceneTransition`
+- Business motion: `capital_flow` + existing shareholder/capital/ownership presets
 - Premium clip encode: PNG sequence → system ffmpeg `libvpx-vp9 -pix_fmt yuva420p -auto-alt-ref 0` (`media/library/render_premium_motion_v4.py`)
+- Env: `LUMEN_BACKGROUND_PLATE=<treatment>` on `ordinary_director_render.py` for plate QA
 
 ## TARGET STATE
 

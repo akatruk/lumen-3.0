@@ -1,0 +1,58 @@
+{
+  "version": "premium-media-factory-v5-batch1",
+  "date": "2026-10-13",
+  "policy": {
+    "directorBaseline": "v11.2",
+    "premium3dMode": "off",
+    "qualityGateV2ProductionReady": [],
+    "gpu": "BLOCKED_ON_GPU_APPROVAL — resume dznvwn90el5au4 RTX PRO 4500 only with spend auth",
+    "generativeVideo": "blocked",
+    "remotionPlates": "approved_for_qa"
+  },
+  "batch": {
+    "cinematic_backgrounds": [
+      { "id": "pmv5_bg_ink_lift", "treatment": "ink_lift", "source": "remotion", "status": "qa" },
+      { "id": "pmv5_bg_paper_grain", "treatment": "paper_grain", "source": "remotion", "status": "qa" },
+      { "id": "pmv5_bg_navy_grid", "treatment": "navy_grid", "source": "remotion", "status": "qa" },
+      { "id": "pmv5_bg_gold_veil", "treatment": "gold_veil", "source": "remotion", "status": "qa" },
+      { "id": "pmv5_bg_mist_paper", "treatment": "mist_paper", "source": "remotion", "status": "qa" },
+      { "id": "pmv5_bg_teal_depth", "treatment": "teal_depth", "source": "remotion", "status": "qa" },
+      { "id": "pmv5_bg_midnight_ridge", "treatment": "midnight_ridge", "source": "remotion", "status": "qa" },
+      { "id": "pmv5_bg_graphite_drift", "treatment": "graphite_drift", "source": "remotion", "status": "qa" }
+    ],
+    "parallax_layers": [
+      { "id": "pmv5_px_depth_rail", "kind": "parallax", "depths": [0.2, 0.55, 1.0], "status": "qa" },
+      { "id": "pmv5_px_mist_stack", "kind": "parallax", "depths": [0.15, 0.4, 0.85], "status": "qa" },
+      { "id": "pmv5_px_navy_grid", "kind": "parallax", "depths": [0.25, 0.6], "status": "qa" },
+      { "id": "pmv5_px_warm_slate", "kind": "parallax", "depths": [0.3, 0.7, 1.1], "status": "qa" }
+    ],
+    "premium_3d": [
+      { "id": "pmv5_l3d_folder_open_regrade", "base": "l3d_v2_folder", "motion": "folder_open", "source": "blender_local_or_blocked", "status": "needs_review" },
+      { "id": "pmv5_l3d_suitcase_tilt_regrade", "base": "l3d_v2_suitcase", "motion": "tilt", "source": "blender_local_or_blocked", "status": "needs_review" },
+      { "id": "pmv5_l3d_globe_light_regrade", "base": "l3d_global_mobility_globe", "motion": "light_reveal", "source": "existing_library_remix", "status": "qa" }
+    ],
+    "business_motion": [
+      { "id": "pmv5_bm_shareholder_structure", "component": "shareholder_structure", "status": "approved_code" },
+      { "id": "pmv5_bm_capital_flow", "component": "capital_flow", "status": "approved_code" },
+      { "id": "pmv5_bm_capital_investment", "component": "capital_investment", "status": "approved_code" },
+      { "id": "pmv5_bm_investment_flow", "component": "investment_flow", "status": "approved_code" },
+      { "id": "pmv5_bm_company_ownership", "component": "company_ownership", "status": "approved_code" }
+    ],
+    "transitions": [
+      { "id": "pmv5_tr_soft_pull", "type": "soft_pull", "status": "approved_code" },
+      { "id": "pmv5_tr_cross_blur", "type": "cross_blur", "status": "approved_code" },
+      { "id": "pmv5_tr_iris_soft", "type": "iris_soft", "status": "approved_code" }
+    ]
+  },
+  "qualityGateRejects": [
+    "plastic_shader",
+    "flicker",
+    "text_in_image",
+    "bad_alpha_non_yuva",
+    "invented_legal_claims"
+  ],
+  "contrast": {
+    "engine": "motion/src/utils/adaptiveLineStyle.ts",
+    "wired": ["BusinessMotion", "ConceptViz.GrowthArrow", "director_v11_2.sceneTheme"]
+  }
+}

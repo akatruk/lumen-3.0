@@ -43,7 +43,7 @@ export const CAPTION_VARIANTS = ["clean", "word_highlight", "karaoke", "minimal"
 
 export const MEDIA_ROLES = ["speaker", "broll", "background", "image", "screenshot"] as const;
 
-export const TRANSITION_TYPES = ["cut", "fade", "slide", "wipe"] as const;
+export const TRANSITION_TYPES = ["cut", "fade", "slide", "wipe", "soft_pull", "cross_blur", "iris_soft"] as const;
 
 export const STEP_STATES = ["complete", "current", "upcoming"] as const;
 

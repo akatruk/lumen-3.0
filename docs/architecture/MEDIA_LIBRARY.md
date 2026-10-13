@@ -10,6 +10,7 @@
 - Families: photography, editorial_object, deterministic_motion, generative_motion, vector/SVG
 - Staging into Remotion: `visual_variation.stage_backgrounds` → `motion/public/director-v3/picked/`
 - Report: `reports/PREMIUM_MOTION_LIBRARY_V4.md`
+- **Premium Media Factory V5 (batch1):** recipe `recipes/premium-media-factory-v5-batch1.json`, indexer `scripts/index_premium_media_v5_batch1.py`, contact sheet `media/library/out/contact-sheets/premium-media-v5-batch1.html`. Adds **23** Remotion/metadata rows (8 cinematic BG plates, 4 parallax, 3 premium-3D candidates `needs_review`, 5 business motion, 3 transitions). Generative I2V/masters **BLOCKED_ON_GPU_APPROVAL**. Report: `reports/LUMEN_PREMIUM_MEDIA_FACTORY_V5.md`. GPU choice: `reports/PREMIUM_GPU_SELECTION.md`.
 
 ## TARGET STATE
 
@@ -23,3 +24,4 @@ One language-neutral library. RU/EN/ZH queries expand to English tags. Remotion 
 - Coordinate additively with other agents touching `search.py`
 - Do not claim H.264 has alpha — production alpha is `libvpx-vp9` `yuva420p`
 - **Premium 3D V1:** Blender factory `media/library/3d_factory/` → `motion/premium3d/*.webm` + `models/premium3d/*.glb` + BLEND sources. Registry rows in `premium-3d-v1-rows.json`. Director V10 selects by concept. Report: `reports/LUMEN_3D_ASSET_FACTORY_V1.md`. RunPod EXITED → local Blender pilot; do not resume GPU without auth.
+- **Experience embeddings:** text tags (including `tags_ru` / `tags_zh`) use `clip-ViT-B-32-multilingual-v1`. Image files and video keyframes use the CLIP vision encoder `clip-ViT-B-32`. Vectors live in PostgreSQL `asset_embeddings`; binaries stay on the media volume. Index with `scripts/index_experience_assets.py`. See `docs/architecture/AI_MEMORY.md`.

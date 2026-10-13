@@ -27,6 +27,8 @@
 5. `systemctl restart lumen-web lumen-worker` only.
 6. Health: `curl http://127.0.0.1:8018/api/health`
 7. **Do not** restart RunPod / GPU pods for app deploys.
+8. Experience memory stays on the existing PostgreSQL 16 + `postgresql-16-pgvector` `0.6.0-1`. Do not start `deploy/docker-compose.memory-test.yml` here. `VISUAL_EXPERIENCE_MEMORY_ENABLED=0`. Dumps: `deploy/postgres/backup_lumen_db.sh` → volume `lumen-db-backups/`. See `docs/architecture/AI_MEMORY.md`.
+9. Premium Media Factory V5: deploy code + recipe/manifest rows only; atomic publish under volume `app-library/` — never overwrite `status=approved` binary masters. Generative masters require explicit GPU spend auth (`reports/PREMIUM_GPU_SELECTION.md`).
 
 ## Environment requirements
 

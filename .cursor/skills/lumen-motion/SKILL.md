@@ -29,8 +29,9 @@ Not: x/y, CSS, font size, color, React. `validateScene()` / `normalizeScene()` /
 - No captions/logos in generated footage. No invented statistics.
 - One theme: `motion/src/themes/tokens.ts`.
 - Concept triggers: `motion/src/concepts/`. Cinematic plates: `motion/src/cinematic/`.
-- V11.1 business motion: `motion/src/preview/BusinessMotion.tsx` — shareholder_structure, equity_distribution, capital_investment, company_ownership, investment_flow, company_control, financial_comparison, business_process. Numbers only when Director stamps `showCount` / `foreignRatio` with source text. Labels RU/EN/ZH; numerals identical.
+- V11.1 business motion: `motion/src/preview/BusinessMotion.tsx` — shareholder_structure, equity_distribution, capital_investment, capital_flow, company_ownership, investment_flow, company_control, financial_comparison, business_process. Numbers only when Director stamps `showCount` / `foreignRatio` with source text. Labels RU/EN/ZH; numerals identical.
 - V11.2: face-safe shelf (`placement`: `media_column` | `below_face_band` | `upper_band_cutaway`); no `Math.max(2,…)` topology floor; company_ownership defaults to 3 nodes; process rows separate index from label.
+- Connectors use `adaptiveLineStyle` / `ConnectorStroke` with `sceneTheme` from plates (`paper` → outline/recolor).
 
 ## Registry
 

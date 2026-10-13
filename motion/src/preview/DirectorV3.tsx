@@ -9,7 +9,9 @@ import { renderScene } from "../registry/motionRegistry";
 import { ConceptViz, syncConceptTriggers, type SyncedConceptTrigger } from "../concepts";
 import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
 import { PORTRAIT, criteriaCardsFor, pipRect, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
+import { sceneThemeFromPlate } from "../utils/adaptiveLineStyle";
 import { BusinessMotion, type BusinessMotionPayload } from "./BusinessMotion";
+import type { BackgroundPlateTreatment } from "../cinematic/BackgroundPlate";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 const media = (name: string) => staticFile(`director-v3/${name}`);
@@ -115,7 +117,7 @@ export type VisualPlan = {
   captionSource?: string;
   /** When true (default), spoken captions drive concept viz overlays. */
   conceptTriggers?: boolean;
-  backgroundPlate?: "ink_lift" | "paper_grain" | "navy_grid" | "gold_veil" | "soft_vignette" | null;
+  backgroundPlate?: BackgroundPlateTreatment | null;
   heroObject?: "passport" | "key" | "globe" | "house" | null;
   language?: SupportedLocale;
   editingControls?: EditingControls | null;
@@ -338,12 +340,14 @@ function SceneRouter({
   from,
   frames,
   locale,
+  plate,
 }: {
   look: SceneLook;
   file: string;
   from: number;
   frames: number;
   locale: SupportedLocale;
+  plate?: string | null;
 }) {
   const layout = look.speaker?.layout || "speaker_fullscreen";
   const sid = look.sceneId;
@@ -405,7 +409,15 @@ function SceneRouter({
   return (
     <AbsoluteFill>
       {body}
-      {showBusiness && business ? <BusinessMotion motion={business} frames={frames} /> : null}
+      {showBusiness && business ? (
+        <BusinessMotion
+          motion={{
+            ...business,
+            sceneTheme: business.sceneTheme || sceneThemeFromPlate(plate) || "photo",
+          }}
+          frames={frames}
+        />
+      ) : null}
       {showFloat && floatStaged ? (
         <FloatingForeground
           staged={floatStaged}
@@ -1345,6 +1357,7 @@ export function DirectorV3({
                         from={beat.from}
                         frames={beat.duration}
                         locale={planLocale}
+                        plate={plate}
                       />
                     ),
                   },
@@ -1357,6 +1370,7 @@ export function DirectorV3({
                 from={beat.from}
                 frames={beat.duration}
                 locale={planLocale}
+                plate={plate}
               />
             )}
           </Sequence>
