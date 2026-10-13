@@ -320,7 +320,9 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
     env_ask = bool(set(words) & {
         "background", "skyline", "office", "meeting", "condo", "condominium",
         "apartment", "city", "district", "cinematic", "environment", "boardroom",
-        "lobby", "interior", "фон", "背景",
+        "lobby", "interior", "capital", "investment", "investor", "shareholder",
+        "executive", "skyscraper", "фон", "背景", "капитал", "инвестиции",
+        "акционер", "资本", "投资", "股东",
     })
     if env_ask and (asset.get("batch") or "") == "premium-media-factory-v5-batch1":
         if str(asset.get("id") or "").startswith("pmv5_bg_"):
@@ -387,12 +389,15 @@ def _rank_score(asset, words, text_safe, preferred_scene_role, preferred_energy,
         score += 1.6
     if asset.get("id") in set(recent_ids or ()):
         score -= 4.5
-    # Curated editorial people plates beat anonymous RunPod stills when both match.
-    if (asset.get("id") or "").startswith("people_") and family == "photography":
+    # Curated editorial people plates beat anonymous RunPod stills when both match —
+    # but not when the ask is a cinematic environment / skyline / office background.
+    if (asset.get("id") or "").startswith("people_") and family == "photography" and not env_ask:
         score += 0.7
     # V6 cinematic env masters are intentional runpod photography/I2V — do not penalize.
     if asset.get("source") == "runpod" and mode == "situational" and family != "cinematic_environment":
         score -= 0.35
+    if preferred_scene_role == "background" and family == "cinematic_environment" and (asset.get("type") or "") == "video":
+        score += 1.2
     return score
 
 

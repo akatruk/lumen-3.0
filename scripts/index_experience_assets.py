@@ -108,6 +108,7 @@ def main():
     parser.add_argument('--images', type=int, default=0)
     parser.add_argument('--videos', type=int, default=0)
     parser.add_argument('--approved', action='store_true', help='Index every quality-gate-approved raster and video')
+    parser.add_argument('--only-prefix', default='', help='Index only ids with this prefix; does not delete other rows')
     args = parser.parse_args()
     started = time.perf_counter()
     init_db()
@@ -116,10 +117,16 @@ def main():
     root = args.manifest.parent
     indexed = {'text': 0, 'image': 0, 'video_keyframe': 0, 'skipped': 0, 'errors': 0}
     known = _known()
-    if args.approved:
+    if args.approved or args.only_prefix:
         eligible = [asset for asset in assets if _approved(asset)]
-        indexed['removed_unapproved'] = _drop_unapproved({asset['id'] for asset in eligible})
-        known = _known()
+        if args.only_prefix:
+            eligible = [
+                asset for asset in eligible
+                if str(asset.get('id') or '').startswith(args.only_prefix)
+            ]
+        if args.approved and not args.only_prefix:
+            indexed['removed_unapproved'] = _drop_unapproved({asset['id'] for asset in eligible})
+            known = _known()
         pending_text = []
         pending_images = []
         for asset in eligible:

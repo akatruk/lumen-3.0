@@ -17,6 +17,7 @@ _PLATE_FAMILIES = frozenset({
     'editorial_object',
     'generative_motion',
     'deterministic_motion',
+    'cinematic_environment',
 })
 _FOREGROUND_QUERIES = (
     'passport document object',

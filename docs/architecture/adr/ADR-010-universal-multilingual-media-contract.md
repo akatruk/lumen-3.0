@@ -22,6 +22,7 @@ RU (`ru-RU`), EN (`en-US`), and ZH (`zh-CN`) are a publication gate for **new** 
 10. `quarantined` / `rejected` / `duplicate` / `corrupt` stay out of default search.
 11. `premium_3d` is not `production_ready` without an explicit quality-gate approval.
 12. Ingest runs `validate_media_library --multilingual` before publication. Failure sets `qualityStatus=PENDING_LOCALIZATION`.
+13. Future cinematic batches use the same ingest: frame-grounded metadata separate from the prompt, `en-US` / `ru-RU` / `zh-CN`, and index only after approval. Incomplete rows stay `PENDING_LOCALIZATION`.
 
 ## Schema
 
