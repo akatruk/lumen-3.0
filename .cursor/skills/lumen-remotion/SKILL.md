@@ -22,6 +22,7 @@ Package: `motion/` — Remotion 4.x, canvas 1080×1920 @ 30fps.
 - V5: default Create Video path when `REMOTION_ENGINE_ENABLED=1` (`should_use_remotion`). Transcript captions via `attach_transcript_captions`. Fail closed — never silent Hypit override.
 - V8 (≥45s): `director_v8` expands to `long60`, stages semantic webm into `motion/public/picked/`; `DirectorV3` mounts `SemanticMotionClip` from plan `semanticMotion.staged`. Audit `semanticMotionAudit.pass` before claiming motion is live.
 - V9/V10.1: prefer `FloatingForeground` (transparent SVG/PNG or `format: png_seq` RGBA). yuv420p webm ≠ alpha. Honor `compositionPolicy=v9_clean` / scale profiles. Do not float large 3D over the face — cutaway layouts only when `production_ready`.
+- V11.1: `DirectorV3` mounts `BusinessMotion` from `scene.businessMotion` (provenance-stamped). `BigFigure` renders only with spoken evidence — never default `2`. Captions: larger dark pill (min ~64px), phrase group 1–2 lines.
 - Reuse `lumen-motion` for registry scenes; this skill covers engine integration.
 
 ## Check

@@ -199,6 +199,8 @@ def resolve_scene_plan(
             'captionRegion': raw.get('captionRegion') or (raw.get('composition') or {}).get('captionRegion'),
             'visualComplexity': raw.get('visualComplexity'),
             'visualComplexityScore': dict(raw.get('visualComplexityScore') or {}),
+            'businessMotion': dict(raw.get('businessMotion') or {}) or None,
+            'semanticConcepts': list(raw.get('semanticConcepts') or []),
         }
         # Strip director-illegal keys if a buggy planner leaked them.
         for bucket in ('speaker', 'background', 'foreground', 'typography'):

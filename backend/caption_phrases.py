@@ -30,7 +30,8 @@ def _row_text(row: dict, locale: str | None) -> str:
 
 
 _TRAIL_BAD = re.compile(
-    r'\b(и|а|но|да|или|с|со|к|ко|у|о|об|от|по|за|для|на|из|and|or|but|the|a|an|of|to|for|with|in)\s*$',
+    r'\b(и|а|но|да|или|с|со|к|ко|у|о|об|от|по|за|для|на|из|'
+    r'and|or|but|the|a|an|of|to|for|with|in|at|from|by|as|into|onto|than|need)\s*$',
     re.I,
 )
 
@@ -129,8 +130,9 @@ def group_phrase_texts(text: str, locale: str | None = None) -> list[str]:
         return _split_zh(text)
     if bucket == 'ru':
         # Slightly longer windows reduce orphan words like «подачи» at segment tails.
-        return _split_en_ru(text, lo=3, hi=6)
-    return _split_en_ru(text, lo=2, hi=6)
+        return _split_en_ru(text, lo=3, hi=7)
+    # Mobile 1–2 lines: prefer fuller phrases; never end on dangling function words.
+    return _split_en_ru(text, lo=3, hi=8)
 
 
 def phrases_from_transcript(
@@ -204,7 +206,15 @@ def phrases_from_transcript(
             continue
         words = text.split()
         prev_text = cleaned[-1]['text'] if cleaned else ''
-        if cleaned and (_LEAD_CONJ.match(text) or len(words) <= 2 or _TRAIL_BAD.search(prev_text)):
+        gap = (r['start'] - cleaned[-1]['end']) if cleaned else 999.0
+        # Merge only within the same spoken breath — never glue across a pause.
+        can_merge = (
+            cleaned
+            and gap <= 0.35
+            and (_LEAD_CONJ.match(text) or len(words) <= 2 or _TRAIL_BAD.search(prev_text))
+            and len((prev_text + ' ' + text).split()) <= 12
+        )
+        if can_merge:
             prev = cleaned[-1]
             prev['text'] = _normalize_caption_text(f"{prev['text']} {text}")
             prev['end'] = r['end']

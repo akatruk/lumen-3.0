@@ -29,6 +29,7 @@ Not: x/y, CSS, font size, color, React. `validateScene()` / `normalizeScene()` /
 - No captions/logos in generated footage. No invented statistics.
 - One theme: `motion/src/themes/tokens.ts`.
 - Concept triggers: `motion/src/concepts/`. Cinematic plates: `motion/src/cinematic/`.
+- V11.1 business motion: `motion/src/preview/BusinessMotion.tsx` — shareholder_structure, equity_distribution, capital_investment, company_ownership, investment_flow, company_control, financial_comparison, business_process. Numbers only when Director stamps `showCount` / `foreignRatio` with source text. Labels RU/EN/ZH; numerals identical.
 
 ## Registry
 

@@ -69,8 +69,10 @@ function RiskArrow({ frames }: { frames: number }) {
   );
 }
 
-function BigFigure({ frames, value = 2 }: { frames: number; value?: number }) {
+function BigFigure({ frames, value }: { frames: number; value?: number }) {
   const frame = useCurrentFrame();
+  // Never invent a figure — Director / spokenNumber must supply evidence.
+  if (value == null || !Number.isFinite(value)) return null;
   const { opacity, y } = enter(frame, frames);
   const scale = interpolate(frame, [0, 16], [0.86, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
   return (
@@ -430,7 +432,7 @@ function BudgetScale({ frames }: { frames: number }) {
 const RENDERERS: Record<ConceptPresetId, (props: { frames: number; hit: ConceptTriggerHit }) => ReactElement> = {
   growth_arrow: ({ frames }) => <GrowthArrow frames={frames} />,
   risk_arrow: ({ frames }) => <RiskArrow frames={frames} />,
-  big_figure: ({ frames, hit }) => <BigFigure frames={frames} value={hit.value ?? 2} />,
+  big_figure: ({ frames, hit }) => <BigFigure frames={frames} value={hit.value} />,
   steps_reveal: ({ frames, hit }) => <StepsReveal frames={frames} labels={hit.labels} />,
   comparison_columns: ({ frames }) => <ComparisonColumns frames={frames} />,
   deadline_scale: ({ frames }) => <DeadlineScale frames={frames} />,

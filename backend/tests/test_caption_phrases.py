@@ -6,13 +6,36 @@ from backend.caption_phrases import (
 )
 
 
-def test_english_groups_2_to_6_words():
+def test_english_groups_readable_mobile_phrases():
     parts = group_phrase_texts(
         'Many people think that foreign investment companies only change the language',
         'en-US',
     )
     assert parts
-    assert all(2 <= len(p.split()) <= 6 for p in parts)
+    assert all(2 <= len(p.split()) <= 10 for p in parts)
+    # Never leave a dangling preposition on the phone caption.
+    assert not any(p.rstrip().lower().endswith(' at') for p in parts)
+
+
+def test_origin1_shareholder_phrase_stays_intact():
+    rows = phrases_from_transcript([
+        {
+            'start': 22.66, 'end': 26.06,
+            'en': 'Ordinary Thai companies usually need at least three shareholders',
+        },
+        {
+            'start': 29.26, 'end': 34.46,
+            'en': 'In other words, the control power is locked in from the moment of the investment',
+        },
+    ], locale='en-US', duration_s=60)
+    blob = ' | '.join(r['text'] for r in rows)
+    assert 'three shareholders' in blob.lower()
+    # Must not glue shareholder line onto control-power across the pause.
+    assert not any(
+        'three shareholders' in r['text'].lower() and 'control power' in r['text'].lower()
+        for r in rows
+    )
+    assert not any(r['text'].rstrip().lower().endswith(' at') for r in rows)
 
 
 def test_russian_groups_readable_phrases():

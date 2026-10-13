@@ -31,6 +31,9 @@ describe("concept triggers", () => {
   it("does not invent a number when none is spoken", () => {
     assert.equal(spokenNumber("планируете переезд"), undefined);
     assert.equal(spokenNumber("budget is 12 percent"), 12);
+    assert.equal(spokenNumber("at least three shareholders"), 3);
+    assert.equal(spokenNumber("usually less than 49%"), 49);
+    assert.equal(spokenNumber("ordinary company structure"), undefined);
   });
 
   it("syncs caption windows to frame ranges", () => {

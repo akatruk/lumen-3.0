@@ -70,25 +70,28 @@ _CONCEPT_RULES: tuple[tuple[str, tuple[str, ...], str, dict[str, Any]], ...] = (
     ),
     (
         'thai_shareholder_count',
-        (r'three\s+shareholders', r'три\s+акционер', r'三位股东', r'at\s+least\s+three'),
+        (
+            r'three\s+shareholders', r'at\s+least\s+three\s+shareholders',
+            r'три\s+акционер', r'至少三名股东', r'三名股东', r'三位股东', r'at\s+least\s+three',
+        ),
         'investment',
         {'query': 'corporate ownership structure diagram desk', 'keyword': 'shareholder'},
     ),
     (
         'foreign_ownership_ratio',
-        (r'foreign\s+capital\s+ratio', r'49\s*%', r'иностранн\w*\s+доля', r'外资比例'),
+        (r'foreign\s+capital\s+ratio', r'less\s+than\s+49', r'49\s*%', r'иностранн\w*\s+доля', r'外资比例', r'不超过\s*49'),
         'investment',
         {'query': 'equity ownership pie chart business', 'keyword': 'ownership'},
     ),
     (
         'company_control',
-        (r'control\s+power', r'контроль', r'控制权', r'locked\s+in'),
+        (r'control\s+power', r'контроль', r'控制权', r'locked\s+in', r'就被锁定'),
         'investment',
         {'query': 'corporate control handshake boardroom', 'keyword': 'control'},
     ),
     (
         'capital_return',
-        (r'money\s+is\s+returned', r'возврат\w*\s+денег', r'资金返还', r'initial\s+rhythm'),
+        (r'money\s+is\s+returned', r'возврат\w*\s+денег', r'资金返还', r'initial\s+rhythm', r'出资节奏'),
         'investment',
         {'query': 'business growth arrow finance chart', 'keyword': 'capital'},
     ),

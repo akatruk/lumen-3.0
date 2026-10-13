@@ -13,6 +13,7 @@
 - **V9:** `director_v9.py` — composition intelligence (`primaryVisualRole`, complexity budget, `containerPolicy=minimal`, transparent floats, caption dedupe). Prefer fewer containers over more motion. Report: `reports/LUMEN_V9_PREMIUM_CLEAN_MOTION.md`.
 - **V10:** `director_v10.py` — upgrades V9 floats to premium Blender 3D alpha (`premium_3d`) when registry available; keeps `v9_clean` hierarchy. Report: `reports/LUMEN_3D_ASSET_FACTORY_V1.md`.
 - **V11:** `director_v11.py` — semantic content map from transcript; topic domain (`investment` / `immigration` / `mixed`); evidence-required visual selection; rejects immigration cards/queries on unrelated speech (e.g. origin1 capital/shareholder/Thailand). After V9, before optional 3D. Report: `reports/DIRECTOR_V11_SEMANTIC_INTELLIGENCE.md`.
+- **V11.1:** `director_v11_1.py` — factual grounding + provenance (`sourceSegmentId/start/end/originalSourceText`) for numbers/legal/ownership claims; Remotion `BusinessMotion` components (shareholder_structure, equity_distribution, capital_investment, …); rejects invented counts (no BigFigure default `2`). After V11, before optional 3D. Report: `reports/DIRECTOR_V11_1_FACTUAL_GROUNDING.md`. Origin1: spoken **≥3 shareholders**, not 2.
 - Studio create-video stores `visual_plan` on `director_v3` when `should_use_remotion`
 - Hypit model brief (legacy): `backend/assembly_prompt.txt` via `hypit_prompt.py`
 

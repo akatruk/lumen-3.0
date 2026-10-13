@@ -9,6 +9,7 @@ import { renderScene } from "../registry/motionRegistry";
 import { ConceptViz, syncConceptTriggers, type SyncedConceptTrigger } from "../concepts";
 import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
 import { PORTRAIT, criteriaCardsFor, pipRect, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
+import { BusinessMotion, type BusinessMotionPayload } from "./BusinessMotion";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 const media = (name: string) => staticFile(`director-v3/${name}`);
@@ -84,6 +85,8 @@ export type SceneLook = {
   containerPolicy?: string;
   speakerProtection?: boolean;
   captionRegion?: string;
+  /** V11.1 evidence-backed business semantic motion (Remotion deterministic). */
+  businessMotion?: BusinessMotionPayload | null;
 };
 
 export type EditingControls = {
@@ -392,9 +395,15 @@ function SceneRouter({
   } else {
     body = <Return file={file} from={from} frames={frames} look={look} />;
   }
+  const business = look.businessMotion;
+  // Beside progressive cards already carry the claim — skip overlapping diagram.
+  const showBusiness =
+    Boolean(business?.component) &&
+    !(sid === "beside" && (look.typography?.cards?.length || look.criteriaCards?.length));
   return (
     <AbsoluteFill>
       {body}
+      {showBusiness && business ? <BusinessMotion motion={business} frames={frames} /> : null}
       {floatStaged ? (
         <FloatingForeground
           staged={floatStaged}
@@ -492,20 +501,38 @@ function captionsFromTranscript(
   fps = DIRECTOR_V3_FPS,
 ): { from: number; duration: number; text: string; emphasis?: string[] }[] {
   if (!phrases?.length) return [];
-  const rows: { from: number; duration: number; text: string; emphasis?: string[] }[] = [];
+  const raw: { from: number; end: number; text: string }[] = [];
   for (const phrase of phrases) {
     const text = String(phrase.text || "").trim();
     if (!text) continue;
     const from = Math.max(0, Math.round(Number(phrase.start || 0) * fps));
     const end = Math.max(from + 1, Math.round(Number(phrase.end || 0) * fps));
     if (from >= totalFrames) continue;
-    rows.push({
-      from,
-      duration: Math.min(totalFrames - from, end - from),
-      text,
-    });
+    raw.push({ from, end: Math.min(totalFrames, end), text });
   }
-  return rows;
+  // Phrase grouping: merge short adjacent lines into 1–2 line mobile captions.
+  const grouped: { from: number; end: number; text: string }[] = [];
+  for (const row of raw) {
+    const prev = grouped[grouped.length - 1];
+    const gap = prev ? row.from - prev.end : 999;
+    const combined = prev ? `${prev.text} ${row.text}`.trim() : row.text;
+    const canMerge =
+      prev &&
+      gap <= Math.round(0.35 * fps) &&
+      combined.length <= 72 &&
+      !prev.text.includes("\n");
+    if (canMerge && prev) {
+      prev.end = row.end;
+      prev.text = combined;
+    } else {
+      grouped.push({ ...row });
+    }
+  }
+  return grouped.map((row) => ({
+    from: row.from,
+    duration: Math.max(1, row.end - row.from),
+    text: row.text,
+  }));
 }
 
 function Move({
@@ -602,18 +629,18 @@ function Caption({
         <div
           data-caption-backing="dark"
           style={{
-            maxWidth: 880,
-            padding: "14px 28px 16px",
-            borderRadius: 18,
-            background: "rgba(12, 11, 10, 0.55)",
-            boxShadow: "0 4px 18px rgba(0,0,0,0.28)",
+            maxWidth: 920,
+            padding: "16px 32px 18px",
+            borderRadius: 20,
+            background: "rgba(8, 7, 6, 0.72)",
+            boxShadow: "0 6px 22px rgba(0,0,0,0.36)",
           }}
         >
           <AutoFitText
             text={clean}
-            maxWidth={824}
-            maxHeight={140}
-            role={{ min: 56, max: 78, weight: 700, lineHeight: 1.12, tracking: -0.02 }}
+            maxWidth={860}
+            maxHeight={168}
+            role={{ min: 64, max: 88, weight: 700, lineHeight: 1.14, tracking: -0.02 }}
             align="center"
             vertical="center"
             wrapMode="auto"
