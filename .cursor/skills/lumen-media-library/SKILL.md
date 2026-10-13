@@ -7,6 +7,12 @@ description: >-
 
 # Media library
 
+Contract: [ADR-010](docs/architecture/adr/ADR-010-universal-multilingual-media-contract.md). Locales `en-US`, `ru-RU`, `zh-CN`. One `id`, one library. ADR-004 stays the retrieval decision.
+
+New asset workflow: generate → quality review → canonical `id` → `conceptId` + semantic tags → RU/EN/ZH `localized` → embedding only if missing (`VISUAL_INTELLIGENCE_ENABLED` stays 0) → `scripts/validate_media_library.py --multilingual` → `ingest.register_approved` → Director. Failure sets `qualityStatus=PENDING_LOCALIZATION`. Do not publish. Retry updates the same id.
+
+`validate_asset` is strict only when `multilingualContract=required` or `qualityStatus=production_ready`. Legacy rows are reported. Do not overwrite human `tags_ru` / `tags_zh`. Do not copy binaries per language. Quarantine: ADR-008. `premium_3d` needs `qualityGateApproved` before production. Motion presets are components, not image files.
+
 - Search: `media/library/search.py` (additive changes only) — includes `tags_ru` / `tags_zh` and `locale`. Overlay: `localized_overlay.json`. Every approved asset must be discoverable in en-US / ru-RU / zh-CN. Do not duplicate files per language.
 - Concepts: `concepts.py`, `concept_triggers.py`
 - Manifest: `media/library/out/manifest.json` or DO `app-library` (authoritative on volume)

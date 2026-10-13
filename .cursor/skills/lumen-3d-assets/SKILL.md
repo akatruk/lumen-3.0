@@ -10,7 +10,7 @@ description: >-
 
 ## Rules
 
-- **3D is optional. Professional quality is mandatory.**
+- **3D is optional. Professional quality is mandatory.** ADR-010: not `production_ready` without `qualityGateApproved`. Same `id` across ru/en/zh. No per-language meshes.
 - Do not expand the library until passport / suitcase / folder are PREMIUM_READY.
 - Do not resume RunPod without explicit authorization.
 - No baked language text / logos / passport numbers in geometry.

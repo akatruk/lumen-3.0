@@ -4,7 +4,7 @@
 
 - **Default production path:** Director V4 + Remotion when `REMOTION_ENGINE_ENABLED=1` (default). Hypit is explicit legacy only (`REMOTION_ENGINE_ENABLED=0`).
 - Project create does **not** call the Director. Deferred source plan: `backend/source_analysis.ensure_analysis`.
-- Semantic visual plan: `backend/visual_variation.resolve_plan(seed, energy)`
+- Semantic visual plan: `backend/visual_variation.resolve_plan(seed, energy, language=project.language)` — locale goes to `search_assets`. Card copy does not fall back to English (ADR-010, ADR-004).
 - **Execution:** `backend/director_execution.enforce_plan` (PIP ≥324px, heading completeness, caption≠card, statistic dedupe) inside `resolve_scene_plan`
 - **Captions:** transcript → `caption_phrases` → Remotion (not LLM caption fragments)
 - **V6:** `locale_consistency` + `director_semantics` — one viewer locale; speech-backed headlines/cards; layout diversity; reject EN captions under RU cards
@@ -17,7 +17,7 @@
 - **V11.2:** `director_v11_2.py` — composition repair on V11.1. Remaining “2 Shareholders” was CleanSteps `{n}+Shareholders` step label (not BigFigure). Scrubs fake headcount labels; face-safe BusinessMotion placement; softer captions. Report: `reports/DIRECTOR_V11_2_COMPOSITION_REPAIR.md`.
 - **V11.2 + Media Factory V5:** stamps `sceneTheme` / `connectorBackground` on BusinessMotion from `backgroundPlate` for adaptive connector contrast. Editorial baseline stays V11.2; `PREMIUM_3D_MODE=off`; `quality_gate_v2.production_ready` empty. Origin1 A/B: `output/premium-media-v5/{baseline-v11-2,premium-motion-v12-test}.mp4`.
 - Studio create-video stores `visual_plan` on `director_v3` when `should_use_remotion`
-- **Experience memory** (`VISUAL_EXPERIENCE_MEMORY_ENABLED` or `VISUAL_INTELLIGENCE_ENABLED`, both default off): before a plan is stored, `attach_to_visual_plan` may attach at most 8 advisory hits (`experienceMemory`): similar successes, failures, incidents, and assets in the same project/domain. RunPod and OpenRouter prompts get the same bounded block. Memory does not rewrite scenes, captions, or spoken facts, and must not copy an unrelated scene. Off = those paths do not query pgvector. Hybrid asset search runs only when `VISUAL_INTELLIGENCE_ENABLED=1`. See `docs/architecture/AI_MEMORY.md`.
+- **Experience memory** (`VISUAL_EXPERIENCE_MEMORY_ENABLED` or `VISUAL_INTELLIGENCE_ENABLED`, both default off): before a plan is stored, `attach_to_visual_plan` may attach at most 8 advisory hits (`experienceMemory`): similar successes, failures, incidents, and assets in the same project/domain. RunPod and OpenRouter prompts get the same bounded block. Memory does not rewrite scenes, captions, or spoken facts, and must not copy an unrelated scene. Off = those paths do not query pgvector. Hybrid asset search runs only when `VISUAL_INTELLIGENCE_ENABLED=1`: keyword retrieval, then a semantic rerank that keeps the spoken concept and does not sort by cosine. The beat id `residency` is not a topic. Investment speech replaces its default query before search. See `docs/architecture/AI_MEMORY.md`.
 - Hypit model brief (legacy): `backend/assembly_prompt.txt` via `hypit_prompt.py`
 
 ## TARGET STATE
