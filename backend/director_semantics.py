@@ -11,6 +11,7 @@ from typing import Any
 from .locale_consistency import locale_bucket, prefer_locale_field, text_matches_locale
 
 # Keyword (any locale script) → English library search queries.
+# Immigration queries fire only on immigration speech markers — not on bare "document".
 _QUERY_TRIGGERS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
     (re.compile(r'паспорт|passport|护照', re.I), (
         'passport document object', 'residence permit document',
@@ -18,8 +19,15 @@ _QUERY_TRIGGERS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
     (re.compile(r'переезд|relocati|搬家|搬迁', re.I), (
         'family home doorway relocation', 'family new home arrival residence',
     )),
-    (re.compile(r'документ|document|文件|заявлен', re.I), (
-        'document review desk paperwork', 'residence permit application desk',
+    (re.compile(r'вид\s+на\s+жительств|residence\s+permit|居留许可', re.I), (
+        'residence permit application desk', 'document review desk paperwork',
+    )),
+    (re.compile(r'shareholder|акционер|股东|investment\s+compan|инвестиционн|投资公司|capital\s+investment', re.I), (
+        'corporate boardroom shareholders meeting', 'bangkok business district skyline daytime',
+        'capital investment finance chart',
+    )),
+    (re.compile(r'thailand|тайланд|泰国', re.I), (
+        'bangkok business district skyline daytime', 'thailand company formation office',
     )),
     (re.compile(r'консульт|consult|咨询', re.I), (
         'consultation meeting advisor', 'advisor client meeting trust',
@@ -32,6 +40,8 @@ _QUERY_TRIGGERS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
     )),
 )
 
+# Default criteria are immigration-oriented ONLY when speech evidence supports that
+# domain. Investment / corporate speech uses topic packs via director_v11.
 _CRITERIA_RU = (
     {'title': 'Цели', 'explanation': 'куда и зачем вы переезжаете'},
     {'title': 'Семья', 'explanation': 'кто едет с вами и в какие сроки'},
@@ -100,16 +110,34 @@ def _headline_from(text: str, locale: str | None) -> str:
 
 
 def _criteria_for(locale: str | None, transcript_text: str) -> list[dict]:
-    bucket = locale_bucket(locale)
-    base = {'ru': _CRITERIA_RU, 'zh': _CRITERIA_ZH}.get(bucket, _CRITERIA_EN)
-    cards = [dict(c) for c in base]
-    # If speech names goals/family/budget, keep stock cards (already aligned).
-    # If speech is about investment/China, still keep criteria that match immigration
-    # consulting offers — do not invent new statistics.
-    return cards
+    """Topic-aware criteria: never force immigration cards onto investment speech."""
+    from .director_v11 import detect_topic_domain, _criteria_for_domain
+    domain = detect_topic_domain(
+        [{'start': 0, 'end': 1, 'original': transcript_text or '', 'en': transcript_text or '',
+          'ru': transcript_text or '', 'zh': transcript_text or '', 'text': transcript_text or ''}],
+        locale,
+    )
+    if domain in ('investment', 'mixed'):
+        return _criteria_for_domain('investment' if domain == 'investment' else 'mixed', locale)
+    if domain == 'immigration':
+        bucket = locale_bucket(locale)
+        base = {'ru': _CRITERIA_RU, 'zh': _CRITERIA_ZH}.get(bucket, _CRITERIA_EN)
+        return [dict(c) for c in base]
+    # Generic: no stock immigration pack — leave empty for V11 / speech headlines.
+    return []
 
 
-def _steps_for(locale: str | None) -> dict:
+def _steps_for(locale: str | None, transcript_text: str = '') -> dict:
+    from .director_v11 import detect_topic_domain, _steps_for_domain
+    domain = detect_topic_domain(
+        [{'start': 0, 'end': 1, 'original': transcript_text or '', 'en': transcript_text or '',
+          'ru': transcript_text or '', 'zh': transcript_text or '', 'text': transcript_text or ''}],
+        locale,
+    ) if transcript_text else 'immigration'
+    if domain in ('investment', 'mixed'):
+        pack = _steps_for_domain('investment', locale)
+        if pack:
+            return pack
     bucket = locale_bucket(locale)
     return dict({'ru': _STEPS_RU, 'zh': _STEPS_ZH}.get(bucket, _STEPS_EN))
 
@@ -180,7 +208,7 @@ def enrich_plan_from_transcript(
     joined = ' '.join(s['text'] for s in segments)
     queries = _queries_from_text(joined)
     criteria = _criteria_for(locale, joined)
-    steps = _steps_for(locale)
+    steps = _steps_for(locale, joined)
 
     # Map early segments onto fixed beat ids for 20s previews.
     by_id = {s.get('sceneId'): s for s in scenes}
@@ -230,8 +258,14 @@ def enrich_plan_from_transcript(
 
     if 'residency' in by_id and queries:
         res = by_id['residency']
-        # Prefer relocation/document queries from speech.
-        speech_q = [q for q in queries if 'reloc' in q or 'family' in q or 'document' in q or 'permit' in q]
+        # Prefer speech-backed queries (investment or immigration) — never invent.
+        speech_q = [
+            q for q in queries
+            if any(k in q.lower() for k in (
+                'reloc', 'family', 'document', 'permit', 'shareholder', 'bangkok',
+                'capital', 'thailand', 'corporate', 'investment', 'boardroom',
+            ))
+        ]
         if speech_q:
             res['query'] = speech_q[0]
         exe = dict(res.get('execution') or {})

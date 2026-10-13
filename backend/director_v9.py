@@ -12,11 +12,19 @@ from typing import Any
 # Transparent (or intentional SVG) foreground objects — NOT opaque webm plates.
 # keyword → (rel path under media/library/out, silhouette, concept)
 OBJECT_BINDINGS: tuple[tuple[str, str, str, str], ...] = (
+    # Immigration — only when keywordPref/speech actually includes these ids
     ('relocation', 'static/immigration/imm_obj_suitcase.svg', 'suitcase', 'mobility'),
     ('relocation', 'static/decorative/route-arc-gold.svg', 'route', 'mobility'),
     ('relocation', 'static/immigration/imm_obj_pin.svg', 'pin', 'mobility'),
     ('residency', 'static/icons/passport.svg', 'passport', 'residency'),
     ('passport', 'static/v2/fg_passport.svg', 'passport_alt', 'passport'),
+    # Corporate / investment (transparent icons already in library)
+    ('investment', 'static/icons/goal.svg', 'target', 'investment'),
+    ('shareholder', 'static/icons/checklist.svg', 'checklist', 'shareholder'),
+    ('capital', 'static/icons/budget.svg', 'budget', 'capital'),
+    ('thailand', 'static/decorative/route-arc-gold.svg', 'route', 'thailand'),
+    ('ownership', 'static/icons/checklist.svg', 'checklist', 'ownership'),
+    ('control', 'static/icons/goal.svg', 'target', 'control'),
     ('documents', 'static/documents/doc_folder_001.png', 'folder', 'documents'),
     ('documents', 'static/documents/doc_seal_001.png', 'seal', 'documents'),
     ('program', 'static/icons/checklist.svg', 'checklist', 'program'),

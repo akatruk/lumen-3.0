@@ -231,6 +231,36 @@ def _scene_from_beat(beat: dict, *, keywords: list[dict], seed_layout: dict | No
     }
 
 
+def _topic_aware_beat(beat: dict, *, domain: str, keywords: list[dict]) -> dict:
+    """Strip hardcoded immigration prefs/queries when speech is not immigration."""
+    beat = dict(beat)
+    if domain not in ('investment', 'mixed'):
+        return beat
+    # Investment / mixed: never force relocation/residency defaults.
+    imm_prefs = {'relocation', 'residency', 'passport', 'family'}
+    pref = tuple(p for p in (beat.get('keywordPref') or ()) if p not in imm_prefs)
+    # Prefer speech-backed corporate keywords when available.
+    speech_ids = [k['id'] for k in keywords if k['id'] not in imm_prefs]
+    corp = [k for k in speech_ids if k in (
+        'investment', 'shareholder', 'capital', 'thailand', 'ownership', 'control',
+        'documents', 'consult', 'program', 'budget', 'goals',
+    )]
+    if not pref:
+        pref = tuple(corp[:2]) if corp else ()
+    beat['keywordPref'] = pref
+    query = beat.get('query')
+    if isinstance(query, tuple):
+        q0 = query[0] if query else None
+    else:
+        q0 = query
+    if q0 and any(m in str(q0).lower() for m in (
+        'relocation', 'residence permit', 'passport', 'family home', 'family new home',
+        'document review desk', 'application desk',
+    )):
+        beat['query'] = None
+    return beat
+
+
 def expand_plan_for_duration(
     plan: dict,
     *,
@@ -243,11 +273,17 @@ def expand_plan_for_duration(
     cleaned = filter_locale_transcript(transcript, locale)
     joined = ' '.join(prefer_locale_field(r, locale) or r.get('text') or '' for r in cleaned)
     keywords = extract_keywords(joined, locale)
+    try:
+        from .director_v11 import detect_topic_domain
+        domain = detect_topic_domain(cleaned, locale)
+    except Exception:
+        domain = 'immigration'  # legacy default only if v11 unavailable
 
     out = dict(plan)
     out['language'] = locale
     out['durationSeconds'] = int(duration_seconds)
     out['keywords'] = keywords
+    out['topicDomain'] = domain
 
     if int(duration_seconds) < 45:
         out['form'] = 'short'
@@ -257,7 +293,15 @@ def expand_plan_for_duration(
             scene = dict(scene)
             shot = dict(scene.get('shotPlan') or {})
             prefs = [k['id'] for k in (shot.get('keywords') or keywords[:1])]
-            motion = _binding_for(prefs) or _binding_for([k['id'] for k in keywords])
+            if domain == 'investment':
+                prefs = [p for p in prefs if p not in ('relocation', 'residency', 'passport', 'family')]
+            motion = _binding_for(prefs) or (
+                None if domain == 'investment' else _binding_for([k['id'] for k in keywords])
+            )
+            if motion and domain == 'investment' and motion.get('keyword') in (
+                'relocation', 'residency', 'passport', 'family',
+            ):
+                motion = None
             if motion:
                 scene['semanticMotion'] = motion
                 shot['semanticMotion'] = motion
@@ -273,6 +317,7 @@ def expand_plan_for_duration(
     by_old = {s.get('sceneId'): s for s in (plan.get('scenes') or [])}
     scenes = []
     for beat in LONG_BEATS:
+        beat = _topic_aware_beat(beat, domain=domain, keywords=keywords)
         # Only reuse media from the same beat id — never clone one interior across the minute.
         seed = by_old.get(beat['id'])
         scene = _scene_from_beat(beat, keywords=keywords, seed_layout=seed)
@@ -311,11 +356,14 @@ def expand_plan_for_duration(
     out['scenes'] = scenes
     out['shotPlanVersion'] = 'v8'
     out['beatWeights'] = [b['weight'] for b in LONG_BEATS]
-    # Hero for opener
-    if any(k['id'] in ('residency', 'passport', 'documents') for k in keywords):
-        out['heroObject'] = 'passport'
-    elif any(k['id'] == 'relocation' for k in keywords):
-        out['heroObject'] = 'globe'
+    # Hero for opener — immigration objects only when speech is immigration-domain.
+    if domain != 'investment':
+        if any(k['id'] in ('residency', 'passport', 'documents') for k in keywords):
+            out['heroObject'] = 'passport'
+        elif any(k['id'] == 'relocation' for k in keywords):
+            out['heroObject'] = 'globe'
+    else:
+        out.pop('heroObject', None)
     out['antiRepetition'] = {
         'signatures': [
             f"{s['speaker']['framing']}|{s['speaker']['layout']}|{(s.get('shotPlan') or {}).get('motionFamily')}"

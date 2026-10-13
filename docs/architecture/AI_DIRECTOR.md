@@ -12,6 +12,7 @@
 - **V8:** `director_v8.py` — `long60` (10 beats) for ≥45s; semantic concept → library webm bindings; stage + `semanticMotionAudit`; Remotion mounts `SemanticMotionClip`. Report: `reports/LUMEN_V8_SEMANTIC_MOTION_60S.md`. Do not stretch a 20s preview.
 - **V9:** `director_v9.py` — composition intelligence (`primaryVisualRole`, complexity budget, `containerPolicy=minimal`, transparent floats, caption dedupe). Prefer fewer containers over more motion. Report: `reports/LUMEN_V9_PREMIUM_CLEAN_MOTION.md`.
 - **V10:** `director_v10.py` — upgrades V9 floats to premium Blender 3D alpha (`premium_3d`) when registry available; keeps `v9_clean` hierarchy. Report: `reports/LUMEN_3D_ASSET_FACTORY_V1.md`.
+- **V11:** `director_v11.py` — semantic content map from transcript; topic domain (`investment` / `immigration` / `mixed`); evidence-required visual selection; rejects immigration cards/queries on unrelated speech (e.g. origin1 capital/shareholder/Thailand). After V9, before optional 3D. Report: `reports/DIRECTOR_V11_SEMANTIC_INTELLIGENCE.md`.
 - Studio create-video stores `visual_plan` on `director_v3` when `should_use_remotion`
 - Hypit model brief (legacy): `backend/assembly_prompt.txt` via `hypit_prompt.py`
 

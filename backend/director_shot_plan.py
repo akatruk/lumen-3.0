@@ -133,16 +133,38 @@ _BEAT_SHOTS: dict[str, dict[str, Any]] = {
 
 _KEYWORD_RULES: tuple[tuple[str, str, str], ...] = (
     # substring (any case), keyword id, concept preset
+    # Immigration (speech-evidence only)
     ('переезд', 'relocation', 'route_link'),
+    ('relocati', 'relocation', 'route_link'),
     ('жительств', 'residency', 'document_stamp'),
+    ('residenc', 'residency', 'document_stamp'),
     ('паспорт', 'passport', 'document_stamp'),
+    ('passport', 'passport', 'document_stamp'),
     ('программ', 'program', 'steps_reveal'),
     ('консульт', 'consult', 'comparison_columns'),
+    ('consult', 'consult', 'comparison_columns'),
     ('документ', 'documents', 'document_stamp'),
     ('семь', 'family', 'family_cluster'),
     ('бюджет', 'budget', 'budget_scale'),
     ('целей', 'goals', 'comparison_columns'),
     ('целя', 'goals', 'comparison_columns'),
+    # Investment / corporate structure (origin1-class)
+    ('investment', 'investment', 'comparison_columns'),
+    ('инвестиц', 'investment', 'comparison_columns'),
+    ('投资', 'investment', 'comparison_columns'),
+    ('shareholder', 'shareholder', 'comparison_columns'),
+    ('акционер', 'shareholder', 'comparison_columns'),
+    ('股东', 'shareholder', 'comparison_columns'),
+    ('capital', 'capital', 'budget_scale'),
+    ('капитал', 'capital', 'budget_scale'),
+    ('资本', 'capital', 'budget_scale'),
+    ('thailand', 'thailand', 'route_link'),
+    ('тайланд', 'thailand', 'route_link'),
+    ('泰国', 'thailand', 'route_link'),
+    ('ownership', 'ownership', 'comparison_columns'),
+    ('control', 'control', 'comparison_columns'),
+    ('контроль', 'control', 'comparison_columns'),
+    ('控制', 'control', 'comparison_columns'),
 )
 
 

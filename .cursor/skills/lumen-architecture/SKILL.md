@@ -22,6 +22,7 @@ Prompt index: `docs/prompts/README.md`. Hypit assembly: `backend/assembly_prompt
 | Remotion engine | `backend/remotion_engine.py`, `motion/` | deterministic composition |
 | Director V3 | `backend/director_v3.py` | project «e» Remotion job |
 | Director V8 | `backend/director_v8.py` | ≥45s `long60` + semantic webm staging |
+| Director V11 | `backend/director_v11.py` | speech-first topic map; evidence-gated visuals |
 | Media library | `media/library/` | assets + search |
 | Worker | `backend/worker.py` | job kinds |
 

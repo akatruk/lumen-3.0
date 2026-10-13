@@ -99,6 +99,12 @@ def main():
     if transcript and not plan.get('transcript'):
         plan['transcript'] = transcript
     plan = director_v9.apply_composition_intelligence(plan)
+    # V11: speech-first semantic intelligence — scrub domain contamination before 3D.
+    from backend import director_v11
+    plan = director_v11.apply_semantic_intelligence(plan, transcript, locale=args.language)
+    # Re-fill media after query scrub (investment queries replace immigration plates).
+    plan = director_v8.fill_media_for_scenes(plan, seed=plan.get('visualSeed'))
+    plan = director_v9.apply_composition_intelligence(plan)
     plan = director_v10.apply_premium_3d(plan, seed=plan.get('visualSeed'))
     store_plan(settings.data_dir, args.project_id, plan)
 
@@ -106,7 +112,11 @@ def main():
     public = director_v3._public_director()
     plan = stage_backgrounds(plan, public, ROOT / 'media' / 'library' / 'out')
     plan = director_v8.stage_semantic_motion(plan, public, ROOT / 'media' / 'library' / 'out')
+    plan = director_v9.stage_float_objects(plan, public, ROOT / 'media' / 'library' / 'out')
     plan = director_v10.stage_premium_3d(plan, public, ROOT / 'media' / 'library' / 'out')
+    # Persist V11 artifacts beside the MP4 when out dir looks like director-v11.
+    if 'director-v11' in str(args.out):
+        director_v11.export_semantic_artifacts(plan, args.out.parent)
 
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=plan,
