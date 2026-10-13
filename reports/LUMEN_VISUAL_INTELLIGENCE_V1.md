@@ -125,7 +125,8 @@ Web and worker restarted on lumen-fix after the code sync. Health stayed ok with
 
 ## Git
 
-Implementation commit is recorded in the following docs stamp if this file's SHA line is filled. Weights, dumps, `.env`, and the MP4s are not in the commit.
+Implementation: `46af2eef1474a458bd67478c2e29b5cc601c35f5`  
+Weights, dumps, `.env`, and the MP4s are not in the commit. The code running on lumen-fix matches that commit. This report's SHA line was added in the following docs commit.
 
 ## Limitations
 
