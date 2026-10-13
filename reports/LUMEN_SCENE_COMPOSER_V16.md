@@ -117,7 +117,7 @@ Composer tests cover flag-off (full_frame kept), face/caption clearance, three-p
 
 ## Git
 
-Recorded after the implementation commit on `feat/media-library-cleanup-v1`.
+Implementation commit: `d5c67f70617053b2881f50f10b5a0c6d28a38451` on `feat/media-library-cleanup-v1`.
 
 ## Deployment
 
