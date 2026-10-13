@@ -99,8 +99,10 @@ The visible origin1 change is the document workflow in place of the generic time
 
 ## Git
 
-Recorded after the commit on `feat/media-library-cleanup-v1`.
+Implementation commit: `41e901749c8b376911ba73a08e3f49f702c569bf` on `feat/media-library-cleanup-v1`.
 
 ## Deployment
 
-Flag-off sync to lumen-fix only. `SEMANTIC_MOTION_V15_ENABLED` stays unset. `FAST_PROJECT_CREATION_ENABLED=1`. Visual intelligence flags stay 0.
+Host `lumen-fix` (`142.93.248.163`, `/opt/lumen-rebuild`) checked before sync. `DEPLOY_SHA.txt` is `41e901749c8b376911ba73a08e3f49f702c569bf`. `lumen-web` and `lumen-worker` are active. Health: `status=ok`, `fast_project_creation=true`, visual intelligence off, pgvector `0.6.0`.
+
+`director_v15.enabled()` is `False`. `SEMANTIC_MOTION_V14_ENABLED` and `SEMANTIC_MOTION_V15_ENABLED` are unset. `FAST_PROJECT_CREATION_ENABLED=1`. `VISUAL_INTELLIGENCE_ENABLED=0`. `VISUAL_EXPERIENCE_MEMORY_ENABLED=0`. strom-v2, RunPod, Postgres storage, source videos, and approved media binaries were not touched.
