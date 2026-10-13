@@ -80,6 +80,10 @@ Inspected gallery frames and origin1 frames at 12s, 21s, 30s, 38s, 44s.
 - `cd motion && npm test && npm run typecheck` — pass, including `src/semantic/layouts.test.ts`
 - `pytest backend/tests/test_director_v14.py` — 8 pass (flag off is a no-op, 49≠51, count only when spoken, comparison needs both sides, timeline steps, ru/en/zh registry)
 
+## Git
+
+Implementation commit: `51652cc7f4ca78aad9c4b7dafcefe34b055f17cf` on `feat/media-library-cleanup-v1`.
+
 ## Deployment
 
-Code deploys to lumen-fix with the flag left at 0. See the SHA below after the git commit. `FAST_PROJECT_CREATION_ENABLED` stays 1. Visual intelligence flags stay 0. strom-v2, RunPod, Postgres data, and approved media binaries are not part of this change.
+Code deploys to lumen-fix (`142.93.248.163`, `/opt/lumen-rebuild`) with `SEMANTIC_MOTION_V14_ENABLED` left unset (default 0). `FAST_PROJECT_CREATION_ENABLED` stays 1. `VISUAL_INTELLIGENCE_ENABLED` and `VISUAL_EXPERIENCE_MEMORY_ENABLED` stay 0. strom-v2, RunPod, Postgres storage, and approved media binaries are not touched.
