@@ -287,9 +287,15 @@ def _suppress_text_cards(scene: dict) -> dict:
     return scene
 
 
-def apply_semantic_motion(plan: dict, transcript: list | None = None, *, locale: str | None = None) -> dict:
+def apply_semantic_motion(
+    plan: dict,
+    transcript: list | None = None,
+    *,
+    locale: str | None = None,
+    force: bool = False,
+) -> dict:
     out = dict(plan)
-    if not enabled():
+    if not enabled() and not force:
         out["semanticMotionV14Enabled"] = False
         return out
     locale = locale or out.get("language") or "en-US"

@@ -1,0 +1,17 @@
+{
+  "version": "v15.0",
+  "flag": "SEMANTIC_MOTION_V15_ENABLED",
+  "default": "0",
+  "recipes": [
+    {"id": "risk_matrix_explainer", "componentId": "motion.risk_matrix.v1", "layers": ["speaker", "cinematic_background", "motion.risk_matrix.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "capital_allocation_explainer", "componentId": "motion.capital_allocation.v1", "layers": ["speaker", "cinematic_background", "motion.capital_allocation.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "company_ecosystem_explainer", "componentId": "motion.company_ecosystem.v1", "layers": ["speaker", "cinematic_background", "motion.company_ecosystem.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "document_workflow_explainer", "componentId": "motion.document_workflow.v1", "layers": ["speaker", "cinematic_background", "motion.document_workflow.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "financial_metrics_explainer", "componentId": "motion.financial_metrics.v1", "layers": ["speaker", "cinematic_background", "motion.financial_metrics.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "business_decision_explainer", "componentId": "motion.business_decision.v1", "layers": ["speaker", "cinematic_background", "motion.business_decision.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "geographic_expansion_explainer", "componentId": "motion.geographic_expansion.v1", "layers": ["speaker", "cinematic_background", "motion.geographic_expansion.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "investment_milestones_explainer", "componentId": "motion.investment_milestones.v1", "layers": ["speaker", "cinematic_background", "motion.investment_milestones.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "contract_relationship_explainer", "componentId": "motion.contract_relationship.v1", "layers": ["speaker", "cinematic_background", "motion.contract_relationship.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]},
+    {"id": "before_after_explainer", "componentId": "motion.before_after.v1", "layers": ["speaker", "cinematic_background", "motion.before_after.v1", "captions"], "layouts": ["full_frame", "speaker_visual", "overlay"]}
+  ]
+}

@@ -17,6 +17,7 @@ import {
 import { ConnectorLine } from "../preview/ConnectorStroke";
 import { motionDuration } from "./design";
 import { resolveLayout, type LayoutVariant, type MediaSide } from "./layouts";
+import { V15Body } from "./componentsV15";
 import type { SemanticMotionPayload, SplitValue } from "./types";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
@@ -86,7 +87,7 @@ function backgroundIsLight(background: BackgroundProbe | undefined): boolean {
   return false;
 }
 
-function rise(frame: number, start: number) {
+export function rise(frame: number, start: number) {
   const end = start + motionDuration.fadeIn;
   return {
     opacity: interpolate(frame, [start, end], [0, 1], { ...clamp, easing: ease }),
@@ -94,7 +95,7 @@ function rise(frame: number, start: number) {
   };
 }
 
-function Label({
+export function Label({
   text,
   width,
   height,
@@ -452,7 +453,7 @@ function Body({
     case "process_timeline":
       return <ProcessTimeline payload={payload} palette={palette} locale={locale} />;
     default:
-      return null;
+      return <V15Body payload={payload} palette={palette} locale={locale} compact={compact} />;
   }
 }
 

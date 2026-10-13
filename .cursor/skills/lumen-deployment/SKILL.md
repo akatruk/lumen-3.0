@@ -23,5 +23,6 @@ description: >-
 - **RunPod Director:** `LLM_PROVIDER=runpod` + `RUNPOD_LLM_MODEL=qwen2.5:7b-instruct`; Ollama on `lumen-hypit-4090` must be up. Fail-closed. See `reports/RUNPOD_DIRECTOR_V1.md`. Do not use DO Inference / OpenRouter for that track.
 - **Experience memory:** reuse PostgreSQL 16 on this host with `postgresql-16-pgvector` `0.6.0-1`. Flags `VISUAL_EXPERIENCE_MEMORY_ENABLED=0` and `VISUAL_INTELLIGENCE_ENABLED=0` until en/ru/zh retrieval does not regress. No second Postgres, no Docker on this VM, no public 5432. Dumps: `/mnt/volume_nyc1_1791446889637/lumen-db-backups`. Doc: `docs/architecture/AI_MEMORY.md`.
 - **Semantic motion V14:** `SEMANTIC_MOTION_V14_ENABLED=0` on lumen-fix until a visual QA sign-off. Do not flip it in production env as part of a code deploy.
+- **Semantic motion V15:** `SEMANTIC_MOTION_V15_ENABLED=0` on lumen-fix. Do not flip it during deploy.
 
 See `docs/architecture/DEPLOYMENT.md` and `reports/LUMEN_FAST_CREATE_PRODUCTION.md`.

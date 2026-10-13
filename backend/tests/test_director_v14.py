@@ -108,7 +108,9 @@ def test_timeline_uses_named_steps_only():
 
 def test_registry_matches_three_locales():
     rows = components()
-    assert len(rows) == 5
+    assert len(rows) >= 5
+    intents = {row["visualIntent"] for row in rows}
+    assert {"capital_flow", "shareholder_network", "business_comparison", "ownership_split", "process_timeline"} <= intents
     for row in rows:
         assert row["supportedLocales"] == ["ru-RU", "en-US", "zh-CN"]
         assert row["supportedLayouts"] == ["full_frame", "speaker_visual", "overlay"]

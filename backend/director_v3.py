@@ -262,6 +262,10 @@ def run_job(p, payload):
         visual_plan = director_v14.apply_semantic_motion(
             visual_plan, transcript_early, locale=locale,
         )
+        from . import director_v15
+        visual_plan = director_v15.apply_semantic_motion_v15(
+            visual_plan, transcript_early, locale=locale,
+        )
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path

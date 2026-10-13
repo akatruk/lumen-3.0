@@ -11,6 +11,7 @@
 - Concept triggers: `motion/src/concepts/` (spoken phrase → viz preset)
 - Cinematic plates: `motion/src/cinematic/` (V5 batch1 treatments: mist_paper, teal_depth, midnight_ridge, graphite_drift, …)
 - **Semantic motion V14:** `motion/src/semantic/` — `SemanticMotion` (5 components × 3 layouts), `layouts.ts` face/PIP/caption exclusions, gallery composition `SemanticMotionV14Gallery`. Mounted from `scene.semanticMotionV14` in `DirectorV3` when the plan carries it. Frame-driven `interpolate` only. Connectors use `adaptiveLineStyle`. Flag off = this layer is absent.
+- **Semantic motion V15:** same mount, `componentsV15.tsx` (10 components × 3 layouts). Gallery `SemanticMotionV15Gallery`. Payloads still travel on `scene.semanticMotionV14`. Flag `SEMANTIC_MOTION_V15_ENABLED` default off.
 - **Adaptive connector contrast:** `motion/src/utils/adaptiveLineStyle.ts` → `adaptiveLineStyle({background, path, preferredColor, strokeWidth, sceneTheme})`. Wired into `BusinessMotion` / `ConnectorStroke` / ConceptViz growth arrows. Full-path sampling (not endpoints). Fixes gold/light strokes on beige paper plates.
 - Transitions: `soft_pull`, `cross_blur`, `iris_soft` in `SceneTransition`
 - Business motion: `capital_flow` + existing shareholder/capital/ownership presets

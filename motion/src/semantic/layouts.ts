@@ -59,7 +59,7 @@ function overlayRect(): Rect {
   const cap = captionBand();
   // Sit under a typical talking-head mouth, not only the nominal face band.
   const top = Math.max(face.top + face.height + 36, Math.round(PORTRAIT.height * 0.55));
-  const bottom = cap.top - 16;
+  const bottom = cap.top - 36;
   return {
     left: 72,
     top,

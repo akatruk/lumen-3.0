@@ -20,16 +20,38 @@ export type SplitValue = {
   qualifier?: "at_most" | "at_least" | "exact";
 };
 export type TimelineStep = { label: string; evidence?: string };
+export type MatrixCell = { label: string; row: number; col: number; highlight?: boolean };
+export type AllocSegment = { label: string; value: number; unit?: string };
+export type GraphNode = { id: string; label: string; role?: string };
+export type MetricItem = {
+  label: string;
+  value: number;
+  unit?: string;
+  format?: "currency" | "percent" | "number";
+};
+export type PartyNode = { id: string; label: string; kind?: "entity" | "document" };
+
+export type VisualIntent =
+  | "capital_flow"
+  | "shareholder_network"
+  | "business_comparison"
+  | "ownership_split"
+  | "process_timeline"
+  | "risk_matrix"
+  | "capital_allocation"
+  | "company_ecosystem"
+  | "document_workflow"
+  | "financial_metrics"
+  | "business_decision"
+  | "geographic_expansion"
+  | "investment_milestones"
+  | "contract_relationship"
+  | "before_after";
 
 export type SemanticMotionPayload = {
   componentId: string;
   version?: string;
-  visualIntent:
-    | "capital_flow"
-    | "shareholder_network"
-    | "business_comparison"
-    | "ownership_split"
-    | "process_timeline";
+  visualIntent: VisualIntent;
   layout?: LayoutVariant;
   mediaSide?: MediaSide;
   locale?: string;
@@ -47,6 +69,21 @@ export type SemanticMotionPayload = {
   operator?: "≠" | "=" | "→";
   values?: SplitValue[];
   steps?: TimelineStep[] | string[];
+  cells?: MatrixCell[];
+  axisX?: string;
+  axisY?: string;
+  segments?: AllocSegment[];
+  totalLabel?: string;
+  nodes?: GraphNode[];
+  metrics?: MetricItem[];
+  root?: string;
+  branches?: string[];
+  places?: string[];
+  directed?: boolean;
+  milestones?: string[];
+  parties?: PartyNode[];
+  before?: string;
+  after?: string;
   evidence?: EvidenceRef;
   sceneTheme?: SceneTheme;
   connectorBackground?: BackgroundProbe;
@@ -59,4 +96,14 @@ export const COMPONENT_IDS = {
   business_comparison: "motion.business_comparison.v1",
   ownership_split: "motion.ownership_split.v1",
   process_timeline: "motion.process_timeline.v1",
+  risk_matrix: "motion.risk_matrix.v1",
+  capital_allocation: "motion.capital_allocation.v1",
+  company_ecosystem: "motion.company_ecosystem.v1",
+  document_workflow: "motion.document_workflow.v1",
+  financial_metrics: "motion.financial_metrics.v1",
+  business_decision: "motion.business_decision.v1",
+  geographic_expansion: "motion.geographic_expansion.v1",
+  investment_milestones: "motion.investment_milestones.v1",
+  contract_relationship: "motion.contract_relationship.v1",
+  before_after: "motion.before_after.v1",
 } as const;

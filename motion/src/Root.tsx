@@ -7,7 +7,8 @@ import { SOURCE_EDIT_BEATS, SOURCE_EDIT_DURATION, SOURCE_PREVIEW_FRAMES, SourceE
 import { MULTILINGUAL_DURATION, MultilingualCardShowcase } from "./cards/MultilingualCardShowcase";
 import { ImmigrationMotion } from "./immigration/scenes";
 import { DIRECTOR_V3_FRAMES, DirectorV3, framesForSeconds, type DirectorV3Props } from "./preview/DirectorV3";
-import { GALLERY_FRAMES, SemanticMotionV14Gallery } from "./semantic/Gallery";
+import { GALLERY_FRAMES, SemanticMotionV14Gallery, SemanticMotionV15Gallery } from "./semantic/Gallery";
+import { V15_GALLERY_FRAMES } from "./semantic/galleryV15";
 
 export function RemotionRoot() {
   return (
@@ -80,6 +81,15 @@ export function RemotionRoot() {
         component={SemanticMotionV14Gallery}
         defaultProps={{ locale: "en-US" }}
         durationInFrames={GALLERY_FRAMES}
+        fps={CANVAS.fps}
+        width={CANVAS.width}
+        height={CANVAS.height}
+      />
+      <Composition
+        id="SemanticMotionV15Gallery"
+        component={SemanticMotionV15Gallery}
+        defaultProps={{ locale: "en-US" }}
+        durationInFrames={V15_GALLERY_FRAMES}
         fps={CANVAS.fps}
         width={CANVAS.width}
         height={CANVAS.height}
