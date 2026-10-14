@@ -35,6 +35,7 @@ Not: x/y, CSS, font size, color, React. `validateScene()` / `normalizeScene()` /
 - **V14:** `motion/src/semantic/SemanticMotion.tsx` — five components, layouts `full_frame` | `speaker_visual` | `overlay` from `layouts.ts`. Gallery `SemanticMotionV14Gallery`. Labels via props + `AutoFitText`. Do not add a second component per locale.
 - **V15:** `motion/src/semantic/componentsV15.tsx` — ten more diagrams, same layouts. Gallery `SemanticMotionV15Gallery`. Flag `SEMANTIC_MOTION_V15_ENABLED` default 0.
 - **V16:** layout pass only. Diagram band under the measured mouth and above the caption plate, or a 640px speaker beside the cinematic clip. No second renderer. Flag `SCENE_COMPOSER_V16_ENABLED` default 0.
+- **V18:** same 15 components. Stroke diagrams, no dark column plate when `version` is `v18`. One component, locale props. Flag `MOTION_DESIGN_V18_ENABLED` default 0.
 
 ## Registry
 

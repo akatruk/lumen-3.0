@@ -26,5 +26,6 @@ description: >-
 - **Semantic motion V15:** `SEMANTIC_MOTION_V15_ENABLED=0` on lumen-fix. Do not flip it during deploy.
 - **Scene composer V16:** `SCENE_COMPOSER_V16_ENABLED=0` on lumen-fix. Do not flip it during deploy.
 - **Motion quality V17:** `MOTION_QUALITY_V17_ENABLED=0` on lumen-fix. Do not flip it during deploy. Do not insert synthetic reviews.
+- **Motion design V18:** `MOTION_DESIGN_V18_ENABLED=0` on lumen-fix. Deploy the code with the flag unset. Do not turn it on in production env.
 
 See `docs/architecture/DEPLOYMENT.md` and `reports/LUMEN_FAST_CREATE_PRODUCTION.md`.

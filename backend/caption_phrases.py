@@ -205,14 +205,18 @@ def phrases_from_transcript(
         if is_incomplete_heading(text):
             continue
         words = text.split()
+        cjk_units = len(_CJK.findall(text))
         prev_text = cleaned[-1]['text'] if cleaned else ''
         gap = (r['start'] - cleaned[-1]['end']) if cleaned else 999.0
+        # A Chinese sentence has no spaces, so split() is one token. Count glyphs.
+        short = cjk_units <= 2 if cjk_units else len(words) <= 2
+        combined_units = len(_CJK.findall(prev_text + text)) if (cjk_units or _CJK.search(prev_text)) else len((prev_text + ' ' + text).split())
         # Merge only within the same spoken breath — never glue across a pause.
         can_merge = (
             cleaned
             and gap <= 0.35
-            and (_LEAD_CONJ.match(text) or len(words) <= 2 or _TRAIL_BAD.search(prev_text))
-            and len((prev_text + ' ' + text).split()) <= 12
+            and (_LEAD_CONJ.match(text) or short or _TRAIL_BAD.search(prev_text))
+            and combined_units <= 18
         )
         if can_merge:
             prev = cleaned[-1]

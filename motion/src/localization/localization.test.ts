@@ -62,6 +62,26 @@ describe("localization", () => {
     const lines = segmentForLineBreak("打算买房吗？");
     assert.equal(lines[0]?.startsWith("？"), false);
     assert.equal(lines.at(-1)?.endsWith("？") || lines.join("").endsWith("？"), true);
+    const salary = segmentForLineBreak("8000-1万块的人民币");
+    assert.equal(salary.join(""), "8000-1万块的人民币");
+    assert.equal(salary.includes("80"), false);
+    assert.equal(salary.includes("00"), false);
+    assert.ok(salary.includes("8000-1"));
+  });
+
+  it("keeps 8000 on one caption line", () => {
+    const layout = fitPhrase({
+      text: "8000-1万块的人民币",
+      locale: "zh-CN",
+      maxWidth: 420,
+      maxHeight: 180,
+      role: { min: 56, max: 84, weight: 700, lineHeight: 1.14, tracking: -0.02 },
+      maxLines: 2,
+    });
+    const painted = layout.lines.map((line) => line.join(""));
+    assert.equal(painted.join(""), "8000-1万块的人民币");
+    assert.equal(painted.some((line) => line === "80" || line.startsWith("00")), false);
+    assert.ok(painted.some((line) => line.includes("8000")));
   });
 
   it("fits stress copy without splitting Latin or Cyrillic words", () => {

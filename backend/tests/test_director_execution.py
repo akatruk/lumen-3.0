@@ -19,6 +19,8 @@ def test_incomplete_heading_rejects_look_at():
     assert not is_incomplete_heading('49%')
     assert not is_incomplete_heading('Foreign investment steps')
     assert not is_incomplete_heading('Look at', kinetic_reveal=True)
+    assert not is_incomplete_heading('在泰国请翻译到底要花多少钱')
+    assert is_incomplete_heading('的')
 
 
 def test_fragment_card_vs_caption():

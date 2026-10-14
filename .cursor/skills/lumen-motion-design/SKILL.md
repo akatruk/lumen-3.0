@@ -22,4 +22,6 @@ description: >-
 
 Choreography per scene: entrance → reveal → hold → emphasis → exit.
 
+V18 diagrams use that timing on the existing 15 components (`version: v18`): fade and rise in, hold, fade out. No dark full-width plate. A node is a stroke, not a filled disc parked on the face.
+
 Director V3 portrait splits (`portraitLayouts.ts`): fill the canvas; animate speaker panel width/position from near-fullscreen into the split (no unexplained jump to a tiny float). Crossfades must not fade from empty black. Concept PIP is a rounded portrait card, not a 220px face circle.

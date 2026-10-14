@@ -85,7 +85,7 @@ function RiskMatrix({ payload, palette, locale }: { payload: SemanticMotionPaylo
                 minHeight: 72,
                 borderRadius: 16,
                 border: `1px solid ${palette.stroke}`,
-                background: cell ? palette.plate : "transparent",
+                background: "transparent",
                 opacity: shown.opacity,
                 transform: `scale(${emphasis})`,
                 display: "flex",
@@ -197,7 +197,7 @@ function FinancialMetrics({ payload, palette, locale, compact }: { payload: Sema
         const current = interpolate(frame, [8, 34], [0, metric.value], clamp);
         const text = formatMetric(current, metric.format || "number", locale, metric.unit);
         return (
-          <div key={metric.label} style={{ opacity: shown.opacity, transform: `translateY(${shown.y}px)`, background: palette.plate, borderRadius: 18, padding: "14px 16px", width: compact ? "100%" : 280 }}>
+          <div key={metric.label} style={{ opacity: shown.opacity, transform: `translateY(${shown.y}px)`, background: "transparent", border: `1.5px solid ${palette.stroke}`, borderRadius: 18, padding: "14px 16px", width: compact ? "100%" : 280 }}>
             <Fit text={text} width={compact ? 320 : 248} height={48} locale={locale} color={palette.text} />
             <Fit text={metric.label} width={compact ? 320 : 248} height={36} locale={locale} color={palette.muted} />
           </div>
@@ -311,11 +311,11 @@ function BeforeAfter({ payload, palette, locale, compact }: { payload: SemanticM
   const second = rise(frame, 18);
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: compact ? "column" : "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
-      <div style={{ flex: 1, opacity: first.opacity, background: palette.plate, borderRadius: 18, padding: 12 }}>
+      <div style={{ flex: 1, opacity: first.opacity, background: "transparent", border: `1.5px solid ${palette.stroke}`, borderRadius: 18, padding: 12 }}>
         <Fit text={payload.before} width={compact ? 300 : 240} height={72} locale={locale} color={palette.text} />
       </div>
       <Fit text="→" width={40} height={36} locale={locale} color={palette.stroke} />
-      <div style={{ flex: 1, opacity: second.opacity, background: palette.plate, borderRadius: 18, padding: 12 }}>
+      <div style={{ flex: 1, opacity: second.opacity, background: "transparent", border: `1.5px solid ${palette.stroke}`, borderRadius: 18, padding: 12 }}>
         <Fit text={payload.after} width={compact ? 300 : 240} height={72} locale={locale} color={palette.text} />
       </div>
     </div>

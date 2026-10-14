@@ -8,6 +8,7 @@ export const motionDuration = {
   draw: 16,
   travel: 22,
   settle: 10,
+  hold: 36,
   exit: 12,
 } as const;
 

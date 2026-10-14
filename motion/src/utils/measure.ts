@@ -52,8 +52,11 @@ export function measureForRender(
   const measured = context.measureText(text).width;
   const tracking = trackingEm * fontSize * Math.max(0, [...text].length - 1);
   const width = measured + tracking;
-  if (!Number.isFinite(width) || width <= 0) {
-    return estimateWidth(text, fontSize, fontWeight, trackingEm);
-  }
+  const estimated = estimateWidth(text, fontSize, fontWeight, trackingEm);
+  if (!Number.isFinite(width) || width <= 0) return estimated;
+  // Canvas measureText often uses a fallback face that is narrower than the
+  // CJK font Remotion paints. Trust the wider number so a line wraps instead
+  // of running off the caption plate.
+  if (/[\u4e00-\u9fff]/.test(text)) return Math.max(width, estimated);
   return width;
 }

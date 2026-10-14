@@ -66,8 +66,12 @@ def is_incomplete_heading(text: str | None, *, kinetic_reveal: bool = False) -> 
     if FRAGMENT_PREFIX.match(raw) and len(_words(raw)) < 8:
         return True
     tokens = _words(raw)
+    cjk = len(re.findall(r'[\u4e00-\u9fff]', raw))
     if len(tokens) <= 1 and not re.search(r'\d|%|\$', raw):
-        # Single non-numeric token ("Look") is incomplete; "49%" is ok.
+        # A Chinese sentence is one \w run. It is still a caption.
+        # A single Latin word ("Look") stays incomplete. "49%" is ok.
+        if cjk >= 2:
+            return False
         if not re.fullmatch(r'[\d.,]+%?', raw.strip()):
             return True
     if INCOMPLETE_TAIL.search(raw) and len(tokens) < 8:

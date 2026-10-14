@@ -677,11 +677,15 @@ function captionsFromTranscript(
     const prev = grouped[grouped.length - 1];
     const gap = prev ? row.from - prev.end : 999;
     const combined = prev ? `${prev.text} ${row.text}`.trim() : row.text;
+    const cjk = (value: string) => (value.match(/[\u4e00-\u9fff]/g) || []).length;
+    // A Chinese sentence has no spaces. Gluing adjacent lines paints a caption wall.
     const canMerge =
       prev &&
       gap <= Math.round(0.35 * fps) &&
       combined.length <= 72 &&
-      !prev.text.includes("\n");
+      !prev.text.includes("\n") &&
+      cjk(prev.text) <= 2 &&
+      cjk(row.text) <= 2;
     if (canMerge && prev) {
       prev.end = row.end;
       prev.text = combined;
@@ -777,8 +781,8 @@ function Caption({
       <div
         style={{
           position: "absolute",
-          left: 64,
-          width: 952,
+          left: 120,
+          width: 840,
           bottom: PORTRAIT.captionClearance,
           height: 200,
           display: "flex",
@@ -790,7 +794,7 @@ function Caption({
         <div
           data-caption-backing="dark"
           style={{
-            maxWidth: 920,
+            maxWidth: 760,
             padding: "12px 28px 14px",
             borderRadius: 18,
             background: "rgba(8, 7, 6, 0.55)",
@@ -799,15 +803,15 @@ function Caption({
         >
           <AutoFitText
             text={clean}
-            maxWidth={860}
+            maxWidth={680}
             maxHeight={152}
-            role={{ min: 56, max: 84, weight: 700, lineHeight: 1.14, tracking: -0.02 }}
+            role={{ min: 48, max: 64, weight: 700, lineHeight: 1.14, tracking: -0.02 }}
             align="center"
             vertical="center"
             wrapMode="auto"
             maxLines={2}
             emphasis={emphasis}
-            animate={animate}
+            animate="none"
             locale={locale}
           />
         </div>

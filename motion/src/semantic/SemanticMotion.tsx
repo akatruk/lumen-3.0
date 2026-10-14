@@ -152,7 +152,7 @@ function CapitalFlow({
           <div key={entity.id || entity.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
             <div style={{ opacity: shown.opacity, transform: `translateY(${shown.y}px)`, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
               <svg width="72" height="72" viewBox="0 0 72 72">
-                <circle cx="36" cy="36" r="26" fill={palette.plate} stroke={palette.stroke} strokeWidth="1.75" />
+                <circle cx="36" cy="36" r="26" fill="none" stroke={palette.stroke} strokeWidth="1.75" />
                 <circle cx="36" cy="36" r="4" fill={palette.stroke} />
               </svg>
               <Label text={entity.label} width={280} height={48} locale={locale} color={palette.text} role="support" />
@@ -236,11 +236,11 @@ function ShareholderNetwork({
                 sceneTheme={palette.sceneTheme}
                 opacity={drawn}
               />
-              <circle cx={x} cy={y} r="22" fill={palette.plate} stroke={palette.stroke} strokeWidth="1.6" />
+              <circle cx={x} cy={y} r="22" fill="none" stroke={palette.stroke} strokeWidth="1.6" />
             </g>
           );
         })}
-        <circle cx="320" cy="230" r="28" fill={palette.plate} stroke={palette.stroke} strokeWidth="2" />
+        <circle cx="320" cy="230" r="28" fill="none" stroke={palette.stroke} strokeWidth="2" />
       </svg>
       <div style={{ position: "absolute", left: 0, right: 0, top: 8, display: "flex", justifyContent: "space-around" }}>
         {visible.map((label, i) => (
@@ -303,8 +303,8 @@ function Plate({
         opacity: motion.opacity,
         transform: `translateY(${motion.y}px)`,
         borderRadius: theme.radius.lg,
-        background: palette.plate,
-        border: `1px solid ${palette.stroke}`,
+        background: "transparent",
+        border: `1.5px solid ${palette.stroke}`,
         display: "flex",
         alignItems: "flex-end",
         padding: "28px 22px",
@@ -474,13 +474,20 @@ export function SemanticMotion({
     ? payload.motionRect
     : null;
   const rect = composed || resolved.rect;
-  const scrim = Boolean(payload.columnScrim) || (!composed && resolved.layout === "overlay");
+  const clearPanel = String(payload.version || "").startsWith("v18");
+  const scrim = clearPanel
+    ? false
+    : Boolean(payload.columnScrim) || (!composed && resolved.layout === "overlay");
   const paint = scrim
     ? { ...payload, sceneTheme: "ink" as const, connectorBackground: "#12110F" }
     : payload;
   const palette = inkFor(paint);
   const frame = useCurrentFrame();
-  const exit = interpolate(frame, [Math.max(16, frames - motionDuration.exit), frames - 1], [1, 0], clamp);
+  const enterEnd = motionDuration.fadeIn;
+  const exitStart = Math.max(enterEnd + motionDuration.hold, frames - motionDuration.exit);
+  const enter = interpolate(frame, [0, enterEnd], [0, 1], { ...clamp, easing: ease });
+  const riseY = interpolate(frame, [0, enterEnd], [18, 0], { ...clamp, easing: ease });
+  const exit = interpolate(frame, [exitStart, Math.max(exitStart + 1, frames - 1)], [1, 0], clamp);
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       <div
@@ -490,7 +497,8 @@ export function SemanticMotion({
           top: rect.top,
           width: rect.width,
           height: rect.height,
-          opacity: exit,
+          opacity: enter * exit,
+          transform: `translateY(${riseY}px)`,
           background: scrim ? "rgba(12,11,10,0.62)" : "transparent",
           borderRadius: scrim ? 28 : 0,
           padding: scrim ? 18 : 0,

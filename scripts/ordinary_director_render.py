@@ -139,6 +139,10 @@ def main():
     plan = scene_composer_v16.apply_scene_composer(
         plan, transcript, locale=args.language, source=dest_source,
     )
+    from backend import motion_design_v18
+    plan = motion_design_v18.apply_motion_design(
+        plan, transcript, locale=args.language, source=dest_source,
+    )
     store_plan(settings.data_dir, args.project_id, plan)
     speaker = director_v3.speaker_for(seconds, dest_source)
     public = director_v3._public_director()
