@@ -42,3 +42,9 @@ Final renders completed. Earlier Chrome passes in this session were replaced by 
 
 `pytest` `test_motion_design_v18.py` `test_director_execution.py` `test_caption_phrases.py` `test_director_v14.py` `test_scene_composer_v16.py`: pass.
 `motion` `npm test` and `tsc --noEmit`: pass. Fixture tests, not a live editorial grade.
+
+## Deploy
+
+Host `lumen-fix` (`142.93.248.163`, `/opt/lumen-rebuild`). `DEPLOY_SHA.txt` is `bafc450670b00c89f5bbedbd7365648ef3f36a45`. Health: `status=ok`, `fast_project_creation=true`, visual intelligence off, pgvector `0.6.0`.
+
+`MOTION_DESIGN_V18_ENABLED`, `SEMANTIC_MOTION_V14_ENABLED`, `SEMANTIC_MOTION_V15_ENABLED`, `SCENE_COMPOSER_V16_ENABLED`, and `MOTION_QUALITY_V17_ENABLED` are absent from `.env`. Imported `enabled()` is false for V18 and V14. `FAST_PROJECT_CREATION_ENABLED=1`. No reviews inserted. strom-v2 and RunPod were not touched.
