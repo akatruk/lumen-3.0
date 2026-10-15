@@ -367,9 +367,21 @@ def _asset_is_immigration(blob: str) -> bool:
     return any(m in low for m in _IMMIGRATION_ASSET_MARKERS)
 
 
+def _hit_in_window(hit: dict[str, Any], start: float, end: float, pad: float = 1.5) -> bool:
+    try:
+        hs = float(hit.get('start'))
+        he = float(hit.get('end'))
+    except (TypeError, ValueError):
+        return False
+    return he >= start - pad and hs <= end + pad
+
+
 def _concepts_for_scene(
     scene_id: str,
     semantic_map: dict[str, Any],
+    *,
+    start: float | None = None,
+    end: float | None = None,
 ) -> list[dict[str, Any]]:
     prefs = _BEAT_CONCEPT_PREF.get(scene_id) or ()
     by_id = {}
@@ -380,14 +392,15 @@ def _concepts_for_scene(
         if cid in by_id:
             chosen.append(by_id[cid])
     if not chosen:
-        # Fall back to any concept in primary domain order.
         domain = semantic_map.get('primaryDomain')
         for hit in semantic_map.get('concepts') or []:
             if domain == 'mixed' or hit['domain'] == domain or hit['domain'] == 'generic':
                 chosen.append(hit)
                 if len(chosen) >= 2:
                     break
-    return chosen
+    if start is None or end is None:
+        return chosen
+    return [hit for hit in chosen if _hit_in_window(hit, start, end)]
 
 
 def _allowed_keyword_ids(semantic_map: dict[str, Any]) -> set[str]:
@@ -473,11 +486,18 @@ def apply_semantic_intelligence(
     scenes_out: list[dict] = []
     asset_selection: list[dict[str, Any]] = []
     scrubbed: list[dict[str, Any]] = []
+    from .director_evidence import scene_windows
+    windows = scene_windows(out, list(rows) if isinstance(rows, list) else [])
 
-    for scene in out.get('scenes') or []:
+    for index, scene in enumerate(out.get('scenes') or []):
         scene = dict(scene)
         sid = scene.get('sceneId') or ''
-        concepts = _concepts_for_scene(sid, semantic_map)
+        win = windows[index] if index < len(windows) else None
+        concepts = _concepts_for_scene(
+            sid, semantic_map,
+            start=win[0] if win else None,
+            end=win[1] if win else None,
+        )
         scene['semanticConcepts'] = [
             {
                 'conceptId': c['conceptId'],
@@ -518,6 +538,20 @@ def apply_semantic_intelligence(
             for k in ('assetId', 'file', 'staged', 'conceptId'):
                 bg.pop(k, None)
             scene['background'] = bg
+
+        if win is not None:
+            allowed = {c.get('query') for c in concepts if c.get('query')}
+            current = scene.get('query')
+            if isinstance(current, (list, tuple)):
+                current = current[0] if current else None
+            if current and current not in allowed:
+                replacement = next(iter(allowed), None)
+                scrubbed.append({'sceneId': sid, 'field': 'query', 'from': current, 'to': replacement, 'reason': 'outside_scene'})
+                scene['query'] = replacement
+                bg = dict(scene.get('background') or {})
+                for k in ('assetId', 'file', 'staged', 'conceptId'):
+                    bg.pop(k, None)
+                scene['background'] = bg
 
         # Criteria cards
         if sid == 'beside' and criteria:

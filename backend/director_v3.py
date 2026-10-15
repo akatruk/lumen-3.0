@@ -337,6 +337,8 @@ def run_job(p, payload):
         visual_plan = semantic_numeric_range.apply_numeric_range(
             visual_plan, transcript_early, locale=locale,
         )
+        from .director_evidence import apply_evidence_gate
+        visual_plan = apply_evidence_gate(visual_plan, transcript_early, locale=locale)
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path
@@ -364,6 +366,11 @@ def run_job(p, payload):
         render_plan, transcript, locale=target_locale, dubbed=dubbed,
     )
     remotion_engine.store_render_plan(settings.data_dir, p['id'], render_plan)
+    from .director_quality_shadow import diagnose
+    import json as _json
+    shadow = diagnose(render_plan, transcript)
+    shadow_path = settings.data_dir / p['id'] / 'remotion-plans' / f"{render_plan.get('generationId') or 'plan'}-quality-shadow.json"
+    shadow_path.write_text(_json.dumps(shadow, ensure_ascii=False, indent=2), encoding='utf-8')
     progress(
         p['id'], 'rendering', 55,
         note=f'Remotion DirectorV3 · {seconds}s · speaker={speaker} · captions={render_plan.get("captionSource")}',

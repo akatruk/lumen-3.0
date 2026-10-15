@@ -8,7 +8,7 @@ import { normalizeScene } from "../registry/validateScene";
 import { renderScene } from "../registry/motionRegistry";
 import { ConceptViz, syncConceptTriggers, type SyncedConceptTrigger } from "../concepts";
 import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
-import { PORTRAIT, criteriaCardsFor, pipRect, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
+import { PORTRAIT, pipRect, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
 import { sceneThemeFromPlate } from "../utils/adaptiveLineStyle";
 import { BusinessMotion, type BusinessMotionPayload } from "./BusinessMotion";
 import { SemanticMotion } from "../semantic/SemanticMotion";
@@ -497,29 +497,24 @@ function SceneRouter({
         </AbsoluteFill>
       </Enter>
     );
-  } else if (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one") {
-    body = <Beside file={file} from={from} frames={frames} look={look} locale={locale} />;
-  } else if (sid === "steps" || look.stepsTitle || look.typography?.stepsTitle) {
-    // V9: speaker-led progressive steps — no full-screen black card stack.
-    const clean = look.composition?.containerPolicy === "minimal" || look.composition?.suppressConcepts;
-    body = clean ? (
-      <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />
-    ) : (
-      <Enter transition={look.transition}>
-        <Steps frames={frames} locale={locale} look={look} />
-      </Enter>
-    );
   } else if (
-    layout.includes("with_media") ||
-    sid === "consult" ||
-    sid === "proof"
+    (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one")
+    && ((look.criteriaCards && look.criteriaCards.length) || (look.typography?.cards && look.typography.cards.length))
+  ) {
+    body = <Beside file={file} from={from} frames={frames} look={look} locale={locale} />;
+  } else if (
+    (look.steps && look.steps.length)
+    || (look.typography?.steps && look.typography.steps.length)
+  ) {
+    body = <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />;
+  } else if (
+    (layout.includes("with_media") || sid === "consult" || sid === "proof")
+    && look.background?.staged
   ) {
     body = <Consult file={file} from={from} frames={frames} look={look} />;
   } else if (
-    layout.includes("split") ||
-    layout.includes("foreground") ||
-    sid === "residency" ||
-    sid === "context"
+    (layout.includes("split") || layout.includes("foreground") || sid === "residency" || sid === "context")
+    && look.background?.staged
   ) {
     body = <Residency file={file} from={from} frames={frames} look={look} />;
   } else if (sid === "hook" || sid === "problem") {
@@ -1129,7 +1124,8 @@ function Beside({
     : look.typography?.cards?.length
       ? look.typography.cards
       : null;
-  const cards = planned ?? criteriaCardsFor(locale);
+  const cards = planned ?? [];
+  if (!cards.length) return null;
   const progressive =
     (look.cardMode || look.typography?.cardMode || "progressive_one") === "progressive_one";
   const speakerLeft = look.speaker.layout === "speaker_split_left";
@@ -1294,7 +1290,8 @@ function Steps({
   look?: SceneLook;
 }) {
   const copy = stepsCopy(locale);
-  const title = look?.stepsTitle || look?.typography?.stepsTitle || copy.title;
+  const provided = Boolean(look?.steps?.length || look?.typography?.steps?.length);
+  const title = look?.stepsTitle || look?.typography?.stepsTitle || (provided ? "" : copy.title);
   const stepLabels = look?.steps?.length
     ? look.steps
     : look?.typography?.steps?.length
@@ -1328,13 +1325,12 @@ function CleanSteps({
   locale?: SupportedLocale;
 }) {
   const frame = useCurrentFrame();
-  const copy = stepsCopy(locale);
-  const title = look.stepsTitle || look.typography?.stepsTitle || copy.title;
+  const title = look.stepsTitle || look.typography?.stepsTitle || "";
   const stepLabels = look.steps?.length
     ? look.steps
     : look.typography?.steps?.length
       ? look.typography.steps
-      : copy.steps.map((s) => s.label);
+      : [];
   const count = Math.max(1, stepLabels.length);
   const slot = Math.min(count - 1, Math.max(0, Math.floor((frame / Math.max(1, frames)) * count)));
   const label = stepLabels[slot] || stepLabels[0];
