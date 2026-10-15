@@ -32,15 +32,35 @@ def motion_root():
     return root
 
 
+def frame_seconds(seconds, source_duration, fps: int = 30) -> float:
+    """Whole frames, never past the source container and never a padded tail."""
+    source = float(source_duration)
+    frames = int(float(seconds) * fps + 1e-6)
+    source_frames = int(source * fps + 1e-6)
+    frames = max(1, min(frames, source_frames))
+    return frames / fps
+
+
 def output_seconds(requested, source_duration):
-    """Seconds the create-video control may ask for. Steps of five, never past the source."""
-    cap = max(5, (int(float(source_duration)) // 5) * 5)
+    """Steps of five, plus the real source length so the last spoken seconds stay.
+
+    The grid cap is the largest 5s step that does not pass the source. Asking
+    for the source itself is also valid. Nothing is rounded up past the file.
+    """
+    source = float(source_duration)
+    grid = max(5, (int(source) // 5) * 5)
     if requested is None:
-        return 20 if cap >= 20 else cap
-    seconds = int(requested)
-    if seconds % 5 or not 10 <= seconds <= cap:
+        chosen = 20 if grid >= 20 else grid
+        return frame_seconds(min(chosen, source), source)
+    value = float(requested)
+    if value > source + 1e-3:
         raise ValueError('duration_step')
-    return seconds
+    if abs(value - source) <= 0.05:
+        return frame_seconds(source, source)
+    seconds = int(round(value))
+    if seconds % 5 or not 10 <= seconds <= min(grid, source):
+        raise ValueError('duration_step')
+    return frame_seconds(seconds, source)
 
 
 def _public_director():
@@ -176,6 +196,9 @@ def _accept(path, seconds):
 
 def run_job(p, payload):
     """Assemble picture via Director V4 + Remotion. Never calls Hypit."""
+    if (payload or {}).get("await_transcript"):
+        from .transcription import materialize_director_payload
+        payload = materialize_director_payload(p, payload)
     from . import remotion_engine
     if not remotion_engine.should_use_remotion(p['id']):
         raise ValueError('director_v3_required')
@@ -201,9 +224,38 @@ def run_job(p, payload):
     if not dubbed:
         mode = ((payload or {}).get('voice_resolution') or {}).get('mode')
         dubbed = mode == 'dubbed'
+    from .language import resolve_locale
+    from .source_analysis import is_placeholder_transcript
+    from .source_transcript import TranscriptError, source_locale_for_rows
+    rows = (payload or {}).get('transcript') or ((payload or {}).get('plan') or {}).get('transcript') or []
+    if is_placeholder_transcript(rows) and rows:
+        raise ValueError('SOURCE_TRANSCRIPT_UNAVAILABLE')
+    try:
+        heard = source_locale_for_rows(rows)
+    except TranscriptError as exc:
+        raise ValueError(exc.code) from None
+    if heard:
+        try:
+            asked = resolve_locale(target_locale) if target_locale else None
+        except Exception:
+            asked = None
+        stored = None
+        try:
+            stored = resolve_locale((payload or {}).get('source_language')) if (payload or {}).get('source_language') else None
+        except Exception:
+            stored = None
+        if stored and stored != heard:
+            raise ValueError('SOURCE_LANGUAGE_UNVERIFIED')
+        if asked and asked == heard:
+            dubbed = False
+        elif not (payload or {}).get('source_language'):
+            payload = {**(payload or {}), 'source_language': heard}
     if dubbed:
-        # Same path as Hypit: build target speech, then put it on the speaker cut.
-        # Never leave source RU audio under an EN/ZH label.
+        import os
+        if not (os.environ.get('RUNPOD_API_KEY') or '').strip():
+            raise ValueError('VOICE_PROVIDER_NOT_CONFIGURED')
+        # A different language uses the existing dub path. Same language never reaches here.
+        # Never leave source speech under a different language label.
         locale_label = target_locale or (payload or {}).get('language') or 'target'
         progress(
             p['id'], 'preparing_voice', 18,
@@ -211,7 +263,12 @@ def run_job(p, payload):
             plan=['preparing_voice', 'drawing_graphics', 'rendering', 'assembling', 'checking'],
         )
         from .worker import _dub_for_job
-        record = _dub_for_job(p['id'], payload or {}, folder)
+        try:
+            record = _dub_for_job(p['id'], payload or {}, folder)
+        except RuntimeError as exc:
+            if str(exc) == 'hypit_unavailable':
+                raise ValueError('VOICE_PROVIDER_NOT_CONFIGURED') from exc
+            raise
         dub_file = (record.get('audio') or {}).get('file')
         if not dub_file:
             raise ValueError('target_voice_not_ready')
@@ -276,6 +333,10 @@ def run_job(p, payload):
             visual_plan, transcript_early, locale=locale,
             source=settings.data_dir / p['id'] / 'source',
         )
+        from . import semantic_numeric_range
+        visual_plan = semantic_numeric_range.apply_numeric_range(
+            visual_plan, transcript_early, locale=locale,
+        )
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path
@@ -319,7 +380,7 @@ def run_job(p, payload):
         log.exception('motion quality record failed for %s', p['id'])
     progress(p['id'], 'checking', 92, note='Probing finished MP4 (size, audio, duration)…')
     meta = _accept(dest, seconds)
-    from .db import event, update
+    from .db import connect, event, update
     from .studio import state
     current = state(p['id']) or {}
     director_mode = (
@@ -356,7 +417,13 @@ def run_job(p, payload):
         'plan_revision': current.get('revision'),
         'manual_transcript': [],
     }
-    update(p['id'], result=result, status='complete', stage='complete', progress=100, error=None)
+    from . import render_audio
+    carried = False
+    with connect() as db:
+        db.lock()
+        carried = render_audio.attach_selected(db, p, folder, result)
+    if not carried:
+        update(p['id'], result=result, status='complete', stage='complete', progress=100, error=None)
     try:
         from .render_retention import prune_pictures
         prune_pictures(p['id'], render_id)

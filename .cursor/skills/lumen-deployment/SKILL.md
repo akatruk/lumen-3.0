@@ -15,6 +15,7 @@ description: >-
 - Services: `lumen-web`, `lumen-worker` only
 - Volume: `/mnt/volume_nyc1_1791446889637/` (100 GB)
 - Flags: `FAST_PROJECT_CREATION_ENABLED=1`, `LLM_PROVIDER=none` (default) or `runpod` for local GPU Director
+- CPU ASR: `ASR_MODEL=small`, `ASR_MODEL_CACHE=/mnt/volume_nyc1_1791446889637/lumen-asr`. Do not download Whisper weights onto the droplet root disk. Same-language projects keep original speech. No GPU for that path.
 - Rollback create: `FAST_PROJECT_CREATION_ENABLED=0` + funded OpenRouter only if that track is allowed
 - Remotion default (V5): keep `REMOTION_ENGINE_ENABLED=1` with `FAST_PROJECT_CREATION_ENABLED=1`
 - Rollback Remotion: set `REMOTION_ENGINE_ENABLED=0` (Hypit legacy for non-«e»; «e» stays Remotion)

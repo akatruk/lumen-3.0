@@ -42,7 +42,12 @@ class Settings(BaseSettings):
     runpod_llm_port: int = 11434
     runpod_llm_api_key: str = 'lumen-runpod'
     # Transcript at generation: auto | whisperx | placeholder
+    # auto loads the CPU faster-whisper path. It does not invent a silence grid.
     transcript_provider: str = 'auto'
+    # CPU ASR. Weights go to asr_model_cache (media volume when mounted).
+    asr_model: str = 'small'
+    asr_model_cache: str = ''
+    asr_config_version: str = 'cpu-int8-vad-1'
     # Persistent visual experience memory (pgvector). Default off so Director
     # generation stays unchanged until retrieval is validated.
     visual_experience_memory_enabled: bool = False

@@ -110,8 +110,8 @@ def test_fast_create_ready_when_runpod_down(client, monkeypatch):
     assert body["status"] == "ready"
     assert body["stage"] == "ready"
     with connect() as db:
-        jobs = db.execute("SELECT kind FROM jobs WHERE project_id=?", (body["id"],)).fetchall()
-    assert jobs == []
+        jobs = [row[0] for row in db.execute("SELECT kind FROM jobs WHERE project_id=?", (body["id"],))]
+    assert jobs == ["transcribe"]
 
 
 def test_runpod_director_no_heuristic_swap(monkeypatch):

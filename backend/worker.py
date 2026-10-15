@@ -329,6 +329,11 @@ def render_job(p,payload):
     status='complete' if result['qa_status']=='passed' else 'needs_review'
     with connect() as db:
         db.lock();render_audio.publish(db,p,result,render_folder,delivery,status)
+    try:
+        from .render_retention import prune_pictures
+        prune_pictures(pid, result['render_id'])
+    except Exception:
+        log.exception('render retention failed for %s', pid)
     event(pid,'render_complete',json.dumps({'applied':result['applied'],'quality':result['qa_status']}))
 
 def safe_error(exc):
@@ -336,7 +341,7 @@ def safe_error(exc):
     'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
-    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready','VOICE_SETUP_REQUIRED','localized_script_missing','director_v3_required','director_v3_renderer_missing','director_v3_render_failed','duration_step','visual_energy','visual_variation',
+    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready','VOICE_SETUP_REQUIRED','MISSING_TARGET_LANGUAGE_VOICE','VOICE_PROVIDER_NOT_CONFIGURED','TRANSCRIPTION_PROVIDER_UNAVAILABLE','SOURCE_TRANSCRIPT_UNAVAILABLE','SOURCE_LANGUAGE_UNVERIFIED','TRANSCRIPTION_FAILED','TRANSCRIPTION_TIMEOUT','localized_script_missing','director_v3_required','director_v3_renderer_missing','director_v3_render_failed','duration_step','visual_energy','visual_variation',
     'unverified_claim','property_not_approved','property_plan_changed','property_workflow','property_too_short','property_delivery_missing','reference_media_blocked','invalid_media_path','asset_not_found'}
     return str(exc) if str(exc) in allowed else 'processing_failed'
 
@@ -359,6 +364,9 @@ def run_once():
         elif job['kind']=='studio_analyze':
             from .studio import analyze
             analyze(p)
+        elif job['kind']=='transcribe':
+            from .transcription import run_job as transcribe_job
+            transcribe_job(p,json.loads(job['payload'] or '{}'))
         elif job['kind']=='director_v3':
             from .director_v3 import run_job as director_v3_job
             director_v3_job(p,json.loads(job['payload']))
@@ -408,7 +416,10 @@ def run_once():
                 handler.flush()
         except Exception:
             pass
-        if job['kind'] not in ('final_music','dubbing','platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'):
+        if job['kind']=='transcribe':
+            from .transcription import mark_transcription
+            mark_transcription(p['id'], 'transcription_failed', transcription_error=code)
+        elif job['kind'] not in ('final_music','dubbing','platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'):
             # Keep a human note on the activity card — safe_error alone hides ModuleNotFound etc.
             try:
                 current = project(p['id']) or {}
@@ -440,7 +451,7 @@ def serve(guard):
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     # Do not auto-replay ambiguous paid calls after process death.
     with connect() as db:
-        for row in db.execute("SELECT project_id,kind,payload FROM jobs WHERE status='running'"):
+        for row in db.execute("SELECT project_id,kind,payload,id FROM jobs WHERE status='running'"):
             if row["kind"]=="final_music":
                 db.execute("UPDATE final_music_versions SET status='failed',error='worker_interrupted' WHERE id=?",(json.loads(row['payload'])['id'],))
             elif row["kind"]=="dubbing":
@@ -459,6 +470,9 @@ def serve(guard):
                 db.execute("UPDATE director_proposals SET status='failed' WHERE project_id=? AND status='queued'",(row[0],))
             elif row["kind"]=="platform_variants":
                 db.execute("UPDATE platform_packages SET status='failed' WHERE project_id=?",(row[0],))
+            elif row["kind"]=="transcribe":
+                from .transcription import recover_transcribe_job
+                recover_transcribe_job(db, row)
             else:
                 db.execute("UPDATE projects SET status='failed',stage='failed',error='worker_interrupted' WHERE id=?",(row[0],))
         db.execute("UPDATE jobs SET status='failed' WHERE status='running'")

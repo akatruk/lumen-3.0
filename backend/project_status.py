@@ -47,7 +47,7 @@ def attach_job_status(project: dict) -> dict:
                 }
             busy = db.execute(
                 "SELECT id, kind, status, updated, payload FROM jobs "
-                "WHERE project_id=? AND status IN ('queued','running') "
+                "WHERE project_id=? AND kind!='transcribe' AND status IN ('queued','running') "
                 "ORDER BY updated DESC LIMIT 1",
                 (pid,),
             ).fetchone()

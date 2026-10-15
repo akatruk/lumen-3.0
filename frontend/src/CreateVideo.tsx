@@ -3,6 +3,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import type { Lang, Project } from "./types";
 import { ProjectJobStatus } from "./ProjectJobStatus";
 import { workspaceText } from "./ProjectWorkspace";
+import { chosenDuration } from "./durationChoice";
 
 type Speech = "ru-RU" | "en-US" | "zh-CN";
 
@@ -163,7 +164,7 @@ function createErrorKind(detail: string): "voice" | "voice_not_ready" | "busy" |
   if (detail === "MISSING_TARGET_LANGUAGE_VOICE" || detail === "VOICE_SETUP_REQUIRED") return "voice";
   if (detail === "target_voice_not_ready") return "voice_not_ready";
   if (detail === "job_already_running" || detail === "project_busy") return "busy";
-  if (detail === "provider_not_configured") return "provider";
+  if (detail === "provider_not_configured" || detail === "VOICE_PROVIDER_NOT_CONFIGURED") return "provider";
   return "failed";
 }
 
@@ -175,8 +176,7 @@ const SHARES: Share[] = [
 ];
 
 function durationLimit(sourceSeconds: number) {
-  const whole = Math.floor(sourceSeconds);
-  const max = Math.max(10, Math.floor(whole / 5) * 5);
+  const max = Math.max(10, sourceSeconds);
   return { min: 10, max, step: 5 };
 }
 
@@ -296,7 +296,9 @@ export function CreateVideo({
   ];
   const speech = language ?? savedLanguage(uploads?.context?.video_language) ?? spokenLanguage(uploads);
   const speechLabel = LANGUAGES.find((item) => item.id === speech)?.label ?? speech;
-  const sourceSpeech = detectSpeech((uploads?.plan?.transcript ?? []).map((line) => line.original || "").join(" "));
+  const sourceSpeech =
+    detectSpeech((uploads?.plan?.transcript ?? []).map((line) => line.original || "").join(" "))
+    || savedLanguage(project?.metadata?.source_language);
   const originalVoice = sourceSpeech === speech;
   const voiceLabel = originalVoice
     ? w("Оригинальный голос ведущего", "Original speaker audio", "原声")
@@ -446,7 +448,10 @@ export function CreateVideo({
           step={limit.step}
           value={length}
           aria-valuetext={length + "s"}
-          onChange={(event) => setLength(Number(event.target.value))}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            setLength(chosenDuration(next, sourceSeconds));
+          }}
         />
         <strong>
           {length}

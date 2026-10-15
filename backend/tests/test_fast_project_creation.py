@@ -84,8 +84,21 @@ def test_create_ready_without_analyze_job(client):
     assert meta["orientation"] == "portrait"
     assert meta.get("source_checksum")
     with connect() as db:
-        jobs = db.execute("SELECT kind FROM jobs WHERE project_id=?", (body["id"],)).fetchall()
-    assert jobs == []
+        jobs = [row[0] for row in db.execute("SELECT kind FROM jobs WHERE project_id=?", (body["id"],))]
+    assert jobs == ["transcribe"]
+    assert body["metadata"]["transcription"] == "transcription_pending"
+
+
+def test_same_checksum_reuses_one_transcription_job(client):
+    first = create(client)
+    second = create(client)
+    assert first.status_code == 201 and second.status_code == 201
+    with connect() as db:
+        rows = db.execute("SELECT project_id, payload FROM jobs WHERE kind='transcribe'").fetchall()
+    assert len(rows) == 1
+    payload = json.loads(rows[0]["payload"])
+    assert payload["checksum"]
+    assert second.json()["id"] in payload["waiters"]
 
 
 def test_create_no_openrouter_when_key_empty(client, monkeypatch):
@@ -116,6 +129,8 @@ def test_deferred_analysis_on_create_video(client, monkeypatch):
             {"start": 0.0, "end": 40.0, "text": "hello"}
         ],
     )
+    from backend.worker import run_once
+    assert run_once() is True
 
     started = client.post(
         f"/api/studio/projects/{pid}/create-video",
@@ -125,7 +140,7 @@ def test_deferred_analysis_on_create_video(client, monkeypatch):
     with connect() as db:
         plan = db.execute("SELECT plan FROM studio_projects WHERE project_id=?", (pid,)).fetchone()["plan"]
         job = db.execute(
-            "SELECT kind,status FROM jobs WHERE project_id=? AND kind='studio_render'",
+            "SELECT kind,status FROM jobs WHERE project_id=? AND kind IN ('studio_render','director_v3')",
             (pid,),
         ).fetchone()
     assert plan

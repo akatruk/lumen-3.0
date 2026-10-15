@@ -44,7 +44,7 @@ Feature flag: `FAST_PROJECT_CREATION_ENABLED` (default **true**).
 
 Active production default: `LLM_PROVIDER=none` — no OpenRouter HTTP on create or deferred analysis.
 
-Replacement for deferred transcript: local WhisperX CPU on the DO volume when available; otherwise silence-based placeholder captions (generation may be weak until ASR works).
+Upload stays immediate (`status=ready`). A `transcribe` job on the existing worker runs CPU faster-whisper (`ASR_MODEL`, default `small`, int8) and writes `localization/source-transcript.json`. Model weights use `ASR_MODEL_CACHE`, or `/mnt/volume_nyc1_1791446889637/lumen-asr` when that volume is mounted. One active job per source checksum + model + config. Create Video does not plan from placeholder speech. Same source and project language keeps the original voice (`dubbed=false`). A missing target voice returns `MISSING_TARGET_LANGUAGE_VOICE`.
 
 Replacement for Director JSON: heuristic plan from transcript + duration (empty recommendations when no references). Full LLM Director remains behind the optional provider.
 

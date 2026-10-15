@@ -50,7 +50,7 @@ def test_roles_and_validation(client,monkeypatch):
  assert s['context']['references'][0]['role']=='reference_only'
  assert s['context']['platforms']==['douyin','instagram_reels','youtube_shorts','tiktok','xiaohongshu']
  assert (settings.data_dir/pid/'source').read_bytes()==b'owned-source-only'
- with connect() as db:assert db.execute('SELECT kind FROM jobs WHERE project_id=?',(pid,)).fetchone() is None
+ with connect() as db:assert db.execute('SELECT kind FROM jobs WHERE project_id=?',(pid,)).fetchone()[0]=='transcribe'
  app.dependency_overrides[current_user]=lambda:{'id':'v','email':'other@example.com'}
  assert client.get('/api/studio/projects/'+pid).status_code==404
  assert client.get('/api/studio/projects/'+pid+'/references/1234567890123456789').status_code==404
@@ -99,8 +99,9 @@ def test_create_retry_is_idempotent(client):
  assert first.json()['id']==second.json()['id']
  with connect() as db:
   assert db.execute('SELECT COUNT(*) FROM projects').fetchone()[0]==1
-  # Fast create: no analyze job enqueued
-  assert db.execute('SELECT COUNT(*) FROM jobs').fetchone()[0]==0
+  # Fast create: transcription only, no analyze job.
+  assert db.execute("SELECT COUNT(*) FROM jobs WHERE kind='transcribe'").fetchone()[0]==1
+  assert db.execute("SELECT COUNT(*) FROM jobs WHERE kind!='transcribe'").fetchone()[0]==0
 
 def _enable_openrouter_analyze(monkeypatch):
  monkeypatch.setattr(settings,'llm_provider','openrouter')

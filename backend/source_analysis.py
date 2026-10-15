@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -38,8 +39,18 @@ def is_placeholder_transcript(segments) -> bool:
     return hits >= max(1, (len(usable) + 1) // 2)
 
 
-def _transcribe_source(source: Path, *, language: str, duration: float | None) -> tuple[list[dict], str]:
-    """Real ASR when available. Stamp the provider that actually produced the lines."""
+def _transcribe_source(source: Path, *, language: str, duration: float | None, project_id: str | None = None) -> tuple[list[dict], str]:
+    """Real ASR, or a checksum-matched cache. Never a silence grid."""
+    if project_id:
+        from .source_transcript import as_ranged_rows, load_verified
+
+        from .source_transcript import cache_matches_model
+
+        cached = load_verified(project_id, source)
+        if cached and cache_matches_model(cached):
+            return as_ranged_rows(cached), str(cached.get("provider") or "cached")
+    if os.environ.get("LUMEN_FORBID_ASR", "").strip() == "1":
+        raise RuntimeError("asr_forbidden")
     transcript_provider = get_transcript_provider()
     try:
         if transcript_provider.name == "placeholder":
@@ -49,15 +60,29 @@ def _transcribe_source(source: Path, *, language: str, duration: float | None) -
         else:
             segments = transcript_provider.transcribe(source, language=language)
         used = transcript_provider.name
-    except Exception:
-        placeholder = get_transcript_provider("placeholder")
-        segments = placeholder.transcribe(
-            source, language=language, duration=duration
-        )
-        used = placeholder.name
-    if is_placeholder_transcript(segments) and used != "placeholder":
-        # Provider claimed success but returned silence-grid labels.
-        used = "placeholder"
+    except Exception as exc:
+        if "asr_forbidden" in str(exc):
+            raise
+        from .source_transcript import TranscriptError
+
+        code = str(exc)
+        if code in {
+            "TRANSCRIPTION_PROVIDER_UNAVAILABLE",
+            "TRANSCRIPTION_FAILED",
+            "TRANSCRIPTION_TIMEOUT",
+            "SOURCE_TRANSCRIPT_UNAVAILABLE",
+            "SOURCE_LANGUAGE_UNVERIFIED",
+        }:
+            raise TranscriptError(code) from exc
+        if isinstance(exc, ImportError):
+            raise TranscriptError("TRANSCRIPTION_PROVIDER_UNAVAILABLE") from exc
+        raise TranscriptError("TRANSCRIPTION_FAILED") from exc
+    if is_placeholder_transcript(segments):
+        from .source_transcript import TranscriptError
+
+        raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
+    if used == "placeholder":
+        used = "fixture"
     return segments, used
 
 
@@ -124,8 +149,26 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
         meta["preview_ready"] = True
 
     segments, transcript_name = _transcribe_source(
-        source, language=language, duration=float(meta["duration"])
+        source, language=language, duration=float(meta["duration"]), project_id=pid
     )
+    from .source_transcript import save_verified
+
+    saved = save_verified(
+        pid,
+        source,
+        segments,
+        provider=transcript_name,
+        provenance={"provider": transcript_name},
+        duration=float(meta["duration"]),
+    )
+    meta["source_language"] = saved["sourceLanguage"]
+    meta["transcript_version"] = saved["transcriptVersion"]
+    meta["transcription"] = "transcription_completed"
+    meta["transcription_model"] = saved.get("modelId")
+    segments = [
+        {"start": row["start"], "end": row["end"], "text": row["text"]}
+        for row in saved["segments"]
+    ]
 
     director = get_director_provider("none")  # local baseline — never silent LLM claim
     from .experience_memory import context_for_transcript
@@ -165,7 +208,7 @@ def _stamp_director_mode(pid: str, *, director_mode: str, director_provider: str
         )
 
 
-def ensure_analysis(pid: str, *, language: str | None = None, force: bool = False) -> dict:
+def ensure_analysis(pid: str, *, language: str | None = None, force: bool = False, keep_status: bool = False) -> dict:
     """Reuse cached plan when source checksum matches; else build at generation time.
 
     Create stays AI-free. Generation may use OpenRouter when LLM_PROVIDER=openrouter,
@@ -208,8 +251,21 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
         director = RunPodDirectorProvider()
         duration = float(meta.get("duration") or media.probe(source)["duration"])
         segments, transcript_name = _transcribe_source(
-            source, language=lang, duration=duration
+            source, language=lang, duration=duration, project_id=pid
         )
+        from .source_transcript import save_verified
+
+        saved_transcript = save_verified(
+            pid, source, segments, provider=transcript_name,
+            provenance={"provider": transcript_name}, duration=duration,
+        )
+        meta["source_language"] = saved_transcript["sourceLanguage"]
+        meta["transcription"] = "transcription_completed"
+        meta["transcription_model"] = saved_transcript.get("modelId")
+        segments = [
+            {"start": row["start"], "end": row["end"], "text": row["text"]}
+            for row in saved_transcript["segments"]
+        ]
         if not (folder / "analysis.mp4").exists():
             media.prepare(source, folder)
             meta = {**meta, "preview_ready": True}
@@ -240,16 +296,14 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
             director_mode="runpod",
             director_provider="runpod",
             analysis_quality="llm",
-            transcript_provider=transcript_provider.name,
+            transcript_provider=transcript_name,
         )
+        ready = {} if keep_status else {"status": "ready", "stage": "ready", "progress": 100, "error": None}
         update(
             pid,
             analysis=plan.model_dump(exclude={"transfers"}),
             metadata={**meta, **stamp},
-            status="ready",
-            stage="ready",
-            progress=100,
-            error=None,
+            **ready,
         )
         return {
             "reused": False,
@@ -320,14 +374,12 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
         analysis_quality=built["analysis_quality"],
         transcript_provider=built["transcript_provider"],
     )
+    ready = {} if keep_status else {"status": "ready", "stage": "ready", "progress": 100, "error": None}
     update(
         pid,
         analysis=legacy,
         metadata={**meta, **built["metadata"], **stamp},
-        status="ready",
-        stage="ready",
-        progress=100,
-        error=None,
+        **ready,
     )
     return {
         "reused": False,

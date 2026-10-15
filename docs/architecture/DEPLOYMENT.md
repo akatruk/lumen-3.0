@@ -24,6 +24,8 @@
    - `FAST_PROJECT_CREATION_ENABLED=1`
    - `LLM_PROVIDER=none` (or `openrouter` for LLM Director at **Create video** only)
    - `TRANSCRIPT_PROVIDER=auto`
+   - `ASR_MODEL=small`
+   - `ASR_MODEL_CACHE=/mnt/volume_nyc1_1791446889637/lumen-asr`
 5. `systemctl restart lumen-web lumen-worker` only.
 6. Health: `curl http://127.0.0.1:8018/api/health`
 7. **Do not** restart RunPod / GPU pods for app deploys.

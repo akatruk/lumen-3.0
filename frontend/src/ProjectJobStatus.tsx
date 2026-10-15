@@ -40,6 +40,36 @@ const ERROR_COPY: Record<string, [string, string, string]> = {
     "Processing could not finish. Your original is safe.",
     "处理未能完成，原视频已保留。",
   ],
+  TRANSCRIPTION_PROVIDER_UNAVAILABLE: [
+    "Расшифровка недоступна на этом сервере.",
+    "Transcription is not available on this server.",
+    "此服务器无法转写。",
+  ],
+  TRANSCRIPTION_FAILED: [
+    "Не удалось разобрать речь в исходнике.",
+    "Could not transcribe the source audio.",
+    "无法转写原片声音。",
+  ],
+  TRANSCRIPTION_TIMEOUT: [
+    "Расшифровка не уложилась в лимит времени.",
+    "Transcription timed out.",
+    "转写超时。",
+  ],
+  SOURCE_TRANSCRIPT_UNAVAILABLE: [
+    "Нет проверенной расшифровки. Ролик не собирается.",
+    "No verified transcript. The video was not built.",
+    "没有经过校验的字幕稿，未生成视频。",
+  ],
+  SOURCE_LANGUAGE_UNVERIFIED: [
+    "Язык речи не подтверждён.",
+    "Source language was not verified.",
+    "未能确认原片语言。",
+  ],
+  MISSING_TARGET_LANGUAGE_VOICE: [
+    "Нет голоса для выбранного языка.",
+    "No voice for the selected language.",
+    "所选语言没有可用声音。",
+  ],
 };
 
 function localeLabel(lang: Lang, locale?: string | null) {
@@ -56,6 +86,7 @@ function kindLabel(lang: Lang, kind?: string | null) {
   if (kind === "director_v3") return w("Director V3 (Remotion)", "Director V3 (Remotion)", "Director V3（Remotion）");
   if (kind === "studio_render" || kind === "render") return w("Сборка ролика", "Video render", "视频渲染");
   if (kind === "analysis") return w("Анализ", "Analysis", "分析");
+  if (kind === "transcribe") return w("Расшифровка", "Transcript", "转写");
   return kind || w("задача", "job", "任务");
 }
 
@@ -70,8 +101,22 @@ function jobPhase(lang: Lang, status?: string | null) {
 
 function projectPhase(lang: Lang, p: Project) {
   const w = (ru: string, en: string, zh: string) => workspaceText(lang, ru, en, zh);
+  const transcript = p.metadata?.transcription;
+  const preparing = transcript === "transcription_pending" || transcript === "transcription_running";
   if (p.status === "complete" || p.stage === "complete") {
     return w("Ролик готов", "Video ready", "视频已就绪");
+  }
+  if (p.status === "rendering" || p.stage === "rendering") {
+    return w("Собираем видео", "Creating video", "正在生成视频");
+  }
+  if (preparing && (p.status === "ready" || p.status === "queued" || p.stage === "ready" || p.stage === "render_queued")) {
+    return w("Готовим расшифровку", "Preparing transcript", "正在准备字幕稿");
+  }
+  if (transcript === "transcription_failed" && (p.status === "ready" || p.stage === "ready")) {
+    return w("Расшифровка не удалась", "Transcript failed", "字幕稿失败");
+  }
+  if (transcript === "transcription_completed" && (p.status === "ready" || p.stage === "ready")) {
+    return w("Расшифровка готова", "Transcript ready", "字幕稿已就绪");
   }
   if (p.status === "needs_review" || p.stage === "needs_review") {
     return w("На проверке", "Needs review", "待复核");
@@ -123,7 +168,19 @@ export function ProjectJobStatus({
       ? [err, activityNote && activityNote !== err ? activityNote : ""].filter(Boolean).join(" — ")
       : p.result?.render_id
         ? w("Можно смотреть и скачать текущую версию.", "You can play and download the current version.", "可播放并下载当前版本。")
-        : p.metadata?.director_mode === "heuristic" || p.metadata?.analysis_quality === "local_baseline"
+        : p.metadata?.transcription === "transcription_pending" || p.metadata?.transcription === "transcription_running"
+        ? w(
+            "Исходник загружен. Речь разбирается в фоне.",
+            "Source uploaded. Speech is being transcribed.",
+            "原片已上传，正在后台转写。",
+          )
+        : p.metadata?.transcription === "transcription_failed"
+          ? w(
+              "Расшифровка не удалась. Ролик из заглушек не собирается.",
+              "Transcript failed. No video is built from placeholder speech.",
+              "转写失败。不会用占位文本生成视频。",
+            )
+      : p.metadata?.director_mode === "heuristic" || p.metadata?.analysis_quality === "local_baseline"
           ? w(
               "План локальный (без LLM Director). Качество не равно AI-режиссуре.",
               "Local baseline plan (no LLM Director). Not AI-directed quality.",

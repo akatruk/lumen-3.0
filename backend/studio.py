@@ -108,7 +108,7 @@ class CreateVideo(Strict):
     density_percent: int = Field(default=70, ge=0, le=100)
     language: str | None = None
     voice: str | None = None
-    duration_seconds: int | None = None
+    duration_seconds: float | None = None
     visual_variation: str | None = None
     visual_energy: str | None = None
     # Opt-in Remotion path when settings.remotion_engine_enabled. Default keeps Hypit.
@@ -222,6 +222,8 @@ async def create(request:Request,config:str=Form(...),file:UploadFile=File(...),
             meta=enrich_metadata(meta, folder/'source')
             meta['source_checksum']=source_checksum(folder/'source')
             fast=bool(getattr(settings,'fast_project_creation_enabled',True))
+            if fast:
+                meta['transcription']='transcription_pending'
             initial_status='ready' if fast else 'queued'
             initial_stage='ready' if fast else 'queued'
             db.execute('INSERT INTO projects(id,user_id,title,brief,language,aspect,auto_render,generative,budget,status,stage,metadata,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(pid,user['id'],body.title,body.script,body.language,'original',0,0,body.budget,initial_status,initial_stage,json.dumps(meta),now,now))
@@ -230,7 +232,10 @@ async def create(request:Request,config:str=Form(...),file:UploadFile=File(...),
             if body.concept_id:
                 from .trends import attach_concept
                 attach_concept(db,user['id'],pid,body.concept_id)
-            if not fast:
+            if fast:
+                from .transcription import enqueue_transcription
+                enqueue_transcription(db, pid, meta['source_checksum'])
+            else:
                 enqueue(db,pid,'studio_analyze')
     except Exception:
         shutil.rmtree(folder,ignore_errors=True);raise
@@ -525,6 +530,60 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
     with connect() as db:
         s_pre = state(pid, db)
     if not s_pre or not s_pre.get('plan'):
+        from . import remotion_engine
+        transcription_job = None
+        with connect() as db:
+            transcription_job = db.execute(
+                "SELECT id FROM jobs WHERE project_id=? AND kind='transcribe' AND status IN ('queued','running')",
+                (pid,),
+            ).fetchone()
+        if remotion_engine.should_use_remotion(pid) and transcription_job:
+            from .director_v3 import output_seconds
+            from .language import short_code
+            try:
+                chosen = output_seconds(body.duration_seconds, duration)
+            except ValueError:
+                raise HTTPException(422, 'duration_step') from None
+            saved_video = (s_pre.get('context') or {}).get('video_language') if s_pre else None
+            locale = _locale_or_422(body.language or saved_video or p.get('language'))
+            if not locale:
+                raise HTTPException(422, 'unsupported_language')
+            levels = _prompt_levels(body)
+            energy = body.visual_energy or 'balanced'
+            editing = {
+                'animation': levels['card_motion'],
+                'intensity': levels['animation_intensity'],
+                'motion': levels['animation_motion'],
+                'density': levels['animation_density'],
+                'visualEnergy': energy,
+            }
+            with connect() as db:
+                db.lock()
+                if db.execute(
+                    "SELECT 1 FROM jobs WHERE project_id=? AND kind!='transcribe' AND status IN ('queued','running')",
+                    (pid,),
+                ).fetchone():
+                    raise HTTPException(409, 'job_already_running')
+                _remember_language(db, pid, locale)
+                enqueue(db, pid, 'director_v3', {
+                    'await_transcript': True,
+                    'revision': (s_pre or {}).get('revision') or 0,
+                    'composition': 'DirectorV3Preview',
+                    'duration_seconds': chosen,
+                    'picture_engine': 'remotion',
+                    'renderer': 'remotion',
+                    'language': short_code(locale),
+                    'target_language': locale,
+                    'voice': body.voice,
+                    'visual_energy': energy,
+                    'visual_variation': body.visual_variation or 'automatic',
+                    'editing': editing,
+                })
+                db.execute(
+                    "UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?",
+                    (pid,),
+                )
+            return {'ok': True, 'deferred': True, 'transcription': (p.get('metadata') or {}).get('transcription')}
         from .source_analysis import ensure_analysis
         try:
             director_info = ensure_analysis(pid, language=body.language or p.get('language'))
@@ -544,7 +603,7 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         s = state(pid, db)
         if not s or not s.get('plan'):
             raise HTTPException(422, 'analysis_not_ready')
-        if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
+        if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND kind!='transcribe' AND status IN ('queued','running')", (pid,)).fetchone():
             raise HTTPException(409, 'job_already_running')
         from .director_v3 import PROJECT_ID, output_seconds
         from . import remotion_engine
@@ -566,12 +625,12 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             locale = _locale_or_422(body.language or saved_video or p.get('language'))
             if not locale:
                 raise HTTPException(422, 'unsupported_language')
-            from .language import detect_source_locale, resolve_voice, short_code
-            spoken = ' '.join(
-                (row.get('original') or row.get('en') or row.get('ru') or row.get('zh') or '')
-                for row in (s.get('plan') or {}).get('transcript') or []
-            )
-            source_locale = detect_source_locale(spoken)
+            from .language import resolve_voice, short_code
+            from .source_transcript import TranscriptError, source_locale_for_rows
+            try:
+                source_locale = source_locale_for_rows((s.get('plan') or {}).get('transcript') or [])
+            except TranscriptError as exc:
+                raise HTTPException(422, exc.code) from None
             resolved = resolve_voice(
                 source_language=source_locale,
                 target_language=locale,
@@ -678,10 +737,13 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         voice_id = None
         resolved = {'mode': 'original', 'status': 'resolved', 'voiceId': None}
         if locale:
-            from .language import detect_source_locale, rendition_dir, resolve_voice, short_code, LanguageError
+            from .language import rendition_dir, resolve_voice, short_code, LanguageError
+            from .source_transcript import TranscriptError, source_locale_for_rows
             code = short_code(locale)
-            spoken = ' '.join((row.get('original') or row.get('en') or row.get('ru') or row.get('zh') or '') for row in (s.get('plan') or {}).get('transcript') or [])
-            source_locale = detect_source_locale(spoken)
+            try:
+                source_locale = source_locale_for_rows((s.get('plan') or {}).get('transcript') or [])
+            except TranscriptError as exc:
+                raise HTTPException(422, exc.code) from None
             resolved = resolve_voice(source_language=source_locale, target_language=locale, voice=body.voice)
             voice_id = resolved.get('voiceId')
             if resolved['status'] == 'VOICE_SETUP_REQUIRED':

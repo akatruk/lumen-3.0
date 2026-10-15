@@ -37,6 +37,9 @@ export type Metadata = {
   director_mode?: string | null;
   director_provider?: string | null;
   analysis_quality?: string | null;
+  transcription?: string | null;
+  transcription_error?: string | null;
+  source_language?: string | null;
 };
 export type Analysis = {
   summary: Text;

@@ -60,6 +60,16 @@ class WhisperXTranscriptProvider:
         return transcribe_segments(video_path, language=language)
 
 
+class UnavailableTranscriptProvider:
+    """ASR could not be loaded. Callers must fail, not invent segments."""
+
+    name = "unavailable"
+
+    def transcribe(self, video_path: Path, *, language: str | None = None, duration: float | None = None) -> list[dict]:
+        del video_path, language, duration
+        raise ImportError("TRANSCRIPTION_PROVIDER_UNAVAILABLE")
+
+
 def get_transcript_provider(name: str | None = None) -> TranscriptProvider:
     chosen = (name or getattr(settings, "transcript_provider", "auto") or "auto").strip().lower()
     if chosen == "placeholder":
@@ -71,4 +81,4 @@ def get_transcript_provider(name: str | None = None) -> TranscriptProvider:
 
         return WhisperXTranscriptProvider()
     except Exception:
-        return PlaceholderTranscriptProvider()
+        return UnavailableTranscriptProvider()
