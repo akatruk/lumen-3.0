@@ -6,7 +6,7 @@ Host: local Mac, 10 CPU, 24 GB RAM. No production deploy. V14–V18 flags left a
 
 ## Phase
 
-Renders and visual QA done. Report written. Commit next.
+Renders and visual QA done. Implementation commit `289651b`.
 
 ## Done
 

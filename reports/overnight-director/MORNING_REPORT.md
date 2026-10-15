@@ -1,7 +1,7 @@
 # Overnight director quality recovery
 
 Branch `experiment/overnight-director-quality` from `216913e7ec29ba5ff9d19cc6bfa7ac7b2e344d5c`.
-Commit SHA is recorded in the follow-up docs commit on this branch. Nothing was merged or deployed. lumen-fix stays on `216913e`.
+Implementation commit `289651b1fca6ece8cecb9b36a17f3f6362b76136`. Nothing was merged or deployed. lumen-fix stays on `216913e`.
 
 ## 1. Which confirmed defects were fixed?
 
