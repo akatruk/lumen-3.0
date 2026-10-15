@@ -2,7 +2,7 @@
  * Semantic motion V14 — five components, three layouts, one renderer.
  * Frame-driven. Labels are props (RU/EN/ZH). No invented amounts or counts.
  */
-import { AbsoluteFill, Easing, interpolate, Sequence, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, interpolate, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { theme } from "../themes/tokens";
 import { AutoFitText } from "../typography/AutoFitText";
 import type { SupportedLocale } from "../localization/language-config";
@@ -16,8 +16,10 @@ import {
 } from "../utils/adaptiveLineStyle";
 import { ConnectorLine } from "../preview/ConnectorStroke";
 import { motionDuration } from "./design";
+import { sceneRevealFrame } from "./time";
 import { compositionClears, resolveLayout, type LayoutVariant, type MediaSide } from "./layouts";
 import { V15Body } from "./componentsV15";
+import { NumericRange } from "./numericRange";
 import type { SemanticMotionPayload, SplitValue } from "./types";
 
 const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
@@ -310,7 +312,7 @@ function Plate({
         padding: "28px 22px",
       }}
     >
-      <Label text={label} width={220} height={72} locale={locale} color={palette.text} role="support" />
+      <Label text={label} width={compact ? 360 : 280} height={compact ? 96 : 72} locale={locale} color={palette.text} role="support" />
     </div>
   );
 }
@@ -380,6 +382,12 @@ function OwnershipSplit({
   );
 }
 
+function stepClock(step: NonNullable<SemanticMotionPayload["steps"]>[number], key: "at" | "until"): number | null {
+  if (typeof step === "string" || step[key] == null || !Number.isFinite(Number(step[key]))) return null;
+  return Number(step[key]);
+}
+
+
 function ProcessTimeline({
   payload,
   palette,
@@ -390,35 +398,67 @@ function ProcessTimeline({
   locale: SupportedLocale;
 }) {
   const frame = useCurrentFrame();
-  const steps = (payload.steps || [])
-    .map((step) => (typeof step === "string" ? step : step.label))
-    .filter(Boolean)
-    .slice(0, 5);
-  if (steps.length < 2) return null;
-  const active = Math.min(steps.length - 1, Math.floor(interpolate(frame, [8, Math.max(24, framesSafe(steps))], [0, steps.length], clamp)));
+  const { fps } = useVideoConfig();
+  const raw = (payload.steps || []).filter((step) => (typeof step === "string" ? step : step.label)).slice(0, 5);
+  const labels = raw.map((step) => (typeof step === "string" ? step : step.label)).filter(Boolean);
+  if (labels.length < 2) return null;
+  const clocks = raw.map((step) => stepClock(step, "at"));
+  const timed = clocks.every((value) => value != null) && Math.max(...(clocks as number[])) - Math.min(...(clocks as number[])) > 0.35;
+  const sourceOrigin = Number(payload.evidence?.sourceTimestamp?.[0]);
+  const sceneStart = Number(payload.outputTime?.[0]);
+  const origin = Number.isFinite(sourceOrigin) ? sourceOrigin : 0;
+  const start = Number.isFinite(sceneStart) ? sceneStart : origin;
+  const revealAt = (index: number) =>
+    timed ? sceneRevealFrame(clocks[index] as number, origin, start, fps) : 4 + index * motionDuration.stagger;
+  const quietAt = (index: number) => {
+    const until = stepClock(raw[index], "until");
+    if (until != null) return sceneRevealFrame(until, origin, start, fps);
+    if (index + 1 < labels.length) return revealAt(index + 1);
+    return Number.POSITIVE_INFINITY;
+  };
+  const active = timed
+    ? labels.findIndex((_, index) => frame >= revealAt(index) && frame < quietAt(index))
+    : Math.min(labels.length - 1, Math.floor(interpolate(frame, [8, Math.max(24, framesSafe(labels))], [0, labels.length], clamp)));
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, position: "relative" }}>
-      {steps.map((label, i) => {
-        const shown = rise(frame, 4 + i * motionDuration.stagger);
-        const on = i <= active;
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        gap: 18,
+        position: "relative",
+      }}
+    >
+      {labels.map((label, i) => {
+        const opened = revealAt(i);
+        if (timed && frame < opened) return null;
+        const shown = rise(frame, opened);
+        const on = timed ? i === active : i <= active;
         return (
-          <div key={`${label}-${i}`} style={{ display: "flex", gap: 16, alignItems: "center", opacity: shown.opacity, transform: `translateY(${shown.y}px)` }}>
-            <svg width="28" height="72" viewBox="0 0 28 72">
-              <circle cx="14" cy="20" r="7" fill={on ? palette.stroke : "none"} stroke={palette.stroke} strokeWidth="1.6" />
-              {i < steps.length - 1 ? (
-                <ConnectorLine
-                  x1={14}
-                  y1={30}
-                  x2={14}
-                  y2={30 + shown.opacity * 36}
-                  strokeWidth={1.5}
-                  preferredColor={theme.color.accent}
-                  background={palette.background}
-                  sceneTheme={palette.sceneTheme}
-                />
-              ) : null}
+          <div
+            key={`${label}-${i}`}
+            style={{
+              flex: 1,
+              display: "flex",
+              gap: 18,
+              alignItems: "center",
+              opacity: shown.opacity * (on ? 1 : 0.38),
+              transform: `translateY(${shown.y}px)`,
+            }}
+          >
+            <svg width="28" height="28" viewBox="0 0 28 28">
+              <circle cx="14" cy="14" r="8" fill={on ? palette.stroke : "none"} stroke={palette.stroke} strokeWidth="2" />
             </svg>
-            <Label text={label} width={420} height={44} locale={locale} color={on ? palette.text : palette.muted} role="support" />
+            <Label
+              text={label}
+              width={440}
+              height={on ? 120 : 72}
+              locale={locale}
+              color={on ? palette.text : palette.muted}
+              role={on ? "title" : "support"}
+            />
           </div>
         );
       })}
@@ -452,6 +492,8 @@ function Body({
       return <OwnershipSplit payload={payload} palette={palette} locale={locale} />;
     case "process_timeline":
       return <ProcessTimeline payload={payload} palette={palette} locale={locale} />;
+    case "numeric_range":
+      return <NumericRange payload={payload} palette={palette} locale={locale} />;
     default:
       return <V15Body payload={payload} palette={palette} locale={locale} compact={compact} />;
   }
@@ -505,7 +547,7 @@ export function SemanticMotion({
           boxSizing: "border-box",
         }}
       >
-        <Sequence from={Math.max(0, payload.enterFrame || 0)} durationInFrames={Math.max(1, frames - Math.max(0, payload.enterFrame || 0))}>
+        <Sequence from={Math.max(0, Math.min(frames - 1, payload.enterFrame || 0))} durationInFrames={Math.max(1, Math.min(payload.holdFrames && payload.holdFrames > 0 ? payload.holdFrames : frames, frames - Math.max(0, payload.enterFrame || 0)))}>
           <Body payload={paint} palette={palette} locale={locale} compact={rect.width < 780} />
         </Sequence>
       </div>

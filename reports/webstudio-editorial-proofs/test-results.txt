@@ -1,0 +1,9 @@
+PYTHONPATH=. .venv/bin/python -m pytest backend/tests/test_director_evidence.py backend/tests/test_director_v14.py backend/tests/test_semantic_numeric_range.py backend/tests/test_director_v11.py backend/tests/test_director_v3.py backend/tests/test_director_revisions.py -q --tb=line
+
+58 passed
+3 failed, all in backend/tests/test_director_revisions.py:
+  test_propose_accept_and_preserve: 409 != 202
+  test_failure_and_locked: 409 != 200
+  test_preserves_other_approved_decisions_and_rejects_stale: IndexError
+
+This commit does not edit backend/app.py. That file is still dirty from earlier work, and the revision tests import it. A clean-tree rerun was not done, because resetting app.py would drop that uncommitted work. The failures are in the dirty tree. They are not a new assertion from the evidence-gate or range tests.

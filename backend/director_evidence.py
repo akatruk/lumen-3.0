@@ -70,6 +70,82 @@ def _clear_plate(scene: dict) -> dict:
     return scene
 
 
+def _merge_ordinal_list(plan: dict, rows: list[dict], locale: str | None) -> dict:
+    """One process timeline for a complete 第N层 cluster.
+
+    Rows stay hidden until the line that names them, and stop being the
+    current thought when that line ends. Scenes that overlap the cluster
+    become one scene so the list does not reset or keep the last label active.
+    """
+    from .director_v14 import ordinal_timeline_payloads
+
+    events = ordinal_timeline_payloads(rows, locale=locale or plan.get('language') or 'zh-CN')
+    if not events:
+        return plan
+    scenes = [dict(scene) for scene in plan.get('scenes') or []]
+    weights = list(plan.get('beatWeights') or [])
+    if len(weights) != len(scenes):
+        weights = [1] * len(scenes)
+    windows = scene_windows(plan, rows)
+    for _cluster, payload in reversed(events):
+        stamp = (payload.get('evidence') or {}).get('sourceTimestamp') or [0, 0]
+        try:
+            start, end = float(stamp[0]), float(stamp[1])
+        except (TypeError, ValueError):
+            continue
+        indexes = [
+            index for index, win in enumerate(windows)
+            if win[1] > start and win[0] < end
+        ]
+        if not indexes:
+            continue
+        first, last = indexes[0], indexes[-1]
+        scene = _clear_plate(dict(scenes[first]))
+        typ = dict(scene.get('typography') or {})
+        typ['steps'] = []
+        typ['stepsTitle'] = ''
+        typ['cards'] = []
+        typ['cardMode'] = 'none'
+        scene['typography'] = typ
+        scene['steps'] = []
+        scene['stepsTitle'] = ''
+        scene['criteriaCards'] = []
+        scene['cardMode'] = 'none'
+        mounted = dict(payload)
+        mounted['layout'] = 'speaker_visual'
+        mounted['mediaSide'] = 'left'
+        mounted['sceneTheme'] = 'ink'
+        mounted['connectorBackground'] = '#12110F'
+        mounted['enterFrame'] = 0
+        mounted['outputTime'] = [round(windows[first][0], 3), round(windows[last][1], 3)]
+        mounted['timebase'] = {
+            'sourceOrigin': start,
+            'sceneStart': round(windows[first][0], 3),
+            'stepClock': 'sourceOrigin_plus_step_at',
+        }
+        scene['semanticMotionV14'] = mounted
+        scene['spokenStructure'] = {
+            'kind': 'process_timeline',
+            'evidence': mounted.get('evidence'),
+        }
+        scene['speaker'] = {
+            'layout': 'speaker_split_right',
+            'framing': 'split',
+            'visibility': 'primary',
+        }
+        weight = sum(weights[first:last + 1]) or 1
+        scenes = scenes[:first] + [scene] + scenes[last + 1:]
+        weights = weights[:first] + [weight] + weights[last + 1:]
+        plan = dict(plan)
+        plan['scenes'] = scenes
+        plan['beatWeights'] = weights
+        windows = scene_windows(plan, rows)
+    out = dict(plan)
+    out['scenes'] = scenes
+    out['beatWeights'] = weights
+    return out
+
+
 def _stamp_spoken(plan: dict, rows: list[dict], locale: str | None) -> dict:
     """Put 不是/而是 and 第N层 labels on the scene that speaks them."""
     from .director_v14 import adjacent_contrasts, contrast_sides, ordinal_timeline_payloads
@@ -163,62 +239,9 @@ def _stamp_spoken(plan: dict, rows: list[dict], locale: str | None) -> dict:
         scene['execution'] = exe
         scenes[index] = scene
 
-    for _cluster, payload in ordinal_timeline_payloads(rows, locale=locale):
-        evidence = payload.get('evidence') or {}
-        for step in payload.get('steps') or []:
-            label = step.get('label') if isinstance(step, dict) else str(step)
-            label = str(label or '')
-            if not label:
-                continue
-            host = None
-            for row in rows:
-                text = _text(row)
-                if label not in text:
-                    continue
-                try:
-                    start = float(row.get('start') or 0)
-                    end = float(row.get('end') or start)
-                except (TypeError, ValueError):
-                    continue
-                host = (start, end, row)
-                break
-            if host is None:
-                continue
-            index = _scene_index(host[0], host[1])
-            if index is None:
-                continue
-            local = _local_text(rows_in_window(rows, windows[index], 0.4))
-            if label not in local:
-                continue
-            scene = scenes[index]
-            typ = dict(scene.get('typography') or {})
-            labels = [str(item) for item in (typ.get('steps') or [])]
-            if label not in labels:
-                labels.append(label)
-            typ['steps'] = labels
-            typ['stepsTitle'] = ''
-            scene['typography'] = typ
-            scene['steps'] = labels
-            scene['stepsTitle'] = ''
-            exe = dict(scene.get('execution') or {})
-            exe['headline'] = ''
-            exe['cardText'] = ' → '.join(labels)
-            scene['execution'] = exe
-            scene['spokenStructure'] = {
-                'kind': 'process_timeline',
-                'evidence': {
-                    'segmentId': host[2].get('id'),
-                    'sourceTimestamp': [host[0], host[1]],
-                    'sourceText': _text(host[2]),
-                    'semanticConcept': 'ordinal_layers',
-                    'selectionReason': 'this scene says this 第N层/第N步 label',
-                },
-            }
-            scenes[index] = scene
-
     out = dict(plan)
     out['scenes'] = scenes
-    return out
+    return _merge_ordinal_list(out, rows, locale)
 
 
 def _drop_unsupported_claims(plan: dict, rows: list[dict]) -> dict:

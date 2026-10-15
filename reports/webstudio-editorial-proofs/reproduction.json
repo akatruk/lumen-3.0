@@ -1,0 +1,54 @@
+{
+  "branch": "experiment/overnight-director-quality",
+  "baseBeforeThisWork": "c1bff106c2125dc6efb8342bd1e9a186d2d7288c",
+  "pipeline": "resolve_plan → scripts/overnight_director_render.gate (the director_v3.run_job chain) → remotion_engine.resolve_scene_plan → attach_transcript_captions → director_v3.render_assembly",
+  "locale": "zh-CN",
+  "dubbed": false,
+  "visualSeed": 448815100,
+  "flags": {
+    "SEMANTIC_MOTION_V14_ENABLED": "0",
+    "SEMANTIC_NUMERIC_RANGE_ENABLED": "0 for the list proof; 1 only inside the original2 process",
+    "productionFlagsChanged": false
+  },
+  "proofs": [
+    {
+      "name": "original3-list",
+      "projectId": "cd5c9ab8b6e944babe80e109038be8bb",
+      "source": "data/original3/source",
+      "sourceChecksum": "0a82755d83c2eba84647f70189c825a1a9eb5a81503cfca3f711bbb8f6c5d96c",
+      "speechLanguage": "zh",
+      "transcript": "data/original3/asr.json",
+      "sourceInterval": [42.8, 76.68],
+      "reason": "Starts at 我建议先做三个筛选 and ends at 这里不只是申请费 so the third layer's following clause is not cut.",
+      "generationId": "gen_o3_list_proof",
+      "componentId": "motion.process_timeline.v1",
+      "output": "output/webstudio-editorial-proofs/original3-list-proof.mp4",
+      "sha256": "4c7cd62aa93e2a8902f023cc5b147b20ca7116f3be84a40f5230d646794b8a55",
+      "durationSeconds": 33.92,
+      "renderWallSeconds": 83.41,
+      "parentMaxRssBytes": 886636544,
+      "command": "PYTHONPATH=. .venv/bin/python scripts/webstudio_editorial_proofs.py original3 output/webstudio-editorial-proofs/original3-list-proof.mp4 /tmp/editorial-proofs/o3-src.mp4"
+    },
+    {
+      "name": "original2-range",
+      "projectId": "data/original2",
+      "source": "data/original2/source",
+      "sourceChecksum": "5de8bd17e9ae75a51a804a05a441f5dd73b2814a643e8e933bdbe87ee0956efa",
+      "speechLanguage": "zh",
+      "transcript": "data/original2/source.transcript.json",
+      "transcriptProvider": "faster-whisper-small",
+      "sourceInterval": [15.46, 35.46],
+      "reason": "Starts at the first 月薪 sentence and ends when 4-5万泰诸 ends. The following 人民币 line is a different sentence and is not included.",
+      "generationId": "gen_o2_range_proof",
+      "componentId": "motion.numeric_range.v1",
+      "output": "output/webstudio-editorial-proofs/original2-range-proof.mp4",
+      "sha256": "703a28d4adc542f3ae8452e722f3dcb4de77ec2fa3d9d8635eab2ec6764abc2d",
+      "durationSeconds": 20.053,
+      "renderWallSeconds": 65.73,
+      "parentMaxRssBytes": 1035403264,
+      "command": "SEMANTIC_NUMERIC_RANGE_ENABLED=1 PYTHONPATH=. .venv/bin/python scripts/webstudio_editorial_proofs.py original2 output/webstudio-editorial-proofs/original2-range-proof.mp4 /tmp/editorial-proofs/o2-src.mp4"
+    }
+  ],
+  "excerptCuts": "ffmpeg -ss START -t DURATION -i SOURCE. The canonical source files were not modified. Cuts live in /tmp/editorial-proofs/.",
+  "rerun": "Rebuild the excerpt, then run the command above from the repo root. The script calls the same gate as Web Studio's Remotion job. It does not open the browser."
+}

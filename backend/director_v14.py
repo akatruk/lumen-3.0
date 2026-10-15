@@ -305,6 +305,7 @@ def _attach_ordinal_times(payload: dict[str, Any], rows: list[dict[str, Any]], o
             if label and label in text and _ORD_MARK.search(text):
                 try:
                     item["at"] = round(float(row.get("start") or 0) - origin, 3)
+                    item["until"] = round(float(row.get("end") or 0) - origin, 3)
                 except (TypeError, ValueError):
                     pass
                 break
@@ -564,6 +565,17 @@ def _choose_layout(scene: dict) -> tuple[str, str]:
     # Full-bleed overlay sits on the mouth of a talking-head frame. The
     # speaker column keeps the face clear; the diagram takes the other column.
     return "speaker_visual", "left"
+
+
+def _clear_inherited_plate(scene: dict) -> dict:
+    """A sliced beat must not keep a plate chosen for a different interval."""
+    scene = dict(scene)
+    bg = dict(scene.get("background") or {})
+    for key in ("assetId", "file", "staged", "conceptId"):
+        bg.pop(key, None)
+    scene["background"] = bg
+    scene["query"] = None
+    return scene
 
 
 def _suppress_text_cards(scene: dict) -> dict:
@@ -958,6 +970,7 @@ def place_events(plan: dict, payloads: list[dict[str, Any]], rows: list[dict] | 
             payload["enterFrame"] = 0
             payload["holdFrames"] = max(1, int(round((output_time[1] - output_time[0]) * 30)))
             scene = _suppress_text_cards(scene)
+            scene = _clear_inherited_plate(scene)
             scene["semanticMotionV14"] = payload
             placed[payload["eventId"]] = {"sceneId": scene_id, "outputTime": output_time, "payload": payload}
             usage.append({
@@ -979,6 +992,7 @@ def place_events(plan: dict, payloads: list[dict[str, Any]], rows: list[dict] | 
             # A carved gap inherits the parent beat's diagram. That diagram
             # belongs to a different slice, so the gap stays a talking head.
             scene = _suppress_text_cards(scene)
+            scene = _clear_inherited_plate(scene)
             scene["sceneId"] = f"{base_id}__gap{index}"
             scene["sourceSceneId"] = base_id
         built.append(scene)

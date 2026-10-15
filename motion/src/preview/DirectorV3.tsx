@@ -1316,7 +1316,6 @@ function CleanSteps({
   from,
   frames,
   look,
-  locale = "ru-RU",
 }: {
   file: string;
   from: number;
@@ -1360,10 +1359,6 @@ function CleanSteps({
           >
             <div style={{ fontSize: 28, fontWeight: 600, color: theme.color.muted, marginBottom: 12, letterSpacing: 0.04 }}>
               {title}
-            </div>
-            {/* V11.2: never paint "{n} {label}" as one phrase — reads as invented headcount ("2 Shareholders"). */}
-            <div style={{ fontSize: 28, fontWeight: 600, color: theme.color.accent, marginBottom: 8, letterSpacing: 0.06 }}>
-              {locale.startsWith("zh") ? `步骤 ${slot + 1}` : locale.startsWith("en") ? `Step ${slot + 1}` : `Шаг ${slot + 1}`}
             </div>
             <div style={{ fontSize: 72, fontWeight: 800, color: theme.color.paper, letterSpacing: -0.03, lineHeight: 1.05 }}>
               {label}

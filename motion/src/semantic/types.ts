@@ -19,7 +19,14 @@ export type SplitValue = {
   /** at_most | at_least | exact — never invent the complement. */
   qualifier?: "at_most" | "at_least" | "exact";
 };
-export type TimelineStep = { label: string; evidence?: string };
+export type TimelineStep = {
+  label: string;
+  evidence?: string;
+  /** Seconds after the evidence window starts. The row stays hidden before this. */
+  at?: number;
+  /** Seconds after the evidence window starts. The row stops being the current thought here. */
+  until?: number;
+};
 export type MatrixCell = { label: string; row: number; col: number; highlight?: boolean };
 export type AllocSegment = { label: string; value: number; unit?: string };
 export type GraphNode = { id: string; label: string; role?: string };
@@ -30,6 +37,13 @@ export type MetricItem = {
   format?: "currency" | "percent" | "number";
 };
 export type PartyNode = { id: string; label: string; kind?: "entity" | "document" };
+/** Spoken endpoints. Strings stay as recognized — no complement, no unit rewrite. */
+export type NumericRangeValue = {
+  lowText: string;
+  highText: string;
+  unit?: string;
+  kind?: "salary" | "day_rate" | "money";
+};
 
 export type VisualIntent =
   | "capital_flow"
@@ -46,7 +60,8 @@ export type VisualIntent =
   | "geographic_expansion"
   | "investment_milestones"
   | "contract_relationship"
-  | "before_after";
+  | "before_after"
+  | "numeric_range";
 
 export type SemanticMotionPayload = {
   componentId: string;
@@ -84,6 +99,7 @@ export type SemanticMotionPayload = {
   parties?: PartyNode[];
   before?: string;
   after?: string;
+  range?: NumericRangeValue;
   evidence?: EvidenceRef;
   /** V16 composer. Absent on the V14/V15 path. */
   speakerMode?: "fullscreen" | "split";
@@ -93,6 +109,12 @@ export type SemanticMotionPayload = {
   captionRect?: { left: number; top: number; width: number; height: number };
   columnScrim?: boolean;
   enterFrame?: number;
+  /** Frames the graphic stays mounted inside this scene. Absent means the rest of the scene. */
+  holdFrames?: number;
+  eventId?: string;
+  outputTime?: [number, number];
+  /** step.at is seconds after sourceOrigin. Renderer subtracts sceneStart once. */
+  timebase?: { sourceOrigin: number; sceneStart: number; stepClock: "sourceOrigin_plus_step_at" };
   sceneTheme?: SceneTheme;
   connectorBackground?: BackgroundProbe;
   preview?: boolean;
@@ -114,4 +136,5 @@ export const COMPONENT_IDS = {
   investment_milestones: "motion.investment_milestones.v1",
   contract_relationship: "motion.contract_relationship.v1",
   before_after: "motion.before_after.v1",
+  numeric_range: "motion.numeric_range.v1",
 } as const;

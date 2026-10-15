@@ -123,10 +123,50 @@ def test_layers_stay_on_the_sentence_that_names_them():
         ],
     }
     out = apply_evidence_gate(plan, rows, locale='zh-CN')
-    assert out['scenes'][0]['steps'] == ['材料']
-    assert out['scenes'][1]['steps'] == ['时间']
-    assert out['scenes'][2]['steps'] == ['费用']
+    timelines = [
+        scene.get('semanticMotionV14')
+        for scene in out['scenes']
+        if (scene.get('semanticMotionV14') or {}).get('visualIntent') == 'process_timeline'
+    ]
+    assert len(timelines) == 1
+    steps = timelines[0]['steps']
+    assert [step['label'] for step in steps] == ['材料', '时间', '费用']
+    assert steps[0]['at'] == 0
+    assert steps[0]['until'] == 3
+    assert steps[2]['at'] == 28
+    assert steps[2]['until'] == 31
+    assert all(not scene.get('steps') for scene in out['scenes'])
     assert '使用场景' not in json_dump(out)
+    assert '步骤' not in json_dump(out)
+
+
+def test_a_later_thought_is_not_inside_the_previous_layer():
+    rows = [
+        _zh('a', 2.4, 4.6, '第一层叫使用场景'),
+        _zh('b', 16.52, 18.76, '第二层叫家庭结构'),
+        _zh('c', 24.92, 27.32, '今天适合三口之家的方案'),
+        _zh('d', 30.44, 32.2, '第三层叫代价'),
+    ]
+    plan = {
+        'language': 'zh-CN',
+        'durationSeconds': 34,
+        'beatWeights': [1, 1, 1],
+        'scenes': [
+            {'sceneId': 'early', 'typography': {}, 'execution': {}, 'background': {'assetId': 'people_door_001'}},
+            {'sceneId': 'mid', 'typography': {}, 'execution': {}, 'background': {}},
+            {'sceneId': 'late', 'typography': {}, 'execution': {}, 'background': {'assetId': 'people_consult_001'}},
+        ],
+    }
+    out = apply_evidence_gate(plan, rows, locale='zh-CN')
+    payload = out['scenes'][0]['semanticMotionV14']
+    by_label = {step['label']: step for step in payload['steps']}
+    origin = payload['evidence']['sourceTimestamp'][0]
+    family_end = origin + by_label['家庭结构']['until']
+    cost_start = origin + by_label['代价']['at']
+    assert family_end <= 18.76 + 0.01
+    assert cost_start >= 30.44 - 0.01
+    assert family_end < 24.92 < cost_start
+    assert not out['scenes'][0]['background'].get('assetId')
 
 
 def json_dump(plan):
