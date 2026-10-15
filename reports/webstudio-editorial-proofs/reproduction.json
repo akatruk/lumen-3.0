@@ -1,6 +1,7 @@
 {
   "branch": "experiment/overnight-director-quality",
   "baseBeforeThisWork": "c1bff106c2125dc6efb8342bd1e9a186d2d7288c",
+  "implementationCommit": "5fa885d2b30b81b701986d6d44d29ce82098b518",
   "pipeline": "resolve_plan → scripts/overnight_director_render.gate (the director_v3.run_job chain) → remotion_engine.resolve_scene_plan → attach_transcript_captions → director_v3.render_assembly",
   "locale": "zh-CN",
   "dubbed": false,
