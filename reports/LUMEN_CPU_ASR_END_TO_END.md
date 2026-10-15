@@ -56,7 +56,9 @@ Isolated data dir `/tmp/lumen-asr-e2e-20261016`. No preloaded transcript. The fi
 
 ## Production
 
-Host `lumen-fix` is `142.93.248.163`. App Python is 3.12.3. The venv already has faster-whisper 1.2.1, NumPy 2.5.3, and ctranslate2 4.8.2. Root disk has 4.8G free. The 100G volume has 79G free. `FAST_PROJECT_CREATION_ENABLED=1`, `LLM_PROVIDER=none`, `REMOTION_ENGINE_ENABLED=1`. Experience-memory and visual-intelligence flags are 0. Deployment of this commit is recorded below after the push.
+Host `lumen-fix` is `142.93.248.163`. App Python is 3.12.3. After deploy the venv has faster-whisper 1.2.1, NumPy 2.5.3, and ctranslate2 4.8.3. Root disk had 4.8G free before the wheel install. The 100G volume has the cache at `/mnt/volume_nyc1_1791446889637/lumen-asr`. `FAST_PROJECT_CREATION_ENABLED=1`, `LLM_PROVIDER=none`, `REMOTION_ENGINE_ENABLED=1`. Experience-memory and visual-intelligence stay off.
+
+Deployed commit `c717f86f7dbeade9a819157c44d1e4be56b10074`. Backup `backups/pre-cpu-asr-20261016.tgz` and `backups/env-pre-cpu-asr-20261016`. `lumen-web` and `lumen-worker` were restarted. `GET /api/health` returned `status=ok`, `fast_project_creation=true`, `llm_provider=none`. `backend.transcription` imports on the host. Git SHA of the ASR commit is `adc97305bd3e4de29f272dc338fe97911bbd2b2f`; the follow-up that the frontend build needs is `c717f86`.
 
 ## Limits
 
