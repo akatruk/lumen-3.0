@@ -58,6 +58,9 @@ _ZH_BUT_HEAD = re.compile(r"^而是[\u4e00-\u9fff]")
 _ZH_LOCK_LATER = re.compile(
     r"(?P<locked>[\u4e00-\u9fff]{2,8})从[\u4e00-\u9fff\s]{0,20}?锁定\s*(?P<later>[\u4e00-\u9fff]{2,6})反而"
 )
+_ZH_EMPHASIS = re.compile(
+    r"强调(?P<left>[\u4e00-\u9fff]{2,8}).{0,16}?更看重(?:的是)?(?P<right>[\u4e00-\u9fff]{2,8})"
+)
 _LOCKED_PREFIX = re.compile(r"^(?:也就是说|就是说|也就是|就是|所以|那么)")
 _CONTRAST_GAP = 1.5
 _PARTIES = (
@@ -109,6 +112,12 @@ def contrast_sides(text: str) -> tuple[str, str] | None:
     if match:
         left = match.group("rejected")
         right = match.group("asserted")
+        if left and right and left != right and left in text and right in text:
+            return left, right
+    match = _ZH_EMPHASIS.search(text or "")
+    if match:
+        left = match.group("left")
+        right = match.group("right")
         if left and right and left != right and left in text and right in text:
             return left, right
     match = _ZH_LOCK_LATER.search(text or "")
@@ -486,7 +495,12 @@ def classify_quote(text: str, segment: dict[str, Any], *, locale: str) -> list[d
         })
 
     if sides:
-        kind = "不是而是" if _ZH_NOT_BUT.search(text) else "锁定反而"
+        if _ZH_NOT_BUT.search(text):
+            kind = "不是而是"
+        elif _ZH_EMPHASIS.search(text):
+            kind = "emphasis"
+        else:
+            kind = "锁定反而"
         out.append(_comparison_payload(sides[0], sides[1], locale, evidence, kind=kind))
     else:
         pair = _party_pair(text, bucket)

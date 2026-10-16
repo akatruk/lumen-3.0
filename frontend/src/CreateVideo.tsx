@@ -17,6 +17,7 @@ type StudioState = {
     references?: { aweme_id?: string; title?: string; author?: string }[];
     visual_energy?: string;
     visual_variation?: string;
+    semantic_motion_profile?: string | null;
     editing_controls?: {
       animation?: number;
       intensity?: number;
@@ -209,6 +210,7 @@ export function CreateVideo({
   const [error, setError] = useState("");
   const [errorDetail, setErrorDetail] = useState("");
   const [voiceChoice, setVoiceChoice] = useState<string | null>(null);
+  const [motionProfile, setMotionProfile] = useState(false);
   const [renditions, setRenditions] = useState<Record<string, RenditionSnap>>({});
   const notice = useRef<HTMLParagraphElement>(null);
   const persistTimer = useRef<number | null>(null);
@@ -234,6 +236,7 @@ export function CreateVideo({
         if (data?.context?.visual_variation && ["automatic", "keep", "remix"].includes(data.context.visual_variation)) {
           setVariation(data.context.visual_variation);
         }
+        setMotionProfile(data?.context?.semantic_motion_profile === "evidence_gated_v1");
         setHydrated(true);
       })
       .catch(() => {
@@ -254,7 +257,7 @@ export function CreateVideo({
       cancelled = true;
     };
   }, [pid]);
-  function persistEditing(nextLevels: typeof levels, nextEnergy: Energy, nextVariation = variation) {
+  function persistEditing(nextLevels: typeof levels, nextEnergy: Energy, nextVariation = variation, nextProfile = motionProfile) {
     // Debounced save only — never enqueue render / TTS / GPU.
     if (persistTimer.current) window.clearTimeout(persistTimer.current);
     persistTimer.current = window.setTimeout(() => {
@@ -269,6 +272,7 @@ export function CreateVideo({
           density_percent: nextLevels.density,
           visual_energy: nextEnergy,
           visual_variation: nextVariation,
+          semantic_motion_profile: nextProfile ? "evidence_gated_v1" : null,
         }),
       }).catch(() => undefined);
     }, 400);
@@ -411,6 +415,7 @@ export function CreateVideo({
           visual_energy: energy === "custom" ? "balanced" : energy,
           language: speech,
           voice: voiceChoice,
+          semantic_motion_profile: motionProfile ? "evidence_gated_v1" : null,
         }),
       });
       if (!response.ok) {
@@ -518,6 +523,23 @@ export function CreateVideo({
           <span className="slider-effect">{effectLine(share.key, levels[share.key], w)}</span>
         </label>
       ))}
+      <label>
+        <input
+          type="checkbox"
+          checked={motionProfile}
+          disabled={working || busy}
+          onChange={(event) => {
+            const next = event.target.checked;
+            setMotionProfile(next);
+            if (hydrated) persistEditing(levels, energy, variation, next);
+          }}
+        />{" "}
+        {w(
+          "Визуальный интеллект: графика по речи (эксперимент)",
+          "Visual intelligence: evidence-gated motion (experimental)",
+          "视觉智能：按讲话证据出图（实验）",
+        )}
+      </label>
       <div className="create-actions">
         <div
           className="language-switch"

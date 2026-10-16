@@ -290,9 +290,15 @@ def _spoken(row: dict[str, Any]) -> str:
     return str(row.get("original") or row.get("zh") or "")
 
 
-def apply_numeric_range(plan: dict, transcript: list | None = None, *, locale: str | None = None) -> dict:
+def apply_numeric_range(
+    plan: dict,
+    transcript: list | None = None,
+    *,
+    locale: str | None = None,
+    force: bool = False,
+) -> dict:
     out = dict(plan)
-    if not enabled():
+    if not enabled() and not force:
         out["semanticNumericRangeEnabled"] = False
         return out
     locale = locale or out.get("language") or "zh-CN"

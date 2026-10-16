@@ -350,7 +350,7 @@ def test_repeated_comparisons_stay_distinct(monkeypatch):
     assert ("钱", "股东结构", "seg_005") in pairs
     assert ("控制权", "金额", "seg_008") in pairs
     assert ("中国", "泰国", "seg_009") in pairs
-    assert ("中国", "泰国", "seg_011") in pairs
+    assert ("法人代表", "董事权限", "seg_011") in pairs
     assert ("中国", "泰国", "seg_012") in pairs
     accepted = [row for row in out["semanticEventAudit"] if row["status"] == "accepted" and row["visualIntent"] == "business_comparison"]
     assert len(accepted) >= 5

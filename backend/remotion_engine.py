@@ -220,7 +220,7 @@ def resolve_scene_plan(
         'fps': FPS,
         'width': WIDTH,
         'height': HEIGHT,
-        'durationSeconds': int(duration_seconds),
+        'durationSeconds': float(duration_seconds),
         'visualSeed': seed,
         'artDirection': plan.get('artDirection') or plan.get('visualStyle'),
         'visualEnergy': plan.get('visualEnergy') or 'balanced',
@@ -246,6 +246,9 @@ def resolve_scene_plan(
         'form': plan.get('form'),
         'beatWeights': list(plan.get('beatWeights') or []),
         'semanticMotionAudit': plan.get('semanticMotionAudit') or {},
+        'semanticEventAudit': list(plan.get('semanticEventAudit') or []),
+        'semanticMotionProfile': plan.get('semanticMotionProfile'),
+        'semanticMotionRejections': list(plan.get('semanticMotionRejections') or []),
         'compositionPolicy': plan.get('compositionPolicy'),
         'compositionAudit': plan.get('compositionAudit') or {},
         'premium3d': plan.get('premium3d') or {},
@@ -305,6 +308,7 @@ def visual_plan_from_render_plan(render_plan: dict) -> dict:
         'form': render_plan.get('form'),
         'beatWeights': list(render_plan.get('beatWeights') or []),
         'semanticMotionAudit': render_plan.get('semanticMotionAudit') or {},
+        'semanticEventAudit': list(render_plan.get('semanticEventAudit') or []),
         'compositionPolicy': render_plan.get('compositionPolicy'),
         'compositionAudit': render_plan.get('compositionAudit') or {},
         'premium3d': render_plan.get('premium3d') or {},
@@ -317,7 +321,7 @@ def render_with_plan(dest: Path, render_plan: dict) -> str:
     visual = visual_plan_from_render_plan(render_plan)
     return director_v3.render_assembly(
         dest,
-        seconds=int(render_plan.get('durationSeconds') or 20),
+        seconds=float(render_plan.get('durationSeconds') or 20),
         speaker=render_plan.get('speakerFile') or 'speaker.mp4',
         visual_plan=visual,
     )

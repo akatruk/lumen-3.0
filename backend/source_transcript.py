@@ -202,8 +202,13 @@ def save_verified(
 
 def as_ranged_rows(record: dict) -> list[dict]:
     return [
-        {"start": row["start"], "end": row["end"], "text": row["text"]}
-        for row in record.get("segments") or []
+        {
+            "id": row.get("id") or f"segment_{index:03d}",
+            "start": row["start"],
+            "end": row["end"],
+            "text": row["text"],
+        }
+        for index, row in enumerate(record.get("segments") or [], start=1)
     ]
 
 

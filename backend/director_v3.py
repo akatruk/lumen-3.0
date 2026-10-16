@@ -315,10 +315,13 @@ def run_job(p, payload):
         )
         visual_plan = director_v9.apply_composition_intelligence(visual_plan)
         visual_plan = director_v10.apply_premium_3d(visual_plan, seed=visual_plan.get('visualSeed'))
-        from . import director_v14
-        visual_plan = director_v14.apply_semantic_motion(
-            visual_plan, transcript_early, locale=locale,
-        )
+        from .semantic_motion_profile import selected as _motion_profile
+        motion_profile = (payload or {}).get('semantic_motion_profile')
+        if not _motion_profile(motion_profile):
+            from . import director_v14
+            visual_plan = director_v14.apply_semantic_motion(
+                visual_plan, transcript_early, locale=locale,
+            )
         from . import director_v15
         visual_plan = director_v15.apply_semantic_motion_v15(
             visual_plan, transcript_early, locale=locale,
@@ -333,12 +336,16 @@ def run_job(p, payload):
             visual_plan, transcript_early, locale=locale,
             source=settings.data_dir / p['id'] / 'source',
         )
-        from . import semantic_numeric_range
-        visual_plan = semantic_numeric_range.apply_numeric_range(
-            visual_plan, transcript_early, locale=locale,
-        )
-        from .director_evidence import apply_evidence_gate
-        visual_plan = apply_evidence_gate(visual_plan, transcript_early, locale=locale)
+        if _motion_profile(motion_profile):
+            from .semantic_motion_profile import apply_profile
+            visual_plan = apply_profile(visual_plan, transcript_early, locale=locale)
+        else:
+            from . import semantic_numeric_range
+            visual_plan = semantic_numeric_range.apply_numeric_range(
+                visual_plan, transcript_early, locale=locale,
+            )
+            from .director_evidence import apply_evidence_gate
+            visual_plan = apply_evidence_gate(visual_plan, transcript_early, locale=locale)
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path
@@ -406,6 +413,7 @@ def run_job(p, payload):
         'directorMode': director_mode,
         'executionValidation': render_plan.get('executionValidation') or 'passed',
         'captionSource': render_plan.get('captionSource') or 'unavailable',
+        'semanticMotionProfile': (visual_plan or {}).get('semanticMotionProfile'),
         'composition': COMPOSITION,
         'duration_seconds': seconds,
         'visual_seed': render_plan.get('visualSeed'),

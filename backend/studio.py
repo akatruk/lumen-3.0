@@ -113,6 +113,7 @@ class CreateVideo(Strict):
     visual_energy: str | None = None
     # Opt-in Remotion path when settings.remotion_engine_enabled. Default keeps Hypit.
     picture_engine: str | None = None
+    semantic_motion_profile: str | None = None
 
 class VideoLanguage(Strict):
     language: str = Field(min_length=2, max_length=16)
@@ -125,6 +126,7 @@ class EditingControlsBody(Strict):
     density_percent: int = Field(default=70, ge=0, le=100)
     visual_energy: str = Field(default='balanced')
     visual_variation: str | None = None
+    semantic_motion_profile: str | None = None
 
 class VoicePreview(Strict):
     language: str = Field(min_length=2, max_length=16)
@@ -414,6 +416,10 @@ def save_editing_controls(pid: str, body: EditingControlsBody, user=Depends(curr
         context['visual_energy'] = energy_label
         if body.visual_variation in ('automatic', 'keep', 'remix'):
             context['visual_variation'] = body.visual_variation
+        from .semantic_motion_profile import PROFILE
+        if body.semantic_motion_profile not in (None, '', PROFILE):
+            raise HTTPException(422, 'semantic_motion_profile')
+        context['semantic_motion_profile'] = body.semantic_motion_profile or None
         db.execute(
             'UPDATE studio_projects SET context=? WHERE project_id=?',
             (json.dumps(context, ensure_ascii=False), pid),
@@ -514,6 +520,16 @@ def picture_prompt_preview(
     return debug
 
 
+def _motion_job_field(body) -> dict:
+    from .semantic_motion_profile import PROFILE
+    value = getattr(body, 'semantic_motion_profile', None) or None
+    if value not in (None, PROFILE):
+        raise HTTPException(422, 'semantic_motion_profile')
+    if not value:
+        return {}
+    return {'semantic_motion_profile': value}
+
+
 @router.post('/projects/{pid}/create-video')
 def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(current_user)):
     """Enqueue one Hypit picture from the uploads already on the project."""
@@ -578,6 +594,7 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                     'visual_energy': energy,
                     'visual_variation': body.visual_variation or 'automatic',
                     'editing': editing,
+                    **_motion_job_field(body),
                 })
                 db.execute(
                     "UPDATE projects SET status='queued',stage='render_queued',progress=0,error=NULL WHERE id=?",
@@ -700,6 +717,7 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
                 'plan': s.get('plan') or {},
                 'transcript': (s.get('plan') or {}).get('transcript') or [],
                 'editing_controls': visual.get('editingControls') or editing,
+                **_motion_job_field(body),
             }
             job.update(assembly.job_fields())
             enqueue(db, pid, 'director_v3', job)
