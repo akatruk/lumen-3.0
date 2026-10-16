@@ -1,6 +1,6 @@
 # Semantic motion design
 
-Branch `experiment/semantic-motion-design`. Not merged. Not deployed. `visual_treatment_mode` still defaults off.
+Branch `experiment/semantic-motion-design`. Design commit `8d96789bf66233af83ed9eda023b7a8a4b59449e`. Not merged. Not deployed. `visual_treatment_mode` still defaults off.
 
 ## What changed
 
