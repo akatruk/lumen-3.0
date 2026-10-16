@@ -16,6 +16,7 @@ import {
 } from "../utils/adaptiveLineStyle";
 import { ConnectorLine } from "../preview/ConnectorStroke";
 import { motionDuration } from "./design";
+import { timelineColumn, timelineRows } from "./motionDesign";
 import { sceneRevealFrame } from "./time";
 import { compositionClears, resolveLayout, type LayoutVariant, type MediaSide } from "./layouts";
 import { V15Body } from "./componentsV15";
@@ -104,6 +105,8 @@ export function Label({
   locale,
   color,
   role = "label" as const,
+  align = "center",
+  maxLines,
 }: {
   text: string;
   width: number;
@@ -111,21 +114,24 @@ export function Label({
   locale: SupportedLocale;
   color: string;
   role?: "label" | "title" | "support" | "hook";
+  align?: "left" | "center";
+  maxLines?: number;
 }) {
   if (!text) return null;
   const spec =
     role === "hook" ? theme.type.hook : role === "title" ? theme.type.title : role === "support" ? theme.type.support : theme.type.label;
   return (
-    <div style={{ width, maxWidth: "100%", color, textAlign: "center" }}>
+    <div style={{ width, maxWidth: "100%", color, textAlign: align }}>
       <AutoFitText
         text={text}
         maxWidth={width}
         maxHeight={height}
         role={spec}
-        align="center"
+        align={align}
         vertical="center"
         locale={locale}
         color={color}
+        maxLines={maxLines}
       />
     </div>
   );
@@ -403,8 +409,8 @@ function ProcessTimeline({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const raw = (payload.steps || []).filter((step) => (typeof step === "string" ? step : step.label)).slice(0, 5);
-  const labels = raw.map((step) => (typeof step === "string" ? step : step.label)).filter(Boolean);
-  if (labels.length < 2) return null;
+  const labels = timelineRows(raw.map((step) => (typeof step === "string" ? step : step.label)));
+  if (labels.length < 1) return null;
   const clocks = raw.map((step) => stepClock(step, "at"));
   const timed = clocks.every((value) => value != null) && Math.max(...(clocks as number[])) - Math.min(...(clocks as number[])) > 0.35;
   const sourceOrigin = Number(payload.evidence?.sourceTimestamp?.[0]);
@@ -419,54 +425,79 @@ function ProcessTimeline({
     if (index + 1 < labels.length) return revealAt(index + 1);
     return Number.POSITIVE_INFINITY;
   };
-  const labelWidth = Math.max(280, Math.min(720, boxWidth - 28 - 18 - 48));
-  const wide = boxWidth >= 700;
+  const column = timelineColumn(boxWidth, labels.length);
   const active = timed
     ? labels.findIndex((_, index) => frame >= revealAt(index) && frame < quietAt(index))
     : Math.min(labels.length - 1, Math.floor(interpolate(frame, [8, Math.max(24, framesSafe(labels))], [0, labels.length], clamp)));
+  const openedCount = labels.filter((_, index) => !timed || frame >= revealAt(index)).length;
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
         display: "flex",
-        flexDirection: "column",
+        alignItems: "center",
         justifyContent: "center",
-        gap: 18,
-        position: "relative",
       }}
     >
-      {labels.map((label, i) => {
-        const opened = revealAt(i);
-        if (timed && frame < opened) return null;
-        const shown = rise(frame, opened);
-        const on = timed ? i === active : i <= active;
-        return (
+      <div
+        style={{
+          position: "relative",
+          width: column.occupied,
+          maxWidth: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: column.wide ? 22 : 26,
+        }}
+      >
+        {column.connect && openedCount >= 2 ? (
           <div
-            key={`${label}-${i}`}
             style={{
-              flex: wide ? "0 0 auto" : 1,
-              display: "flex",
-              gap: 18,
-              alignItems: "center",
-              opacity: shown.opacity * (on ? 1 : 0.38),
-              transform: `translateY(${shown.y}px)`,
+              position: "absolute",
+              left: 13,
+              top: 18,
+              bottom: 18,
+              width: 2,
+              background: palette.stroke,
+              opacity: 0.7,
+              transformOrigin: "top center",
             }}
-          >
-            <svg width="28" height="28" viewBox="0 0 28 28">
-              <circle cx="14" cy="14" r="8" fill={on ? palette.stroke : "none"} stroke={palette.stroke} strokeWidth="2" />
-            </svg>
-            <Label
-              text={label}
-              width={labelWidth}
-              height={on ? (wide ? 140 : 120) : 72}
-              locale={locale}
-              color={on ? palette.text : palette.muted}
-              role={on ? (wide ? "hook" : "title") : "support"}
-            />
-          </div>
-        );
-      })}
+          />
+        ) : null}
+        {labels.map((label, i) => {
+          const opened = revealAt(i);
+          if (timed && frame < opened) return null;
+          const shown = rise(frame, opened);
+          const on = timed ? i === active : i <= active;
+          return (
+            <div
+              key={`${label}-${i}`}
+              style={{
+                display: "flex",
+                gap: column.gutter,
+                alignItems: "center",
+                opacity: shown.opacity * (on ? 1 : 0.72),
+                transform: `translateY(${shown.y}px)`,
+              }}
+            >
+              <svg width={column.rail} height={column.rail} viewBox="0 0 28 28" style={{ flex: "0 0 auto" }}>
+                <circle cx="14" cy="14" r={on ? 7 : 4.5} fill={on ? palette.stroke : theme.color.bg} stroke={palette.stroke} strokeWidth="2" />
+              </svg>
+              <Label
+                text={label}
+                width={column.labelWidth}
+                height={on ? column.activeHeight : column.quietHeight}
+                locale={locale}
+                color={on ? palette.text : palette.muted}
+                role={on ? "title" : "support"}
+                align="left"
+                maxLines={2}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

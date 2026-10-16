@@ -2,13 +2,12 @@
  * Spoken min–max band. Endpoints are payload strings.
  * The bar draws across; the figures do not count through unstated values.
  */
-import { interpolate, useCurrentFrame } from "remotion";
+import { useCurrentFrame } from "remotion";
 import { theme } from "../themes/tokens";
 import { AutoFitText } from "../typography/AutoFitText";
 import type { SupportedLocale } from "../localization/language-config";
+import { rangeMotionAt } from "./motionDesign";
 import type { SemanticMotionPayload } from "./types";
-
-const clamp = { extrapolateLeft: "clamp" as const, extrapolateRight: "clamp" as const };
 
 const KIND_LABEL: Record<string, Record<SupportedLocale, string>> = {
   salary: { "zh-CN": "月薪", "en-US": "Monthly pay", "ru-RU": "Месячная оплата" },
@@ -19,6 +18,51 @@ const KIND_LABEL: Record<string, Record<SupportedLocale, string>> = {
 export function rangeKindLabel(kind: string | undefined, locale: SupportedLocale): string {
   const table = KIND_LABEL[kind || ""] || KIND_LABEL.money;
   return table[locale] || table["en-US"];
+}
+
+function EndpointScale({ progress, stroke, width }: { progress: number; stroke: string; width: number }) {
+  const right = Math.min(1, progress * 1.35);
+  return (
+    <div style={{ width, height: 28, position: "relative", flex: "0 0 auto" }}>
+      <div
+        style={{
+          position: "absolute",
+          left: 10,
+          right: 10,
+          top: 13,
+          height: 2,
+          background: stroke,
+          transformOrigin: "left center",
+          transform: `scaleX(${progress})`,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 5,
+          width: 16,
+          height: 16,
+          borderRadius: 8,
+          background: stroke,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          right: 0,
+          top: 5,
+          width: 16,
+          height: 16,
+          borderRadius: 8,
+          boxSizing: "border-box",
+          border: `2px solid ${stroke}`,
+          background: progress > 0.92 ? stroke : "transparent",
+          opacity: right,
+        }}
+      />
+    </div>
+  );
 }
 
 function Fit({
@@ -74,11 +118,12 @@ export function NumericRange({
     (locale.startsWith("zh") ? stamped["zh-CN"] : locale.startsWith("ru") ? stamped["ru-RU"] : stamped["en-US"]) ||
     rangeKindLabel(range?.kind, locale);
   const unit = String(range?.unit || "").trim();
-  const figureWidth = Math.max(360, Math.min(760, boxWidth - 80));
   const wide = boxWidth >= 700;
+  const motion = rangeMotionAt(frame);
   const figureRole = wide ? theme.type.number : theme.type.title;
-  const figureHeight = wide ? 150 : 160;
-  const grow = interpolate(frame, [8, 28], [0.08, 1], clamp);
+  const figureHeight = wide ? 132 : 112;
+  const figureWidth = wide ? Math.max(240, Math.min(340, Math.floor((boxWidth - 220) / 2))) : Math.max(280, Math.min(460, boxWidth - 48));
+  const scaleWidth = wide ? Math.max(160, Math.min(240, boxWidth - figureWidth * 2 - 48)) : figureWidth;
   return (
     <div
       style={{
@@ -87,19 +132,34 @@ export function NumericRange({
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        gap: 10,
+        gap: wide ? 18 : 12,
         alignItems: "center",
         background: "transparent",
-        textShadow: "0 2px 10px rgba(12,11,10,0.72)",
       }}
     >
-      <Fit text={label} width={figureWidth} height={56} locale={locale} color={palette.muted} role={theme.type.label} />
-      <Fit text={low} width={figureWidth} height={figureHeight} locale={locale} color={palette.text} role={figureRole} />
-      <div style={{ width: "100%", height: 18, borderRadius: 9, background: "rgba(246,241,232,0.28)", overflow: "hidden" }}>
-        <div style={{ width: `${grow * 100}%`, height: "100%", background: palette.stroke }} />
-      </div>
-      <Fit text={high} width={figureWidth} height={figureHeight} locale={locale} color={palette.text} role={figureRole} />
-      {unit ? <Fit text={unit} width={figureWidth} height={64} locale={locale} color={palette.text} role={theme.type.support} /> : null}
+      <Fit text={label} width={Math.min(boxWidth - 32, wide ? 520 : figureWidth)} height={40} locale={locale} color={palette.muted} role={theme.type.label} />
+      {wide ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, width: "100%" }}>
+          <div style={{ width: figureWidth, opacity: motion.low }}>
+            <Fit text={low} width={figureWidth} height={figureHeight} locale={locale} color={palette.text} role={figureRole} />
+          </div>
+          <EndpointScale progress={motion.span} stroke={palette.stroke} width={scaleWidth} />
+          <div style={{ width: figureWidth, opacity: motion.high }}>
+            <Fit text={high} width={figureWidth} height={figureHeight} locale={locale} color={palette.text} role={figureRole} />
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+          <div style={{ opacity: motion.low }}>
+            <Fit text={low} width={figureWidth} height={figureHeight} locale={locale} color={palette.text} role={figureRole} />
+          </div>
+          <EndpointScale progress={motion.span} stroke={palette.stroke} width={scaleWidth} />
+          <div style={{ opacity: motion.high }}>
+            <Fit text={high} width={figureWidth} height={figureHeight} locale={locale} color={palette.text} role={figureRole} />
+          </div>
+        </div>
+      )}
+      {unit ? <Fit text={unit} width={figureWidth} height={48} locale={locale} color={palette.text} role={theme.type.support} /> : null}
     </div>
   );
 }
