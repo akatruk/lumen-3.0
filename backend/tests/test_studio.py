@@ -41,8 +41,17 @@ def seed_plan(pid):
 
 def test_roles_and_validation(client,monkeypatch):
  assert create(client,owned_rights_confirmed=False).status_code==422
- assert create(client,references=[]).status_code==422
  assert create(client,references=['b'*32]).status_code==422
+ assert create(client,language='fr').status_code==422
+ bare=client.post('/api/studio/projects',data={'config':json.dumps(dict(request_id=uuid.uuid4().hex,references=[],title='咨询-обзор',script='',creator=dict(topic='travel',audience='Families',tone='Calm',rules=''),owned_rights_confirmed=True,language='ru',budget=5))},files={'file':('咨询-обзор.mp4',b'bare-source-bytes','video/mp4')})
+ assert bare.status_code==201
+ assert bare.json()['language']=='ru'
+ assert bare.json()['brief']==''
+ assert bare.json()['title']=='咨询-обзор'
+ assert bare.json()['status']=='ready'
+ bare_state=client.get('/api/studio/projects/'+bare.json()['id']).json()
+ assert bare_state['context']['references']==[]
+ assert bare_state['context']['video_language']=='ru-RU'
  r=create(client);assert r.status_code==201
  pid=r.json()['id'];assert r.json()['studio'] is True
  assert r.json()['status']=='ready'

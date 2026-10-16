@@ -50,9 +50,9 @@ class Create(Strict):
     references: list[str]=Field(default_factory=list,max_length=5)
     reference_upload_id: str=Field(default='',max_length=32)
     title: str=Field(min_length=1,max_length=120)
-    script: str=Field(min_length=1,max_length=6000)
+    script: str=Field(default='',max_length=6000)
     creator: Creator
-    language: Literal['en','zh']='en'
+    language: Literal['en','zh','ru']='en'
     budget: float=Field(default=5,ge=1,le=10)
     concept_id: str=Field(default='',max_length=32)
     style_match: bool=False
@@ -168,7 +168,6 @@ async def create(request:Request,config:str=Form(...),file:UploadFile=File(...),
     if body.concept_id and not re.fullmatch(r'[a-f0-9]{32}',body.concept_id):raise HTTPException(422,'invalid_settings')
     if body.reference_upload_id and not re.fullmatch(r'[a-f0-9]{32}',body.reference_upload_id):raise HTTPException(422,'invalid_settings')
     has_reference_file=reference is not None and bool(getattr(reference,'filename',None))
-    if not body.references and not body.reference_upload_id and not has_reference_file:raise HTTPException(422,'invalid_settings')
     if len(set(body.references))!=len(body.references):raise HTTPException(422,'invalid_settings')
     try:refs=[douyin.owned_result(r,user['id']) for r in body.references] if body.references else []
     except douyin.DouyinError as exc:raise HTTPException(422,str(exc)) from None
@@ -191,6 +190,8 @@ async def create(request:Request,config:str=Form(...),file:UploadFile=File(...),
         context=body.model_dump(exclude={'references','concept_id','reference_upload_id'})
         context['platforms']=PLATFORMS
         context['references']=[{k:r[k] for k in ('aweme_id','title','author','share_url','duration')}|{'role':'reference_only'} for r in refs]
+        from .language import resolve_locale
+        context['video_language']=resolve_locale(body.language)
         if has_reference_file or body.reference_upload_id:
             dest=folder/'reference_source'
             if has_reference_file:

@@ -6,7 +6,7 @@ import {defaultStyle,type Style} from './CreatorStyle';
 import {StatusBadge,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
 import {uploadVideo} from './resumableUpload';
-import {createPrompt} from './studioCreate';
+import {createPrompt, projectTitleFromFile} from './studioCreate';
 import {flushAnimationEdit} from './pictureRender';
 import {ManualEditor} from './ManualEditor';
 import {PropertyVideo} from './PropertyVideo';
@@ -164,14 +164,6 @@ export function StudioCreate({
       return [];
     }
   });
-  const [file, setFile] = useState<File | null>(null),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [percent, setPercent] = useState(0),
-    [paused,setPaused] = useState(false);
-  const [transfer,setTransfer]=useState<{bytes:number;total:number;mbps:number}|null>(null);
-  const xhr = useRef<AbortController | null>(null);
-  const requestId = useRef(crypto.randomUUID().replaceAll("-", ""));
   const [handoff] = useState<{ concept_id: string; title: string; script: string; trend: string } | null>(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem("lumen-trend-handoff") || "null");
@@ -180,6 +172,18 @@ export function StudioCreate({
       return null;
     }
   });
+  const [file, setFile] = useState<File | null>(null),
+    [title, setTitle] = useState(handoff?.title || ""),
+    [titleEdited, setTitleEdited] = useState(Boolean(handoff?.title)),
+    [script, setScript] = useState(handoff?.script || ""),
+    [outputLanguage, setOutputLanguage] = useState<"en" | "zh" | "ru">(lang === "zh" ? "zh" : lang === "ru" ? "ru" : "en"),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [percent, setPercent] = useState(0),
+    [paused,setPaused] = useState(false);
+  const [transfer,setTransfer]=useState<{bytes:number;total:number;mbps:number}|null>(null);
+  const xhr = useRef<AbortController | null>(null);
+  const requestId = useRef(crypto.randomUUID().replaceAll("-", ""));
   useEffect(() => {
     sessionStorage.setItem(cache, JSON.stringify(refs));
   }, [cache, refs]);
@@ -206,14 +210,13 @@ export function StudioCreate({
       setError("upload_too_large");
       return;
     }
-    const f = new FormData(e.currentTarget);
     setBusy(true);setPaused(false);setPercent(0);setTransfer(null);
     const controller=new AbortController();xhr.current=controller;
     const config = {
       request_id: requestId.current,
       references: refs.map((r) => r.id),
-      title: f.get("title"),
-      script: f.get("script"),
+      title: (title.trim() || projectTitleFromFile(file.name)).slice(0, 120),
+      script: script.trim(),
       creator: {
         style: defaultStyle,
         topic: "travel",
@@ -221,7 +224,7 @@ export function StudioCreate({
         tone: "Calm, factual",
         rules: "",
       },
-      language: contentLanguage(lang),
+      language: outputLanguage,
       budget: 5,
       owned_rights_confirmed: true,
       style_match: false,
@@ -241,30 +244,14 @@ export function StudioCreate({
     <div className="director-create page">
       <header className="director-intro">
         <span className="eyebrow">{translate(lang, "LUMEN / DIRECTOR STUDIO", "LUMEN / DIRECTOR STUDIO")}</span>
-        <h1>
-          {t(
-            "Learn the technique. Tell your story.",
-            "借鉴创作方法，讲好自己的故事。",
-          )}
-        </h1>
+        <h1>{t("New project", "新建项目")}</h1>
         <p>
           {t(
-            "Choose 1–5 references, add your own footage, then review an editable plan. Reference footage never enters your final cut.",
-            "选择 1–5 支参考视频，上传自己的素材，再审核可编辑的剪辑计划。参考画面不会被用于成片。",
+            "Upload a video you can edit. Choose the language of the finished video.",
+            "上传你可以剪辑的视频，并选择成片语言。",
           )}
         </p>
       </header>
-      <div className="pilot-platforms">
-        <span>Douyin</span>
-        <span>Instagram Reels</span>
-        <span>YouTube Shorts</span>
-        <small>
-          {t(
-            "Master editing · five platform previews · export",
-            "主版本剪辑 · 五个平台预览 · 导出",
-          )}
-        </small>
-      </div>
       {handoff && (
         <p className="director-note">
           {t(
@@ -274,61 +261,11 @@ export function StudioCreate({
           {handoff.trend}
         </p>
       )}
-      <fieldset disabled={busy} className="director-fieldset">
-        <DouyinSearch
-          lang={lang}
-          onImported={() => {}}
-          onSelect={select}
-          selectedIds={refs.map((r) => r.aweme_id)}
-        />
-      </fieldset>
-      <section className="director-card">
-        <h2>
-          {t("1. Your references", "1. 参考视频")}{" "}
-          <small>{refs.length}/5</small>
-        </h2>
-        {!refs.length && (
-          <p>
-            {t(
-              "Add references from the search above. These teach Lumen editing techniques, not what footage to copy.",
-              "从上方搜索结果添加参考视频，用来分析剪辑方法，而不是复制素材。",
-            )}
-          </p>
-        )}
-        <ul className="reference-selection">
-          {refs.map((r) => (
-            <li key={r.aweme_id}>
-              <div>
-                <strong>{r.title}</strong>
-                <a href={r.share_url} target="_blank" rel="noreferrer">
-                  {r.author} ↗
-                </a>
-              </div>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  setRefs((v) => v.filter((x) => x.aweme_id !== r.aweme_id))
-                }
-              >
-                {t("Remove", "移除")}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
       <form onSubmit={submit} className="director-form">
         <fieldset disabled={busy} className="director-fieldset">
-          <section className="director-card">
-            <h2>{t("2. Your own footage & script", "2. 自有素材与脚本")}</h2>
-            <p>
-              {t(
-                "One vertical video · 30 seconds–7 minutes · up to 250 MB. Use footage you own or are licensed to edit.",
-                "一支竖屏视频 · 30 秒至 7 分钟 · 最大 250 MB。请使用自有或已获授权的素材。",
-              )}
-            </p>
+          <section className="director-card create-primary">
             <label>
-              {t("Choose your video to upload", "选择要上传的自有视频")}
+              {t("Video", "视频")}
               <input
                 required
                 className="director-file-input"
@@ -343,32 +280,92 @@ export function StudioCreate({
                     e.target.value = "";
                   } else {
                     setFile(selected);
+                    if (selected && !titleEdited) setTitle(projectTitleFromFile(selected.name));
                     setError("");
                   }
                 }}
               />
             </label>
             <p id="owned-video-selection" role="status" className="director-file-status">
-              {file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB` : t("No video selected. Choose a file from your device above.", "尚未选择视频。请在上方从设备中选择文件。")}
+              {file
+                ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`
+                : t("MP4, MOV or WebM · up to 250 MB · 30 seconds to 7 minutes", "MP4、MOV 或 WebM · 最大 250 MB · 30 秒至 7 分钟")}
             </p>
             <label>
-              {t("Project name", "项目名称")}
-              <input name="title" required maxLength={120} defaultValue={handoff?.title || ""} />
+              {t("Output language", "成片语言")}
+              <select
+                aria-label={t("Output language", "成片语言")}
+                value={outputLanguage}
+                onChange={(e) => setOutputLanguage(e.target.value as "en" | "zh" | "ru")}
+              >
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+              </select>
             </label>
             <label>
-              {t("Script & intended message", "脚本与核心信息")}
-              <textarea
-                name="script"
-                required
-                maxLength={6000}
-                rows={4}
-                defaultValue={handoff?.script || ""}
-                placeholder={t(
-                  "What should the viewer understand or do? Include your script and facts that must stay unchanged.",
-                  "观众应理解什么、采取什么行动？请填写脚本以及必须保留的事实。",
-                )}
+              {t("Project name", "项目名称")}
+              <input
+                name="title"
+                maxLength={120}
+                value={title}
+                onChange={(e) => {
+                  setTitleEdited(true);
+                  setTitle(e.target.value);
+                }}
               />
             </label>
+            <details className="create-advanced">
+              <summary>{t("Advanced", "高级")}</summary>
+              <DouyinSearch
+                lang={lang}
+                onImported={() => {}}
+                onSelect={select}
+                selectedIds={refs.map((r) => r.aweme_id)}
+              />
+              <p>
+                {t(
+                  "Optional. A reference only teaches pacing. It is not copied into your video.",
+                  "可选。参考视频只用于学习节奏，不会被复制进成片。",
+                )}{" "}
+                {refs.length}/5
+              </p>
+              <ul className="reference-selection">
+                {refs.map((r) => (
+                  <li key={r.aweme_id}>
+                    <div>
+                      <strong>{r.title}</strong>
+                      <a href={r.share_url} target="_blank" rel="noreferrer">
+                        {r.author} ↗
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        setRefs((v) => v.filter((x) => x.aweme_id !== r.aweme_id))
+                      }
+                    >
+                      {t("Remove", "移除")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <label>
+                {t("Script", "脚本")}
+                <textarea
+                  name="script"
+                  maxLength={6000}
+                  rows={4}
+                  value={script}
+                  onChange={(e) => setScript(e.target.value)}
+                  placeholder={t(
+                    "Optional. Facts the video should keep.",
+                    "可选。需要保留的事实。",
+                  )}
+                />
+              </label>
+            </details>
           </section>
         </fieldset>
         {error && (
@@ -388,16 +385,9 @@ export function StudioCreate({
                     "上传已完成，正在检查文件…",
                   )
                 : `${t("Uploading · saved", "上传中 · 已保存")} ${percent}%${transfer?` · ${(transfer.bytes/1048576).toFixed(1)} / ${(transfer.total/1048576).toFixed(1)} MB${transfer.mbps>0?` · ${transfer.mbps.toFixed(1)} MB/s`:""}`:""}`
-              : prompt === "both"
-                ? t("Select at least one reference in step 1 and your own video in step 2.", "请在第 1 步选择至少一个参考视频，并在第 2 步选择自有视频。")
-                : prompt === "video"
-                  ? t("Choose your own video in step 2 to continue.", "请在第 2 步选择自有视频以继续。")
-                  : prompt === "reference"
-                    ? t("Select at least one reference in step 1 to continue.", "请在第 1 步选择至少一个参考视频以继续。")
-                    : t(
-                  "Next: Video DNA → Director Timeline → your approval",
-                  "下一步：视频 DNA → 剪辑计划 → 您的审核",
-                )}
+              : prompt === "ready"
+                ? t("Ready to create.", "可以创建。")
+                : t("Choose a video to continue.", "请选择视频以继续。")}
           </span>}
           {busy ? (
             <button
@@ -409,7 +399,7 @@ export function StudioCreate({
             </button>
           ) : (
             <button className="primary" disabled={prompt !== "ready"}>
-              {t("Analyze & build my plan", "分析并创建剪辑计划")}
+              {t("Create project", "创建项目")}
             </button>
           )}
         </div>

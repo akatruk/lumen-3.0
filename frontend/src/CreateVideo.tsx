@@ -298,12 +298,12 @@ export function CreateVideo({
     ...(uploads?.context?.reference_file ? [w("Референс", "Reference video", "参考视频")] : []),
     ...references.map((item) => item.title || item.author || item.aweme_id || w("Референс", "Reference video", "参考视频")),
   ];
-  const speech = language ?? savedLanguage(uploads?.context?.video_language) ?? spokenLanguage(uploads);
+  const speech = language ?? savedLanguage(uploads?.context?.video_language) ?? savedLanguage(project?.language) ?? spokenLanguage(uploads);
   const speechLabel = LANGUAGES.find((item) => item.id === speech)?.label ?? speech;
   const sourceSpeech =
     detectSpeech((uploads?.plan?.transcript ?? []).map((line) => line.original || "").join(" "))
     || savedLanguage(project?.metadata?.source_language);
-  const originalVoice = sourceSpeech === speech;
+  const originalVoice = !sourceSpeech || sourceSpeech === speech;
   const voiceLabel = originalVoice
     ? w("Оригинальный голос ведущего", "Original speaker audio", "原声")
     : (LANGUAGES.find((item) => item.id === speech)?.voice ?? speech);
