@@ -1,6 +1,6 @@
 # Motion art direction
 
-Branch `experiment/motion-art-direction`. Not merged. Not deployed. Default drawing is still the stem. `spatial_v1` is opt-in on the scene payload.
+Branch `experiment/motion-art-direction`. Code commit `32d15ed169bb842055c3763abd4ac0f4401242af`. Not merged. Not deployed. Default drawing is still the stem. `spatial_v1` is opt-in on the scene payload.
 
 ## Answers
 
