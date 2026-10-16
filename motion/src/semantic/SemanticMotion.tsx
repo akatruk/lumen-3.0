@@ -16,7 +16,7 @@ import {
 } from "../utils/adaptiveLineStyle";
 import { ConnectorLine } from "../preview/ConnectorStroke";
 import { motionDuration } from "./design";
-import { timelineColumn, timelineRows } from "./motionDesign";
+import { isSpatialProfile, timelineColumn, timelineRows } from "./motionDesign";
 import { sceneRevealFrame } from "./time";
 import { compositionClears, resolveLayout, type LayoutVariant, type MediaSide } from "./layouts";
 import { V15Body } from "./componentsV15";
@@ -426,10 +426,51 @@ function ProcessTimeline({
     return Number.POSITIVE_INFINITY;
   };
   const column = timelineColumn(boxWidth, labels.length);
+  const spatial = isSpatialProfile(payload.designProfile);
   const active = timed
     ? labels.findIndex((_, index) => frame >= revealAt(index) && frame < quietAt(index))
     : Math.min(labels.length - 1, Math.floor(interpolate(frame, [8, Math.max(24, framesSafe(labels))], [0, labels.length], clamp)));
   const openedCount = labels.filter((_, index) => !timed || frame >= revealAt(index)).length;
+  if (spatial) {
+    return (
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
+        {labels.map((label, i) => {
+          const opened = revealAt(i);
+          const open = !timed || frame >= opened;
+          const shown = open ? rise(frame, opened) : { opacity: 0, y: 0 };
+          const on = open && (timed ? i === active : i <= active);
+          return (
+            <div
+              key={`${label}-${i}`}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 22,
+                borderTop: i > 0 && open && openedCount > 1 ? `1px solid ${theme.color.line}` : "none",
+                opacity: open ? shown.opacity : 1,
+                transform: open ? `translateY(${shown.y}px)` : undefined,
+              }}
+            >
+              <div style={{ width: 6, alignSelf: "stretch", margin: "18px 0", background: on ? palette.stroke : "transparent", flex: "0 0 auto" }} />
+              {open ? (
+                <Label
+                  text={label}
+                  width={Math.max(180, boxWidth - 56)}
+                  height={on ? 88 : 48}
+                  locale={locale}
+                  color={on ? palette.text : palette.muted}
+                  role={on ? "title" : "support"}
+                  align="left"
+                  maxLines={2}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div
       style={{

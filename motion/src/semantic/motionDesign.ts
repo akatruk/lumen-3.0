@@ -4,6 +4,10 @@
  * or invents a unit, a midpoint, or a percentage.
  */
 
+export function isSpatialProfile(value: string | undefined | null): boolean {
+  return value === "spatial_v1";
+}
+
 export function timelineRows(labels: readonly string[]): string[] {
   return labels.map((label) => label.trim()).filter(Boolean).slice(0, 5);
 }

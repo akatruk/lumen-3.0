@@ -69,6 +69,8 @@ export type SemanticMotionPayload = {
   visualIntent: VisualIntent;
   layout?: LayoutVariant;
   mediaSide?: MediaSide;
+  /** Absent keeps the stem drawing. spatial_v1 is the art-direction study. */
+  designProfile?: string;
   locale?: string;
   labels?: Record<string, string>;
   entities?: FlowEntity[];

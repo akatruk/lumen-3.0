@@ -9,6 +9,7 @@ import { ImmigrationMotion } from "./immigration/scenes";
 import { DIRECTOR_V3_FRAMES, DirectorV3, framesForSeconds, type DirectorV3Props } from "./preview/DirectorV3";
 import { GALLERY_FRAMES, SemanticMotionV14Gallery, SemanticMotionV15Gallery, SemanticMotionV18Gallery, V18_GALLERY_FRAMES, V18_LOCALE_FRAMES } from "./semantic/Gallery";
 import { V15_GALLERY_FRAMES } from "./semantic/galleryV15";
+import { ArtDirectionStudy, type ArtStudyProps } from "./semantic/artDirectionStudy";
 
 export function RemotionRoot() {
   return (
@@ -117,6 +118,15 @@ export function RemotionRoot() {
         component={SourceEdit}
         defaultProps={{ beats: SOURCE_EDIT_BEATS }}
         durationInFrames={SOURCE_PREVIEW_FRAMES}
+        fps={CANVAS.fps}
+        width={CANVAS.width}
+        height={CANVAS.height}
+      />
+      <Composition
+        id="ArtDirectionStudy"
+        component={ArtDirectionStudy}
+        defaultProps={{ concept: "a", kind: "timeline", state: "complete", face: "face3", caption: "第三层叫代价" } satisfies ArtStudyProps}
+        durationInFrames={1}
         fps={CANVAS.fps}
         width={CANVAS.width}
         height={CANVAS.height}

@@ -6,7 +6,7 @@ import { useCurrentFrame } from "remotion";
 import { theme } from "../themes/tokens";
 import { AutoFitText } from "../typography/AutoFitText";
 import type { SupportedLocale } from "../localization/language-config";
-import { rangeMotionAt } from "./motionDesign";
+import { isSpatialProfile, rangeMotionAt } from "./motionDesign";
 import type { SemanticMotionPayload } from "./types";
 
 const KIND_LABEL: Record<string, Record<SupportedLocale, string>> = {
@@ -120,6 +120,25 @@ export function NumericRange({
   const unit = String(range?.unit || "").trim();
   const wide = boxWidth >= 700;
   const motion = rangeMotionAt(frame);
+  if (isSpatialProfile(payload.designProfile)) {
+    const figureHeight = wide ? 96 : 72;
+    const endWidth = Math.max(140, Math.min(wide ? 300 : 180, Math.floor(boxWidth * 0.32)));
+    return (
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+          <div style={{ width: endWidth, opacity: motion.low }}>
+            <Fit text={low} width={endWidth} height={figureHeight} locale={locale} color={palette.text} role={theme.type.title} />
+          </div>
+          <Fit text={label} width={Math.max(80, boxWidth - endWidth * 2 - 24)} height={36} locale={locale} color={palette.muted} role={theme.type.label} />
+          <div style={{ width: endWidth, opacity: motion.high }}>
+            <Fit text={high} width={endWidth} height={figureHeight} locale={locale} color={palette.text} role={theme.type.title} />
+          </div>
+        </div>
+        <EndpointScale progress={motion.span} stroke={palette.stroke} width={boxWidth} />
+        {unit ? <Fit text={unit} width={boxWidth} height={40} locale={locale} color={palette.text} role={theme.type.support} /> : null}
+      </div>
+    );
+  }
   const figureRole = wide ? theme.type.number : theme.type.title;
   const figureHeight = wide ? 132 : 112;
   const figureWidth = wide ? Math.max(240, Math.min(340, Math.floor((boxWidth - 220) / 2))) : Math.max(280, Math.min(460, boxWidth - 48));

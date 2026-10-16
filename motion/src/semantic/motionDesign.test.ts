@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { theme } from "../themes/tokens";
 import { fitPhrase } from "../typography/fitPhrase";
-import { rangeMotionAt, timelineColumn, timelineRows } from "./motionDesign";
+import { isSpatialProfile, rangeMotionAt, timelineColumn, timelineRows } from "./motionDesign";
 
 describe("timeline presentation", () => {
   it("keeps two to five source labels and does not rename them as steps", () => {
@@ -61,6 +61,15 @@ describe("timeline presentation", () => {
     assert.ok(word);
     assert.ok(russian.fitScale >= 0.75);
     assert.ok(russian.blockWidth * russian.fitScale <= timelineColumn(504, 3).labelWidth + 1);
+  });
+});
+
+describe("spatial profile", () => {
+  it("stays off unless the plan asks for spatial_v1", () => {
+    assert.equal(isSpatialProfile(undefined), false);
+    assert.equal(isSpatialProfile(""), false);
+    assert.equal(isSpatialProfile("editorial_v1"), false);
+    assert.equal(isSpatialProfile("spatial_v1"), true);
   });
 });
 
