@@ -111,7 +111,13 @@ def test_timeline_uses_named_steps_only():
         {"id": "seg_010", "start": 0, "end": 1},
         locale="en-US",
     )
-    timeline = next(p for p in named if p["visualIntent"] == "process_timeline")
+    assert all(p["visualIntent"] != "process_timeline" for p in named)
+    ordered = classify_quote(
+        "Bank accounts, work permits and visa applications all watch capital. Step 1 is the account.",
+        {"id": "seg_010b", "start": 0, "end": 1},
+        locale="en-US",
+    )
+    timeline = next(p for p in ordered if p["visualIntent"] == "process_timeline")
     labels = [s["label"] for s in timeline["steps"]]
     assert labels[0].startswith("Bank")
     assert len(labels) == 3
@@ -173,33 +179,29 @@ def test_shareholder_word_alone_is_not_ownership():
 
 
 def test_existing_english_and_russian_process_lists():
+    unordered = (
+        ("Bank accounts, work permits and visa applications all watch capital", "en-US"),
+        ("Банковские счета, разрешения на работу и визовые заявления следят за капиталом", "ru-RU"),
+        ("银行开户、工作证、签证申请都会盯着资金到位情况", "zh-CN"),
+    )
+    for quote, locale in unordered:
+        found = classify_quote(quote, {"id": "list", "start": 0, "end": 1}, locale=locale)
+        assert all(p["visualIntent"] != "process_timeline" for p in found), quote
     en = classify_quote(
-        "Bank accounts, work permits and visa applications all watch capital",
+        "Bank accounts, work permits and visa applications all watch capital. Step 1 is the account.",
         {"id": "en", "start": 0, "end": 1},
         locale="en-US",
     )
     en_labels = [step["label"] for step in next(p for p in en if p["visualIntent"] == "process_timeline")["steps"]]
     assert en_labels[0].startswith("Bank")
     assert len(en_labels) == 3
-    ru_locale = classify_quote(
-        "Bank accounts, work permits and visa applications all watch capital",
-        {"id": "ru-en", "start": 0, "end": 1},
-        locale="ru-RU",
-    )
-    assert [step["label"] for step in next(p for p in ru_locale if p["visualIntent"] == "process_timeline")["steps"]] == en_labels
     ru = classify_quote(
-        "Банковские счета, разрешения на работу и визовые заявления следят за капиталом",
+        "Банковские счета, разрешения на работу и визовые заявления следят за капиталом. Шаг 1 это счёт.",
         {"id": "ru", "start": 0, "end": 1},
         locale="ru-RU",
     )
     ru_labels = [step["label"] for step in next(p for p in ru if p["visualIntent"] == "process_timeline")["steps"]]
     assert ru_labels == ["Банковские счета", "разрешения на работу", "визовые заявления"]
-    zh = classify_quote(
-        "银行开户、工作证、签证申请都会盯着资金到位情况",
-        {"id": "zh-doc", "start": 0, "end": 1},
-        locale="zh-CN",
-    )
-    assert [step["label"] for step in next(p for p in zh if p["visualIntent"] == "process_timeline")["steps"]] == ["银行开户", "工作证", "签证申请"]
 
 
 def test_ordinal_cluster_keeps_speech_times(monkeypatch):

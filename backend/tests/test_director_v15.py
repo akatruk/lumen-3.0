@@ -51,13 +51,13 @@ def test_origin1_upgrades_documents_and_skips_unsupported(monkeypatch):
     monkeypatch.delenv("SEMANTIC_MOTION_V14_ENABLED", raising=False)
     out = apply_semantic_motion_v15(_plan(), TRANSCRIPT, locale="en-US")
     intents = set(_intents(out))
-    assert "document_workflow" in intents
+    assert "document_workflow" not in intents
     assert "process_timeline" not in intents
     assert "ownership_split" in intents
     assert "shareholder_network" in intents
     assert "business_comparison" in intents
     assert "capital_flow" in intents
-    forbidden = V15_INTENTS - {"document_workflow"}
+    forbidden = V15_INTENTS
     assert intents.isdisjoint(forbidden)
     for scene in out["scenes"]:
         payload = scene.get("semanticMotionV14") or {}
@@ -81,7 +81,7 @@ def test_v14_alone_keeps_timeline(monkeypatch):
     monkeypatch.setenv("SEMANTIC_MOTION_V14_ENABLED", "1")
     out = apply_semantic_motion(_plan(), TRANSCRIPT, locale="en-US")
     intents = [row["visualIntent"] for row in out["semanticMotionV14Usage"]]
-    assert "process_timeline" in intents
+    assert "process_timeline" not in intents
     assert "document_workflow" not in intents
 
 

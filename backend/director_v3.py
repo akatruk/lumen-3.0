@@ -346,6 +346,12 @@ def run_job(p, payload):
             )
             from .director_evidence import apply_evidence_gate
             visual_plan = apply_evidence_gate(visual_plan, transcript_early, locale=locale)
+        from .visual_quality_optimizer import apply as apply_visual_optimizer
+        visual_plan = apply_visual_optimizer(
+            visual_plan,
+            transcript_early,
+            mode=(payload or {}).get('visual_optimizer_mode'),
+        )
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path

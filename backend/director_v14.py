@@ -46,8 +46,11 @@ _LIST_EN = re.compile(
 _LIST_RU = re.compile(
     r"([А-ЯЁ][^,.]{2,32}),\s+([^,.]{2,32})\s+и\s+([^,.]{2,32}?)(?=\s+(?:все|следят|смотрят|ждут)\b|,|\.|$)",
 )
-_ZH_KNOWN = ("银行开户", "工作证", "签证申请")
 _ORD_MARK = re.compile(r"第([一二三四五六七八九十]|\d{1,2})(?:层|層|步|点|點|阶段|階段|项|項)")
+_ORDER_CUE = re.compile(
+    r"第[一二三四五六七八九十\d]|first\b|then\b|next\b|step\s*\d|сначала|затем|потом|шаг\s*\d",
+    re.I,
+)
 _CN_ORD = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
 _ORD_GAP = 18.0
 _ZH_NOT_BUT = re.compile(
@@ -236,18 +239,30 @@ def _list_steps(match: re.Match[str] | None, *, capitalize: bool) -> list[str] |
     return steps
 
 
+def timeline_order_verified(text: str) -> bool:
+    """A comma list of nouns is not an ordered process.
+
+    Complete ordinals (第1…第N with no gaps) or an explicit order cue are.
+    The cue is language-general: 第N, first/then/next/step N, сначала/затем/шаг.
+    """
+    if _complete_ordinals(_ordinal_labels(text or "")):
+        return True
+    return bool(_ORDER_CUE.search(text or ""))
+
+
 def _steps_from_quote(text: str, bucket: str) -> list[str] | None:
     ordinals = _ordinal_labels(text or "")
     if _complete_ordinals(ordinals):
         return [str(item["label"]) for item in ordinals]
+    if not timeline_order_verified(text or ""):
+        return None
     en_steps = _list_steps(_LIST_EN.search(text or ""), capitalize=True)
     ru_steps = _list_steps(_LIST_RU.search(text or ""), capitalize=False)
-    zh_steps = list(_ZH_KNOWN) if text and all(part in text for part in _ZH_KNOWN) else None
     if bucket == "zh":
-        return zh_steps or en_steps or ru_steps
+        return en_steps or ru_steps
     if bucket == "en":
         return en_steps or None
-    return ru_steps or en_steps or zh_steps
+    return ru_steps or en_steps
 
 
 def _row_text(row: dict[str, Any]) -> str:

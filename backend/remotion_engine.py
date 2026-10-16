@@ -249,6 +249,8 @@ def resolve_scene_plan(
         'semanticEventAudit': list(plan.get('semanticEventAudit') or []),
         'semanticMotionProfile': plan.get('semanticMotionProfile'),
         'semanticMotionRejections': list(plan.get('semanticMotionRejections') or []),
+        'visualOptimizerMode': plan.get('visualOptimizerMode'),
+        'visualQualityReport': plan.get('visualQualityReport'),
         'compositionPolicy': plan.get('compositionPolicy'),
         'compositionAudit': plan.get('compositionAudit') or {},
         'premium3d': plan.get('premium3d') or {},
