@@ -34,7 +34,7 @@ function Fit({
   height: number;
   locale: SupportedLocale;
   color: string;
-  role: typeof theme.type.title | typeof theme.type.support | typeof theme.type.label;
+  role: typeof theme.type.title | typeof theme.type.support | typeof theme.type.label | typeof theme.type.number;
 }) {
   if (!text) return null;
   return (
@@ -57,10 +57,12 @@ export function NumericRange({
   payload,
   palette,
   locale,
+  boxWidth = 504,
 }: {
   payload: SemanticMotionPayload;
   palette: { stroke: string; text: string; muted: string };
   locale: SupportedLocale;
+  boxWidth?: number;
 }) {
   const frame = useCurrentFrame();
   const range = payload.range;
@@ -72,6 +74,10 @@ export function NumericRange({
     (locale.startsWith("zh") ? stamped["zh-CN"] : locale.startsWith("ru") ? stamped["ru-RU"] : stamped["en-US"]) ||
     rangeKindLabel(range?.kind, locale);
   const unit = String(range?.unit || "").trim();
+  const figureWidth = Math.max(360, Math.min(760, boxWidth - 80));
+  const wide = boxWidth >= 700;
+  const figureRole = wide ? theme.type.number : theme.type.title;
+  const figureHeight = wide ? 150 : 160;
   const grow = interpolate(frame, [8, 28], [0.08, 1], clamp);
   return (
     <div
@@ -87,13 +93,13 @@ export function NumericRange({
         textShadow: "0 2px 10px rgba(12,11,10,0.72)",
       }}
     >
-      <Fit text={label} width={480} height={56} locale={locale} color={palette.muted} role={theme.type.label} />
-      <Fit text={low} width={480} height={160} locale={locale} color={palette.text} role={theme.type.title} />
+      <Fit text={label} width={figureWidth} height={56} locale={locale} color={palette.muted} role={theme.type.label} />
+      <Fit text={low} width={figureWidth} height={figureHeight} locale={locale} color={palette.text} role={figureRole} />
       <div style={{ width: "100%", height: 18, borderRadius: 9, background: "rgba(246,241,232,0.28)", overflow: "hidden" }}>
         <div style={{ width: `${grow * 100}%`, height: "100%", background: palette.stroke }} />
       </div>
-      <Fit text={high} width={480} height={160} locale={locale} color={palette.text} role={theme.type.title} />
-      {unit ? <Fit text={unit} width={480} height={64} locale={locale} color={palette.text} role={theme.type.support} /> : null}
+      <Fit text={high} width={figureWidth} height={figureHeight} locale={locale} color={palette.text} role={figureRole} />
+      {unit ? <Fit text={unit} width={figureWidth} height={64} locale={locale} color={palette.text} role={theme.type.support} /> : null}
     </div>
   );
 }

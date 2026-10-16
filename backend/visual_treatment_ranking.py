@@ -1,8 +1,8 @@
 """Rank existing semantic-motion layouts. Does not plan scenes.
 
 Geometry matches motion/src/semantic/layouts.ts and portraitLayouts.ts.
-The renderer already implements full_frame, speaker_visual, and overlay.
-This module only chooses among those three. Default mode is off.
+Layouts: editorial_focus, speaker_visual, full_frame, overlay.
+Default mode is off.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ STEP_GAP = 18
 ACTIVE_STEP = 120
 QUIET_STEP = 72
 
-LAYOUTS = ('speaker_visual', 'full_frame', 'overlay')
+LAYOUTS = ('editorial_focus', 'speaker_visual', 'full_frame', 'overlay')
 
 
 def normalize_mode(value: Any) -> str:
@@ -77,8 +77,31 @@ def split_speaker_rect(side: str) -> dict[str, int]:
     return {'left': left, 'top': top, 'width': SPLIT_SPEAKER_WIDTH, 'height': height}
 
 
+def editorial_focus_rects() -> tuple[dict[str, int], dict[str, int]]:
+    """Graphic above a PIP that stops before the caption band. Mirrors layouts.ts."""
+    cap = caption_band()
+    gap = 20
+    pip_w, pip_h, margin = 360, 640, 64
+    speaker = {
+        'left': CANVAS[0] - margin - pip_w,
+        'top': cap['top'] - gap - pip_h,
+        'width': pip_w,
+        'height': pip_h,
+    }
+    top = 128
+    graphic = {
+        'left': margin,
+        'top': top,
+        'width': CANVAS[0] - margin * 2,
+        'height': speaker['top'] - gap - top,
+    }
+    return graphic, speaker
+
+
 def region_for(layout: str, media_side: str = 'left') -> dict[str, int]:
     cap = caption_band()
+    if layout == 'editorial_focus':
+        return editorial_focus_rects()[0]
     if layout == 'overlay':
         face = face_band_rect()
         top = max(face['top'] + face['height'] + 36, round(CANVAS[1] * 0.55))
@@ -108,6 +131,8 @@ def region_for(layout: str, media_side: str = 'left') -> dict[str, int]:
 
 
 def speaker_rect_for(layout: str, media_side: str = 'left') -> dict[str, int]:
+    if layout == 'editorial_focus':
+        return editorial_focus_rects()[1]
     if layout == 'overlay':
         return {'left': 0, 'top': 0, 'width': CANVAS[0], 'height': CANVAS[1]}
     if layout == 'full_frame':
@@ -133,6 +158,10 @@ def layout_is_safe(layout: str, media_side: str = 'left') -> bool:
         return False
     if layout == 'speaker_visual' and _overlap(rect, speaker_rect_for(layout, media_side)):
         return False
+    if layout == 'editorial_focus':
+        speaker_box = speaker_rect_for(layout, media_side)
+        if _overlap(rect, speaker_box, 12) or _overlap(speaker_box, caption_band(), 12):
+            return False
     speaker = speaker_rect_for(layout, media_side)
     if speaker['width'] < 324 or speaker['height'] < 400:
         return False
@@ -220,6 +249,8 @@ def _candidate(payload: dict, layout: str, media_side: str = 'left') -> dict:
             reasons.append('speaker_pip_at_floor')
         elif layout == 'overlay':
             reasons.append('speaker_full_frame')
+        elif layout == 'editorial_focus':
+            reasons.append('graphic_above_caption_clear_pip')
         else:
             reasons.append('speaker_column')
     return {
@@ -237,7 +268,7 @@ def _candidate(payload: dict, layout: str, media_side: str = 'left') -> dict:
 
 
 def candidates_for(payload: dict) -> list[dict]:
-    """At most the three layouts the renderer already implements."""
+    """One row per layout the renderer implements."""
     ok, why = _evidence_ok(payload)
     rows = []
     for layout in LAYOUTS:
@@ -246,11 +277,11 @@ def candidates_for(payload: dict) -> list[dict]:
             row['valid'] = False
             row['rejected'] = why
         rows.append(row)
-    return rows[:3]
+    return rows
 
 
 def rank_treatments(payload: dict) -> dict:
-    """Hard-reject invalid layouts. Among the rest, prefer a box the component can paint, then the larger speaker."""
+    """Hard-reject invalid layouts. Among the rest, prefer a box at least 65% of the frame wide with real slack."""
     rows = candidates_for(payload)
     valid = [row for row in rows if row['valid']]
     if not valid:
@@ -262,10 +293,17 @@ def rank_treatments(payload: dict) -> dict:
             'candidates': rows,
         }
     # Comfortable slack first. A few pixels of leftover width still clips a 440px label row.
-    comfortable = [row for row in valid if row['width_slack'] >= 48]
-    pool = comfortable or valid
-    # Same component facts. Speaker area breaks ties so a larger graphic does not win by area alone.
-    pool = sorted(pool, key=lambda row: (row['width_slack'] >= 48, row['speaker_area'], row['layout']), reverse=True)
+    # A graphic under 65% of the frame stays available, but a wider box that
+    # already cleared the caption and the speaker is preferred. Width is not a score.
+    pool = sorted(
+        valid,
+        key=lambda row: (
+            row['rect']['width'] / CANVAS[0] >= 0.65,
+            row['width_slack'] >= 48,
+            row['width_slack'],
+        ),
+        reverse=True,
+    )
     winner = pool[0]
     current = str(payload.get('layout') or 'speaker_visual')
     return {

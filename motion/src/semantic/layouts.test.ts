@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { captionBand, compositionClears, faceBandRect, layoutIsSafe, pipSafeRect, rectsOverlap, regionFor, resolveLayout } from "./layouts";
+import { captionBand, compositionClears, editorialFocusRects, faceBandRect, layoutIsSafe, pipSafeRect, rectsOverlap, regionFor, resolveLayout } from "./layouts";
 import { galleryShot, galleryShots } from "./galleryScript";
 
 describe("semantic motion layout safety", () => {
@@ -30,6 +30,19 @@ describe("semantic motion layout safety", () => {
     assert.equal(compositionClears(band, face, caption), true);
     assert.equal(compositionClears({ ...band, top: 700, height: 400 }, face, caption), false);
     assert.equal(compositionClears({ left: 72, top: 1300, width: 936, height: 200 }, face, caption), false);
+  });
+
+  it("places editorial focus above the caption and beside no speaker overlap", () => {
+    const { graphic, speaker } = editorialFocusRects();
+    assert.equal(layoutIsSafe("editorial_focus"), true);
+    assert.equal(rectsOverlap(graphic, speaker, 12), false);
+    assert.equal(rectsOverlap(speaker, captionBand(), 12), false);
+    assert.equal(rectsOverlap(graphic, captionBand()), false);
+    assert.ok(graphic.width / 1080 >= 0.65);
+    const resolved = resolveLayout("editorial_focus");
+    assert.equal(resolved.layout, "editorial_focus");
+    assert.equal(resolved.fallback, false);
+    assert.equal(rectsOverlap(pipSafeRect(), captionBand()), true);
   });
 
   it("falls back when a layout would be unsafe", () => {

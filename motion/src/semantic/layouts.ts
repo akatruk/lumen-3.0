@@ -6,7 +6,7 @@
 import { CANVAS } from "../themes/tokens";
 import { pipRect, PORTRAIT, splitMediaRect, splitSpeakerRect } from "../preview/portraitLayouts";
 
-export type LayoutVariant = "full_frame" | "speaker_visual" | "overlay";
+export type LayoutVariant = "full_frame" | "speaker_visual" | "overlay" | "editorial_focus";
 export type MediaSide = "left" | "right";
 
 export type Rect = { left: number; top: number; width: number; height: number };
@@ -89,6 +89,34 @@ function fullFrameRect(): Rect {
   };
 }
 
+/**
+ * Wide graphic over a 9:16 PIP that stops 20px above the caption band.
+ * 360×640 matches a portrait source, so cover does not crop the head the way
+ * the 360×420 full_frame PIP does. A 70% side column cannot hold a 324px PIP,
+ * so the graphic uses the full inset row (952 / 1080).
+ */
+export function editorialFocusRects(): { graphic: Rect; speaker: Rect } {
+  const cap = captionBand();
+  const gap = 20;
+  const pipW = 360;
+  const pipH = 640;
+  const margin = 64;
+  const speaker: Rect = {
+    left: CANVAS.width - margin - pipW,
+    top: cap.top - gap - pipH,
+    width: pipW,
+    height: pipH,
+  };
+  const top = 128;
+  const graphic: Rect = {
+    left: margin,
+    top,
+    width: CANVAS.width - margin * 2,
+    height: speaker.top - gap - top,
+  };
+  return { graphic, speaker };
+}
+
 function speakerVisualRect(side: MediaSide): Rect {
   const media = splitMediaRect(side);
   const cap = captionBand();
@@ -103,6 +131,7 @@ function speakerVisualRect(side: MediaSide): Rect {
 }
 
 export function regionFor(layout: LayoutVariant, mediaSide: MediaSide = "left"): Rect {
+  if (layout === "editorial_focus") return editorialFocusRects().graphic;
   if (layout === "full_frame") return fullFrameRect();
   if (layout === "speaker_visual") return speakerVisualRect(mediaSide);
   return overlayRect();
@@ -127,6 +156,12 @@ export function layoutIsSafe(layout: LayoutVariant, mediaSide: MediaSide = "left
     };
     if (rectsOverlap(rect, speakerRect)) return false;
   }
+  if (layout === "editorial_focus") {
+    const speaker = editorialFocusRects().speaker;
+    if (rectsOverlap(rect, speaker, 12)) return false;
+    if (rectsOverlap(speaker, cap, 12)) return false;
+    if (speaker.width < 324 || speaker.height < 400) return false;
+  }
   return rect.width >= 360 && rect.height >= 220;
 }
 
@@ -136,11 +171,13 @@ export function resolveLayout(
   mediaSide: MediaSide = "left",
 ): { layout: LayoutVariant; rect: Rect; fallback: boolean } {
   const order: LayoutVariant[] =
-    requested === "full_frame"
-      ? ["full_frame", "speaker_visual", "overlay"]
-      : requested === "speaker_visual"
-        ? ["speaker_visual", "overlay", "full_frame"]
-        : ["overlay", "speaker_visual", "full_frame"];
+    requested === "editorial_focus"
+      ? ["editorial_focus", "speaker_visual", "overlay", "full_frame"]
+      : requested === "full_frame"
+        ? ["full_frame", "speaker_visual", "overlay"]
+        : requested === "speaker_visual"
+          ? ["speaker_visual", "overlay", "full_frame"]
+          : ["overlay", "speaker_visual", "full_frame"];
   for (const layout of order) {
     if (layoutIsSafe(layout, mediaSide)) {
       return { layout, rect: regionFor(layout, mediaSide), fallback: layout !== requested };

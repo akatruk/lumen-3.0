@@ -110,10 +110,11 @@ export function Label({
   height: number;
   locale: SupportedLocale;
   color: string;
-  role?: "label" | "title" | "support";
+  role?: "label" | "title" | "support" | "hook";
 }) {
   if (!text) return null;
-  const spec = role === "title" ? theme.type.title : role === "support" ? theme.type.support : theme.type.label;
+  const spec =
+    role === "hook" ? theme.type.hook : role === "title" ? theme.type.title : role === "support" ? theme.type.support : theme.type.label;
   return (
     <div style={{ width, maxWidth: "100%", color, textAlign: "center" }}>
       <AutoFitText
@@ -392,10 +393,12 @@ function ProcessTimeline({
   payload,
   palette,
   locale,
+  boxWidth,
 }: {
   payload: SemanticMotionPayload;
   palette: ReturnType<typeof inkFor>;
   locale: SupportedLocale;
+  boxWidth: number;
 }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -416,6 +419,8 @@ function ProcessTimeline({
     if (index + 1 < labels.length) return revealAt(index + 1);
     return Number.POSITIVE_INFINITY;
   };
+  const labelWidth = Math.max(280, Math.min(720, boxWidth - 28 - 18 - 48));
+  const wide = boxWidth >= 700;
   const active = timed
     ? labels.findIndex((_, index) => frame >= revealAt(index) && frame < quietAt(index))
     : Math.min(labels.length - 1, Math.floor(interpolate(frame, [8, Math.max(24, framesSafe(labels))], [0, labels.length], clamp)));
@@ -440,7 +445,7 @@ function ProcessTimeline({
           <div
             key={`${label}-${i}`}
             style={{
-              flex: 1,
+              flex: wide ? "0 0 auto" : 1,
               display: "flex",
               gap: 18,
               alignItems: "center",
@@ -453,11 +458,11 @@ function ProcessTimeline({
             </svg>
             <Label
               text={label}
-              width={440}
-              height={on ? 120 : 72}
+              width={labelWidth}
+              height={on ? (wide ? 140 : 120) : 72}
               locale={locale}
               color={on ? palette.text : palette.muted}
-              role={on ? "title" : "support"}
+              role={on ? (wide ? "hook" : "title") : "support"}
             />
           </div>
         );
@@ -475,11 +480,13 @@ function Body({
   palette,
   locale,
   compact,
+  boxWidth,
 }: {
   payload: SemanticMotionPayload;
   palette: ReturnType<typeof inkFor>;
   locale: SupportedLocale;
   compact: boolean;
+  boxWidth: number;
 }) {
   switch (payload.visualIntent) {
     case "capital_flow":
@@ -491,9 +498,9 @@ function Body({
     case "ownership_split":
       return <OwnershipSplit payload={payload} palette={palette} locale={locale} />;
     case "process_timeline":
-      return <ProcessTimeline payload={payload} palette={palette} locale={locale} />;
+      return <ProcessTimeline payload={payload} palette={palette} locale={locale} boxWidth={boxWidth} />;
     case "numeric_range":
-      return <NumericRange payload={payload} palette={palette} locale={locale} />;
+      return <NumericRange payload={payload} palette={palette} locale={locale} boxWidth={boxWidth} />;
     default:
       return <V15Body payload={payload} palette={palette} locale={locale} compact={compact} />;
   }
@@ -548,7 +555,7 @@ export function SemanticMotion({
         }}
       >
         <Sequence from={Math.max(0, Math.min(frames - 1, payload.enterFrame || 0))} durationInFrames={Math.max(1, Math.min(payload.holdFrames && payload.holdFrames > 0 ? payload.holdFrames : frames, frames - Math.max(0, payload.enterFrame || 0)))}>
-          <Body payload={paint} palette={palette} locale={locale} compact={rect.width < 780} />
+          <Body payload={paint} palette={palette} locale={locale} compact={rect.width < 780} boxWidth={rect.width} />
         </Sequence>
       </div>
     </AbsoluteFill>

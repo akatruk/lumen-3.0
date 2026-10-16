@@ -9,6 +9,7 @@ import { renderScene } from "../registry/motionRegistry";
 import { ConceptViz, syncConceptTriggers, type SyncedConceptTrigger } from "../concepts";
 import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
 import { PORTRAIT, pipRect, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
+import { editorialFocusRects } from "../semantic/layouts";
 import { sceneThemeFromPlate } from "../utils/adaptiveLineStyle";
 import { BusinessMotion, type BusinessMotionPayload } from "./BusinessMotion";
 import { SemanticMotion } from "../semantic/SemanticMotion";
@@ -398,6 +399,29 @@ function V14Stage({
         <AbsoluteFill>
           <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.04} />
           <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+        </AbsoluteFill>
+      </Enter>
+    );
+  }
+  if (layout === "editorial_focus") {
+    const speaker = editorialFocusRects().speaker;
+    return (
+      <Enter transition={look.transition}>
+        <AbsoluteFill style={{ background: theme.color.bg }}>
+          <div
+            style={{
+              position: "absolute",
+              left: speaker.left,
+              top: speaker.top,
+              width: speaker.width,
+              height: speaker.height,
+              borderRadius: PORTRAIT.radius,
+              overflow: "hidden",
+              border: `1px solid ${theme.color.line}`,
+            }}
+          >
+            <Speaker file={file} startFrom={from} frames={frames} zoomTo={1} />
+          </div>
         </AbsoluteFill>
       </Enter>
     );

@@ -7,9 +7,11 @@ from backend.visual_treatment_ranking import (
     apply,
     caption_band,
     candidates_for,
+    editorial_focus_rects,
     rank_plan,
     rank_treatments,
     region_for,
+    speaker_rect_for,
 )
 
 
@@ -29,32 +31,39 @@ def _timeline(layout='speaker_visual'):
     }
 
 
-def test_three_existing_layouts_and_overlay_rejected_for_the_step_stack():
+def test_editorial_focus_clears_the_caption_and_the_old_pip_does_not():
     rows = candidates_for(_timeline())
-    assert [row['layout'] for row in rows] == ['speaker_visual', 'full_frame', 'overlay']
-    overlay = rows[2]
-    assert overlay['valid'] is False
-    assert overlay['rejected'] == 'graphic_box_smaller_than_component'
+    assert [row['layout'] for row in rows] == ['editorial_focus', 'speaker_visual', 'full_frame', 'overlay']
+    graphic, speaker = editorial_focus_rects()
+    assert graphic['width'] == 952
+    assert graphic['height'] == 582
+    assert speaker == {'left': 656, 'top': 730, 'width': 360, 'height': 640}
+    assert speaker['width'] * 16 == speaker['height'] * 9
+    assert graphic['width'] / 1080 >= 0.65
+    assert not _overlaps(graphic, speaker)
+    assert not _overlaps(speaker, caption_band())
+    assert not _overlaps(graphic, caption_band())
     assert rows[0]['valid'] is True
-    assert rows[1]['valid'] is False
-    assert rows[1]['rejected'] == 'layout_hits_caption_face_or_speaker'
+    assert rows[2]['valid'] is False
+    assert rows[3]['rejected'] == 'graphic_box_smaller_than_component'
+    # Source aspect does not change the output box.
+    assert editorial_focus_rects() == editorial_focus_rects()
 
 
-def test_full_frame_loses_because_the_pip_covers_the_caption():
+def test_ranking_selects_editorial_focus_and_falls_back():
     first = rank_treatments(_timeline())
-    second = rank_treatments(_timeline())
-    assert first == second
-    assert first['winner'] == 'speaker_visual'
-    assert first['changed'] is False
-    full = next(row for row in first['candidates'] if row['layout'] == 'full_frame')
-    assert full['valid'] is False
-    assert full['rejected'] == 'layout_hits_caption_face_or_speaker'
-    split = region_for('speaker_visual', 'left')
-    assert split['width'] == 504
-    assert not _overlaps_caption(split)
+    assert first == rank_treatments(_timeline())
+    assert first['winner'] == 'editorial_focus'
+    assert first['changed'] is True
+    broken = _timeline()
+    broken['steps'] = []
+    broken['evidence'] = {'sourceQuote': '没有步骤'}
+    fallback = rank_treatments(broken)
+    assert fallback['winner'] == 'speaker_visual'
+    assert fallback['changed'] is False
 
 
-def test_comparison_keeps_the_speaker_column_and_range_does_not():
+def test_comparison_and_range_can_use_editorial_focus():
     comparison = {
         'componentId': 'motion.business_comparison.v1',
         'visualIntent': 'business_comparison',
@@ -63,7 +72,7 @@ def test_comparison_keeps_the_speaker_column_and_range_does_not():
         'right': '董事权限',
         'evidence': {'sourceQuote': '中国强调法人代表 泰国更看重的是董事权限'},
     }
-    assert rank_treatments(comparison)['winner'] == 'speaker_visual'
+    assert rank_treatments(comparison)['winner'] == 'editorial_focus'
     payload = {
         'componentId': 'motion.numeric_range.v1',
         'visualIntent': 'numeric_range',
@@ -73,8 +82,8 @@ def test_comparison_keeps_the_speaker_column_and_range_does_not():
         'evidence': {'sourceQuote': '那大概在400-1200人民币每天'},
     }
     ranked = rank_treatments(payload)
-    assert ranked['winner'] == 'speaker_visual'
-    assert ranked['changed'] is False
+    assert ranked['winner'] == 'editorial_focus'
+    assert ranked['changed'] is True
     assert all(row['rejected'] != 'currency_absent' for row in ranked['candidates'])
 
 
@@ -99,7 +108,7 @@ def test_apply_keeps_evidence_and_off_is_identity():
     assert shadow['scenes'] is plan['scenes']
     out = apply(plan, mode='apply')
     payload = out['scenes'][0]['semanticMotionV14']
-    assert payload['layout'] == 'speaker_visual'
+    assert payload['layout'] == 'editorial_focus'
     assert payload['steps'] == scene['semanticMotionV14']['steps']
     assert payload['lifecycle'] == scene['semanticMotionV14']['lifecycle']
     assert payload['evidence'] == scene['semanticMotionV14']['evidence']
@@ -125,8 +134,9 @@ def test_caption_wrap_for_three_locales_stays_in_the_band():
         assert lines
         assert all(not line.startswith(('，', '。', ',', '.')) for line in lines)
         assert band['top'] + band['height'] == 1920
-        motion = region_for('speaker_visual')
+        motion = region_for('editorial_focus')
         assert motion['top'] + motion['height'] <= band['top']
+        assert speaker_rect_for('editorial_focus')['top'] + speaker_rect_for('editorial_focus')['height'] <= band['top']
 
 
 def test_malformed_plan_does_not_raise():
@@ -142,6 +152,10 @@ def test_rank_plan_is_bounded():
     assert len(report['scenes']) == 20
 
 
-def _overlaps_caption(rect):
-    band = caption_band()
-    return not (rect['top'] + rect['height'] <= band['top'] or rect['top'] >= band['top'] + band['height'])
+def _overlaps(a, b):
+    return not (
+        a['top'] + a['height'] <= b['top']
+        or b['top'] + b['height'] <= a['top']
+        or a['left'] + a['width'] <= b['left']
+        or b['left'] + b['width'] <= a['left']
+    )
