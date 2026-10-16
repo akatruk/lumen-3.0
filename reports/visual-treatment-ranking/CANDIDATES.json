@@ -1,0 +1,708 @@
+{
+  "inventory": {
+    "canvas": {
+      "width": 1080,
+      "height": 1920
+    },
+    "layouts": {
+      "speaker_visual": {
+        "rect": {
+          "left": 28,
+          "top": 160,
+          "width": 504,
+          "height": 1214
+        },
+        "role": "graphic in the side column, speaker in the 500px column"
+      },
+      "full_frame": {
+        "rect": {
+          "left": 64,
+          "top": 150,
+          "width": 592,
+          "height": 1220
+        },
+        "pip": {
+          "left": 684,
+          "top": 1072,
+          "width": 360,
+          "height": 480
+        },
+        "captionBand": {
+          "left": 0,
+          "top": 1390,
+          "width": 1080,
+          "height": 530
+        },
+        "rejected": "pip overlaps caption band"
+      },
+      "overlay": {
+        "rect": {
+          "left": 72,
+          "top": 1056,
+          "width": 936,
+          "height": 298
+        },
+        "rejected_for_timeline": "height 298 < step stack"
+      }
+    }
+  },
+  "plans": {
+    "original3": {
+      "status": "ok",
+      "scenes": [
+        {
+          "scene_id": "consult__evt_ce7bc4fc9df6",
+          "componentId": "motion.process_timeline.v1",
+          "current": "speaker_visual",
+          "winner": "speaker_visual",
+          "changed": false,
+          "reason": [
+            "region 504x1214",
+            "width_slack 18px",
+            "speaker 500x1424",
+            "caption_band_clear",
+            "speaker_column"
+          ],
+          "candidates": [
+            {
+              "layout": "speaker_visual",
+              "mediaSide": "left",
+              "rect": {
+                "left": 28,
+                "top": 160,
+                "width": 504,
+                "height": 1214
+              },
+              "speaker": {
+                "left": 552,
+                "top": 140,
+                "width": 500,
+                "height": 1424
+              },
+              "valid": true,
+              "rejected": null,
+              "reasons": [
+                "region 504x1214",
+                "width_slack 18px",
+                "speaker 500x1424",
+                "caption_band_clear",
+                "speaker_column"
+              ],
+              "graphic_area": 611856,
+              "speaker_area": 712000,
+              "width_slack": 18
+            },
+            {
+              "layout": "full_frame",
+              "mediaSide": "left",
+              "rect": {
+                "left": 64,
+                "top": 150,
+                "width": 592,
+                "height": 1220
+              },
+              "speaker": {
+                "left": 684,
+                "top": 1072,
+                "width": 360,
+                "height": 480
+              },
+              "valid": false,
+              "rejected": "layout_hits_caption_face_or_speaker",
+              "reasons": [],
+              "graphic_area": 722240,
+              "speaker_area": 172800,
+              "width_slack": 106
+            },
+            {
+              "layout": "overlay",
+              "mediaSide": "left",
+              "rect": {
+                "left": 72,
+                "top": 1056,
+                "width": 936,
+                "height": 298
+              },
+              "speaker": {
+                "left": 0,
+                "top": 0,
+                "width": 1080,
+                "height": 1920
+              },
+              "valid": false,
+              "rejected": "graphic_box_smaller_than_component",
+              "reasons": [
+                "need 486x300 (timeline_label_row), region 936x298"
+              ],
+              "graphic_area": 278928,
+              "speaker_area": 2073600,
+              "width_slack": 450
+            }
+          ]
+        },
+        {
+          "scene_id": "return__gap1",
+          "decision": "NO_CHANGE",
+          "reason": "no_semantic_motion"
+        }
+      ],
+      "elapsed_ms": 0.034
+    },
+    "original2": {
+      "status": "ok",
+      "scenes": [
+        {
+          "scene_id": "hook__evt_cce45bee8d61",
+          "componentId": "motion.numeric_range.v1",
+          "current": "speaker_visual",
+          "winner": "speaker_visual",
+          "changed": false,
+          "reason": [
+            "region 504x1214",
+            "width_slack 24px",
+            "speaker 500x1424",
+            "caption_band_clear",
+            "speaker_column"
+          ],
+          "candidates": [
+            {
+              "layout": "speaker_visual",
+              "mediaSide": "left",
+              "rect": {
+                "left": 28,
+                "top": 160,
+                "width": 504,
+                "height": 1214
+              },
+              "speaker": {
+                "left": 552,
+                "top": 140,
+                "width": 500,
+                "height": 1424
+              },
+              "valid": true,
+              "rejected": null,
+              "reasons": [
+                "region 504x1214",
+                "width_slack 24px",
+                "speaker 500x1424",
+                "caption_band_clear",
+                "speaker_column"
+              ],
+              "graphic_area": 611856,
+              "speaker_area": 712000,
+              "width_slack": 24
+            },
+            {
+              "layout": "full_frame",
+              "mediaSide": "left",
+              "rect": {
+                "left": 64,
+                "top": 150,
+                "width": 592,
+                "height": 1220
+              },
+              "speaker": {
+                "left": 684,
+                "top": 1072,
+                "width": 360,
+                "height": 480
+              },
+              "valid": false,
+              "rejected": "layout_hits_caption_face_or_speaker",
+              "reasons": [],
+              "graphic_area": 722240,
+              "speaker_area": 172800,
+              "width_slack": 112
+            },
+            {
+              "layout": "overlay",
+              "mediaSide": "left",
+              "rect": {
+                "left": 72,
+                "top": 1056,
+                "width": 936,
+                "height": 298
+              },
+              "speaker": {
+                "left": 0,
+                "top": 0,
+                "width": 1080,
+                "height": 1920
+              },
+              "valid": false,
+              "rejected": "graphic_box_smaller_than_component",
+              "reasons": [
+                "need 480x424 (range_figure), region 936x298"
+              ],
+              "graphic_area": 278928,
+              "speaker_area": 2073600,
+              "width_slack": 456
+            }
+          ]
+        },
+        {
+          "scene_id": "residency__evt_86a2a6b07a8c",
+          "componentId": "motion.numeric_range.v1",
+          "current": "speaker_visual",
+          "winner": "speaker_visual",
+          "changed": false,
+          "reason": [
+            "region 504x1214",
+            "width_slack 24px",
+            "speaker 500x1424",
+            "caption_band_clear",
+            "speaker_column"
+          ],
+          "candidates": [
+            {
+              "layout": "speaker_visual",
+              "mediaSide": "left",
+              "rect": {
+                "left": 28,
+                "top": 160,
+                "width": 504,
+                "height": 1214
+              },
+              "speaker": {
+                "left": 552,
+                "top": 140,
+                "width": 500,
+                "height": 1424
+              },
+              "valid": true,
+              "rejected": null,
+              "reasons": [
+                "region 504x1214",
+                "width_slack 24px",
+                "speaker 500x1424",
+                "caption_band_clear",
+                "speaker_column"
+              ],
+              "graphic_area": 611856,
+              "speaker_area": 712000,
+              "width_slack": 24
+            },
+            {
+              "layout": "full_frame",
+              "mediaSide": "left",
+              "rect": {
+                "left": 64,
+                "top": 150,
+                "width": 592,
+                "height": 1220
+              },
+              "speaker": {
+                "left": 684,
+                "top": 1072,
+                "width": 360,
+                "height": 480
+              },
+              "valid": false,
+              "rejected": "layout_hits_caption_face_or_speaker",
+              "reasons": [],
+              "graphic_area": 722240,
+              "speaker_area": 172800,
+              "width_slack": 112
+            },
+            {
+              "layout": "overlay",
+              "mediaSide": "left",
+              "rect": {
+                "left": 72,
+                "top": 1056,
+                "width": 936,
+                "height": 298
+              },
+              "speaker": {
+                "left": 0,
+                "top": 0,
+                "width": 1080,
+                "height": 1920
+              },
+              "valid": false,
+              "rejected": "graphic_box_smaller_than_component",
+              "reasons": [
+                "need 480x424 (range_figure), region 936x298"
+              ],
+              "graphic_area": 278928,
+              "speaker_area": 2073600,
+              "width_slack": 456
+            }
+          ]
+        },
+        {
+          "scene_id": "residency__gap2",
+          "decision": "NO_CHANGE",
+          "reason": "no_semantic_motion"
+        },
+        {
+          "scene_id": "consult__evt_2526582d1fd5",
+          "componentId": "motion.numeric_range.v1",
+          "current": "speaker_visual",
+          "winner": "speaker_visual",
+          "changed": false,
+          "reason": [
+            "region 504x1214",
+            "width_slack 24px",
+            "speaker 500x1424",
+            "caption_band_clear",
+            "speaker_column"
+          ],
+          "candidates": [
+            {
+              "layout": "speaker_visual",
+              "mediaSide": "left",
+              "rect": {
+                "left": 28,
+                "top": 160,
+                "width": 504,
+                "height": 1214
+              },
+              "speaker": {
+                "left": 552,
+                "top": 140,
+                "width": 500,
+                "height": 1424
+              },
+              "valid": true,
+              "rejected": null,
+              "reasons": [
+                "region 504x1214",
+                "width_slack 24px",
+                "speaker 500x1424",
+                "caption_band_clear",
+                "speaker_column"
+              ],
+              "graphic_area": 611856,
+              "speaker_area": 712000,
+              "width_slack": 24
+            },
+            {
+              "layout": "full_frame",
+              "mediaSide": "left",
+              "rect": {
+                "left": 64,
+                "top": 150,
+                "width": 592,
+                "height": 1220
+              },
+              "speaker": {
+                "left": 684,
+                "top": 1072,
+                "width": 360,
+                "height": 480
+              },
+              "valid": false,
+              "rejected": "layout_hits_caption_face_or_speaker",
+              "reasons": [],
+              "graphic_area": 722240,
+              "speaker_area": 172800,
+              "width_slack": 112
+            },
+            {
+              "layout": "overlay",
+              "mediaSide": "left",
+              "rect": {
+                "left": 72,
+                "top": 1056,
+                "width": 936,
+                "height": 298
+              },
+              "speaker": {
+                "left": 0,
+                "top": 0,
+                "width": 1080,
+                "height": 1920
+              },
+              "valid": false,
+              "rejected": "graphic_box_smaller_than_component",
+              "reasons": [
+                "need 480x424 (range_figure), region 936x298"
+              ],
+              "graphic_area": 278928,
+              "speaker_area": 2073600,
+              "width_slack": 456
+            }
+          ]
+        },
+        {
+          "scene_id": "beside__evt_60b1c8bb76b2",
+          "componentId": "motion.numeric_range.v1",
+          "current": "speaker_visual",
+          "winner": "speaker_visual",
+          "changed": false,
+          "reason": [
+            "region 504x1214",
+            "width_slack 24px",
+            "speaker 500x1424",
+            "caption_band_clear",
+            "speaker_column"
+          ],
+          "candidates": [
+            {
+              "layout": "speaker_visual",
+              "mediaSide": "left",
+              "rect": {
+                "left": 28,
+                "top": 160,
+                "width": 504,
+                "height": 1214
+              },
+              "speaker": {
+                "left": 552,
+                "top": 140,
+                "width": 500,
+                "height": 1424
+              },
+              "valid": true,
+              "rejected": null,
+              "reasons": [
+                "region 504x1214",
+                "width_slack 24px",
+                "speaker 500x1424",
+                "caption_band_clear",
+                "speaker_column"
+              ],
+              "graphic_area": 611856,
+              "speaker_area": 712000,
+              "width_slack": 24
+            },
+            {
+              "layout": "full_frame",
+              "mediaSide": "left",
+              "rect": {
+                "left": 64,
+                "top": 150,
+                "width": 592,
+                "height": 1220
+              },
+              "speaker": {
+                "left": 684,
+                "top": 1072,
+                "width": 360,
+                "height": 480
+              },
+              "valid": false,
+              "rejected": "layout_hits_caption_face_or_speaker",
+              "reasons": [],
+              "graphic_area": 722240,
+              "speaker_area": 172800,
+              "width_slack": 112
+            },
+            {
+              "layout": "overlay",
+              "mediaSide": "left",
+              "rect": {
+                "left": 72,
+                "top": 1056,
+                "width": 936,
+                "height": 298
+              },
+              "speaker": {
+                "left": 0,
+                "top": 0,
+                "width": 1080,
+                "height": 1920
+              },
+              "valid": false,
+              "rejected": "graphic_box_smaller_than_component",
+              "reasons": [
+                "need 480x424 (range_figure), region 936x298"
+              ],
+              "graphic_area": 278928,
+              "speaker_area": 2073600,
+              "width_slack": 456
+            }
+          ]
+        },
+        {
+          "scene_id": "beside__evt_6e21acd97fcf",
+          "componentId": "motion.numeric_range.v1",
+          "current": "speaker_visual",
+          "winner": "speaker_visual",
+          "changed": false,
+          "reason": [
+            "region 504x1214",
+            "width_slack 24px",
+            "speaker 500x1424",
+            "caption_band_clear",
+            "speaker_column"
+          ],
+          "candidates": [
+            {
+              "layout": "speaker_visual",
+              "mediaSide": "left",
+              "rect": {
+                "left": 28,
+                "top": 160,
+                "width": 504,
+                "height": 1214
+              },
+              "speaker": {
+                "left": 552,
+                "top": 140,
+                "width": 500,
+                "height": 1424
+              },
+              "valid": true,
+              "rejected": null,
+              "reasons": [
+                "region 504x1214",
+                "width_slack 24px",
+                "speaker 500x1424",
+                "caption_band_clear",
+                "speaker_column"
+              ],
+              "graphic_area": 611856,
+              "speaker_area": 712000,
+              "width_slack": 24
+            },
+            {
+              "layout": "full_frame",
+              "mediaSide": "left",
+              "rect": {
+                "left": 64,
+                "top": 150,
+                "width": 592,
+                "height": 1220
+              },
+              "speaker": {
+                "left": 684,
+                "top": 1072,
+                "width": 360,
+                "height": 480
+              },
+              "valid": false,
+              "rejected": "layout_hits_caption_face_or_speaker",
+              "reasons": [],
+              "graphic_area": 722240,
+              "speaker_area": 172800,
+              "width_slack": 112
+            },
+            {
+              "layout": "overlay",
+              "mediaSide": "left",
+              "rect": {
+                "left": 72,
+                "top": 1056,
+                "width": 936,
+                "height": 298
+              },
+              "speaker": {
+                "left": 0,
+                "top": 0,
+                "width": 1080,
+                "height": 1920
+              },
+              "valid": false,
+              "rejected": "graphic_box_smaller_than_component",
+              "reasons": [
+                "need 480x424 (range_figure), region 936x298"
+              ],
+              "graphic_area": 278928,
+              "speaker_area": 2073600,
+              "width_slack": 456
+            }
+          ]
+        },
+        {
+          "scene_id": "steps__gap6",
+          "decision": "NO_CHANGE",
+          "reason": "no_semantic_motion"
+        },
+        {
+          "scene_id": "return__evt_d9d8cbf6fd01",
+          "componentId": "motion.numeric_range.v1",
+          "current": "speaker_visual",
+          "winner": "speaker_visual",
+          "changed": false,
+          "reason": [
+            "region 504x1214",
+            "width_slack 24px",
+            "speaker 500x1424",
+            "caption_band_clear",
+            "speaker_column"
+          ],
+          "candidates": [
+            {
+              "layout": "speaker_visual",
+              "mediaSide": "left",
+              "rect": {
+                "left": 28,
+                "top": 160,
+                "width": 504,
+                "height": 1214
+              },
+              "speaker": {
+                "left": 552,
+                "top": 140,
+                "width": 500,
+                "height": 1424
+              },
+              "valid": true,
+              "rejected": null,
+              "reasons": [
+                "region 504x1214",
+                "width_slack 24px",
+                "speaker 500x1424",
+                "caption_band_clear",
+                "speaker_column"
+              ],
+              "graphic_area": 611856,
+              "speaker_area": 712000,
+              "width_slack": 24
+            },
+            {
+              "layout": "full_frame",
+              "mediaSide": "left",
+              "rect": {
+                "left": 64,
+                "top": 150,
+                "width": 592,
+                "height": 1220
+              },
+              "speaker": {
+                "left": 684,
+                "top": 1072,
+                "width": 360,
+                "height": 480
+              },
+              "valid": false,
+              "rejected": "layout_hits_caption_face_or_speaker",
+              "reasons": [],
+              "graphic_area": 722240,
+              "speaker_area": 172800,
+              "width_slack": 112
+            },
+            {
+              "layout": "overlay",
+              "mediaSide": "left",
+              "rect": {
+                "left": 72,
+                "top": 1056,
+                "width": 936,
+                "height": 298
+              },
+              "speaker": {
+                "left": 0,
+                "top": 0,
+                "width": 1080,
+                "height": 1920
+              },
+              "valid": false,
+              "rejected": "graphic_box_smaller_than_component",
+              "reasons": [
+                "need 480x424 (range_figure), region 936x298"
+              ],
+              "graphic_area": 278928,
+              "speaker_area": 2073600,
+              "width_slack": 456
+            }
+          ]
+        }
+      ],
+      "elapsed_ms": 0.068
+    }
+  }
+}

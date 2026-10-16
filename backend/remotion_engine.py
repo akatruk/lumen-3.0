@@ -251,6 +251,8 @@ def resolve_scene_plan(
         'semanticMotionRejections': list(plan.get('semanticMotionRejections') or []),
         'visualOptimizerMode': plan.get('visualOptimizerMode'),
         'visualQualityReport': plan.get('visualQualityReport'),
+        'visualTreatmentMode': plan.get('visualTreatmentMode'),
+        'treatmentRanking': plan.get('treatmentRanking'),
         'compositionPolicy': plan.get('compositionPolicy'),
         'compositionAudit': plan.get('compositionAudit') or {},
         'premium3d': plan.get('premium3d') or {},

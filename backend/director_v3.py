@@ -352,6 +352,11 @@ def run_job(p, payload):
             transcript_early,
             mode=(payload or {}).get('visual_optimizer_mode'),
         )
+        from .visual_treatment_ranking import apply as apply_treatment_ranking
+        visual_plan = apply_treatment_ranking(
+            visual_plan,
+            mode=(payload or {}).get('visual_treatment_mode'),
+        )
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path
