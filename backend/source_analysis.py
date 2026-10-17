@@ -39,7 +39,7 @@ def is_placeholder_transcript(segments) -> bool:
     return hits >= max(1, (len(usable) + 1) // 2)
 
 
-def _transcribe_source(source: Path, *, language: str, duration: float | None, project_id: str | None = None) -> tuple[list[dict], str]:
+def _transcribe_source(source: Path, *, duration: float | None, language: str | None = None, project_id: str | None = None) -> tuple[list[dict], str]:
     """Real ASR, or a checksum-matched cache. Never a silence grid."""
     if project_id:
         from .source_transcript import as_ranged_rows, load_verified
@@ -148,8 +148,12 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
         media.prepare(source, folder)
         meta["preview_ready"] = True
 
+    from .language import explicit_user_source_language
+    from .studio import state as studio_state
+
+    explicit = explicit_user_source_language((studio_state(pid) or {}).get("context"))
     segments, transcript_name = _transcribe_source(
-        source, language=language, duration=float(meta["duration"]), project_id=pid
+        source, language=explicit, duration=float(meta["duration"]), project_id=pid
     )
     from .source_transcript import save_verified
 
@@ -250,8 +254,13 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
             raise RunpodLlmError(RUNPOD_LLM_UNAVAILABLE)
         director = RunPodDirectorProvider()
         duration = float(meta.get("duration") or media.probe(source)["duration"])
+        from .language import explicit_user_source_language
+
         segments, transcript_name = _transcribe_source(
-            source, language=lang, duration=duration, project_id=pid
+            source,
+            language=explicit_user_source_language((s or {}).get("context")),
+            duration=duration,
+            project_id=pid,
         )
         from .source_transcript import save_verified
 

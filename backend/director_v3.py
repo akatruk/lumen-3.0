@@ -226,14 +226,17 @@ def run_job(p, payload):
         dubbed = mode == 'dubbed'
     from .language import resolve_locale
     from .source_analysis import is_placeholder_transcript
-    from .source_transcript import TranscriptError, source_locale_for_rows
+    from .source_transcript import TranscriptError, source_language_decision
     rows = (payload or {}).get('transcript') or ((payload or {}).get('plan') or {}).get('transcript') or []
     if is_placeholder_transcript(rows) and rows:
         raise ValueError('SOURCE_TRANSCRIPT_UNAVAILABLE')
     try:
-        heard = source_locale_for_rows(rows)
+        decision = source_language_decision(rows)
     except TranscriptError as exc:
         raise ValueError(exc.code) from None
+    if rows and decision.get("status") not in (None, "resolved", "unset"):
+        raise ValueError("SOURCE_LANGUAGE_UNVERIFIED")
+    heard = decision.get("sourceLanguage") if decision.get("status") == "resolved" else None
     if heard:
         try:
             asked = resolve_locale(target_locale) if target_locale else None

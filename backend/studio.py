@@ -626,15 +626,20 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
             if not locale:
                 raise HTTPException(422, 'unsupported_language')
             from .language import resolve_voice, short_code
-            from .source_transcript import TranscriptError, source_locale_for_rows
+            from .source_transcript import TranscriptError, source_language_decision
+            rows = (s.get('plan') or {}).get('transcript') or []
             try:
-                source_locale = source_locale_for_rows((s.get('plan') or {}).get('transcript') or [])
+                decision = source_language_decision(rows)
             except TranscriptError as exc:
                 raise HTTPException(422, exc.code) from None
+            if decision.get('status') in ('uncertain', 'mixed'):
+                raise HTTPException(422, 'SOURCE_LANGUAGE_UNVERIFIED')
+            source_locale = decision.get('sourceLanguage')
             resolved = resolve_voice(
                 source_language=source_locale,
                 target_language=locale,
                 voice=body.voice,
+                language_status=decision.get('status') if decision.get('status') in ('uncertain', 'mixed') else None,
             )
             if resolved['status'] == 'VOICE_SETUP_REQUIRED':
                 raise HTTPException(422, 'VOICE_SETUP_REQUIRED')
@@ -738,13 +743,21 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
         resolved = {'mode': 'original', 'status': 'resolved', 'voiceId': None}
         if locale:
             from .language import rendition_dir, resolve_voice, short_code, LanguageError
-            from .source_transcript import TranscriptError, source_locale_for_rows
+            from .source_transcript import TranscriptError, source_language_decision
             code = short_code(locale)
             try:
-                source_locale = source_locale_for_rows((s.get('plan') or {}).get('transcript') or [])
+                decision = source_language_decision((s.get('plan') or {}).get('transcript') or [])
             except TranscriptError as exc:
                 raise HTTPException(422, exc.code) from None
-            resolved = resolve_voice(source_language=source_locale, target_language=locale, voice=body.voice)
+            if decision.get('status') in ('uncertain', 'mixed'):
+                raise HTTPException(422, 'SOURCE_LANGUAGE_UNVERIFIED')
+            source_locale = decision.get('sourceLanguage')
+            resolved = resolve_voice(
+                source_language=source_locale,
+                target_language=locale,
+                voice=body.voice,
+                language_status=decision.get('status') if decision.get('status') in ('uncertain', 'mixed') else None,
+            )
             voice_id = resolved.get('voiceId')
             if resolved['status'] == 'VOICE_SETUP_REQUIRED':
                 raise HTTPException(422, 'VOICE_SETUP_REQUIRED')

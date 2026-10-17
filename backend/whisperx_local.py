@@ -167,12 +167,20 @@ def transcribe_segments(video_path: Path, *, language: str | None = None) -> lis
             ct = version("ctranslate2")
         except Exception:
             fw, ct = "1.2.1", "4.8.3"
+        forced = lang is not None
+        alternatives = []
+        if not forced:
+            for code, prob in list(getattr(info, "all_language_probs", None) or [])[:5]:
+                alternatives.append({"language": code, "probability": round(float(prob), 4)})
         transcribe_segments.last_info = {
             "modelId": model_id(),
             "modelVersion": f"faster-whisper=={fw};ctranslate2=={ct};compute=int8;device=cpu",
             "configVersion": config_version(),
-            "detectedLanguage": getattr(info, "language", None),
-            "languageProbability": getattr(info, "language_probability", None),
+            "languageMode": "forced" if forced else "automatic",
+            "detectedLanguage": None if forced else getattr(info, "language", None),
+            "languageProbability": None if forced else getattr(info, "language_probability", None),
+            "forcedTranscriptionLanguage": lang if forced else None,
+            "languageAlternatives": alternatives,
             "modelLoadSeconds": round(load_seconds, 3),
             "inferSeconds": round(wall, 3),
             "checksum": _file_checksum(video_path),

@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 from .config import settings
-from .language import detect_source_locale, resolve_locale
+from .language import decide_source_language, resolve_locale
 from .source_analysis import is_placeholder_transcript, source_checksum
 
 TRANSCRIPT_VERSION = "source-transcript-1"
@@ -64,20 +64,29 @@ def assert_coverage(segments: list[dict], duration: float | None) -> None:
         raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
 
 
-def language_of(segments: list[dict], declared: str | None = None) -> str:
-    text = " ".join(row["text"] for row in segments)
-    detected = detect_source_locale(text)
-    if detected not in LOCALES:
-        raise TranscriptError("SOURCE_LANGUAGE_UNVERIFIED")
+def language_decision(segments: list[dict], declared: str | None = None, *, detection: dict | None = None) -> dict:
+    """Resolved source locale, or an unverified decision. Output language is not an input."""
+    decision = decide_source_language(
+        segments,
+        user_source_language=None,
+        detection=detection or {},
+    )
     if declared:
         try:
             declared_locale = resolve_locale(declared)
         except Exception as exc:
             raise TranscriptError("SOURCE_LANGUAGE_UNVERIFIED") from exc
-        if declared_locale != detected:
+        if decision.get("sourceLanguage") != declared_locale:
             raise TranscriptError("SOURCE_LANGUAGE_UNVERIFIED")
-        return declared_locale
-    return detected
+    return decision
+
+
+def language_of(segments: list[dict], declared: str | None = None, *, detection: dict | None = None) -> str:
+    decision = language_decision(segments, declared, detection=detection)
+    locale = decision.get("sourceLanguage")
+    if locale not in LOCALES:
+        raise TranscriptError("SOURCE_LANGUAGE_UNVERIFIED")
+    return locale
 
 
 def build_record(
@@ -92,7 +101,10 @@ def build_record(
 ) -> dict:
     rows = normalize_segments(segments)
     assert_coverage(rows, duration)
-    locale = language_of(rows, declared_language)
+    decision = language_decision(rows, declared_language, detection=provenance)
+    locale = decision.get("sourceLanguage")
+    if locale not in LOCALES:
+        raise TranscriptError("SOURCE_LANGUAGE_UNVERIFIED")
     stored = []
     for index, row in enumerate(rows, start=1):
         stored.append({
@@ -106,6 +118,11 @@ def build_record(
         "projectId": project_id,
         "sourceChecksum": source_checksum_value,
         "sourceLanguage": locale,
+        "languageStatus": decision.get("status"),
+        "languageProvenance": decision.get("languageProvenance"),
+        "detectedLanguage": decision.get("detectedLanguage"),
+        "languageProbability": decision.get("languageProbability"),
+        "forcedTranscriptionLanguage": decision.get("forcedTranscriptionLanguage"),
         "retrievalLocale": locale,
         "provider": provider,
         "modelId": provenance.get("modelId"),
@@ -158,7 +175,11 @@ def load_verified(pid: str, source: Path) -> dict | None:
         return None
     try:
         normalize_segments(record.get("segments") or [])
-        language_of(record.get("segments") or [], record.get("sourceLanguage"))
+        language_of(
+            record.get("segments") or [],
+            record.get("sourceLanguage"),
+            detection=record.get("provenance") if isinstance(record.get("provenance"), dict) else None,
+        )
     except TranscriptError:
         return None
     return record
@@ -207,15 +228,25 @@ def as_ranged_rows(record: dict) -> list[dict]:
     ]
 
 
-def source_locale_for_rows(rows) -> str | None:
-    """Language of a stored plan. Empty stays unset. A fake grid is rejected."""
+def source_language_decision(rows) -> dict:
+    """Source-language decision for plan rows. Empty stays unset. A fake grid is rejected."""
     rows = list(rows or [])
     if not rows:
-        return None
+        return {
+            "status": "unset",
+            "sourceLanguage": None,
+            "languageProvenance": None,
+            "dubbing": "blocked",
+        }
     if is_placeholder_transcript(rows):
         raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
-    try:
-        segments = normalize_segments(rows)
-    except TranscriptError:
-        raise
-    return language_of(segments)
+    segments = normalize_segments(rows)
+    return language_decision(segments)
+
+
+def source_locale_for_rows(rows) -> str | None:
+    """Resolved source locale. Empty or uncertain stays unset. A fake grid is rejected."""
+    decision = source_language_decision(rows)
+    if decision.get("status") != "resolved":
+        return None
+    return decision.get("sourceLanguage")

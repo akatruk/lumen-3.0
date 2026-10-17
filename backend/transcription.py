@@ -142,10 +142,15 @@ def persist_source_transcript(pid: str) -> dict:
     lock = _lock_for(str(checksum))
     try:
         duration = float(meta.get("duration") or 0) or None
+        from .language import explicit_user_source_language
+        from .studio import state
+
+        # projects.language is the requested output. It must not force ASR.
+        explicit = explicit_user_source_language((state(pid) or {}).get("context"))
         try:
             segments, provider = _transcribe_source(
                 source,
-                language=str(current.get("language") or ""),
+                language=explicit,
                 duration=duration,
                 project_id=pid,
             )
@@ -177,6 +182,9 @@ def persist_source_transcript(pid: str) -> dict:
                 "configVersion": info.get("configVersion"),
                 "detectedLanguage": info.get("detectedLanguage"),
                 "languageProbability": info.get("languageProbability"),
+                "languageMode": info.get("languageMode"),
+                "forcedTranscriptionLanguage": info.get("forcedTranscriptionLanguage"),
+                "projectLanguage": current.get("language"),
                 "modelLoadSeconds": info.get("modelLoadSeconds"),
                 "inferSeconds": info.get("inferSeconds"),
             },
@@ -189,6 +197,8 @@ def persist_source_transcript(pid: str) -> dict:
     merged = dict(fresh.get("metadata") or {})
     merged["transcription"] = TERMINAL_OK
     merged["source_language"] = saved.get("sourceLanguage")
+    merged["source_language_status"] = saved.get("languageStatus")
+    merged["source_language_provenance"] = saved.get("languageProvenance")
     merged["transcript_version"] = saved.get("transcriptVersion")
     merged["transcription_model"] = saved.get("modelId")
     merged.pop("transcription_error", None)
@@ -211,7 +221,7 @@ def materialize_director_payload(p, payload):
     """Fill a deferred Create Video job after the transcript exists."""
     from .language import resolve_voice, short_code
     from .source_analysis import ensure_analysis
-    from .source_transcript import TranscriptError, load_verified, source_locale_for_rows
+    from .source_transcript import TranscriptError, load_verified, source_language_decision
     from .studio import state
     from .visual_variation import plan_for_request
 
@@ -230,15 +240,19 @@ def materialize_director_payload(p, payload):
     s = state(pid)
     rows = (s.get("plan") or {}).get("transcript") or []
     try:
-        source_locale = source_locale_for_rows(rows)
+        decision = source_language_decision(rows)
     except TranscriptError as exc:
         raise ValueError(exc.code) from exc
+    if decision.get("status") in ("uncertain", "mixed"):
+        raise ValueError("SOURCE_LANGUAGE_UNVERIFIED")
+    source_locale = decision.get("sourceLanguage")
     if not source_locale:
         raise ValueError("SOURCE_TRANSCRIPT_UNAVAILABLE")
     resolved = resolve_voice(
         source_language=source_locale,
         target_language=locale,
         voice=(payload or {}).get("voice"),
+        language_status=decision.get("status") if decision.get("status") in ("uncertain", "mixed") else None,
     )
     if resolved["status"] == "VOICE_SETUP_REQUIRED":
         raise ValueError("MISSING_TARGET_LANGUAGE_VOICE")
