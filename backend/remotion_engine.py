@@ -220,7 +220,7 @@ def resolve_scene_plan(
         'fps': FPS,
         'width': WIDTH,
         'height': HEIGHT,
-        'durationSeconds': int(duration_seconds),
+        'durationSeconds': int(round(float(duration_seconds) * FPS)) / FPS,
         'visualSeed': seed,
         'artDirection': plan.get('artDirection') or plan.get('visualStyle'),
         'visualEnergy': plan.get('visualEnergy') or 'balanced',

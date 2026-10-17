@@ -119,8 +119,14 @@ def _split_zh(text: str) -> list[str]:
             merged[-1] += chunk
         elif merged and len(chunk) < 2:
             merged[-1] += chunk
+        elif merged and len(chunk) == 1:
+            merged[-1] += chunk
         else:
             merged.append(chunk)
+    # A one-character Chinese tail is an orphan line, not a phrase.
+    if len(merged) >= 2 and len(merged[-1]) == 1:
+        merged[-2] += merged[-1]
+        merged.pop()
     return merged or [text]
 
 

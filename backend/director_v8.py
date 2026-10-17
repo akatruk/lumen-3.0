@@ -281,11 +281,11 @@ def expand_plan_for_duration(
 
     out = dict(plan)
     out['language'] = locale
-    out['durationSeconds'] = int(duration_seconds)
+    out['durationSeconds'] = float(duration_seconds)
     out['keywords'] = keywords
     out['topicDomain'] = domain
 
-    if int(duration_seconds) < 45:
+    if float(duration_seconds) < 45:
         out['form'] = 'short'
         # Still stamp semantic motion onto existing scenes.
         scenes = []

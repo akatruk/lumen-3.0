@@ -51,8 +51,8 @@ def output_seconds(requested, source_duration):
     source = float(source_duration)
     grid = max(5, (int(source) // 5) * 5)
     if requested is None:
-        chosen = 20 if grid >= 20 else grid
-        return frame_seconds(min(chosen, source), source)
+        # FULL_SOURCE. A missing request is the probed file, not a 20s preview.
+        return frame_seconds(source, source)
     value = float(requested)
     if value > source + 1e-3:
         raise ValueError('duration_step')
@@ -62,6 +62,29 @@ def output_seconds(requested, source_duration):
     if seconds % 5 or not 10 <= seconds <= min(grid, source):
         raise ValueError('duration_step')
     return frame_seconds(seconds, source)
+
+
+def duration_contract(requested, source_duration, fps: int = 30) -> dict:
+    """FULL_SOURCE keeps the probed file. TARGET_DURATION is an explicit request.
+
+    Both come back as a frame count at ``fps``. ``int(seconds)`` is not used,
+    so 85.5s and 151.1s are not shortened to 85 and 151.
+    """
+    source = float(source_duration)
+    if requested is None:
+        mode = 'full_source'
+        target = frame_seconds(source, source, fps)
+    else:
+        mode = 'target'
+        target = output_seconds(requested, source)
+    frames = int(round(float(target) * fps))
+    return {
+        'mode': mode,
+        'sourceSeconds': source,
+        'targetSeconds': frames / fps,
+        'durationInFrames': frames,
+        'fps': fps,
+    }
 
 
 def _public_director():
@@ -278,10 +301,17 @@ def run_job(p, payload):
     # Explicit Hypit request must not be silently remapped.
     if (payload or {}).get('picture_engine') == 'hypit':
         raise ValueError('remotion_required_for_supported_project')
-    seconds = output_seconds((payload or {}).get('duration_seconds'), (p.get('metadata') or {}).get('duration') or 20)
+    raw_source = (p.get('metadata') or {}).get('duration')
+    if raw_source:
+        contract = duration_contract((payload or {}).get('duration_seconds'), raw_source)
+        seconds = contract['targetSeconds']
+    else:
+        contract = None
+        seconds = output_seconds((payload or {}).get('duration_seconds'), 20)
     render_id = uuid.uuid4().hex
     folder = settings.data_dir / p['id'] / 'renders' / render_id
     folder.mkdir(parents=True)
+    (folder / '.rendering').write_text(render_id, encoding='utf-8')
     dest = folder / 'result.mp4'
     visual_plan = (payload or {}).get('visual_plan')
     speaker = speaker_for(seconds, settings.data_dir / p['id'] / 'source')
@@ -411,6 +441,15 @@ def run_job(p, payload):
         visual_plan = semantic_numeric_range.apply_numeric_range(
             visual_plan, transcript_early, locale=locale,
         )
+        from .editorial_decision import apply_editorial_decision
+        visual_plan = apply_editorial_decision(
+            visual_plan,
+            cleaned,
+            locale=locale,
+            target_seconds=seconds,
+            source_seconds=float(raw_source or seconds),
+            duration_mode=(contract or {}).get('mode') or 'target',
+        )
         public = _public_director()
         from .visual_variation import stage_backgrounds
         from pathlib import Path as _Path
@@ -466,7 +505,7 @@ def run_job(p, payload):
     result = {
         'render_id': render_id,
         'metadata': meta,
-        'timeline': [[0.0, meta['duration']]],
+        'timeline': [[0.0, seconds]],
         'applied': ['director_v3', 'remotion_engine_v1', 'director_execution_v4'],
         'picture_engine': 'remotion',
         'renderer': 'remotion',
@@ -475,6 +514,7 @@ def run_job(p, payload):
         'captionSource': render_plan.get('captionSource') or 'unavailable',
         'composition': COMPOSITION,
         'duration_seconds': seconds,
+        'duration_contract': contract,
         'visual_seed': render_plan.get('visualSeed'),
         'art_direction': render_plan.get('artDirection'),
         'render_plan_id': render_plan.get('generationId'),
@@ -499,6 +539,9 @@ def run_job(p, payload):
     if not carried:
         update(p['id'], result=result, status='complete', stage='complete', progress=100, error=None)
     try:
+        marker = folder / '.rendering'
+        if marker.is_file():
+            marker.unlink()
         from .render_retention import prune_pictures
         prune_pictures(p['id'], render_id)
     except Exception:

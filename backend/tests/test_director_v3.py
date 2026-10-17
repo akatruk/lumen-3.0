@@ -28,7 +28,7 @@ def test_project_e_create_video_queues_the_remotion_file(client, monkeypatch):
     assert kinds == ['director_v3']
     payload = json.loads(row[0])
     assert payload['composition'] == 'DirectorV3Preview'
-    assert payload['duration_seconds'] == 20
+    assert payload['duration_seconds'] == 40
     assert 'illustration' not in payload and 'manual' not in payload
     controls = (payload.get('visual_plan') or {}).get('editingControls') or payload.get('editing_controls')
     assert controls
@@ -117,8 +117,9 @@ def test_director_v3_job_renders_a_new_assembly_and_skips_hypit(client, monkeypa
         dest.write_bytes(body)
         return 'fresh-digest'
 
-    meta = {'duration': 20.05, 'width': 1080, 'height': 1920, 'has_audio': True, 'size': len(body), 'codec': 'h264'}
+    meta = {'duration': 40.0, 'width': 1080, 'height': 1920, 'has_audio': True, 'size': len(body), 'codec': 'h264'}
     monkeypatch.setattr(director_v3, 'render_assembly', fake_render)
+    monkeypatch.setattr(director_v3, 'speaker_for', lambda seconds, source: 'speaker.mp4')
     monkeypatch.setattr(director_v3.media, 'probe', lambda path: meta)
     called = []
     monkeypatch.setattr('backend.media.render', lambda *_a, **_k: called.append('media'))
@@ -127,7 +128,7 @@ def test_director_v3_job_renders_a_new_assembly_and_skips_hypit(client, monkeypa
     video = settings.data_dir / pid / 'renders' / result['render_id'] / 'result.mp4'
     assert len(seen) == 1
     assert seen[0][0] == video
-    assert seen[0][1] == 20
+    assert seen[0][1] == 40
     assert seen[0][2] == 'speaker.mp4'
     assert isinstance(seen[0][3], dict)
     assert seen[0][3].get('conceptTriggers') is True
@@ -138,7 +139,10 @@ def test_director_v3_job_renders_a_new_assembly_and_skips_hypit(client, monkeypa
     assert saved['result']['assembled'] is True
     assert saved['result']['picture_engine'] == 'remotion'
     assert saved['result']['composition'] == 'DirectorV3Preview'
-    assert saved['result']['duration_seconds'] == 20
+    assert saved['result']['duration_seconds'] == 40
+    assert saved['result']['duration_contract']['mode'] == 'full_source'
+    assert saved['result']['duration_contract']['sourceSeconds'] == 40
+    assert saved['result']['timeline'] == [[0.0, 40]]
     assert saved['result']['delivery_sha256'] == 'fresh-digest'
     assert 'remotion_engine_v1' in saved['result']['applied']
     assert saved['result']['metadata']['width'] == 1080

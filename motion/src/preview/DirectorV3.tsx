@@ -485,10 +485,26 @@ function SceneRouter({
       : look.semanticMotion?.staged || null;
   const suppressHeadline = Boolean(look.composition?.suppressHeadline);
   const v14 = look.semanticMotionV14?.componentId ? look.semanticMotionV14 : null;
+  const presentation = look.sceneComposition?.speakerPresentation;
+  const hasPlate = Boolean(look.background?.staged || look.background?.file || look.background?.assetId);
+  const framing = look.speaker?.framing || look.execution?.speakerFraming || "";
+  const cutawayWithoutPlate =
+    !hasPlate &&
+    (framing === "split" ||
+      framing === "pip" ||
+      layout.includes("split") ||
+      layout.includes("with_media") ||
+      layout.includes("diagram") ||
+      sid === "consult" ||
+      sid === "proof" ||
+      sid === "context" ||
+      sid === "residency" ||
+      sid === "steps" ||
+      sid === "beside");
   let body: ReactNode = null;
   if (v14) {
     body = <V14Stage file={file} from={from} frames={frames} look={look} />;
-  } else if (look.sceneComposition?.speakerPresentation === "fullscreen") {
+  } else if (presentation === "fullscreen" || presentation === "speaker" || cutawayWithoutPlate) {
     body = (
       <Enter transition={look.transition}>
         <AbsoluteFill>
@@ -497,6 +513,10 @@ function SceneRouter({
         </AbsoluteFill>
       </Enter>
     );
+  } else if (presentation === "split" && hasPlate) {
+    body = <Residency file={file} from={from} frames={frames} look={look} />;
+  } else if (presentation === "graphic") {
+    body = <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one") {
     body = <Beside file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (sid === "steps" || look.stepsTitle || look.typography?.stepsTitle) {

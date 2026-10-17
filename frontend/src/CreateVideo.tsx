@@ -197,7 +197,9 @@ export function CreateVideo({
 }) {
   const w = (ru: string, en: string, zh: string) => workspaceText(lang, ru, en, zh);
   const limit = durationLimit(sourceSeconds);
-  const [length, setLength] = useState(limit.max >= 20 ? 20 : limit.max);
+  const [durationMode, setDurationMode] = useState<"full" | "custom">("full");
+  const [customLength, setCustomLength] = useState(limit.max >= 20 ? 20 : limit.max);
+  const length = durationMode === "full" && sourceSeconds > 0 ? sourceSeconds : customLength;
   const [variation, setVariation] = useState<"automatic" | "keep" | "remix">("automatic");
   const [energy, setEnergy] = useState<Energy>("balanced");
   const [levels, setLevels] = useState({ animation: 60, intensity: 60, motion: 80, density: 70 });
@@ -439,25 +441,39 @@ export function CreateVideo({
           ))}
         </ul>
       </div>
-      <label>
-        {w("Длительность, с", "Duration, s", "时长，秒")}
-        <input
-          type="range"
-          min={limit.min}
-          max={limit.max}
-          step={limit.step}
-          value={length}
-          aria-valuetext={length + "s"}
-          onChange={(event) => {
-            const next = Number(event.target.value);
-            setLength(chosenDuration(next, sourceSeconds));
-          }}
-        />
-        <strong>
-          {length}
-          {w(" с", "s", " 秒")}
-        </strong>
-      </label>
+      <div className="language-switch" role="radiogroup" aria-label={w("Длительность", "Duration", "时长")}>
+        <button type="button" role="radio" aria-checked={durationMode === "full"} onClick={() => setDurationMode("full")}>
+          {w("Весь исходник", "Full source", "完整原片")}
+        </button>
+        <button type="button" role="radio" aria-checked={durationMode === "custom"} onClick={() => setDurationMode("custom")}>
+          {w("Своя длина", "Custom duration", "自定时长")}
+        </button>
+      </div>
+      {durationMode === "custom" ? (
+        <label>
+          {w("Длительность, с", "Duration, s", "时长，秒")}
+          <input
+            type="range"
+            min={limit.min}
+            max={limit.max}
+            step={limit.step}
+            value={Math.min(customLength, limit.max)}
+            aria-valuetext={customLength + "s"}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              setCustomLength(chosenDuration(next, sourceSeconds));
+            }}
+          />
+        </label>
+      ) : null}
+      <strong>
+        {durationMode === "full"
+          ? w("Режим: весь исходник", "Mode: full source", "模式：完整原片")
+          : w("Режим: своя длина", "Mode: custom duration", "模式：自定时长")}
+        {" · "}
+        {length}
+        {w(" с", "s", " 秒")}
+      </strong>
       <div className="language-switch" role="radiogroup" aria-label={w("Вариация картинки", "Visual variation", "画面变化")}>
         {(
           [

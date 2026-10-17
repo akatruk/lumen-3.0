@@ -3,6 +3,7 @@ import type { SupportedLocale } from "./language-config";
 const CLOSE_PUNCT = /^[\p{P}\p{S}]+$/u;
 const CLOSER = new Set(["，", "。", "！", "？", "、", "；", "：", ",", ".", "!", "?", ":", ";", ")", "]", "」", "』", "）", "》"]);
 const OPENER = new Set(["「", "『", "（", "(", "[", "《", "“", "‘"]);
+const UNIT = new Set(["万", "亿", "元", "块", "年", "月", "日", "岁", "平", "米", "㎡", "%", "％", "个", "次", "层", "步", "套", "间"]);
 
 function graphemes(text: string): string[] {
   if (typeof Intl.Segmenter === "function") {
@@ -71,13 +72,73 @@ function takeNumber(chars: string[], index: number): { token: string; next: numb
   return { token, next: cursor };
 }
 
+const CJK_NUM = new Set([..."零一二三四五六七八九十百千万两"]);
+
+function isUnitWord(token: string): boolean {
+  return [...token].every((char) => UNIT.has(char));
+}
+
+function isAsciiNumber(token: string): boolean {
+  return /^\d/.test(token);
+}
+
+/** Word pieces, then glue a range to its unit and a numeral to 个/万/元. */
+function tokensFromWords(parts: string[]): string[] {
+  const words = attachClosers(parts);
+  const tokens: string[] = [];
+  let index = 0;
+  while (index < words.length) {
+    const word = words[index];
+    if (isAsciiNumber(word)) {
+      let token = word;
+      index += 1;
+      if (/[-–—~]$/.test(token) && index < words.length && /\d/.test(words[index])) {
+        token += words[index];
+        index += 1;
+      }
+      while (index < words.length) {
+        const next = words[index];
+        if (/^[–—\-~-]$/.test(next) && isAsciiNumber(words[index + 1] || "")) {
+          token += next + words[index + 1];
+          index += 2;
+          continue;
+        }
+        if (isUnitWord(next) || UNIT.has(next)) {
+          token += next;
+          index += 1;
+          continue;
+        }
+        break;
+      }
+      tokens.push(token);
+      continue;
+    }
+    if ([...word].every((char) => CJK_NUM.has(char)) && isUnitWord(words[index + 1] || "")) {
+      tokens.push(word + words[index + 1]);
+      index += 2;
+      continue;
+    }
+    tokens.push(word);
+    index += 1;
+  }
+  return tokens;
+}
+
 /**
  * Line breaking. English and Russian break only on spaces.
- * Chinese breaks on characters, and closing punctuation stays with the previous character.
- * Digit runs and numeric ranges stay whole so 8000 is not painted as 80 / 00.
+ * Chinese breaks on words, and closing punctuation stays with the previous word.
+ * Digit runs, ranges, and the following unit stay one token (8000-1万, 三个).
  */
 export function segmentForLineBreak(text: string): string[] {
-  const chars = graphemes(text.trim()).filter((char) => char.trim().length > 0 || char === " ");
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  if (/[\u4e00-\u9fff]/.test(trimmed) && typeof Intl.Segmenter === "function") {
+    const parts = [...new Intl.Segmenter("zh-CN", { granularity: "word" }).segment(trimmed)]
+      .map((part) => part.segment)
+      .filter((part) => part.trim().length > 0);
+    return tokensFromWords(parts);
+  }
+  const chars = graphemes(trimmed).filter((char) => char.trim().length > 0 || char === " ");
   const tokens: string[] = [];
   let pendingOpen = "";
   let index = 0;
@@ -94,9 +155,14 @@ export function segmentForLineBreak(text: string): string[] {
     }
     const number = takeNumber(chars, index);
     if (number) {
-      tokens.push(pendingOpen + number.token);
+      let token = pendingOpen + number.token;
       pendingOpen = "";
       index = number.next;
+      while (UNIT.has(chars[index] || "")) {
+        token += chars[index];
+        index += 1;
+      }
+      tokens.push(token);
       continue;
     }
     const piece = pendingOpen + char;
