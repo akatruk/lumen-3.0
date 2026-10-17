@@ -592,13 +592,27 @@ def apply_editorial_decision(
         if repeated:
             score = 0.0
         picture = picture_supports(asset if isinstance(asset, str) else None, quote)
-        replacement = select_reviewed(quote, seen) if asset and not picture else None
-        media_ok = (picture or replacement is not None) and not repeated and bool(asset or replacement)
-        if media_ok and replacement is not None:
+        has_float = bool(((scene.get("composition") or {}).get("floatObject") or {}).get("file"))
+        replacement = None if picture or repeated or (not asset and has_float) else select_reviewed(quote, seen)
+        visual_reason = "lexical"
+        if replacement is not None:
             background = dict(replacement)
             scene["background"] = background
             asset = background.get("assetId")
+            picture = True
+            # The reviewed clause matched this quote. The query string did not decide it.
             score = 1.0
+            visual_reason = "reviewed-visual"
+        elif picture and not repeated:
+            score = 1.0
+            visual_reason = "reviewed-visual"
+        elif not picture:
+            visual_reason = "no-reviewed-visual"
+            if score >= THRESHOLD:
+                score = 0.0
+                visual_reason = "query-overlap-not-sufficient"
+        media_ok = picture and score >= THRESHOLD and not repeated and bool(asset)
+        scene["_visualReason"] = visual_reason
         graphic_ok = _drop_graphics(scene, quote)
         spoken_steps = _ordinal_lines(transcript, start, end, locale)
         if media_ok:
@@ -672,6 +686,7 @@ def apply_editorial_decision(
             "reason": float_rejection if purpose == "speaker-full" and float_rejection else purpose,
             "repeated": repeated,
             "rejected": purpose == "speaker-full",
+            "visualReason": scene.pop("_visualReason", ""),
         }
         audit.append(scene["editorial"])
         repaired.append(scene)
@@ -686,4 +701,12 @@ def apply_editorial_decision(
         "targetSeconds": target,
     }
     out["durationSeconds"] = target
+    index_path = Path(__file__).resolve().parent.parent / "media" / "library" / "out" / "manifest.json"
+    try:
+        wrapper = json.loads(index_path.read_text(encoding="utf-8"))
+        version = ((wrapper.get("visualIndex") or {}) if isinstance(wrapper, dict) else {}).get("version")
+        if version:
+            out["libraryIndex"] = version
+    except (OSError, json.JSONDecodeError):
+        pass
     return out

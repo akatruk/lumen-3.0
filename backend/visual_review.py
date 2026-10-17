@@ -63,6 +63,29 @@ def picture_supports(asset_id: str | None, quote: str) -> bool:
     return any(_clause_ok(clause, quote or "") for clause in row.get("support") or [])
 
 
+def _matching_clause(row: dict, quote: str) -> dict | None:
+    for clause in row.get("support") or []:
+        if _clause_ok(clause, quote):
+            return clause
+    return None
+
+
+def passage_query(quote: str) -> dict | None:
+    """Search text for this quote, taken from the reviewed clause, not the template beat."""
+    for asset_id, row in _rows().items():
+        if row.get("status") != "accepted":
+            continue
+        clause = _matching_clause(row, quote or "")
+        if not clause:
+            continue
+        return {
+            "assetId": asset_id,
+            "visualRole": clause.get("id") or "",
+            "query": clause.get("query") or "",
+        }
+    return None
+
+
 def select_reviewed(quote: str, seen: set[str]) -> dict | None:
     """One accepted picture whose reviewed content matches this quote."""
     for asset_id, row in _rows().items():
@@ -71,17 +94,20 @@ def select_reviewed(quote: str, seen: set[str]) -> dict | None:
         return_file = row.get("file")
         if not return_file or str(return_file).endswith(".tsx"):
             continue
-        if not picture_supports(asset_id, quote):
+        clause = _matching_clause(row, quote or "")
+        if clause is None:
             continue
-        concept = next(
-            (clause.get("id") for clause in row.get("support") or [] if _clause_ok(clause, quote)),
-            "",
-        )
         return {
             "assetId": asset_id,
             "file": return_file,
-            "type": row.get("type") or "image",
+            "type": row.get("type") or "video",
             "kind": row.get("kind"),
-            "visualConcept": concept,
+            "visualConcept": clause.get("id") or "",
+            "visualGrounding": {
+                "reviewed": True,
+                "roles": [clause.get("id")] if clause.get("id") else [],
+                "observed": row.get("visible") or "",
+                "marks": list(row.get("marks") or []),
+            },
         }
     return None

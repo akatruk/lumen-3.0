@@ -440,7 +440,38 @@ def fill_media_for_scenes(plan: dict, *, seed: int | None = None) -> dict:
             for key in ('assetId', 'file', 'staged', 'conceptId'):
                 bg.pop(key, None)
         if scene.get('query') and not bg.get('assetId'):
-            asset, chosen = vv._background(
+            asset = None
+            chosen = None
+            if scene.get('visualRole'):
+                from .visual_review import picture_supports, select_reviewed
+                quote = str(scene.get('passageQuote') or '')
+                query = scene['query'] if isinstance(scene['query'], str) else scene['query'][0]
+                try:
+                    import sys
+                    folder = str(vv.LIBRARY.parent)
+                    if folder not in sys.path:
+                        sys.path.insert(0, folder)
+                    from search import search_assets
+                    hits = search_assets(query, limit=32)
+                except (OSError, ImportError):
+                    hits = []
+                for hit in hits:
+                    rel = str(hit.get('file') or '')
+                    if picture_supports(hit.get('id'), quote) and rel and (vv.LIBRARY / rel).is_file():
+                        asset = hit
+                        break
+                if asset is None:
+                    picked = select_reviewed(quote, set(used_assets))
+                    rel = str((picked or {}).get('file') or '')
+                    if picked and rel and (vv.LIBRARY / rel).is_file():
+                        asset = {
+                            'id': picked['assetId'],
+                            'file': picked['file'],
+                            'visualGrounding': picked.get('visualGrounding'),
+                        }
+                chosen = query
+            if asset is None and not scene.get('visualRole'):
+                asset, chosen = vv._background(
                 rng,
                 {
                     'query': scene['query'] if isinstance(scene['query'], (list, tuple)) else (scene['query'],),

@@ -94,6 +94,8 @@ _QUERY_ALIASES = (
     # Original4 spoken checks. Cues are vocabulary, not measured claims.
     ("毛收益还是净收益", "gross yield versus net yield"),
     ("毛收益還是淨收益", "gross yield versus net yield"),
+    ("毛售益", "gross yield"),
+    ("金售益", "net yield"),
     ("毛收益", "gross yield"),
     ("净收益", "net yield"),
     ("淨收益", "net yield"),
