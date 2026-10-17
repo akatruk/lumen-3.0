@@ -212,6 +212,7 @@ def resolve_scene_plan(
             'businessMotion': dict(raw.get('businessMotion') or {}) or None,
             'semanticMotionV14': dict(raw.get('semanticMotionV14') or {}) or None,
             'sceneComposition': dict(raw.get('sceneComposition') or {}) or None,
+            'emphasisRange': list(raw.get('emphasisRange') or []),
             'semanticConcepts': list(raw.get('semanticConcepts') or []),
         }
         # Strip director-illegal keys if a buggy planner leaked them.

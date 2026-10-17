@@ -98,6 +98,8 @@ export type SceneLook = {
     speakerPresentation?: "fullscreen" | "split" | string;
     layout?: string;
   } | null;
+  /** Spoken span for a title. Absent means the title holds for the whole beat. */
+  emphasisRange?: [number, number] | number[];
 };
 
 export type EditingControls = {
@@ -967,7 +969,9 @@ function Hook({
   // Emphasis already uses speaker_medium. An extra punch would push the face into the title.
   const punchAt = Math.max(18, Math.round(frames * 0.42));
   const punch = emphasis ? 0 : interpolate(frame, [punchAt, punchAt + 16], [0, 0.12], clamp);
-  const headline = suppressHeadline ? "" : look.headline || look.typography?.headline || "";
+  const headline = suppressHeadline || look.emphasisRange?.length === 2
+    ? ""
+    : look.headline || look.typography?.headline || "";
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill>
@@ -1577,6 +1581,23 @@ export function DirectorV3({
           </AbsoluteFill>
         </Sequence>
       ) : null}
+      {(visualPlan?.scenes || []).map((scene, index) => {
+        const range = scene.emphasisRange;
+        const title = (scene.headline || scene.typography?.headline || "").trim();
+        if (!range || range.length !== 2 || !title) return null;
+        if (scene.sceneComposition?.speakerPresentation !== "emphasis") return null;
+        const lead = 0.4;
+        const tail = 0.4;
+        const start = Math.max(0, Number(range[0]) - lead);
+        const end = Number(range[1]) + tail;
+        const from = Math.max(0, Math.round(start * DIRECTOR_V3_FPS));
+        const duration = Math.max(1, Math.round((end - start) * DIRECTOR_V3_FPS));
+        return (
+          <Sequence key={`emphasis-${scene.sceneId}-${index}`} from={from} durationInFrames={duration} name={`emphasis-${scene.sceneId}`}>
+            <KineticHeadline text={title} locale={planLocale} />
+          </Sequence>
+        );
+      })}
       {captions
         .filter((row) => String(row.text || "").trim().length > 0 && row.duration > 0)
         .map((row) => (

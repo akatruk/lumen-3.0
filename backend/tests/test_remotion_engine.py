@@ -86,6 +86,7 @@ def test_resolve_keeps_emphasis_headline_for_the_router():
                 'typography': {'headline': '甜美的陷阱', 'cardMode': 'none'},
                 'execution': {'headline': '甜美的陷阱往往就藏在这种占便宜的心理里'},
                 'sceneComposition': {'speakerPresentation': 'emphasis', 'editorial': 'emphasis'},
+                'emphasisRange': [6.68, 11.36],
                 'transition': 'cut',
             }],
         },
@@ -95,6 +96,7 @@ def test_resolve_keeps_emphasis_headline_for_the_router():
     )
     scene = plan['scenes'][0]
     assert scene['headline'] == '甜美的陷阱'
+    assert scene['emphasisRange'] == [6.68, 11.36]
     assert scene['sceneComposition']['speakerPresentation'] == 'emphasis'
     assert plan['durationSeconds'] == 85.5
 

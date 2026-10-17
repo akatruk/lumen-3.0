@@ -353,6 +353,8 @@ def _select_emphasis(transcript, windows, locale, blocked: set[int]) -> list[dic
                 "phrase": phrase,
                 "segmentId": _row_id(row),
                 "anchor": anchor,
+                "start": start,
+                "end": end,
                 "scene": scene_index,
             }
     ordered = sorted(pool.values(), key=lambda item: (item["rank"], -len(item["phrase"])))
@@ -382,7 +384,7 @@ def _segment_id(transcript, start: float, end: float) -> str | None:
     return None
 
 
-def _stamp_emphasis(scene: dict, phrase: str) -> None:
+def _stamp_emphasis(scene: dict, phrase: str, speech: tuple[float, float] | None = None) -> None:
     _clear_media(scene)
     scene["headline"] = phrase
     typography = dict(scene.get("typography") or {})
@@ -408,6 +410,9 @@ def _stamp_emphasis(scene: dict, phrase: str) -> None:
     look["editorial"] = "emphasis"
     scene["sceneComposition"] = look
     scene["representation"] = "presenter"
+    if speech is not None:
+        # The title follows this spoken line. The beat may start earlier.
+        scene["emphasisRange"] = [round(speech[0], 3), round(speech[1], 3)]
 
 
 def _speaker_full(scene: dict) -> None:
@@ -509,7 +514,7 @@ def apply_editorial_decision(
             item = by_scene.get(index)
             phrase = item["phrase"] if item else None
             if phrase and phrase in quote_for_window(transcript, start, end, locale):
-                _stamp_emphasis(scene, phrase)
+                _stamp_emphasis(scene, phrase, (item["start"], item["end"]))
                 scene["_emphasisSegmentId"] = item["segmentId"]
                 purpose = "semantic-emphasis"
             else:
@@ -520,6 +525,7 @@ def apply_editorial_decision(
             "purpose": purpose,
             "relevance": round(score, 3),
             "quoteSeconds": [round(start, 3), round(end, 3)],
+            "displaySeconds": list(scene.get("emphasisRange") or []),
             "segmentId": scene.pop("_emphasisSegmentId", None) or _segment_id(transcript, start, end),
             "phrase": scene.get("headline") or "",
             "component": "KineticHeadline" if purpose == "semantic-emphasis" else "",

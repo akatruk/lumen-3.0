@@ -224,6 +224,12 @@ def test_original4_chinese_lines_become_two_kinetic_headlines(tmp_path):
     assert late["editorial"]["quoteSeconds"][0] >= 20
     early = next(scene for scene in emphasis if scene["headline"] == "甜美的陷阱")
     assert late["editorial"]["quoteSeconds"][0] - early["editorial"]["quoteSeconds"][0] >= 15
+    # The opening beat starts at 0. The title waits for the spoken line.
+    assert early["editorial"]["quoteSeconds"][0] == 0
+    assert early["emphasisRange"] == [6.68, 11.36]
+    assert early["editorial"]["displaySeconds"] == [6.68, 11.36]
+    assert late["emphasisRange"][0] >= 20
+    assert late["editorial"]["displaySeconds"] == late["emphasisRange"]
     spoken = {row["original"]: row["id"] for row in transcript}
     for scene in emphasis:
         phrase = scene["headline"]
