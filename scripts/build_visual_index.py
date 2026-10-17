@@ -132,10 +132,15 @@ def main() -> None:
                 summary["bytes"] += row["bytes"]
                 summary["playable"] += 1
                 grounding = asset.get("visualGrounding")
-                if isinstance(grounding, str) and grounding.strip():
+                observed = ""
+                if isinstance(grounding, dict) and grounding.get("reviewed") is True:
+                    observed = str(grounding.get("observed") or "").strip()
+                elif isinstance(grounding, str):
+                    observed = grounding.strip()
+                if observed:
                     row["frameReviewed"] = True
                     row["status"] = "described"
-                    row["visible"] = grounding.strip()
+                    row["visible"] = observed
                     row["visibleSource"] = "visualGrounding"
                     summary["frameReviewed"] += 1
                 else:
