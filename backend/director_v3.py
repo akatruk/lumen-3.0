@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import os
+import signal
 import subprocess
 import uuid
 from pathlib import Path
@@ -144,6 +145,63 @@ def _remotion_env(root: Path) -> dict:
     return env
 
 
+# Remotion 4.0.524 defaults both caches to half of host RAM (os.freemem),
+# which ignores the worker cgroup. 256 MiB + 128 MiB stay inside MemoryMax
+# 2800 MiB together with one Chrome renderer. Threads default to 2.
+REMOTION_CONCURRENCY = '1'
+OFFTHREAD_VIDEO_THREADS = '1'
+OFFTHREAD_CACHE_BYTES = '268435456'
+MEDIA_CACHE_BYTES = '134217728'
+
+
+def remotion_render_command(binary: str, dest: Path, seconds, speaker: str, visual_plan, public_dir: Path) -> list[str]:
+    return [
+        binary,
+        'render', 'src/index.ts', COMPOSITION, str(dest),
+        '--props', json.dumps({
+            'durationSeconds': seconds,
+            'speakerFile': speaker,
+            'visualPlan': visual_plan,
+        }),
+        f'--public-dir={public_dir}',
+        f'--concurrency={REMOTION_CONCURRENCY}',
+        f'--offthreadvideo-video-threads={OFFTHREAD_VIDEO_THREADS}',
+        f'--offthreadvideo-cache-size-in-bytes={OFFTHREAD_CACHE_BYTES}',
+        f'--media-cache-size-in-bytes={MEDIA_CACHE_BYTES}',
+        '--disallow-parallel-encoding',
+    ]
+
+
+def _render_timeout(seconds) -> int:
+    return max(900, int(float(seconds)) * 45)
+
+
+def _remove_tree(path: Path) -> None:
+    if not path.is_dir():
+        return
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            os.unlink(os.path.join(root, name))
+        for name in dirs:
+            os.rmdir(os.path.join(root, name))
+    os.rmdir(path)
+
+
+def _kill_render_group(proc: subprocess.Popen) -> None:
+    """Stop Remotion and the Chrome, compositor, and FFmpeg children it spawned."""
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
+
+
 def render_assembly(dest: Path, seconds: int = 20, speaker: str = 'speaker.mp4', visual_plan=None):
     """Render the composition. The destination bytes come from Remotion."""
     root = motion_root()
@@ -156,31 +214,44 @@ def render_assembly(dest: Path, seconds: int = 20, speaker: str = 'speaker.mp4',
         from .visual_variation import stage_backgrounds
         visual_plan = stage_backgrounds(visual_plan, public)
     public_dir = remotion_public_dir()
-    command = [
+    command = remotion_render_command(
         str(root / 'node_modules' / '.bin' / 'remotion'),
-        'render', 'src/index.ts', COMPOSITION, str(dest),
-        '--props', json.dumps({
-            'durationSeconds': seconds,
-            'speakerFile': speaker,
-            'visualPlan': visual_plan,
-        }),
-        f'--public-dir={public_dir}',
-        '--concurrency=1',
-    ]
-    completed = subprocess.run(
+        dest, seconds, speaker, visual_plan, public_dir,
+    )
+    env = _remotion_env(root)
+    scratch = dest.parent / '.remotion-tmp'
+    if scratch.exists():
+        _remove_tree(scratch)
+    scratch.mkdir()
+    env['TMPDIR'] = str(scratch)
+    proc = subprocess.Popen(
         command,
         cwd=root,
-        env=_remotion_env(root),
-        capture_output=True,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=max(900, int(seconds) * 45),
+        start_new_session=True,
     )
-    if completed.returncode != 0 or not dest.is_file() or dest.stat().st_size < 100_000:
-        tail = (completed.stderr or completed.stdout or '')[-2000:]
+    try:
+        stdout, stderr = proc.communicate(timeout=_render_timeout(seconds))
+    except subprocess.TimeoutExpired:
+        _kill_render_group(proc)
+        stdout, stderr = '', 'remotion timeout'
+        proc.returncode = proc.returncode if proc.returncode is not None else -9
+    finally:
+        if proc.poll() is None:
+            _kill_render_group(proc)
+        _remove_tree(scratch)
+    if proc.returncode != 0 or not dest.is_file() or dest.stat().st_size < 100_000:
+        if dest.exists():
+            dest.unlink()
+        tail = (stderr or stdout or '')[-2000:]
         log.error('Director V3 render failed: %s', tail)
         raise ValueError('director_v3_render_failed')
     digest = hashlib.sha256(dest.read_bytes()).hexdigest()
     if digest == FROZEN_COPY_SHA256:
+        dest.unlink()
         raise ValueError('director_v3_render_failed')
     return digest
 
