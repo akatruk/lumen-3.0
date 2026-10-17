@@ -191,6 +191,50 @@ def _clear_media(scene: dict) -> None:
     scene["query"] = None
 
 
+def _ordinal_lines(transcript, start: float, end: float, locale: str | None) -> list[str]:
+    """Verbatim lines that open with a spoken ordinal and whose midpoint is in this beat."""
+    found = []
+    for row in _rows_in_window(transcript, start, end):
+        text = _text(row, locale).strip()
+        mid = (float(row.get("start") or 0) + float(row.get("end") or 0)) / 2
+        if mid < start or mid >= end or not _ORDINAL.match(text):
+            continue
+        body = _ORDINAL.sub("", text).lstrip("、,，:：. ").strip()
+        if len(body) < 4 or body in PACK_LABELS or text in PACK_LABELS:
+            continue
+        found.append(text)
+    return found[:3]
+
+
+def _stamp_spoken_split(scene: dict, steps: list[str]) -> None:
+    _clear_media(scene)
+    speaker = dict(scene.get("speaker") or {})
+    speaker["layout"] = "speaker_split_right"
+    speaker["treatment"] = "speaker_split_right"
+    speaker["framing"] = "split"
+    speaker["visibility"] = "primary"
+    scene["speaker"] = speaker
+    typography = dict(scene.get("typography") or {})
+    typography["steps"] = list(steps)
+    typography["stepsTitle"] = ""
+    typography["cardMode"] = "none"
+    typography.pop("cards", None)
+    scene["typography"] = typography
+    scene["steps"] = list(steps)
+    scene["stepsTitle"] = ""
+    scene["criteriaCards"] = []
+    execution = dict(scene.get("execution") or {})
+    execution["headline"] = ""
+    execution["speakerFraming"] = "split"
+    execution["mediaRole"] = "none"
+    scene["execution"] = execution
+    composition = dict(scene.get("sceneComposition") or {})
+    composition["speakerPresentation"] = "split"
+    composition["editorial"] = "spoken-split"
+    scene["sceneComposition"] = composition
+    scene["representation"] = "presenter"
+
+
 def _drop_graphics(scene: dict, quote: str) -> bool:
     typography = dict(scene.get("typography") or {})
     card_labels = _labels(typography.get("cards")) + _labels(scene.get("criteriaCards"))
@@ -224,6 +268,8 @@ def _drop_graphics(scene: dict, quote: str) -> bool:
 
 
 _NUMBER = re.compile(r"\d[\d,.\-–~]*(?:[万亿%％元块])?")
+# A line that opens with a spoken ordinal. Not a price, not a pack label.
+_ORDINAL = re.compile(r"^(?:第[一二三四五六七八九十]|First|Second|Third)(?=[\s,，、:：.]|$)")
 
 # Spoken spans worth a title. Longer and sharper first. A span is used only
 # when it is already inside one transcript segment. This list does not add words.
@@ -519,6 +565,7 @@ def apply_editorial_decision(
             score = 0.0
         media_ok = score >= THRESHOLD and not repeated and bool(asset)
         graphic_ok = _drop_graphics(scene, quote)
+        spoken_steps = _ordinal_lines(transcript, start, end, locale)
         if media_ok:
             seen.add(str(asset))
             speaker = dict(scene.get("speaker") or {})
@@ -545,6 +592,10 @@ def apply_editorial_decision(
             composition["editorial"] = "graphic"
             scene["sceneComposition"] = composition
             purpose = "semantic-graphic"
+            blocked.add(index)
+        elif spoken_steps:
+            _stamp_spoken_split(scene, spoken_steps)
+            purpose = "spoken-split"
             blocked.add(index)
         else:
             purpose = "pending"
@@ -578,7 +629,11 @@ def apply_editorial_decision(
             "displaySeconds": list(scene.get("emphasisRange") or []),
             "segmentId": scene.pop("_emphasisSegmentId", None) or _segment_id(transcript, start, end),
             "phrase": scene.get("headline") or "",
-            "component": "KineticHeadline" if purpose == "semantic-emphasis" else "",
+            "component": (
+                "KineticHeadline" if purpose == "semantic-emphasis"
+                else "SpokenSplit" if purpose == "spoken-split"
+                else ""
+            ),
             "reason": float_rejection if purpose == "speaker-full" and float_rejection else purpose,
             "repeated": repeated,
             "rejected": purpose == "speaker-full",

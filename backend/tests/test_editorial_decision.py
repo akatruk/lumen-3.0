@@ -279,3 +279,36 @@ def test_unsupported_goal_float_is_dropped_and_a_spoken_passport_float_stays():
     assert hook["speaker"]["layout"] == "speaker_fullscreen"
     assert later["composition"]["floatObject"]["keyword"] == "passport"
     assert later["speaker"]["layout"] == "speaker_medium"
+
+
+def test_spoken_ordinal_opens_a_split_and_a_price_does_not():
+    line = "第一,去查当地人的真实二手房程交数据"
+    transcript = [
+        {"id": "a", "start": 0, "end": 20, "zh": "买房送身份听起来特别诱人", "original": "买房送身份听起来特别诱人"},
+        {"id": "b", "start": 32, "end": 40, "zh": line, "original": line},
+        {"id": "c", "start": 48, "end": 55, "zh": "挂牌价通常是8000-1万", "original": "挂牌价通常是8000-1万"},
+    ]
+    out = apply_editorial_decision(
+        _plan([
+            _scene("hook", layout="speaker_fullscreen", framing="fullscreen"),
+            _scene("consult", layout="speaker_with_media", framing="pip", asset="people_property_001", query="house"),
+            _scene("return", layout="speaker_fullscreen", framing="fullscreen"),
+        ]),
+        transcript,
+        locale="zh-CN",
+        target_seconds=60,
+        source_seconds=85.5,
+        duration_mode="target",
+    )
+    hook, middle, tail = out["scenes"]
+    assert middle["editorial"]["purpose"] == "spoken-split"
+    assert middle["editorial"]["component"] == "SpokenSplit"
+    assert middle["typography"]["steps"] == [line]
+    assert middle["speaker"]["layout"] == "speaker_split_right"
+    assert middle["speaker"]["framing"] == "split"
+    assert middle["sceneComposition"]["speakerPresentation"] == "split"
+    assert middle["background"]["assetId"] is None
+    assert "全程陪同" not in str(middle)
+    assert "步骤" not in str(middle)
+    assert tail["editorial"]["purpose"] != "spoken-split"
+    assert hook["sceneComposition"]["speakerPresentation"] != "split"

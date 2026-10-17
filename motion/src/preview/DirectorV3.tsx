@@ -515,6 +515,8 @@ function SceneRouter({
     body = <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (presentation === "split" && hasPlate) {
     body = <Residency file={file} from={from} frames={frames} look={look} />;
+  } else if (presentation === "split" && (look.steps?.length || look.typography?.steps?.length)) {
+    body = <SpokenSplit file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (presentation === "fullscreen" || presentation === "speaker" || cutawayWithoutPlate) {
     body = (
       <Enter transition={look.transition}>
@@ -1079,6 +1081,78 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
           <Move treatment={look.background.treatment} intensity={look.motionIntensity} frames={frames}>
             <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.08} />
           </Move>
+        </div>
+        <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+      </AbsoluteFill>
+    </Enter>
+  );
+}
+
+/** Split already used by Residency. The side panel is the spoken ordinal line, not a stock plate. */
+function SpokenSplit({
+  file,
+  from,
+  frames,
+  look,
+  locale = "en-US",
+}: {
+  file: string;
+  from: number;
+  frames: number;
+  look: SceneLook;
+  locale?: SupportedLocale;
+}) {
+  const frame = useCurrentFrame();
+  const steps = look.steps?.length ? look.steps : look.typography?.steps || [];
+  const count = Math.max(1, steps.length);
+  const slot = Math.min(count - 1, Math.max(0, Math.floor((frame / Math.max(1, frames)) * count)));
+  const label = steps[slot] || steps[0] || "";
+  const speakerBox = splitSpeakerRect("right");
+  const mediaBox = splitMediaRect("left");
+  const enter = interpolate(frame, [0, 12], [0, 1], clamp);
+  return (
+    <Enter transition={look.transition}>
+      <AbsoluteFill style={{ background: theme.color.bg }}>
+        <div
+          style={{
+            position: "absolute",
+            left: mediaBox.left,
+            top: mediaBox.top,
+            width: mediaBox.width,
+            height: mediaBox.height,
+            borderRadius: PORTRAIT.radius,
+            overflow: "hidden",
+            background: theme.color.bgElevated,
+            opacity: enter,
+            padding: 28,
+            boxSizing: "border-box",
+          }}
+        >
+          <AutoFitText
+            text={label}
+            maxWidth={Math.max(80, mediaBox.width - 56)}
+            maxHeight={Math.max(80, mediaBox.height - 56)}
+            role={theme.type.title}
+            align="left"
+            vertical="center"
+            wrapMode="auto"
+            maxLines={5}
+            locale={locale}
+          />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: speakerBox.left,
+            top: speakerBox.top,
+            width: speakerBox.width,
+            height: speakerBox.height,
+            borderRadius: PORTRAIT.radius,
+            overflow: "hidden",
+            boxShadow: theme.shadow.soft,
+          }}
+        >
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.08} />
         </div>
         <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
       </AbsoluteFill>
