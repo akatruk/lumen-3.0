@@ -91,6 +91,34 @@ _QUERY_ALIASES = (
     ("деловая встреча инвесторов", "business investment meeting investors"),
     ("投资者商务会议", "business investment meeting investors"),
     ("business investment meeting", "business investment meeting investors"),
+    # Original4 spoken checks. Cues are vocabulary, not measured claims.
+    ("毛收益还是净收益", "gross yield versus net yield"),
+    ("毛收益還是淨收益", "gross yield versus net yield"),
+    ("毛收益", "gross yield"),
+    ("净收益", "net yield"),
+    ("淨收益", "net yield"),
+    ("租金回报率", "rental yield gross net"),
+    ("租金回報率", "rental yield gross net"),
+    ("租金回报", "rental yield"),
+    ("租金回報", "rental yield"),
+    ("市场价值", "market value resale"),
+    ("市場價值", "market value resale"),
+    ("转售", "resale"),
+    ("轉售", "resale"),
+    ("本地人", "local buyer"),
+    ("下一位买家", "next buyer pool"),
+    ("下一位買家", "next buyer pool"),
+    ("物业", "operating cost"),
+    ("物業", "operating cost"),
+    ("管理费", "management cost"),
+    ("管理費", "management cost"),
+    ("税后", "after tax"),
+    ("稅後", "after tax"),
+    ("валовая доходность", "gross yield"),
+    ("чистая доходность", "net yield"),
+    ("перепродажа", "resale"),
+    ("рыночная стоимость", "market value resale"),
+    ("местный покупатель", "local buyer"),
 )
 
 
@@ -190,6 +218,32 @@ def load(path=None):
             if extra.get(key) and not row.get(key):
                 row[key] = extra[key]
         merged.append(row)
+    return _merge_visual_index(merged, file)
+
+
+def _merge_visual_index(assets, manifest_path):
+    index_file = Path(manifest_path).parent / "visual-index.json"
+    if not index_file.is_file():
+        return assets
+    payload = json.loads(index_file.read_text(encoding="utf-8"))
+    rows = payload.get("assets") if isinstance(payload, dict) else None
+    if not isinstance(rows, dict):
+        return assets
+    merged = []
+    for asset in assets:
+        extra = rows.get(asset.get("id"))
+        if not extra:
+            merged.append(asset)
+            continue
+        row = dict(asset)
+        if extra.get("frameReviewed") and extra.get("visible"):
+            row["reviewedVisible"] = extra["visible"]
+        retrieval = extra.get("retrieval")
+        if retrieval:
+            row["visualRetrieval"] = retrieval
+        row["frameReviewed"] = bool(extra.get("frameReviewed"))
+        row["visualReviewStatus"] = extra.get("reviewStatus")
+        merged.append(row)
     return merged
 
 
@@ -232,6 +286,8 @@ def _hay(asset):
         " ".join(asset.get("actions") or []),
         " ".join(asset.get("relationships") or []),
         asset.get("matchMode") or "",
+        asset.get("reviewedVisible") or "",
+        _joined(asset.get("visualRetrieval")),
     ]
     blob = re.sub(r"\b(?:four|one|two|three|\d+)[\s-]seconds?\b", "duration", " ".join(parts), flags=re.I)
     return _tokens(blob)

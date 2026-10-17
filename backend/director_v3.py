@@ -402,6 +402,8 @@ def run_job(p, payload):
         visual_plan = director_v8.expand_plan_for_duration(
             visual_plan, duration_seconds=seconds, transcript=cleaned, locale=locale,
         )
+        from .editorial_decision import assign_passage_queries
+        visual_plan = assign_passage_queries(visual_plan, cleaned, locale)
         visual_plan = director_v8.fill_media_for_scenes(visual_plan, seed=visual_plan.get('visualSeed'))
         from . import director_v9, director_v10, director_v11, director_v11_1, director_v11_2
         visual_plan = director_v9.apply_composition_intelligence(visual_plan)

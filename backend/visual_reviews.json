@@ -1,0 +1,58 @@
+{
+  "assets": {
+    "passport_cover": {
+      "status": "accepted",
+      "frameReviewed": true,
+      "kind": "contextual",
+      "type": "image",
+      "file": "media/library/out/static/passport/cover.png",
+      "visible": "a passport cover",
+      "support": [{"id": "passport", "all": ["护照"]}],
+      "exclude": {
+        "rental_yield": ["回报率", "收益率", "毛收益", "净收益", "yield"]
+      }
+    },
+    "re_gross_vs_net": {
+      "status": "accepted",
+      "frameReviewed": true,
+      "kind": "explanatory_graphic",
+      "type": "image",
+      "file": "media/library/out/static/real-estate/explanatory/gross-vs-net.svg",
+      "visible": "two unlabeled stacks, 毛收益 opposite 净收益, and the words 物业 管理费 控制损耗 税后. No numbers, no arrow.",
+      "provenance": "deterministic svg, not a generated photograph",
+      "license": "project-owned graphic",
+      "support": [
+        {"id": "gross_vs_net", "all": ["毛收益", "净收益"]},
+        {"id": "gross_vs_net_en", "all": ["gross", "net"]},
+        {"id": "gross_vs_net_ru", "all": ["валов", "чист"]}
+      ],
+      "exclude": {
+        "asking_price": ["挂牌价", "asking price"],
+        "buyer_pool": ["买家", "buyer"],
+        "residency_claim": ["绿卡", "签证", "visa"]
+      }
+    },
+    "re_inv_laptop": {
+      "status": "rejected",
+      "kind": "contextual",
+      "type": "image",
+      "file": "media/library/out/static/realestate/re_inv_laptop.png",
+      "visible": "a person typing. The screen is a blank color field.",
+      "support": [{"id": "laptop_work", "all": ["笔记本电脑"]}],
+      "exclude": {
+        "rental_yield": ["回报率", "收益率", "毛收益", "净收益", "yield", "roi"]
+      }
+    },
+    "re_obj_yield": {
+      "status": "rejected",
+      "kind": "explanatory_graphic",
+      "type": "image",
+      "file": "media/library/out/static/realestate/re_obj_yield.svg",
+      "visible": "three bars and an arrow pointing up. No gross, no net, no expenses.",
+      "support": [{"id": "rising_mark", "all": ["上升箭头"]}],
+      "exclude": {
+        "gross_vs_net": ["毛收益", "净收益", "gross", "net", "回报率"]
+      }
+    }
+  }
+}

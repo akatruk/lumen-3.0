@@ -455,6 +455,8 @@ def fill_media_for_scenes(plan: dict, *, seed: int | None = None) -> dict:
                 bg['assetId'] = asset.get('id')
                 bg['file'] = asset.get('file')
                 bg['conceptId'] = asset.get('conceptId')
+                if asset.get('visualGrounding'):
+                    bg['visualGrounding'] = asset.get('visualGrounding')
                 used_assets.append(asset.get('id'))
                 if asset.get('conceptId'):
                     used_concepts.append(asset.get('conceptId'))

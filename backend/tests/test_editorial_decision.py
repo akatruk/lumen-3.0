@@ -1,6 +1,6 @@
 """Editorial policy across the four source shapes. Not original4-hardcoded."""
 from backend.director_v8 import LONG_BEATS
-from backend.editorial_decision import apply_editorial_decision, relevance
+from backend.editorial_decision import apply_editorial_decision, assign_passage_queries, relevance
 
 TEMPLATE = [beat["weight"] for beat in LONG_BEATS]
 
@@ -312,3 +312,56 @@ def test_spoken_ordinal_opens_a_split_and_a_price_does_not():
     assert "步骤" not in str(middle)
     assert tail["editorial"]["purpose"] != "spoken-split"
     assert hook["sceneComposition"]["speakerPresentation"] != "split"
+
+
+def test_a_beat_is_searched_with_its_own_sentence_not_the_office_template():
+    quote = "海报上的租金回报率是毛收益还是净收益"
+    plan = _plan([
+        _scene("consult", layout="speaker_with_media", framing="pip", asset="people_consult_001", query="consultation meeting advisor"),
+    ])
+    out = assign_passage_queries(
+        plan,
+        [{"start": 0, "end": 60, "zh": quote, "original": quote}],
+        "zh-CN",
+    )
+    scene = out["scenes"][0]
+    assert scene["query"] == quote
+    assert scene["passage"] == quote
+    assert scene["background"].get("assetId") is None
+
+
+def test_query_inside_the_quote_does_not_accept_a_blank_laptop():
+    quote = "海报上的租金回报率是毛收益还是净收益"
+    assert relevance(quote, "回报率", "re_inv_laptop") == 0
+    out = apply_editorial_decision(
+        _plan([_scene("return", layout="speaker_split_right", framing="split", asset="re_inv_laptop", query="回报率")]),
+        [{"start": 0, "end": 60, "zh": quote, "original": quote}],
+        locale="zh-CN", target_seconds=60, source_seconds=60, duration_mode="target",
+    )
+    scene = out["scenes"][0]
+    assert scene["background"]["assetId"] == "re_gross_vs_net"
+    assert scene["background"]["visualConcept"] == "gross_vs_net"
+    assert scene["background"]["kind"] == "explanatory_graphic"
+    assert scene["editorial"]["purpose"] == "supporting-visual"
+
+
+def test_the_same_graphic_matches_english_and_russian_paraphrases():
+    for quote, concept in (
+        ("is the advertised rental yield gross or net", "gross_vs_net_en"),
+        ("валовая доходность или чистая доходность", "gross_vs_net_ru"),
+    ):
+        out = apply_editorial_decision(
+            _plan([_scene("return", layout="speaker_fullscreen", framing="fullscreen", asset="cev6_biz_meeting_002", query=quote)]),
+            [{"start": 0, "end": 60, "zh": quote, "original": quote}],
+            locale="zh-CN", target_seconds=60, source_seconds=60, duration_mode="target",
+        )
+        assert out["scenes"][0]["background"]["assetId"] == "re_gross_vs_net"
+        assert out["scenes"][0]["background"]["visualConcept"] == concept
+
+
+def test_a_rising_arrow_and_a_boardroom_stay_out_of_the_yield_question():
+    quote = "海报上的租金回报率是毛收益还是净收益"
+    from backend.visual_review import picture_supports
+    assert picture_supports("re_obj_yield", quote) is False
+    assert picture_supports("re_inv_laptop", quote) is False
+    assert picture_supports("people_consult_001", quote) is False

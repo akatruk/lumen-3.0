@@ -6,7 +6,11 @@ and generic office/house/meeting stock do not.
 """
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
+
+from .visual_review import picture_supports, select_reviewed
 
 GENERIC = {
     "business", "company", "money", "people", "person", "office", "house",
@@ -87,10 +91,8 @@ def _specific_words(query: str, asset_id: str) -> list[str]:
 
 
 def relevance(quote: str, query: str | None, asset_id: str | None) -> float:
-    """1 when a specific token is in this quote. 0 for generic stock."""
+    """Token overlap only. A query sitting inside the quote is not a picture match."""
     spoken = quote or ""
-    if query and query.strip() and query.strip() in spoken:
-        return 1.0
     specific = _specific_words(query or "", asset_id or "")
     if not specific:
         return 0.0
@@ -177,6 +179,32 @@ def speech_weights(transcript, target: float, count: int, fps: int = 30) -> tupl
     drift = frames - sum(weights)
     weights[-1] = max(1, weights[-1] + drift)
     return weights, "transcript_midpoint"
+
+
+def assign_passage_queries(plan: dict, transcript, locale: str | None) -> dict:
+    """Search each beat with its own spoken words. Drop a template plate first."""
+    out = dict(plan or {})
+    scenes = [dict(scene) for scene in out.get("scenes") or []]
+    target = float(out.get("durationSeconds") or 0)
+    if target <= 0 or not scenes:
+        return out
+    rhythm, _source = speech_weights(transcript, target, len(scenes))
+    weights = rhythm or list(out.get("beatWeights") or [])
+    if len(weights) != len(scenes):
+        weights = [1] * len(scenes)
+    windows = _windows(weights, target)
+    for scene, (start, end) in zip(scenes, windows):
+        quote = quote_for_window(transcript, start, end, locale)
+        scene["passage"] = quote
+        if not quote or quote.strip().startswith("[segment"):
+            continue
+        scene["query"] = quote
+        background = dict(scene.get("background") or {})
+        for key in ("assetId", "file", "staged", "conceptId"):
+            background.pop(key, None)
+        scene["background"] = background
+    out["scenes"] = scenes
+    return out
 
 
 def _clear_media(scene: dict) -> None:
@@ -563,7 +591,14 @@ def apply_editorial_decision(
         repeated = bool(asset) and str(asset) in seen
         if repeated:
             score = 0.0
-        media_ok = score >= THRESHOLD and not repeated and bool(asset)
+        picture = picture_supports(asset if isinstance(asset, str) else None, quote)
+        replacement = select_reviewed(quote, seen) if asset and not picture else None
+        media_ok = (picture or replacement is not None) and not repeated and bool(asset or replacement)
+        if media_ok and replacement is not None:
+            background = dict(replacement)
+            scene["background"] = background
+            asset = background.get("assetId")
+            score = 1.0
         graphic_ok = _drop_graphics(scene, quote)
         spoken_steps = _ordinal_lines(transcript, start, end, locale)
         if media_ok:
