@@ -47,10 +47,21 @@ def test_generic_property_stock_does_not_cover_a_real_estate_sentence():
     assert out["durationContract"]["sourceSeconds"] == 85.5
     assert out["durationContract"]["targetSeconds"] == 60
     assert out["durationContract"]["mode"] == "target"
+    emphasis = [scene for scene in out["scenes"] if scene["editorial"]["purpose"] == "semantic-emphasis"]
+    assert len(emphasis) <= 2
+    assert emphasis
     for scene in out["scenes"]:
-        assert scene["sceneComposition"]["speakerPresentation"] == "fullscreen"
         assert scene["background"]["assetId"] is None
-        assert scene["editorial"]["purpose"] == "speaker-full"
+        phrase = scene["editorial"]["phrase"]
+        if phrase:
+            assert phrase in quote
+            assert scene["sceneComposition"]["speakerPresentation"] == "emphasis"
+            assert scene["editorial"]["component"] == "KineticHeadline"
+            assert scene["speaker"]["visibility"] == "primary"
+        else:
+            assert scene["sceneComposition"]["speakerPresentation"] == "fullscreen"
+        assert "全程陪同" not in str(scene.get("headline") or "")
+        assert scene.get("steps") in (None, [])
     assert out["scenes"][2]["steps"] == []
 
 
@@ -69,7 +80,13 @@ def test_passport_evidence_keeps_one_plate_and_rejects_the_repeat():
     assert out["scenes"][0]["sceneComposition"]["editorial"] == "support"
     assert out["scenes"][0]["speaker"]["framing"] == "split"
     assert out["scenes"][1]["editorial"]["repeated"] is True
-    assert out["scenes"][1]["sceneComposition"]["speakerPresentation"] == "fullscreen"
+    assert out["scenes"][1]["background"]["assetId"] is None
+    repeated_phrase = out["scenes"][1]["editorial"]["phrase"]
+    if repeated_phrase:
+        assert repeated_phrase in quote
+        assert out["scenes"][1]["sceneComposition"]["speakerPresentation"] == "emphasis"
+    else:
+        assert out["scenes"][1]["sceneComposition"]["speakerPresentation"] == "fullscreen"
 
 
 def test_original1_shareholder_sentence_does_not_gain_a_house_or_a_headcount():
@@ -100,8 +117,17 @@ def test_original2_salary_line_does_not_invent_currency():
     out = apply_editorial_decision(
         plan, transcript, locale="zh-CN", target_seconds=60, source_seconds=70, duration_mode="target",
     )
-    assert all(scene["sceneComposition"]["speakerPresentation"] == "fullscreen" for scene in out["scenes"])
-    assert "$" not in str(out["scenes"][0])
+    blob = str(out["scenes"])
+    assert "$" not in blob
+    assert "8000" not in blob
+    assert "元" not in blob
+    for scene in out["scenes"]:
+        phrase = scene["editorial"]["phrase"]
+        if phrase:
+            assert phrase in quote
+            assert scene["headline"] == phrase
+        else:
+            assert scene["sceneComposition"]["speakerPresentation"] == "fullscreen"
 
 
 def test_original3_identity_line_does_not_invent_a_country_or_a_salary():
@@ -153,3 +179,55 @@ def test_a_spoken_number_becomes_an_overlay_without_a_plate():
     assert first["editorial"]["segmentId"] == "seg-1"
     assert first["editorial"]["component"] == "KineticHeadline"
     assert out["scenes"][1]["background"]["assetId"] is None
+
+
+# First 60s of the stored original4 ASR. Phrases below are substrings, not corrections.
+ORIGINAL4_60 = [
+    (0.0, 3.84, "买房送身份听起来是不是特别诱人"),
+    (3.84, 6.68, "钱没花掉还白得个绿卡"),
+    (6.68, 11.36, "甜美的陷阱往往就藏在这种占便宜的心理里"),
+    (11.36, 15.76, "今天只没帮你们把移民价值和房厂价值"),
+    (15.76, 18.92, "彻底路撥开来算比民白账"),
+    (18.92, 21.12, "所谓的买房移民"),
+    (21.12, 27.84, "房厂挂牌价里通常包含了高额的移民液水和开发商用金"),
+    (27.84, 29.84, "在签字刷卡前"),
+    (29.84, 33.72, "你必须理性问自己三个硬核问题"),
+]
+
+
+def test_original4_chinese_lines_become_two_kinetic_headlines():
+    transcript = [
+        {"id": f"seg-{index}", "start": start, "end": end, "zh": text, "original": text}
+        for index, (start, end, text) in enumerate(ORIGINAL4_60)
+    ]
+    # 60s production plan is the 10-beat grid, not six equal slices.
+    scenes = [
+        _scene(beat["id"], layout="speaker_split_right", framing="split", asset=f"stock-{beat['id']}", query="family home meeting office")
+        for beat in LONG_BEATS
+    ]
+    plan = _plan(scenes)
+    plan["beatWeights"] = [beat["weight"] for beat in LONG_BEATS]
+    out = apply_editorial_decision(
+        plan, transcript, locale="zh-CN", target_seconds=60, source_seconds=85.5, duration_mode="target",
+    )
+    emphasis = [scene for scene in out["scenes"] if scene["editorial"]["purpose"] == "semantic-emphasis"]
+    assert len(emphasis) == 2
+    phrases = [scene["headline"] for scene in emphasis]
+    # 0–3s only contains the offer. 3–9s contains the thesis, which outranks 绿卡.
+    assert phrases == ["买房送身份", "甜美的陷阱"]
+    spoken = {row["original"]: row["id"] for row in transcript}
+    for scene in emphasis:
+        phrase = scene["headline"]
+        host = next(text for text in spoken if phrase in text)
+        assert scene["editorial"]["segmentId"] == spoken[host]
+        assert scene["editorial"]["component"] == "KineticHeadline"
+        assert scene["sceneComposition"]["speakerPresentation"] == "emphasis"
+        assert scene["speaker"]["visibility"] == "primary"
+        assert scene["background"]["assetId"] is None
+        assert "步骤" not in str(scene)
+        assert scene["editorial"]["phrase"] == phrase
+    assert all(scene["background"]["assetId"] is None for scene in out["scenes"])
+    blob = str(out["scenes"])
+    assert "全程陪同" not in blob
+    assert "诸经" not in blob
+    assert "程交" not in blob

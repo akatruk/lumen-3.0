@@ -52,6 +52,19 @@ def _text(row: dict, locale: str | None) -> str:
     return ""
 
 
+def _rows_in_window(transcript, start: float, end: float) -> list:
+    rows = []
+    for row in transcript or []:
+        if not isinstance(row, dict):
+            continue
+        a = float(row.get("start") or 0)
+        b = float(row.get("end") or a)
+        if b <= start or a >= end:
+            continue
+        rows.append(row)
+    return rows
+
+
 def quote_for_window(transcript, start: float, end: float, locale: str | None) -> str:
     parts = []
     for row in transcript or []:
@@ -212,6 +225,27 @@ def _drop_graphics(scene: dict, quote: str) -> bool:
 
 _NUMBER = re.compile(r"\d[\d,.\-–~]*(?:[万亿%％元块])?")
 
+# Spoken spans worth a title. Longer and sharper first. A span is used only
+# when it is already inside one transcript segment. This list does not add words.
+_PHRASES = (
+    "甜美的陷阱",
+    "硬核问题",
+    "买房送身份",
+    "买房移民",
+    "挂牌价",
+    "占便宜",
+    "翻译费用",
+    "绿卡",
+    "护照",
+    "工资",
+    "税费",
+    "股东",
+    "身份",
+    "移民",
+    "刷卡",
+    "陷阱",
+)
+
 
 def emphasis_phrase(quote: str) -> str | None:
     """A short span already inside the quote. Not the whole caption, not a new claim."""
@@ -222,7 +256,45 @@ def emphasis_phrase(quote: str) -> str | None:
         token = match.group(0)
         if len(token) >= 2 and token != text and token in text:
             return token
+    return _best_phrase(text)
+
+
+def _best_phrase(text: str) -> str | None:
+    """Best verbatim title inside one segment. None when the line has no listed span."""
+    folded = text or ""
+    for phrase in _PHRASES:
+        if phrase in PACK_LABELS:
+            continue
+        if phrase in folded and phrase != folded:
+            return phrase
     return None
+
+
+def _row_id(row: dict) -> str | None:
+    ident = row.get("id") or row.get("segmentId") or row.get("segment_id")
+    return str(ident) if ident else None
+
+
+def emphasis_for_rows(rows: list, locale: str | None, used: set[str]) -> tuple[str | None, str | None]:
+    """Number first, then the sharpest unused phrase. Both must sit in that row."""
+    for row in rows:
+        text = _text(row, locale)
+        if len(text) < 6:
+            continue
+        for match in _NUMBER.finditer(text):
+            token = match.group(0)
+            if len(token) >= 2 and token != text and token in text and token not in used:
+                return token, _row_id(row)
+    ranked: list[tuple[int, str, str | None]] = []
+    for row in rows:
+        text = _text(row, locale)
+        phrase = _best_phrase(text)
+        if phrase and phrase not in used:
+            ranked.append((_PHRASES.index(phrase), phrase, _row_id(row)))
+    if not ranked:
+        return None, None
+    ranked.sort()
+    return ranked[0][1], ranked[0][2]
 
 
 def _segment_id(transcript, start: float, end: float) -> str | None:
@@ -259,6 +331,10 @@ def _stamp_emphasis(scene: dict, phrase: str) -> None:
 
 
 def _speaker_full(scene: dict) -> None:
+    scene.pop("headline", None)
+    typography = dict(scene.get("typography") or {})
+    typography.pop("headline", None)
+    scene["typography"] = typography
     speaker = dict(scene.get("speaker") or {})
     speaker["layout"] = "speaker_fullscreen"
     speaker["treatment"] = "speaker_fullscreen"
@@ -293,10 +369,12 @@ def apply_editorial_decision(
         weights = [1] * max(1, len(scenes))
     windows = _windows(weights, target) if scenes else []
     seen: set[str] = set()
+    used_phrases: set[str] = set()
     audit = []
     repaired = []
     emphasis_left = 2
     for scene, (start, end) in zip(scenes, windows):
+        rows = _rows_in_window(transcript, start, end)
         quote = quote_for_window(transcript, start, end, locale)
         background = scene.get("background") or {}
         asset = background.get("assetId") or background.get("file")
@@ -333,11 +411,13 @@ def apply_editorial_decision(
             scene["sceneComposition"] = composition
             purpose = "semantic-graphic"
         else:
-            phrase = emphasis_phrase(quote) if emphasis_left else None
+            phrase, phrase_segment = emphasis_for_rows(rows, locale, used_phrases) if emphasis_left else (None, None)
             if phrase:
                 _stamp_emphasis(scene, phrase)
+                used_phrases.add(phrase)
                 emphasis_left -= 1
                 purpose = "semantic-emphasis"
+                scene["_emphasisSegmentId"] = phrase_segment
             else:
                 _clear_media(scene)
                 _speaker_full(scene)
@@ -346,7 +426,7 @@ def apply_editorial_decision(
             "purpose": purpose,
             "relevance": round(score, 3),
             "quoteSeconds": [round(start, 3), round(end, 3)],
-            "segmentId": _segment_id(transcript, start, end),
+            "segmentId": scene.pop("_emphasisSegmentId", None) or _segment_id(transcript, start, end),
             "phrase": scene.get("headline") or "",
             "component": "KineticHeadline" if purpose == "semantic-emphasis" else "",
             "reason": purpose,

@@ -1467,7 +1467,9 @@ export function DirectorV3({
       if (!hookHeadline) return true;
       if (row.sceneId !== "hook") return true;
       const t = String(row.text || "").trim();
-      return t !== hookHeadline && !hookHeadline.startsWith(t) && !t.startsWith(hookHeadline);
+      // Hide only an exact duplicate of the title. A longer spoken line that
+      // merely contains the title stays on screen, under the caption inset.
+      return t !== hookHeadline;
     });
   const controls = visualPlan?.editingControls || null;
   const motionGain = editingMotionGain(controls);

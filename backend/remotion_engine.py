@@ -315,9 +315,12 @@ def render_with_plan(dest: Path, render_plan: dict) -> str:
     """Render via Director V3 Remotion using a resolved plan. Returns sha256."""
     from . import director_v3
     visual = visual_plan_from_render_plan(render_plan)
+    raw = render_plan.get('durationSeconds')
+    # Frame-quantized seconds. int() turned 85.5 into 85 before Remotion.
+    seconds = float(raw) if raw not in (None, '') else 20.0
     return director_v3.render_assembly(
         dest,
-        seconds=int(render_plan.get('durationSeconds') or 20),
+        seconds=seconds,
         speaker=render_plan.get('speakerFile') or 'speaker.mp4',
         visual_plan=visual,
     )
