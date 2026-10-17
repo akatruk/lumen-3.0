@@ -275,26 +275,97 @@ def _row_id(row: dict) -> str | None:
     return str(ident) if ident else None
 
 
+_EMPHASIS_GAP = 15.0
+_EMPHASIS_LIMIT = 2
+
+
+def _number_token(text: str) -> str | None:
+    """A spoken quantity already in the line. Bare single digits are not titles."""
+    if len(text) < 6:
+        return None
+    for match in _NUMBER.finditer(text):
+        token = match.group(0)
+        if len(token) < 2 or token == text or token not in text:
+            continue
+        digits = re.sub(r"\D", "", token)
+        if len(digits) >= 2 or any(unit in token for unit in "万亿%％元块"):
+            return token
+    return None
+
+
+def _row_candidates(row: dict, locale: str | None) -> list[tuple[int, str]]:
+    text = _text(row, locale)
+    found: list[tuple[int, str]] = []
+    number = _number_token(text)
+    if number:
+        found.append((-1, number))
+    for rank, phrase in enumerate(_PHRASES):
+        if phrase in PACK_LABELS:
+            continue
+        if phrase in text and phrase != text:
+            found.append((rank, phrase))
+    return found
+
+
 def emphasis_for_rows(rows: list, locale: str | None, used: set[str]) -> tuple[str | None, str | None]:
     """Number first, then the sharpest unused phrase. Both must sit in that row."""
-    for row in rows:
-        text = _text(row, locale)
-        if len(text) < 6:
-            continue
-        for match in _NUMBER.finditer(text):
-            token = match.group(0)
-            if len(token) >= 2 and token != text and token in text and token not in used:
-                return token, _row_id(row)
     ranked: list[tuple[int, str, str | None]] = []
     for row in rows:
-        text = _text(row, locale)
-        phrase = _best_phrase(text)
-        if phrase and phrase not in used:
-            ranked.append((_PHRASES.index(phrase), phrase, _row_id(row)))
+        for rank, phrase in _row_candidates(row, locale):
+            if phrase not in used:
+                ranked.append((rank, phrase, _row_id(row)))
     if not ranked:
         return None, None
     ranked.sort()
     return ranked[0][1], ranked[0][2]
+
+
+def _scene_for_time(windows: list[tuple[float, float]], when: float) -> int | None:
+    for index, (start, end) in enumerate(windows):
+        last = index == len(windows) - 1
+        if start <= when < end or (last and when <= end):
+            return index
+    return None
+
+
+def _select_emphasis(transcript, windows, locale, blocked: set[int]) -> list[dict]:
+    """Best phrases on the whole timeline. At most two, about 15s apart.
+
+    Rank decides. Clock order does not. A later sharper line beats an earlier
+    weak one. One useful line stays one line.
+    """
+    pool: dict[str, dict] = {}
+    for row in transcript or []:
+        if not isinstance(row, dict):
+            continue
+        start = float(row.get("start") or 0)
+        end = float(row.get("end") or start)
+        anchor = (start + end) / 2
+        scene_index = _scene_for_time(windows, anchor)
+        if scene_index is None or scene_index in blocked:
+            continue
+        for rank, phrase in _row_candidates(row, locale):
+            current = pool.get(phrase)
+            if current is not None and current["rank"] <= rank:
+                continue
+            pool[phrase] = {
+                "rank": rank,
+                "phrase": phrase,
+                "segmentId": _row_id(row),
+                "anchor": anchor,
+                "scene": scene_index,
+            }
+    ordered = sorted(pool.values(), key=lambda item: (item["rank"], -len(item["phrase"])))
+    chosen: list[dict] = []
+    for item in ordered:
+        if any(abs(item["anchor"] - kept["anchor"]) < _EMPHASIS_GAP for kept in chosen):
+            continue
+        if any(item["scene"] == kept["scene"] for kept in chosen):
+            continue
+        chosen.append(item)
+        if len(chosen) == _EMPHASIS_LIMIT:
+            break
+    return chosen
 
 
 def _segment_id(transcript, start: float, end: float) -> str | None:
@@ -318,15 +389,24 @@ def _stamp_emphasis(scene: dict, phrase: str) -> None:
     typography["headline"] = phrase
     typography["cardMode"] = "none"
     scene["typography"] = typography
+    execution = dict(scene.get("execution") or {})
+    execution["headline"] = phrase
+    execution["speakerFraming"] = "fullscreen"
+    execution["mediaRole"] = "none"
+    scene["execution"] = execution
     speaker = dict(scene.get("speaker") or {})
-    speaker["layout"] = "speaker_fullscreen"
+    # Mild existing zoom. The title sits below the face band, so the face stays clear.
+    speaker["layout"] = "speaker_medium"
     speaker["framing"] = "fullscreen"
     speaker["visibility"] = "primary"
     scene["speaker"] = speaker
-    composition = dict(scene.get("sceneComposition") or {})
-    composition["speakerPresentation"] = "emphasis"
-    composition["editorial"] = "emphasis"
-    scene["sceneComposition"] = composition
+    composition = dict(scene.get("composition") or {})
+    composition["floatObject"] = None
+    scene["composition"] = composition
+    look = dict(scene.get("sceneComposition") or {})
+    look["speakerPresentation"] = "emphasis"
+    look["editorial"] = "emphasis"
+    scene["sceneComposition"] = look
     scene["representation"] = "presenter"
 
 
@@ -347,6 +427,7 @@ def _speaker_full(scene: dict) -> None:
     scene["sceneComposition"] = composition
     scene["representation"] = "presenter"
     execution = dict(scene.get("execution") or {})
+    execution["headline"] = ""
     execution["speakerFraming"] = "fullscreen"
     execution["mediaRole"] = "none"
     scene["execution"] = execution
@@ -364,17 +445,17 @@ def apply_editorial_decision(
     out = dict(plan or {})
     scenes = [dict(scene) for scene in out.get("scenes") or []]
     target = float(target_seconds)
-    weights = list(out.get("beatWeights") or [])
+    rhythm, rhythm_source = speech_weights(transcript, target, len(scenes))
+    weights = rhythm or list(out.get("beatWeights") or [])
     if len(weights) != len(scenes):
         weights = [1] * max(1, len(scenes))
     windows = _windows(weights, target) if scenes else []
     seen: set[str] = set()
-    used_phrases: set[str] = set()
     audit = []
     repaired = []
-    emphasis_left = 2
-    for scene, (start, end) in zip(scenes, windows):
-        rows = _rows_in_window(transcript, start, end)
+    blocked: set[int] = set()
+    decisions: list[tuple[str, float, bool]] = []
+    for index, (scene, (start, end)) in enumerate(zip(scenes, windows)):
         quote = quote_for_window(transcript, start, end, locale)
         background = scene.get("background") or {}
         asset = background.get("assetId") or background.get("file")
@@ -398,6 +479,7 @@ def apply_editorial_decision(
             composition["relevance"] = round(score, 3)
             scene["sceneComposition"] = composition
             purpose = "supporting-visual"
+            blocked.add(index)
         elif graphic_ok:
             _clear_media(scene)
             speaker = dict(scene.get("speaker") or {})
@@ -410,14 +492,26 @@ def apply_editorial_decision(
             composition["editorial"] = "graphic"
             scene["sceneComposition"] = composition
             purpose = "semantic-graphic"
+            blocked.add(index)
         else:
-            phrase, phrase_segment = emphasis_for_rows(rows, locale, used_phrases) if emphasis_left else (None, None)
-            if phrase:
+            purpose = "pending"
+        decisions.append((purpose, score, repeated))
+        scene["_window"] = (start, end)
+        repaired.append(scene)
+    chosen = _select_emphasis(transcript, windows, locale, blocked)
+    by_scene = {item["scene"]: item for item in chosen}
+    scenes = repaired
+    repaired = []
+    for index, scene in enumerate(scenes):
+        start, end = scene.pop("_window")
+        purpose, score, repeated = decisions[index]
+        if purpose == "pending":
+            item = by_scene.get(index)
+            phrase = item["phrase"] if item else None
+            if phrase and phrase in quote_for_window(transcript, start, end, locale):
                 _stamp_emphasis(scene, phrase)
-                used_phrases.add(phrase)
-                emphasis_left -= 1
+                scene["_emphasisSegmentId"] = item["segmentId"]
                 purpose = "semantic-emphasis"
-                scene["_emphasisSegmentId"] = phrase_segment
             else:
                 _clear_media(scene)
                 _speaker_full(scene)
@@ -435,7 +529,6 @@ def apply_editorial_decision(
         }
         audit.append(scene["editorial"])
         repaired.append(scene)
-    rhythm, rhythm_source = speech_weights(transcript, target, len(repaired))
     out["scenes"] = repaired
     if rhythm:
         out["beatWeights"] = rhythm

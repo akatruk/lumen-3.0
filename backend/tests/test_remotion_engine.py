@@ -84,6 +84,7 @@ def test_resolve_keeps_emphasis_headline_for_the_router():
                 'background': {},
                 'foreground': {},
                 'typography': {'headline': '甜美的陷阱', 'cardMode': 'none'},
+                'execution': {'headline': '甜美的陷阱往往就藏在这种占便宜的心理里'},
                 'sceneComposition': {'speakerPresentation': 'emphasis', 'editorial': 'emphasis'},
                 'transition': 'cut',
             }],

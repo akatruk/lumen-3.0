@@ -134,6 +134,14 @@ def plans_dir(data_dir, project_id: str) -> Path:
     return folder
 
 
+def _emphasis_headline(raw: dict) -> str:
+    """The short spoken span, not the whole caption sitting on execution.headline."""
+    typography = raw.get('typography') or {}
+    execution = raw.get('execution') or {}
+    phrase = typography.get('headline') or execution.get('headline') or raw.get('headline') or ''
+    return phrase
+
+
 def resolve_scene_plan(
     *,
     visual_plan: dict | None,
@@ -185,8 +193,10 @@ def resolve_scene_plan(
             'criteriaCards': list((raw.get('typography') or {}).get('cards') or []),
             'stepsTitle': (raw.get('typography') or {}).get('stepsTitle'),
             'steps': list((raw.get('typography') or {}).get('steps') or []),
-            'headline': (raw.get('execution') or {}).get('headline')
-            or (raw.get('typography') or {}).get('headline'),
+            'headline': _emphasis_headline(raw) if (raw.get('sceneComposition') or {}).get('speakerPresentation') == 'emphasis' else (
+                (raw.get('execution') or {}).get('headline')
+                or (raw.get('typography') or {}).get('headline')
+            ),
             'cardMode': (raw.get('typography') or {}).get('cardMode')
             or (raw.get('execution') or {}).get('cardMode')
             or (raw.get('shotPlan') or {}).get('cardMode'),

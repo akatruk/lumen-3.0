@@ -913,9 +913,9 @@ function KineticHeadline({ text, locale }: { text: string; locale: SupportedLoca
       <div
         style={{
           position: "absolute",
-          left: 56,
-          right: 56,
-          top: 220,
+          left: 140,
+          right: 140,
+          top: 1040,
           opacity: enter,
           transform: `translateY(${(1 - enter) * 28}px) scale(${0.96 + enter * 0.04})`,
         }}
@@ -929,10 +929,10 @@ function KineticHeadline({ text, locale }: { text: string; locale: SupportedLoca
         >
           <AutoFitText
             text={text}
-            maxWidth={940}
-            maxHeight={160}
-            role={{ min: 64, max: 96, weight: 800, lineHeight: 1.05, tracking: -0.03 }}
-            align="left"
+            maxWidth={800}
+            maxHeight={112}
+            role={{ min: 40, max: 64, weight: 760, lineHeight: 1.08, tracking: -0.02 }}
+            align="center"
             vertical="center"
             wrapMode="auto"
             maxLines={2}
@@ -962,9 +962,11 @@ function Hook({
 }) {
   const frame = useCurrentFrame();
   const baseZoom = layoutZoom(look.speaker.layout);
+  const emphasis = look.sceneComposition?.speakerPresentation === "emphasis";
   // Mid-hook punch keeps the opener from reading as a locked still when the beat stretches.
+  // Emphasis already uses speaker_medium. An extra punch would push the face into the title.
   const punchAt = Math.max(18, Math.round(frames * 0.42));
-  const punch = interpolate(frame, [punchAt, punchAt + 16], [0, 0.12], clamp);
+  const punch = emphasis ? 0 : interpolate(frame, [punchAt, punchAt + 16], [0, 0.12], clamp);
   const headline = suppressHeadline ? "" : look.headline || look.typography?.headline || "";
   return (
     <Enter transition={look.transition}>

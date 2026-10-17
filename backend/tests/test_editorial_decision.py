@@ -171,14 +171,16 @@ def test_a_spoken_number_becomes_an_overlay_without_a_plate():
     out = apply_editorial_decision(
         plan, transcript, locale="zh-CN", target_seconds=60, source_seconds=85.5, duration_mode="target",
     )
-    first = out["scenes"][0]
-    assert first["sceneComposition"]["speakerPresentation"] == "emphasis"
+    emphasis = [scene for scene in out["scenes"] if scene["editorial"]["purpose"] == "semantic-emphasis"]
+    assert len(emphasis) == 1
+    first = emphasis[0]
     assert first["headline"] == "85万"
+    assert first["execution"]["headline"] == "85万"
     assert first["headline"] in quote
     assert first["background"]["assetId"] is None
     assert first["editorial"]["segmentId"] == "seg-1"
     assert first["editorial"]["component"] == "KineticHeadline"
-    assert out["scenes"][1]["background"]["assetId"] is None
+    assert all(scene["background"]["assetId"] is None for scene in out["scenes"])
 
 
 # First 60s of the stored original4 ASR. Phrases below are substrings, not corrections.
@@ -195,16 +197,18 @@ ORIGINAL4_60 = [
 ]
 
 
-def test_original4_chinese_lines_become_two_kinetic_headlines():
+def test_original4_chinese_lines_become_two_kinetic_headlines(tmp_path):
     transcript = [
         {"id": f"seg-{index}", "start": start, "end": end, "zh": text, "original": text}
         for index, (start, end, text) in enumerate(ORIGINAL4_60)
     ]
     # 60s production plan is the 10-beat grid, not six equal slices.
-    scenes = [
-        _scene(beat["id"], layout="speaker_split_right", framing="split", asset=f"stock-{beat['id']}", query="family home meeting office")
-        for beat in LONG_BEATS
-    ]
+    scenes = []
+    for beat in LONG_BEATS:
+        scene = _scene(beat["id"], layout="speaker_split_right", framing="split", asset=f"stock-{beat['id']}", query="family home meeting office")
+        scene["composition"] = {"floatObject": {"assetId": "goal", "file": "static/icons/goal.svg"}}
+        scene["execution"] = {"headline": "买房送身份听起来是不是特别诱人"}
+        scenes.append(scene)
     plan = _plan(scenes)
     plan["beatWeights"] = [beat["weight"] for beat in LONG_BEATS]
     out = apply_editorial_decision(
@@ -213,8 +217,13 @@ def test_original4_chinese_lines_become_two_kinetic_headlines():
     emphasis = [scene for scene in out["scenes"] if scene["editorial"]["purpose"] == "semantic-emphasis"]
     assert len(emphasis) == 2
     phrases = [scene["headline"] for scene in emphasis]
-    # 0–3s only contains the offer. 3–9s contains the thesis, which outranks 绿卡.
-    assert phrases == ["买房送身份", "甜美的陷阱"]
+    assert "甜美的陷阱" in phrases
+    assert "硬核问题" in phrases
+    assert "买房送身份听起来是不是特别诱人" not in phrases
+    late = next(scene for scene in emphasis if scene["headline"] == "硬核问题")
+    assert late["editorial"]["quoteSeconds"][0] >= 20
+    early = next(scene for scene in emphasis if scene["headline"] == "甜美的陷阱")
+    assert late["editorial"]["quoteSeconds"][0] - early["editorial"]["quoteSeconds"][0] >= 15
     spoken = {row["original"]: row["id"] for row in transcript}
     for scene in emphasis:
         phrase = scene["headline"]
@@ -223,6 +232,9 @@ def test_original4_chinese_lines_become_two_kinetic_headlines():
         assert scene["editorial"]["component"] == "KineticHeadline"
         assert scene["sceneComposition"]["speakerPresentation"] == "emphasis"
         assert scene["speaker"]["visibility"] == "primary"
+        assert scene["speaker"]["layout"] == "speaker_medium"
+        assert scene["execution"]["headline"] == phrase
+        assert (scene.get("composition") or {}).get("floatObject") is None
         assert scene["background"]["assetId"] is None
         assert "步骤" not in str(scene)
         assert scene["editorial"]["phrase"] == phrase
@@ -231,3 +243,10 @@ def test_original4_chinese_lines_become_two_kinetic_headlines():
     assert "全程陪同" not in blob
     assert "诸经" not in blob
     assert "程交" not in blob
+    from backend.director_v9 import stage_float_objects
+    staged = stage_float_objects(out, tmp_path)
+    for scene in staged["scenes"]:
+        if scene["editorial"]["purpose"] != "semantic-emphasis":
+            continue
+        assert (scene.get("foreground") or {}).get("file") is None
+        assert ((scene.get("composition") or {}).get("floatObject") or {}).get("staged") is None
