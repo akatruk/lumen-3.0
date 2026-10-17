@@ -501,9 +501,18 @@ function SceneRouter({
       sid === "residency" ||
       sid === "steps" ||
       sid === "beside");
+  const emphasisLine = look.headline || look.typography?.headline || "";
   let body: ReactNode = null;
   if (v14) {
     body = <V14Stage file={file} from={from} frames={frames} look={look} />;
+  } else if (presentation === "emphasis" && emphasisLine) {
+    body = (
+      <Hook file={file} from={from} frames={frames} look={look} locale={locale} />
+    );
+  } else if (presentation === "graphic") {
+    body = <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />;
+  } else if (presentation === "split" && hasPlate) {
+    body = <Residency file={file} from={from} frames={frames} look={look} />;
   } else if (presentation === "fullscreen" || presentation === "speaker" || cutawayWithoutPlate) {
     body = (
       <Enter transition={look.transition}>
@@ -513,10 +522,6 @@ function SceneRouter({
         </AbsoluteFill>
       </Enter>
     );
-  } else if (presentation === "split" && hasPlate) {
-    body = <Residency file={file} from={from} frames={frames} look={look} />;
-  } else if (presentation === "graphic") {
-    body = <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (sid === "beside" || look.cardMode === "progressive_one" || look.typography?.cardMode === "progressive_one") {
     body = <Beside file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (sid === "steps" || look.stepsTitle || look.typography?.stepsTitle) {

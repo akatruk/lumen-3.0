@@ -210,6 +210,54 @@ def _drop_graphics(scene: dict, quote: str) -> bool:
     return kept
 
 
+_NUMBER = re.compile(r"\d[\d,.\-–~]*(?:[万亿%％元块])?")
+
+
+def emphasis_phrase(quote: str) -> str | None:
+    """A short span already inside the quote. Not the whole caption, not a new claim."""
+    text = " ".join((quote or "").split())
+    if len(text) < 6:
+        return None
+    for match in _NUMBER.finditer(text):
+        token = match.group(0)
+        if len(token) >= 2 and token != text and token in text:
+            return token
+    return None
+
+
+def _segment_id(transcript, start: float, end: float) -> str | None:
+    for row in transcript or []:
+        if not isinstance(row, dict):
+            continue
+        a = float(row.get("start") or 0)
+        b = float(row.get("end") or a)
+        if b <= start or a >= end:
+            continue
+        ident = row.get("id") or row.get("segmentId") or row.get("segment_id")
+        if ident:
+            return str(ident)
+    return None
+
+
+def _stamp_emphasis(scene: dict, phrase: str) -> None:
+    _clear_media(scene)
+    scene["headline"] = phrase
+    typography = dict(scene.get("typography") or {})
+    typography["headline"] = phrase
+    typography["cardMode"] = "none"
+    scene["typography"] = typography
+    speaker = dict(scene.get("speaker") or {})
+    speaker["layout"] = "speaker_fullscreen"
+    speaker["framing"] = "fullscreen"
+    speaker["visibility"] = "primary"
+    scene["speaker"] = speaker
+    composition = dict(scene.get("sceneComposition") or {})
+    composition["speakerPresentation"] = "emphasis"
+    composition["editorial"] = "emphasis"
+    scene["sceneComposition"] = composition
+    scene["representation"] = "presenter"
+
+
 def _speaker_full(scene: dict) -> None:
     speaker = dict(scene.get("speaker") or {})
     speaker["layout"] = "speaker_fullscreen"
@@ -247,6 +295,7 @@ def apply_editorial_decision(
     seen: set[str] = set()
     audit = []
     repaired = []
+    emphasis_left = 2
     for scene, (start, end) in zip(scenes, windows):
         quote = quote_for_window(transcript, start, end, locale)
         background = scene.get("background") or {}
@@ -284,14 +333,25 @@ def apply_editorial_decision(
             scene["sceneComposition"] = composition
             purpose = "semantic-graphic"
         else:
-            _clear_media(scene)
-            _speaker_full(scene)
-            purpose = "speaker-full"
+            phrase = emphasis_phrase(quote) if emphasis_left else None
+            if phrase:
+                _stamp_emphasis(scene, phrase)
+                emphasis_left -= 1
+                purpose = "semantic-emphasis"
+            else:
+                _clear_media(scene)
+                _speaker_full(scene)
+                purpose = "speaker-full"
         scene["editorial"] = {
             "purpose": purpose,
             "relevance": round(score, 3),
             "quoteSeconds": [round(start, 3), round(end, 3)],
+            "segmentId": _segment_id(transcript, start, end),
+            "phrase": scene.get("headline") or "",
+            "component": "KineticHeadline" if purpose == "semantic-emphasis" else "",
+            "reason": purpose,
             "repeated": repeated,
+            "rejected": purpose == "speaker-full",
         }
         audit.append(scene["editorial"])
         repaired.append(scene)

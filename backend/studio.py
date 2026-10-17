@@ -125,6 +125,8 @@ class EditingControlsBody(Strict):
     density_percent: int = Field(default=70, ge=0, le=100)
     visual_energy: str = Field(default='balanced')
     visual_variation: str | None = None
+    duration_seconds: float | None = None
+    duration_mode: str | None = None
 
 class VoicePreview(Strict):
     language: str = Field(min_length=2, max_length=16)
@@ -404,6 +406,10 @@ def save_editing_controls(pid: str, body: EditingControlsBody, user=Depends(curr
         'preset': preset,
         'visualVariation': body.visual_variation,
     }
+    if body.duration_mode in ('full', 'custom'):
+        record['durationMode'] = body.duration_mode
+    if body.duration_seconds is not None:
+        record['durationSeconds'] = body.duration_seconds
     with connect() as db:
         db.lock()
         current = state(pid, db)

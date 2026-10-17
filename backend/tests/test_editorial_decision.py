@@ -133,3 +133,23 @@ def test_rhythm_follows_speech_instead_of_the_long60_template():
     assert out["beatWeights"] != list(TEMPLATE)
     assert out["beatWeights"][0] > out["beatWeights"][-1]
     assert sum(out["beatWeights"]) == 1800
+
+
+def test_a_spoken_number_becomes_an_overlay_without_a_plate():
+    quote = "这套房的挂牌价大约是85万，后面再谈税费"
+    plan = _plan([
+        _scene("hook", layout="speaker_fullscreen", framing="fullscreen"),
+        _scene("context", layout="speaker_split_right", framing="split", asset="people_property_001", query="family home"),
+    ])
+    transcript = [{"id": "seg-1", "start": 0, "end": 60, "zh": quote, "original": quote}]
+    out = apply_editorial_decision(
+        plan, transcript, locale="zh-CN", target_seconds=60, source_seconds=85.5, duration_mode="target",
+    )
+    first = out["scenes"][0]
+    assert first["sceneComposition"]["speakerPresentation"] == "emphasis"
+    assert first["headline"] == "85万"
+    assert first["headline"] in quote
+    assert first["background"]["assetId"] is None
+    assert first["editorial"]["segmentId"] == "seg-1"
+    assert first["editorial"]["component"] == "KineticHeadline"
+    assert out["scenes"][1]["background"]["assetId"] is None
