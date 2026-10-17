@@ -519,7 +519,7 @@ function SceneRouter({
     body = (
       <Enter transition={look.transition}>
         <AbsoluteFill>
-          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.04} />
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={layoutZoom(layout)} />
           <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
         </AbsoluteFill>
       </Enter>

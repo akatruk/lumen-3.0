@@ -249,6 +249,7 @@ def test_original4_chinese_lines_become_two_kinetic_headlines(tmp_path):
     assert "全程陪同" not in blob
     assert "诸经" not in blob
     assert "程交" not in blob
+    assert all((scene.get("composition") or {}).get("floatObject") is None for scene in out["scenes"])
     from backend.director_v9 import stage_float_objects
     staged = stage_float_objects(out, tmp_path)
     for scene in staged["scenes"]:
@@ -256,3 +257,25 @@ def test_original4_chinese_lines_become_two_kinetic_headlines(tmp_path):
             continue
         assert (scene.get("foreground") or {}).get("file") is None
         assert ((scene.get("composition") or {}).get("floatObject") or {}).get("staged") is None
+
+
+def test_unsupported_goal_float_is_dropped_and_a_spoken_passport_float_stays():
+    dropped = _scene("hook", layout="speaker_fullscreen", framing="fullscreen")
+    dropped["composition"] = {"floatObject": {"assetId": "goal", "file": "static/icons/goal.svg", "keyword": "control", "concept": "control"}}
+    dropped["shotPlan"] = {"speakerLayout": "speaker_punch_in"}
+    kept = _scene("return", layout="speaker_fullscreen", framing="fullscreen")
+    kept["composition"] = {"floatObject": {"assetId": "passport", "file": "static/icons/passport.svg", "keyword": "passport", "concept": "passport"}}
+    kept["shotPlan"] = {"speakerLayout": "speaker_medium"}
+    transcript = [
+        {"id": "a", "start": 0, "end": 30, "zh": "彻底路撥开来算比民白账", "original": "彻底路撥开来算比民白账"},
+        {"id": "b", "start": 30, "end": 60, "zh": "护照", "original": "护照"},
+    ]
+    out = apply_editorial_decision(
+        _plan([dropped, kept]), transcript, locale="zh-CN", target_seconds=60, source_seconds=85.5, duration_mode="target",
+    )
+    hook, later = out["scenes"]
+    assert hook["composition"]["floatObject"] is None
+    assert hook["editorial"]["reason"] == "unsupported-float"
+    assert hook["speaker"]["layout"] == "speaker_fullscreen"
+    assert later["composition"]["floatObject"]["keyword"] == "passport"
+    assert later["speaker"]["layout"] == "speaker_medium"

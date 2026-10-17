@@ -415,14 +415,62 @@ def _stamp_emphasis(scene: dict, phrase: str, speech: tuple[float, float] | None
         scene["emphasisRange"] = [round(speech[0], 3), round(speech[1], 3)]
 
 
+_SAFE_SPEAKER = {"speaker_fullscreen", "speaker_medium"}
+
+
+def _float_supported(flo: dict, quote: str) -> bool:
+    """Same evidence rule as a plate. A global keyword is not this scene's quote."""
+    if not isinstance(flo, dict) or not flo.get("file"):
+        return False
+    blob = " ".join(str(flo.get(key) or "") for key in ("keyword", "concept", "assetId", "silhouette"))
+    if relevance(quote, blob, str(flo.get("assetId") or "")) >= THRESHOLD:
+        return True
+    spoken = quote or ""
+    for key in ("keyword", "concept"):
+        token = str(flo.get(key) or "").strip()
+        if token and (token in spoken or token.lower() in spoken.lower()):
+            return True
+    return False
+
+
+def _gate_float(scene: dict, quote: str) -> str | None:
+    comp = dict(scene.get("composition") or {})
+    flo = comp.get("floatObject") or {}
+    if not isinstance(flo, dict) or not flo.get("file"):
+        return None
+    if _float_supported(flo, quote):
+        return None
+    comp["floatObject"] = None
+    scene["composition"] = comp
+    foreground = dict(scene.get("foreground") or {})
+    if foreground.get("file") == flo.get("file") or (
+        flo.get("assetId") and foreground.get("assetId") == flo.get("assetId")
+    ):
+        foreground["assetId"] = None
+        foreground["file"] = None
+        foreground["staged"] = None
+        scene["foreground"] = foreground
+    return "unsupported-float"
+
+
+def _safe_layout(scene: dict) -> str:
+    speaker = scene.get("speaker") or {}
+    shot = scene.get("shotPlan") or {}
+    for candidate in (shot.get("speakerLayout"), speaker.get("layout")):
+        if candidate in _SAFE_SPEAKER:
+            return candidate
+    return "speaker_fullscreen"
+
+
 def _speaker_full(scene: dict) -> None:
     scene.pop("headline", None)
     typography = dict(scene.get("typography") or {})
     typography.pop("headline", None)
     scene["typography"] = typography
+    layout = _safe_layout(scene)
     speaker = dict(scene.get("speaker") or {})
-    speaker["layout"] = "speaker_fullscreen"
-    speaker["treatment"] = "speaker_fullscreen"
+    speaker["layout"] = layout
+    speaker["treatment"] = layout
     speaker["framing"] = "fullscreen"
     speaker["visibility"] = "primary"
     scene["speaker"] = speaker
@@ -510,6 +558,8 @@ def apply_editorial_decision(
     for index, scene in enumerate(scenes):
         start, end = scene.pop("_window")
         purpose, score, repeated = decisions[index]
+        quote = quote_for_window(transcript, start, end, locale)
+        float_rejection = _gate_float(scene, quote)
         if purpose == "pending":
             item = by_scene.get(index)
             phrase = item["phrase"] if item else None
@@ -529,7 +579,7 @@ def apply_editorial_decision(
             "segmentId": scene.pop("_emphasisSegmentId", None) or _segment_id(transcript, start, end),
             "phrase": scene.get("headline") or "",
             "component": "KineticHeadline" if purpose == "semantic-emphasis" else "",
-            "reason": purpose,
+            "reason": float_rejection if purpose == "speaker-full" and float_rejection else purpose,
             "repeated": repeated,
             "rejected": purpose == "speaker-full",
         }
