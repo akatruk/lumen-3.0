@@ -224,7 +224,8 @@ def validate_semantic_plan(plan: dict, segment_ids: set[str], *, segments: dict 
             issues.append(_issue(index, "intent", "question_intent_without_mark", intent, quote, ids))
         if (asked or numbered) and executed == "talking_head":
             issues.append(_issue(index, "visual_treatment", "question_or_number_left_talking_head", executed, quote, ids))
-        if (asked or numbered) and not concept:
+        supplied_labels = [str(item).strip() for item in (passage.get("labels") or []) if str(item).strip()]
+        if (asked or numbered) and not concept and not supplied_labels:
             issues.append(_issue(index, "visual_concept", "missing_visual_concept", "", quote, ids))
         if numbered and executed not in {"kinetic_typography", "process", "comparison", "supporting_broll", "pip"}:
             issues.append(_issue(index, "visual_treatment", "number_treatment", executed, quote, ids))
@@ -430,7 +431,7 @@ segment_ids name the segment whose text contains the quote. Copy the id from the
 visual_treatment and visual_concept are different fields.
 visual_treatment chooses the composition: talking_head, process, comparison, kinetic_typography, supporting_broll, pip.
 Renderer names such as speaker_fullscreen, split_plate, pip_plate, beside_cards and clean_steps are capabilities, never a visual_concept and never a media id.
-A text-only split is visual_treatment "process" with labels copied from the quote and visual_concept empty. No media id.
+A text-only split is visual_treatment "process" with labels copied from the quote and visual_concept empty. No media id. A spoken number inside that list stays in labels; do not also invent a visual_concept. kinetic_typography is the treatment that puts the spoken number itself in visual_concept.
 supporting_broll and pip may set visual_concept only to an id listed in media. If media is empty, do not use those treatments.
 
 Return only the required structured output."""
@@ -516,7 +517,7 @@ def editorial_context(transcript: list, language: str, *, duration: float, aspec
             "review_note": "Empty, or the suspicious transcript span copied unchanged. Do not invent a correction.",
             "no_timestamps_field": True,
             "segment_ids": "Copy segment_id. The quote must occur inside those segments only.",
-            "visual_concept": "Empty for talking_head, process, comparison and kinetic_typography. For supporting_broll or pip, exactly one media id.",
+            "visual_concept": "Empty when labels carry the on-screen words. For kinetic_typography, the spoken number copied from the quote. For supporting_broll or pip, exactly one media id.",
             "layout_names_are_not_media_ids": list(SUPPORTED_TREATMENTS.values()),
             "text_only_split": "visual_treatment process, labels copied from the quote, visual_concept empty.",
         },

@@ -101,6 +101,22 @@ def test_quote_assigned_to_the_wrong_segment_fails():
     assert caught.value.issues[0]["segment_ids"] == ["segment_002"]
 
 
+def test_numbered_process_with_verbatim_labels_needs_no_concept():
+    quote = "还会引入反洗钱数据库穿透审查你过去五年到十年的资金积累链条"
+    plan = validate_semantic_plan({
+        "language": "zh",
+        "topic": "review",
+        "passages": [_passage(
+            quote=quote,
+            labels=["反洗钱数据库", "资金积累链条"],
+            visual_concept="",
+            visual_treatment="process",
+        )],
+    }, {"segment_001"})
+    assert plan["passages"][0]["labels"] == ["反洗钱数据库", "资金积累链条"]
+    assert plan["passages"][0]["visual_concept"] in (None, "")
+
+
 def test_label_outside_the_quote_is_rejected():
     with pytest.raises(PlannerError) as caught:
         validate_semantic_plan({
