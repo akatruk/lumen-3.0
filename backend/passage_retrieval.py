@@ -293,7 +293,34 @@ def _ordinal_marks(words: list[dict], start: float, end: float) -> list[int]:
     return marks
 
 
-def _label_scene(index: int, start: float, end: float, quote: str, label: str) -> dict:
+# Examples that occur as contiguous text inside one evidence item. Nothing else is added.
+_ITEM_EXAMPLES = {
+    "原始积累证明": ("工资完税单", "分红凭证", "股东决议"),
+    "资产变现链条": ("房产买卖合同", "股权转让协议", "银行完税流水"),
+    "合法的证据": ("协议", "资金来源"),
+    "跨境路径合规性": ("监管账户",),
+    "监管账户": (),
+}
+
+
+def _example_cues(label: str, words: list[dict], start: float, end: float) -> list[dict]:
+    window = [
+        item for item in words
+        if float(item["end"]) > start + 0.001 and float(item["start"]) < end - 0.001
+    ]
+    text = "".join(item["text"] for item in window)
+    cues = [{"text": label, "start": round(float(window[0]["start"]) if window else start, 3)}]
+    cursor = 0
+    for example in _ITEM_EXAMPLES.get(label, ()):
+        at = text.find(example, cursor)
+        if at < 0 or at >= len(window):
+            continue
+        cues.append({"text": example, "start": round(float(window[at]["start"]), 3)})
+        cursor = at + len(example)
+    return cues
+
+
+def _label_scene(index: int, start: float, end: float, quote: str, label: str, words: list[dict] | None = None) -> dict:
     scene = _scene_from_passage(index, start, end, {
         "quote": quote,
         "intent": label,
@@ -308,8 +335,14 @@ def _label_scene(index: int, start: float, end: float, quote: str, label: str) -
     scene["background"] = {}
     scene["speaker"] = {"layout": "speaker_split_right", "framing": "split", "visibility": "primary"}
     scene["sceneComposition"] = {"speakerPresentation": "split", "editorial": "spoken-split"}
-    scene["typography"] = {"steps": [label], "stepsTitle": "", "cardMode": "none"}
-    scene["steps"] = [label]
+    cues = _example_cues(label, words or [], start, end)
+    scene["typography"] = {
+        "steps": [cue["text"] for cue in cues],
+        "stepsTitle": label,
+        "cardMode": "none",
+        "stepCues": cues,
+    }
+    scene["steps"] = [cue["text"] for cue in cues]
     scene["spokenStructure"] = {"evidence": True}
     scene["ordinalGraphic"] = True
     scene["mediaDecision"] = {"status": "NO_ASSET", "reason": "spoken_label", "searched": False}
@@ -448,7 +481,7 @@ def _scenes_from_word_times(passages: list[dict], words: list[dict]) -> list[dic
         abutted[-1] = (start, max(_end, duration), label, quote)
     for index, (start, end, label, quote) in enumerate(abutted, start=1):
         if label and label in (quote or ""):
-            scenes.append(_label_scene(index, start, end, quote, label))
+            scenes.append(_label_scene(index, start, end, quote, label, words))
         else:
             scenes.append(_head_scene(index, start, end, quote))
     return scenes or None
@@ -647,4 +680,9 @@ def bound_semantic_duration(plan: dict, seconds: float) -> dict:
             scenes.append({**scene, "start": start, "end": end})
     if not scenes:
         raise PlannerError("PLANNER_INVALID", "no_passage_in_requested_duration")
+    # The picture is longer than the last aligner token by a few frames.
+    # Leaving that gap paints the empty stage color as a dark end frame.
+    tail = float(seconds) - float(scenes[-1]["end"])
+    if 0 < tail <= 0.5:
+        scenes[-1] = {**scenes[-1], "end": float(seconds)}
     return {**plan, "scenes": scenes, "beatWeights": [round((s["end"] - s["start"]) * 1000) for s in scenes]}

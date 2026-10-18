@@ -42,6 +42,7 @@ export type SceneLook = {
     cards?: CriteriaCardLook[];
     stepsTitle?: string;
     steps?: string[];
+    stepCues?: { text: string; start: number }[];
     cardMode?: "stack" | "progressive_one" | "none";
   };
   transition: string;
@@ -1227,9 +1228,14 @@ function SpokenSplit({
 }) {
   const frame = useCurrentFrame();
   const steps = look.steps?.length ? look.steps : look.typography?.steps || [];
+  const cues = (look.typography?.stepCues || []) as { text: string; start: number }[];
+  const sceneStart = Number(look.start || 0);
+  const now = sceneStart + frame / DIRECTOR_V3_FPS;
+  const visibleCues = cues.filter((cue) => Number(cue.start) <= now + 0.04);
+  const activeCue = visibleCues.length ? visibleCues[visibleCues.length - 1].text : "";
   const count = Math.max(1, steps.length);
   const slot = Math.min(count - 1, Math.max(0, Math.floor((frame / Math.max(1, frames)) * count)));
-  const label = steps[slot] || steps[0] || "";
+  const label = activeCue || steps[slot] || steps[0] || "";
   const speakerBox = splitSpeakerRect("right");
   const mediaBox = splitMediaRect("left");
   const enter = interpolate(frame, [0, 12], [0, 1], clamp);
@@ -1251,6 +1257,26 @@ function SpokenSplit({
             boxSizing: "border-box",
           }}
         >
+          {visibleCues.length > 1 ? (
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 18 }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: theme.color.muted, lineHeight: 1.15 }}>
+                {visibleCues[0].text}
+              </div>
+              {visibleCues.slice(1).map((cue) => (
+                <div
+                  key={`${cue.start}-${cue.text}`}
+                  style={{
+                    fontSize: cue.text === activeCue ? 56 : 32,
+                    fontWeight: cue.text === activeCue ? 800 : 600,
+                    color: cue.text === activeCue ? theme.color.paper : theme.color.muted,
+                    lineHeight: 1.12,
+                  }}
+                >
+                  {cue.text}
+                </div>
+              ))}
+            </div>
+          ) : (
           <AutoFitText
             text={label}
             maxWidth={Math.max(80, mediaBox.width - 56)}
@@ -1262,6 +1288,7 @@ function SpokenSplit({
             maxLines={5}
             locale={locale}
           />
+          )}
         </div>
         <div
           style={{
@@ -1712,7 +1739,8 @@ export function DirectorV3({
   return (
     <AbsoluteFill style={{ background: theme.color.bg, fontFamily: theme.font.sans }}>
       <LocaleProvider locale={planLocale}>
-      <Audio src={media(speakerFile)} volume={1.6} />
+      {/* 1.6 lifted a -2.3 dBFS source through 0 dBFS. 0.85 keeps speech intelligible and under 0 dBTP with the ducked bed. */}
+      <Audio src={media(speakerFile)} volume={0.85} />
       <Audio src={media("bed.mp3")} volume={(f) => bedVolume(f, frames)} />
       {plate ? (
         <Sequence from={0} durationInFrames={frames} name="plate">

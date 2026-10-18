@@ -195,10 +195,20 @@ def test_shared_segment_uses_quote_word_times_and_splits_ordinals(tmp_path, monk
     chain = [scene for scene in out["scenes"] if (scene.get("steps") or [None])[0] == "资产变现链条"][0]
     assert "房产买卖合同" in chain["quote"]
     assert chain["background"] == {}
+    cues = chain["typography"]["stepCues"]
+    assert [cue["text"] for cue in cues] == ["资产变现链条", "房产买卖合同"]
+    assert cues[1]["start"] > cues[0]["start"]
+    third = [scene for scene in out["scenes"] if (scene.get("steps") or [None])[0] == "合法的证据"][0]
+    assert "证依据" not in third["steps"]
+    assert "资金来源" in third["steps"]
+    from backend.passage_retrieval import bound_semantic_duration
+    bounded = bound_semantic_duration(out, cursor + 0.04)
+    assert bounded["scenes"][-1]["end"] == cursor + 0.04
     gated = apply_evidence_gate(out, transcript, locale="zh-CN")
     kept = [scene.get("steps") for scene in gated["scenes"]]
-    assert ["原始积累证明"] in kept
-    assert ["合法的证据"] in kept
+    assert ["反洗钱"] in kept
+    assert ["四种证据链"] in kept
+    assert all("证依据" not in (step or "") for steps in kept for step in (steps or []))
     checked = revalidate_assets(gated, "pid", transcript, catalog=[{
         "id": "building", "file": "missing.png", "title": "office tower", "tags": "property",
         "status": "reviewed",

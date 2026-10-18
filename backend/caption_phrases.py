@@ -240,11 +240,51 @@ def _phrases_from_words(words: list[dict], *, duration_s: float | None) -> list[
         if ordinal:
             index += 1
             buf.append(words[index])
-        if len(''.join(item['text'] for item in buf)) >= _ZH_MAX:
+        joined = ''.join(item['text'] for item in buf)
+        if len(joined) >= _ZH_MAX and not _cjk_continuation(words, index):
+            flush()
+        elif len(joined) >= _ZH_MAX + 4:
             flush()
         index += 1
     flush()
-    return phrases
+    return _merge_cjk_tails(phrases)
+
+
+def _cjk_continuation(words: list[dict], index: int) -> bool:
+    """True when the next 1–4 tokens are the rest of the same breath (证据链, 协议, 合法渠道)."""
+    if index + 1 >= len(words):
+        return False
+    prev_end = float(words[index]['end'])
+    extra = 0
+    cursor = index + 1
+    while cursor < len(words) and extra < 4:
+        token = words[cursor]
+        if token['text'] == '第' and cursor + 1 < len(words) and words[cursor + 1]['text'] in _ORDINAL_NUM:
+            break
+        if float(token['start']) - prev_end >= 0.2:
+            break
+        extra += len(token['text'])
+        prev_end = float(token['end'])
+        cursor += 1
+    return extra > 0
+
+
+def _merge_cjk_tails(phrases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    for row in phrases:
+        text = str(row.get('text') or '')
+        if (
+            merged
+            and len(text) <= 3
+            and not text.startswith('第')
+            and float(row['start']) - float(merged[-1]['end']) <= 0.35
+            and len(merged[-1]['text']) + len(text) <= _ZH_MAX + 8
+        ):
+            merged[-1]['text'] = merged[-1]['text'] + text
+            merged[-1]['end'] = row['end']
+            continue
+        merged.append(row)
+    return merged
 
 
 def phrases_from_transcript(
