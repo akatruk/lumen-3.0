@@ -648,7 +648,9 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
     director_info = {}
     with connect() as db:
         s_pre = state(pid, db)
-    if not s_pre or not s_pre.get('plan'):
+    from .source_analysis import plan_cache_hit
+    needs_semantic_analysis = settings.semantic_planner_required and not plan_cache_hit(pid)
+    if not s_pre or not s_pre.get('plan') or needs_semantic_analysis:
         from . import remotion_engine
         transcription_job = None
         with connect() as db:

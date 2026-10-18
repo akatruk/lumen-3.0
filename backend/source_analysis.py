@@ -128,6 +128,8 @@ def _cache_valid(meta: dict, path: Path, plan: dict | None = None) -> bool:
         return False
     if (meta or {}).get("analysis_version") != ANALYSIS_VERSION:
         return False
+    if getattr(settings, "semantic_planner_required", False) and (meta or {}).get("director_mode") != "semantic_openrouter":
+        return False
     cached = (meta or {}).get("source_checksum")
     if not cached:
         return False
@@ -159,6 +161,10 @@ def plan_cache_hit(pid: str) -> bool:
     with connect() as db:
         row = db.execute("SELECT metadata FROM projects WHERE id=?", (pid,)).fetchone()
     meta = json.loads(row["metadata"] or "{}") if row else {}
+    if getattr(settings, "semantic_planner_required", False):
+        from .semantic_planner import plan_path
+        if not plan_path(pid).is_file():
+            return False
     return _cache_valid(meta, folder / "source", s.get("plan"))
 
 
@@ -263,7 +269,12 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
     lang = language or (row["language"] if row else None) or "en"
 
     s = state(pid)
-    if not force and s and s.get("plan") and _cache_valid(meta, source, s.get("plan")):
+    cached_mode = ((s or {}).get("context") or {}).get("director_mode") or meta.get("director_mode")
+    semantic_cache_ok = True
+    if getattr(settings, "semantic_planner_required", False):
+        from .semantic_planner import plan_path
+        semantic_cache_ok = cached_mode == "semantic_openrouter" and plan_path(pid).is_file()
+    if not force and semantic_cache_ok and s and s.get("plan") and _cache_valid(meta, source, s.get("plan")):
         mode = (s.get("context") or {}).get("director_mode") or meta.get("director_mode") or "unknown"
         return {
             "reused": True,

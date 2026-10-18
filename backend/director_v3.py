@@ -114,9 +114,7 @@ def _copy_file(source: Path, dest: Path):
 
 
 def speaker_for(seconds, source: Path):
-    """The 20-second cut uses the tuned clip. A longer cut uses the project source."""
-    if seconds <= 20:
-        return 'speaker.mp4'
+    """Every user render uses the uploaded source, including short requested cuts."""
     if not source.is_file():
         raise ValueError('director_v3_render_failed')
     _copy_file(source, _public_director() / 'source-edit.mp4')
@@ -501,9 +499,8 @@ def run_job(p, payload):
             visual_plan = director_v10.stage_premium_3d(visual_plan, public, library)
         transcript_early = cleaned
         if visual_plan.get('form') == 'semantic':
-            ends = [float(scene.get('end') or 0) for scene in visual_plan.get('scenes') or []]
-            if ends and max(ends) > 0:
-                seconds = frame_seconds(max(ends), max(ends))
+            from .passage_retrieval import bound_semantic_duration
+            visual_plan = bound_semantic_duration(visual_plan, seconds)
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=visual_plan,
         locale=target_locale,

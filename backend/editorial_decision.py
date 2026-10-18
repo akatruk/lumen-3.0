@@ -570,6 +570,10 @@ def apply_editorial_decision(
     duration_mode: str,
 ) -> dict:
     out = dict(plan or {})
+    # Semantic passages already own their speech-aligned windows and treatments.
+    # Re-bucketing them by midpoint can reveal a later ordinal several seconds early.
+    if out.get("form") == "semantic":
+        return out
     scenes = [dict(scene) for scene in out.get("scenes") or []]
     target = float(target_seconds)
     rhythm, rhythm_source = speech_weights(transcript, target, len(scenes))

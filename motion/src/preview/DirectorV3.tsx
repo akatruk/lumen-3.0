@@ -1431,7 +1431,7 @@ function Beside({
               />
               <div style={{ height: 28 }} />
               <AutoFitText
-                text={active.explanation}
+                text={active.explanation || ""}
                 maxWidth={cardBox.width - 72}
                 maxHeight={280}
                 role={{ min: 40, max: 56, weight: 600, lineHeight: 1.25, tracking: -0.01 }}
@@ -1473,7 +1473,7 @@ function Beside({
                   />
                   <div style={{ height: 8 }} />
                   <AutoFitText
-                    text={card.explanation}
+                    text={card.explanation || ""}
                     maxWidth={cardBox.width - 52}
                     maxHeight={Math.min(120, stackHeight * 0.52)}
                     role={theme.type.caption}

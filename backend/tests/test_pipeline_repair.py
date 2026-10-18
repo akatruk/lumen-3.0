@@ -304,3 +304,17 @@ def test_edit_invalidates_cached_plan(tmp_path, monkeypatch):
     meta["plan_bound_transcript_edit"] = 2
     assert _cache_valid(meta, source, plan) is True
     json.dumps(plan)
+
+
+def test_semantic_passages_bypass_heuristic_ordinal_retiming():
+    from backend.editorial_decision import apply_editorial_decision
+    plan = {"form": "semantic", "beatWeights": [1000, 1000], "scenes": [
+        {"sceneId": "passage_01", "start": 49.2, "end": 53.76, "kind": "talking_head"},
+        {"sceneId": "passage_02", "start": 54.0, "end": 59.36, "kind": "talking_head"},
+    ]}
+    rows = [{"start": 49.2, "end": 53.76, "text": "管理费、空置损耗和税后的净收益？"},
+            {"start": 54.0, "end": 59.36, "text": "第三，持满法定年限后，当地本地人会接盘吗？"}]
+    result = apply_editorial_decision(plan, rows, locale="zh-CN", target_seconds=85.5, source_seconds=85.5, duration_mode="full")
+    assert result == plan
+    assert result["scenes"][1]["start"] == 54.0
+    assert not any((scene.get("typography") or {}).get("steps") for scene in result["scenes"])

@@ -369,3 +369,17 @@ def _library(concept: str) -> list[dict]:
             "visualFamily": hit.get("visualFamily"),
         })
     return assets
+
+
+def bound_semantic_duration(plan: dict, seconds: float) -> dict:
+    """Respect the requested picture length without stretching speech windows."""
+    from .semantic_planner import PlannerError
+    scenes = []
+    for scene in plan.get("scenes") or []:
+        start = max(0.0, float(scene.get("start") or 0))
+        end = min(float(seconds), float(scene.get("end") or 0))
+        if end > start:
+            scenes.append({**scene, "start": start, "end": end})
+    if not scenes:
+        raise PlannerError("PLANNER_INVALID", "no_passage_in_requested_duration")
+    return {**plan, "scenes": scenes, "beatWeights": [round((s["end"] - s["start"]) * 1000) for s in scenes]}
