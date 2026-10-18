@@ -1,0 +1,199 @@
+{
+  "primaryDomain": "mixed",
+  "selections": [
+    {
+      "sceneId": "hook",
+      "query": "business meeting corporate office asia",
+      "conceptIds": [
+        "foreign_investment_company",
+        "chinese_investment_company"
+      ],
+      "evidence": [
+        "Many people think that foreign investment companies only change the language of China",
+        "but the first step of a Chinese investment company is completely different"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "context",
+      "query": "capital investment finance chart",
+      "conceptIds": [
+        "capital_investment",
+        "chinese_investment_company"
+      ],
+      "evidence": [
+        "The core of Chinese investment companies is the capital investment",
+        "but the first step of a Chinese investment company is completely different"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "problem",
+      "query": "government building formal architecture",
+      "conceptIds": [
+        "government_leadership",
+        "deferred_payment",
+        "residence_permit"
+      ],
+      "evidence": [
+        "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card",
+        "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card",
+        "Bank accounts, work permits and visa applications all watch whether capital has arrived — without it, later steps stall"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "residency",
+      "query": "corporate boardroom shareholders meeting",
+      "conceptIds": [
+        "shareholder_responsibility",
+        "thailand_company_structure",
+        "residence_permit"
+      ],
+      "evidence": [
+        "The shareholder responsibility and the capital judgment will be around it",
+        "and the first thing in Thailand is not money, but the shareholder structure",
+        "Bank accounts, work permits and visa applications all watch whether capital has arrived — without it, later steps stall"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "consult",
+      "query": "financial analysis spreadsheet desk",
+      "conceptIds": [
+        "capital_judgment"
+      ],
+      "evidence": [
+        "The shareholder responsibility and the capital judgment will be around it"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "beside",
+      "query": "corporate ownership structure diagram desk",
+      "conceptIds": [
+        "thai_shareholder_count",
+        "foreign_ownership_ratio",
+        "company_control"
+      ],
+      "evidence": [
+        "Ordinary Thai companies usually need at least three shareholders",
+        "so the foreign capital ratio is usually less than 49%",
+        "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "steps",
+      "query": "corporate control handshake boardroom",
+      "conceptIds": [
+        "company_control",
+        "capital_return"
+      ],
+      "evidence": [
+        "In other words, the control power is locked in from the moment of the investment, and the money is returned",
+        "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "proof",
+      "query": "bangkok business district skyline daytime",
+      "conceptIds": [
+        "thailand_company_structure",
+        "foreign_ownership_ratio"
+      ],
+      "evidence": [
+        "and the first thing in Thailand is not money, but the shareholder structure",
+        "so the foreign capital ratio is usually less than 49%"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "payoff",
+      "query": "corporate control handshake boardroom",
+      "conceptIds": [
+        "company_control",
+        "capital_return"
+      ],
+      "evidence": [
+        "In other words, the control power is locked in from the moment of the investment, and the money is returned",
+        "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+      ],
+      "domain": "mixed"
+    },
+    {
+      "sceneId": "return",
+      "query": "business growth arrow finance chart",
+      "conceptIds": [
+        "capital_return"
+      ],
+      "evidence": [
+        "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+      ],
+      "domain": "mixed"
+    }
+  ],
+  "scrubbed": [
+    {
+      "sceneId": "hook",
+      "field": "query",
+      "from": null,
+      "to": "business meeting corporate office asia"
+    },
+    {
+      "sceneId": "context",
+      "field": "query",
+      "from": null,
+      "to": "capital investment finance chart"
+    },
+    {
+      "sceneId": "problem",
+      "field": "query",
+      "from": null,
+      "to": "government building formal architecture"
+    },
+    {
+      "sceneId": "residency",
+      "field": "query",
+      "from": null,
+      "to": "corporate boardroom shareholders meeting"
+    },
+    {
+      "sceneId": "consult",
+      "field": "query",
+      "from": "consultation meeting advisor",
+      "to": "financial analysis spreadsheet desk"
+    },
+    {
+      "sceneId": "beside",
+      "field": "query",
+      "from": null,
+      "to": "corporate ownership structure diagram desk"
+    },
+    {
+      "sceneId": "steps",
+      "field": "query",
+      "from": null,
+      "to": "corporate control handshake boardroom"
+    },
+    {
+      "sceneId": "proof",
+      "field": "query",
+      "from": "phone consultation office advisor",
+      "to": "bangkok business district skyline daytime"
+    },
+    {
+      "sceneId": "payoff",
+      "field": "query",
+      "from": null,
+      "to": "corporate control handshake boardroom"
+    },
+    {
+      "sceneId": "return",
+      "field": "query",
+      "from": null,
+      "to": "business growth arrow finance chart"
+    }
+  ]
+}

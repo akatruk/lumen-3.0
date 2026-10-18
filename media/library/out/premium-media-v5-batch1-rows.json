@@ -1,0 +1,954 @@
+{
+  "version": 1,
+  "batch": "premium-media-factory-v5-batch1",
+  "assets": [
+    {
+      "id": "pmv5_bg_ink_lift",
+      "type": "motion",
+      "category": "backgrounds",
+      "tags": [
+        "cinematic",
+        "plate",
+        "ink_lift",
+        "v5"
+      ],
+      "tags_ru": [
+        "cinematic",
+        "plate",
+        "ink_lift",
+        "v5"
+      ],
+      "tags_zh": [
+        "cinematic",
+        "plate",
+        "ink_lift",
+        "v5"
+      ],
+      "description": "Remotion cinematic plate ink_lift",
+      "file": "remotion://premium-media-v5/pmv5_bg_ink_lift",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": true,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "hero"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544158+00:00",
+      "treatment": "ink_lift"
+    },
+    {
+      "id": "pmv5_bg_paper_grain",
+      "type": "motion",
+      "category": "backgrounds",
+      "tags": [
+        "cinematic",
+        "plate",
+        "paper_grain",
+        "v5"
+      ],
+      "tags_ru": [
+        "cinematic",
+        "plate",
+        "paper_grain",
+        "v5"
+      ],
+      "tags_zh": [
+        "cinematic",
+        "plate",
+        "paper_grain",
+        "v5"
+      ],
+      "description": "Remotion cinematic plate paper_grain",
+      "file": "remotion://premium-media-v5/pmv5_bg_paper_grain",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": true,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "hero"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544272+00:00",
+      "treatment": "paper_grain"
+    },
+    {
+      "id": "pmv5_bg_navy_grid",
+      "type": "motion",
+      "category": "backgrounds",
+      "tags": [
+        "cinematic",
+        "plate",
+        "navy_grid",
+        "v5"
+      ],
+      "tags_ru": [
+        "cinematic",
+        "plate",
+        "navy_grid",
+        "v5"
+      ],
+      "tags_zh": [
+        "cinematic",
+        "plate",
+        "navy_grid",
+        "v5"
+      ],
+      "description": "Remotion cinematic plate navy_grid",
+      "file": "remotion://premium-media-v5/pmv5_bg_navy_grid",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": true,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "hero"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544276+00:00",
+      "treatment": "navy_grid"
+    },
+    {
+      "id": "pmv5_bg_gold_veil",
+      "type": "motion",
+      "category": "backgrounds",
+      "tags": [
+        "cinematic",
+        "plate",
+        "gold_veil",
+        "v5"
+      ],
+      "tags_ru": [
+        "cinematic",
+        "plate",
+        "gold_veil",
+        "v5"
+      ],
+      "tags_zh": [
+        "cinematic",
+        "plate",
+        "gold_veil",
+        "v5"
+      ],
+      "description": "Remotion cinematic plate gold_veil",
+      "file": "remotion://premium-media-v5/pmv5_bg_gold_veil",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": true,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "hero"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544278+00:00",
+      "treatment": "gold_veil"
+    },
+    {
+      "id": "pmv5_bg_mist_paper",
+      "type": "motion",
+      "category": "backgrounds",
+      "tags": [
+        "cinematic",
+        "plate",
+        "mist_paper",
+        "v5"
+      ],
+      "tags_ru": [
+        "cinematic",
+        "plate",
+        "mist_paper",
+        "v5"
+      ],
+      "tags_zh": [
+        "cinematic",
+        "plate",
+        "mist_paper",
+        "v5"
+      ],
+      "description": "Remotion cinematic plate mist_paper",
+      "file": "remotion://premium-media-v5/pmv5_bg_mist_paper",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": true,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "hero"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544279+00:00",
+      "treatment": "mist_paper"
+    },
+    {
+      "id": "pmv5_bg_teal_depth",
+      "type": "motion",
+      "category": "backgrounds",
+      "tags": [
+        "cinematic",
+        "plate",
+        "teal_depth",
+        "v5"
+      ],
+      "tags_ru": [
+        "cinematic",
+        "plate",
+        "teal_depth",
+        "v5"
+      ],
+      "tags_zh": [
+        "cinematic",
+        "plate",
+        "teal_depth",
+        "v5"
+      ],
+      "description": "Remotion cinematic plate teal_depth",
+      "file": "remotion://premium-media-v5/pmv5_bg_teal_depth",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": true,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "hero"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544280+00:00",
+      "treatment": "teal_depth"
+    },
+    {
+      "id": "pmv5_bg_midnight_ridge",
+      "type": "motion",
+      "category": "backgrounds",
+      "tags": [
+        "cinematic",
+        "plate",
+        "midnight_ridge",
+        "v5"
+      ],
+      "tags_ru": [
+        "cinematic",
+        "plate",
+        "midnight_ridge",
+        "v5"
+      ],
+      "tags_zh": [
+        "cinematic",
+        "plate",
+        "midnight_ridge",
+        "v5"
+      ],
+      "description": "Remotion cinematic plate midnight_ridge",
+      "file": "remotion://premium-media-v5/pmv5_bg_midnight_ridge",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": true,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "hero"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544282+00:00",
+      "treatment": "midnight_ridge"
+    },
+    {
+      "id": "pmv5_bg_graphite_drift",
+      "type": "motion",
+      "category": "backgrounds",
+      "tags": [
+        "cinematic",
+        "plate",
+        "graphite_drift",
+        "v5"
+      ],
+      "tags_ru": [
+        "cinematic",
+        "plate",
+        "graphite_drift",
+        "v5"
+      ],
+      "tags_zh": [
+        "cinematic",
+        "plate",
+        "graphite_drift",
+        "v5"
+      ],
+      "description": "Remotion cinematic plate graphite_drift",
+      "file": "remotion://premium-media-v5/pmv5_bg_graphite_drift",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": true,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "hero"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544283+00:00",
+      "treatment": "graphite_drift"
+    },
+    {
+      "id": "pmv5_px_depth_rail",
+      "type": "motion",
+      "category": "layers",
+      "tags": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "tags_ru": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "tags_zh": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "description": "Remotion parallax layer stack",
+      "file": "remotion://premium-media-v5/pmv5_px_depth_rail",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "overlay"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544285+00:00",
+      "depths": [
+        0.2,
+        0.55,
+        1.0
+      ]
+    },
+    {
+      "id": "pmv5_px_mist_stack",
+      "type": "motion",
+      "category": "layers",
+      "tags": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "tags_ru": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "tags_zh": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "description": "Remotion parallax layer stack",
+      "file": "remotion://premium-media-v5/pmv5_px_mist_stack",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "overlay"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544286+00:00",
+      "depths": [
+        0.15,
+        0.4,
+        0.85
+      ]
+    },
+    {
+      "id": "pmv5_px_navy_grid",
+      "type": "motion",
+      "category": "layers",
+      "tags": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "tags_ru": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "tags_zh": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "description": "Remotion parallax layer stack",
+      "file": "remotion://premium-media-v5/pmv5_px_navy_grid",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "overlay"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544288+00:00",
+      "depths": [
+        0.25,
+        0.6
+      ]
+    },
+    {
+      "id": "pmv5_px_warm_slate",
+      "type": "motion",
+      "category": "layers",
+      "tags": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "tags_ru": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "tags_zh": [
+        "parallax",
+        "depth",
+        "v5"
+      ],
+      "description": "Remotion parallax layer stack",
+      "file": "remotion://premium-media-v5/pmv5_px_warm_slate",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "background",
+        "overlay"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544289+00:00",
+      "depths": [
+        0.3,
+        0.7,
+        1.1
+      ]
+    },
+    {
+      "id": "pmv5_bm_shareholder_structure",
+      "type": "motion",
+      "category": "business",
+      "tags": [
+        "business",
+        "connector",
+        "shareholder_structure",
+        "v5"
+      ],
+      "tags_ru": [
+        "business",
+        "connector",
+        "shareholder_structure",
+        "v5"
+      ],
+      "tags_zh": [
+        "business",
+        "connector",
+        "shareholder_structure",
+        "v5"
+      ],
+      "description": "Deterministic business motion shareholder_structure",
+      "file": "remotion://premium-media-v5/pmv5_bm_shareholder_structure",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.9,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "explanation",
+        "proof"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "approved",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544291+00:00",
+      "component": "shareholder_structure"
+    },
+    {
+      "id": "pmv5_bm_capital_flow",
+      "type": "motion",
+      "category": "business",
+      "tags": [
+        "business",
+        "connector",
+        "capital_flow",
+        "v5"
+      ],
+      "tags_ru": [
+        "business",
+        "connector",
+        "capital_flow",
+        "v5"
+      ],
+      "tags_zh": [
+        "business",
+        "connector",
+        "capital_flow",
+        "v5"
+      ],
+      "description": "Deterministic business motion capital_flow",
+      "file": "remotion://premium-media-v5/pmv5_bm_capital_flow",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.9,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "explanation",
+        "proof"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "approved",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544293+00:00",
+      "component": "capital_flow"
+    },
+    {
+      "id": "pmv5_bm_capital_investment",
+      "type": "motion",
+      "category": "business",
+      "tags": [
+        "business",
+        "connector",
+        "capital_investment",
+        "v5"
+      ],
+      "tags_ru": [
+        "business",
+        "connector",
+        "capital_investment",
+        "v5"
+      ],
+      "tags_zh": [
+        "business",
+        "connector",
+        "capital_investment",
+        "v5"
+      ],
+      "description": "Deterministic business motion capital_investment",
+      "file": "remotion://premium-media-v5/pmv5_bm_capital_investment",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.9,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "explanation",
+        "proof"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "approved",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544294+00:00",
+      "component": "capital_investment"
+    },
+    {
+      "id": "pmv5_bm_investment_flow",
+      "type": "motion",
+      "category": "business",
+      "tags": [
+        "business",
+        "connector",
+        "investment_flow",
+        "v5"
+      ],
+      "tags_ru": [
+        "business",
+        "connector",
+        "investment_flow",
+        "v5"
+      ],
+      "tags_zh": [
+        "business",
+        "connector",
+        "investment_flow",
+        "v5"
+      ],
+      "description": "Deterministic business motion investment_flow",
+      "file": "remotion://premium-media-v5/pmv5_bm_investment_flow",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.9,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "explanation",
+        "proof"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "approved",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544296+00:00",
+      "component": "investment_flow"
+    },
+    {
+      "id": "pmv5_bm_company_ownership",
+      "type": "motion",
+      "category": "business",
+      "tags": [
+        "business",
+        "connector",
+        "company_ownership",
+        "v5"
+      ],
+      "tags_ru": [
+        "business",
+        "connector",
+        "company_ownership",
+        "v5"
+      ],
+      "tags_zh": [
+        "business",
+        "connector",
+        "company_ownership",
+        "v5"
+      ],
+      "description": "Deterministic business motion company_ownership",
+      "file": "remotion://premium-media-v5/pmv5_bm_company_ownership",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.9,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "explanation",
+        "proof"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "approved",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544298+00:00",
+      "component": "company_ownership"
+    },
+    {
+      "id": "pmv5_tr_soft_pull",
+      "type": "motion",
+      "category": "transition",
+      "tags": [
+        "transition",
+        "soft_pull",
+        "v5"
+      ],
+      "tags_ru": [
+        "transition",
+        "soft_pull",
+        "v5"
+      ],
+      "tags_zh": [
+        "transition",
+        "soft_pull",
+        "v5"
+      ],
+      "description": "Remotion transition soft_pull",
+      "file": "remotion://premium-media-v5/pmv5_tr_soft_pull",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "transition"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "approved",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544300+00:00",
+      "transitionType": "soft_pull"
+    },
+    {
+      "id": "pmv5_tr_cross_blur",
+      "type": "motion",
+      "category": "transition",
+      "tags": [
+        "transition",
+        "cross_blur",
+        "v5"
+      ],
+      "tags_ru": [
+        "transition",
+        "cross_blur",
+        "v5"
+      ],
+      "tags_zh": [
+        "transition",
+        "cross_blur",
+        "v5"
+      ],
+      "description": "Remotion transition cross_blur",
+      "file": "remotion://premium-media-v5/pmv5_tr_cross_blur",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "transition"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "approved",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544302+00:00",
+      "transitionType": "cross_blur"
+    },
+    {
+      "id": "pmv5_tr_iris_soft",
+      "type": "motion",
+      "category": "transition",
+      "tags": [
+        "transition",
+        "iris_soft",
+        "v5"
+      ],
+      "tags_ru": [
+        "transition",
+        "iris_soft",
+        "v5"
+      ],
+      "tags_zh": [
+        "transition",
+        "iris_soft",
+        "v5"
+      ],
+      "description": "Remotion transition iris_soft",
+      "file": "remotion://premium-media-v5/pmv5_tr_iris_soft",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.82,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "transition"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "deterministic_motion",
+      "status": "approved",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544303+00:00",
+      "transitionType": "iris_soft"
+    },
+    {
+      "id": "pmv5_l3d_folder_open_regrade",
+      "type": "motion",
+      "category": "objects",
+      "tags": [
+        "premium_3d",
+        "v5",
+        "l3d_v2_folder"
+      ],
+      "tags_ru": [
+        "premium_3d",
+        "v5",
+        "l3d_v2_folder"
+      ],
+      "tags_zh": [
+        "premium_3d",
+        "v5",
+        "l3d_v2_folder"
+      ],
+      "description": "3D candidate from l3d_v2_folder \u2014 QA only; not production_ready",
+      "file": "remotion://premium-media-v5/pmv5_l3d_folder_open_regrade",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.55,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "foreground_object",
+        "semantic_object"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "premium_3d",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544305+00:00",
+      "note": "quality_gate_v2 production_ready stays empty; PREMIUM_3D_MODE=off"
+    },
+    {
+      "id": "pmv5_l3d_suitcase_tilt_regrade",
+      "type": "motion",
+      "category": "objects",
+      "tags": [
+        "premium_3d",
+        "v5",
+        "l3d_v2_suitcase"
+      ],
+      "tags_ru": [
+        "premium_3d",
+        "v5",
+        "l3d_v2_suitcase"
+      ],
+      "tags_zh": [
+        "premium_3d",
+        "v5",
+        "l3d_v2_suitcase"
+      ],
+      "description": "3D candidate from l3d_v2_suitcase \u2014 QA only; not production_ready",
+      "file": "remotion://premium-media-v5/pmv5_l3d_suitcase_tilt_regrade",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.55,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "foreground_object",
+        "semantic_object"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "premium_3d",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544307+00:00",
+      "note": "quality_gate_v2 production_ready stays empty; PREMIUM_3D_MODE=off"
+    },
+    {
+      "id": "pmv5_l3d_globe_light_regrade",
+      "type": "motion",
+      "category": "objects",
+      "tags": [
+        "premium_3d",
+        "v5",
+        "l3d_global_mobility_globe"
+      ],
+      "tags_ru": [
+        "premium_3d",
+        "v5",
+        "l3d_global_mobility_globe"
+      ],
+      "tags_zh": [
+        "premium_3d",
+        "v5",
+        "l3d_global_mobility_globe"
+      ],
+      "description": "3D candidate from l3d_global_mobility_globe \u2014 QA only; not production_ready",
+      "file": "remotion://premium-media-v5/pmv5_l3d_globe_light_regrade",
+      "aspectRatio": "9:16",
+      "composition": "remotion_deterministic",
+      "background": false,
+      "qualityScore": 0.55,
+      "textSafe": true,
+      "source": "remotion",
+      "sceneRoles": [
+        "foreground_object",
+        "semantic_object"
+      ],
+      "energy": "balanced",
+      "emotion": "editorial",
+      "visualFamily": "premium_3d",
+      "status": "needs_review",
+      "batch": "premium-media-factory-v5-batch1",
+      "indexedAt": "2026-10-13T16:50:39.544424+00:00",
+      "note": "quality_gate_v2 production_ready stays empty; PREMIUM_3D_MODE=off"
+    }
+  ]
+}

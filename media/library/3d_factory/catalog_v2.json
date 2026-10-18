@@ -1,0 +1,47 @@
+{
+  "version": "v2",
+  "fps": 30,
+  "resolution": [1080, 1920],
+  "durationFrames": 120,
+  "engine": "BLENDER_EEVEE",
+  "style": "lumen_editorial_premium_v2",
+  "delivery": ["png_seq", "prores4444"],
+  "objects": [
+    {
+      "assetId": "l3d_v2_passport",
+      "conceptId": "passport",
+      "category": "immigration",
+      "semanticTags": ["passport", "second passport", "travel document", "citizenship", "mobility"],
+      "tags_ru": ["паспорт", "второй паспорт", "гражданство", "документ", "вид на жительство"],
+      "tags_zh": ["护照", "第二本护照", "证件", "公民身份"],
+      "motions": ["passport_reveal", "passport_open", "second_passport_reveal"],
+      "preferredPlacement": "speaker_right_lower",
+      "scaleProfile": "hero",
+      "materials": "leather_navy_editorial"
+    },
+    {
+      "assetId": "l3d_v2_suitcase",
+      "conceptId": "relocation",
+      "category": "relocation",
+      "semanticTags": ["suitcase", "luggage", "relocation", "travel", "departure", "moving"],
+      "tags_ru": ["чемодан", "переезд", "багаж", "путешествие"],
+      "tags_zh": ["行李箱", "搬家", "旅行"],
+      "motions": ["suitcase_arrival", "suitcase_roll", "suitcase_foreground_pass"],
+      "preferredPlacement": "speaker_left_lower",
+      "scaleProfile": "hero",
+      "materials": "hard_shell_teal_metal"
+    },
+    {
+      "assetId": "l3d_v2_folder",
+      "conceptId": "documents",
+      "category": "immigration",
+      "semanticTags": ["folder", "documents", "paperwork", "application", "verification"],
+      "tags_ru": ["папка", "документы", "заявление", "бумаги"],
+      "tags_zh": ["文件夹", "文件", "材料", "申请"],
+      "motions": ["folder_reveal", "folder_open", "documents_stack"],
+      "preferredPlacement": "speaker_left_lower",
+      "scaleProfile": "supporting",
+      "materials": "manila_paper_navy"
+    }
+  ]
+}

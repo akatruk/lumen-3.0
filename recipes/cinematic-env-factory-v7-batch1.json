@@ -1,0 +1,41 @@
+{
+  "version": "cinematic-env-factory-v7-batch1",
+  "date": "2026-10-14",
+  "policy": {
+    "family": "cinematic_environment",
+    "ids": "cev7_*",
+    "doNotOverwrite": ["cinematic-env-v6"],
+    "gpu": {
+      "podId": "dznvwn90el5au4",
+      "name": "lumen-hypit-4090",
+      "gpu": "RTX PRO 4500",
+      "forbiddenPod": "hufsgfs9f7gpga",
+      "balanceFloorUsd": 3.0,
+      "neverCreatePod": true
+    },
+    "providersForbidden": ["openrouter", "paid_cloud_image_apis"],
+    "stillModel": "sd_xl_base_1.0.safetensors",
+    "i2vModel": "stabilityai/stable-video-diffusion-img2vid-xt",
+    "duration": {
+      "modelNative": "SVD-XT emits 25 frames. Playback at 7 fps is about 3.6s. That is the reviewed export, not a 5-6s shot.",
+      "forbidden": "setpts stretch must not be labeled as native 5-6s cinematic motion",
+      "container": "H.264 yuv420p, scale 1080x1920, fps taken from the plan (7). Measured duration comes from ffprobe."
+    }
+  },
+  "batch": {
+    "stillsPlan": "media/library/plans/cinematic-env-v7-batch1.jsonl",
+    "i2vPlan": "media/library/plans/cinematic-env-v7-i2v-batch1.jsonl",
+    "count": 10,
+    "domain": "capital_business"
+  },
+  "storage": {
+    "doVolume": "/mnt/volume_nyc1_1791446889637/app-library",
+    "stillsRel": "motion/cinematic-env-v7/stills",
+    "clipsRel": "motion/cinematic-env-v7/clips"
+  },
+  "origin1": {
+    "projectId": "director_v5_original1",
+    "doNotForceAllClips": true,
+    "forbiddenContamination": ["immigration", "passport"]
+  }
+}

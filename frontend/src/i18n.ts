@@ -102,11 +102,13 @@ const bilingualWords = {
     analysisPending: "Looking closely at your video",
     pendingDesc:
       "Lumen is examining your visuals and audio, then building a specific edit plan.",
+    readyNoPlan:
+      "Source is ready. Choose language and press Create video — analysis runs then.",
     queueDesc:
       "Your video is safely saved. Processing starts when a worker is available.",
     status_queued: "Queued",
     status_analyzing: "Analyzing",
-    status_ready: "Analysis ready",
+    status_ready: "Ready to edit",
     status_rendering: "Creating",
     status_complete: "Ready to export",
     status_needs_review: "Needs your review",
@@ -216,6 +218,10 @@ const bilingualWords = {
       "The model returned an incomplete analysis. Your original is safe; you can retry.",
     budget_limit: "This project or workspace reached its AI spending limit.",
     processing_failed: "Processing could not finish. Your original is safe.",
+    director_v3_render_failed:
+      "Director picture render failed. Your original is safe — retry Create video.",
+    director_v3_renderer_missing:
+      "Director renderer is not installed on this server. Your original is safe.",
     worker_interrupted:
       "Processing was interrupted. Retry analysis or create the cut again.",
     media_processing_failed: "This media could not be processed.",
@@ -355,10 +361,11 @@ const bilingualWords = {
     source: "原始素材",
     analysisPending: "正在仔细理解视频",
     pendingDesc: "Lumen 正在分析画面和声音，并制定具体剪辑方案。",
+    readyNoPlan: "原片已就绪。选择语言后点击「创建视频」，届时再运行分析。",
     queueDesc: "视频已安全保存，工作进程空闲后会开始处理。",
     status_queued: "排队中",
     status_analyzing: "分析中",
-    status_ready: "分析完成",
+    status_ready: "可编辑",
     status_rendering: "制作中",
     status_complete: "可导出",
     status_needs_review: "需要复核",
@@ -464,6 +471,9 @@ const bilingualWords = {
     provider_invalid_analysis: "模型返回的分析不完整。原视频已保留，可以重试。",
     budget_limit: "项目或工作空间已达到 AI 费用上限。",
     processing_failed: "处理未能完成，原视频已保留。",
+    director_v3_render_failed:
+      "导演画面渲染失败。原始视频已保留，请重试「创建视频」。",
+    director_v3_renderer_missing: "此服务器未安装导演渲染器。原始视频已保留。",
     worker_interrupted: "处理意外中断，请重新分析或制作新版本。",
     media_processing_failed: "无法处理此媒体文件。",
     ffmpeg_ass_unavailable: "无法烧录字幕，因为 FFmpeg 没有 ass 滤镜。",

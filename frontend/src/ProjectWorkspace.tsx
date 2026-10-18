@@ -25,6 +25,7 @@ import { MenuSlide } from "./MenuSlide";
 import type { Project, Lang } from "./types";
 import { contentLanguage, translate } from "./locale";
 import { AnalysisActivity, activityTitle } from "./AnalysisActivity";
+import { ProjectJobStatus, projectIsBusy } from "./ProjectJobStatus";
 import { StatusBadge } from "./TaskStatus";
 export type WorkspaceTask =
   "edit" | "subtitles" | "audio" | "effects" | "materials" | "review";
@@ -54,6 +55,22 @@ const jobErrors: Record<string, [string, string]> = {
   processing_failed: [
     "Processing could not finish. Your original is safe.",
     "处理未能完成，原视频已保留。",
+  ],
+  target_voice_not_ready: [
+    "This video language has no finished voice yet. The source voice is not substituted.",
+    "这个视频语言还没有成品语音，不会改用原片的声音。",
+  ],
+  hypit_unavailable: [
+    "The picture build stopped. Your original is safe.",
+    "画面合成已停止，原视频已保留。",
+  ],
+  director_v3_render_failed: [
+    "Director picture render failed. Your original is safe — retry Create video.",
+    "导演画面渲染失败。原始视频已保留，请重试「创建视频」。",
+  ],
+  director_v3_renderer_missing: [
+    "Director renderer is not installed on this server. Your original is safe.",
+    "此服务器未安装导演渲染器。原始视频已保留。",
   ],
   media_processing_failed: [
     "This media could not be processed.",
@@ -143,7 +160,7 @@ export function ProjectWorkspace({
     pending = useRef<{ start: number; end?: number } | null>(null),
     stop = useRef<number | undefined>(undefined);
   const base = `/api/projects/${p.id}/media/`;
-  const working = ["queued", "importing", "analyzing", "rendering"].includes(
+  const working = projectIsBusy(p) || ["queued", "importing", "analyzing", "rendering"].includes(
     p.status,
   );
   async function retryAnalysis() {
@@ -499,13 +516,20 @@ export function ProjectWorkspace({
               )}
             </div>
             {playNotice && !draftActive && <p role="status">{playNotice}</p>}
+            <ProjectJobStatus p={p} lang={lang} compact />
             {mediaError && !draftActive && (
               <p role="alert">
-                {w(
-                  "Не удалось загрузить видео. Выберите другую версию или обновите страницу.",
-                  "Could not load video. Select another version or reload.",
-                  "无法加载视频，请选择其他版本或刷新。",
-                )}
+                {working
+                  ? w(
+                      "Плеер ждёт готовую версию. Смотрите статус выше — исходник сохранён.",
+                      "The player is waiting for a finished version. See status above — your original is safe.",
+                      "播放器在等待成品。请看上方状态 — 原始素材已保留。",
+                    )
+                  : w(
+                      "Не удалось открыть это видео в плеере. Выберите другую версию, обновите страницу или смотрите статус выше.",
+                      "Could not view this video in the player. Pick another version, reload, or check the status above.",
+                      "无法在播放器中打开此视频。请换版本、刷新，或查看上方状态。",
+                    )}
               </p>
             )}
             <div

@@ -1,0 +1,55 @@
+{
+  "batch": "premium-motion-v4-calibration",
+  "date": "2026-10-12",
+  "artDirection": {
+    "styleLock": "media/library/STYLE_LOCK.md",
+    "palette": {
+      "navy": "#0E1A2B",
+      "blue": "#7EB6C9",
+      "mint": "#8FCBB4",
+      "gold": "#E0B15A",
+      "paper": "#F4EFE6",
+      "check": "#3E8F62"
+    },
+    "rules": [
+      "No embedded RU/EN/ZH text, logos, or numerals as typography",
+      "Prefer Remotion deterministic motion; I2V deferred (no Wan/LTX/SVD on GPU volume)",
+      "RGBA true alpha via libvpx-vp9 yuva420p; never claim H.264 has alpha",
+      "1080x1920 @ 30fps, 4.0s (120 frames), subtle editorial easing"
+    ]
+  },
+  "model": {
+    "chosen": "remotion_deterministic",
+    "rejected": [
+      "Wan / LTX / SVD — no checkpoints under /workspace (only ollama lumen-llm + hypit runtime)",
+      "SDXL I2V — no safetensors on attached volume; balance ~$9.70 insufficient for download+gen"
+    ],
+    "gpu": {
+      "pod": "nxi1rfwb94eufx",
+      "name": "lumen-hypit-4090",
+      "statusAtAudit": "RUNNING idle → stopped after audit (no busy jobs, no video weights)",
+      "balanceUsd": 9.70,
+      "hourlyUsd": 0.89
+    }
+  },
+  "assets": [
+    {"id": "pm_hero_growth_001", "role": "hero", "composition": "GrowthArrow", "category": "conceptual", "file": "motion/premium/pm_hero_growth_001.webm", "tags": ["growth", "profit", "progress", "arrow", "up"], "tags_ru": ["рост", "прибыль", "прогресс"], "tags_zh": ["增长", "利润", "进步"], "sceneRoles": ["hero", "explanation"], "energy": "medium", "loopable": false},
+    {"id": "pm_hero_risk_001", "role": "hero", "composition": "RiskFall", "category": "conceptual", "file": "motion/premium/pm_hero_risk_001.webm", "tags": ["risk", "decline", "fall", "arrow", "down"], "tags_ru": ["риск", "падение", "снижение"], "tags_zh": ["风险", "下降", "回落"], "sceneRoles": ["hero", "explanation"], "energy": "medium", "loopable": false},
+    {"id": "pm_hero_deadline_001", "role": "hero", "composition": "DeadlineScale", "category": "conceptual", "file": "motion/premium/pm_hero_deadline_001.webm", "tags": ["deadline", "timeline", "urgency", "milestone"], "tags_ru": ["срок", "дедлайн", "веха"], "tags_zh": ["截止日期", "时间线", "节点"], "sceneRoles": ["hero", "process"], "energy": "medium", "loopable": false},
+    {"id": "pm_hero_steps_001", "role": "hero", "composition": "StepCascade", "category": "conceptual", "file": "motion/premium/pm_hero_steps_001.webm", "tags": ["steps", "process", "sequence", "plan"], "tags_ru": ["шаги", "процесс", "план"], "tags_zh": ["步骤", "流程", "计划"], "sceneRoles": ["hero", "process"], "energy": "medium", "loopable": false},
+    {"id": "pm_hero_compare_001", "role": "hero", "composition": "CompareColumns", "category": "conceptual", "file": "motion/premium/pm_hero_compare_001.webm", "tags": ["comparison", "options", "choice", "columns"], "tags_ru": ["сравнение", "варианты", "выбор"], "tags_zh": ["对比", "选项", "选择"], "sceneRoles": ["hero", "explanation"], "energy": "medium", "loopable": false},
+    {"id": "pm_concept_shield_001", "role": "concept", "composition": "ShieldPulse", "category": "conceptual", "file": "motion/premium/pm_concept_shield_001.webm", "tags": ["shield", "protection", "security", "trust"], "tags_ru": ["защита", "безопасность", "щит"], "tags_zh": ["盾牌", "保护", "安全"], "sceneRoles": ["explanation", "insert"], "energy": "low", "loopable": true},
+    {"id": "pm_concept_folder_001", "role": "concept", "composition": "FolderReveal", "category": "documents", "file": "motion/premium/pm_concept_folder_001.webm", "tags": ["folder", "documents", "filing", "application"], "tags_ru": ["папка", "документы", "заявление"], "tags_zh": ["文件夹", "文件", "申请"], "sceneRoles": ["explanation", "process"], "energy": "low", "loopable": false},
+    {"id": "pm_concept_path_001", "role": "concept", "composition": "PathDraw", "category": "conceptual", "file": "motion/premium/pm_concept_path_001.webm", "tags": ["path", "journey", "route", "investment"], "tags_ru": ["путь", "маршрут", "инвестиции"], "tags_zh": ["路径", "旅程", "投资"], "sceneRoles": ["explanation", "process"], "energy": "medium", "loopable": false},
+    {"id": "pm_concept_check_001", "role": "concept", "composition": "CheckStamp", "category": "documents", "file": "motion/premium/pm_concept_check_001.webm", "tags": ["approval", "check", "success", "completion"], "tags_ru": ["одобрение", "галочка", "успех"], "tags_zh": ["批准", "勾选", "完成"], "sceneRoles": ["explanation", "process"], "energy": "medium", "loopable": false},
+    {"id": "pm_fg_wipe_001", "role": "fg", "composition": "WipeArc", "category": "decorative", "file": "motion/premium/pm_fg_wipe_001.webm", "tags": ["wipe", "transition", "arc", "foreground"], "tags_ru": ["переход", "дуга", "передний план"], "tags_zh": ["转场", "弧线", "前景"], "sceneRoles": ["transition", "overlay"], "energy": "low", "loopable": false},
+    {"id": "pm_fg_ring_001", "role": "fg", "composition": "RingReveal", "category": "decorative", "file": "motion/premium/pm_fg_ring_001.webm", "tags": ["ring", "reveal", "focus", "foreground"], "tags_ru": ["кольцо", "фокус", "раскрытие"], "tags_zh": ["圆环", "揭示", "焦点"], "sceneRoles": ["overlay", "insert"], "energy": "low", "loopable": false},
+    {"id": "pm_fg_mask_001", "role": "fg", "composition": "DiagonalMask", "category": "decorative", "file": "motion/premium/pm_fg_mask_001.webm", "tags": ["mask", "diagonal", "wipe", "foreground"], "tags_ru": ["маска", "диагональ", "вайп"], "tags_zh": ["遮罩", "对角", "擦除"], "sceneRoles": ["transition", "overlay"], "energy": "low", "loopable": false},
+    {"id": "pm_bg_navy_001", "role": "bg", "composition": "NavyBreathe", "category": "backgrounds", "file": "motion/premium/pm_bg_navy_001.webm", "tags": ["background", "navy", "atmosphere", "field"], "tags_ru": ["фон", "атмосфера", "поле"], "tags_zh": ["背景", "氛围", "深蓝"], "sceneRoles": ["background"], "energy": "low", "loopable": true},
+    {"id": "pm_bg_grid_001", "role": "bg", "composition": "SoftGrid", "category": "backgrounds", "file": "motion/premium/pm_bg_grid_001.webm", "tags": ["background", "grid", "structure", "subtle"], "tags_ru": ["фон", "сетка", "структура"], "tags_zh": ["背景", "网格", "结构"], "sceneRoles": ["background"], "energy": "low", "loopable": true},
+    {"id": "pm_bg_dust_001", "role": "bg", "composition": "GoldDust", "category": "backgrounds", "file": "motion/premium/pm_bg_dust_001.webm", "tags": ["background", "particles", "gold", "atmosphere"], "tags_ru": ["фон", "частицы", "золото"], "tags_zh": ["背景", "粒子", "金色"], "sceneRoles": ["background"], "energy": "low", "loopable": true},
+    {"id": "pm_scene_approval_001", "role": "scene", "composition": "ApprovalDesk", "category": "documents", "file": "motion/premium/pm_scene_approval_001.webm", "tags": ["approval", "documents", "desk", "scene"], "tags_ru": ["одобрение", "документы", "сцена"], "tags_zh": ["批准", "文件", "场景"], "sceneRoles": ["explanation", "hero"], "energy": "medium", "loopable": false},
+    {"id": "pm_scene_mobility_001", "role": "scene", "composition": "MobilityPins", "category": "global", "file": "motion/premium/pm_scene_mobility_001.webm", "tags": ["mobility", "pins", "global", "relocation", "route"], "tags_ru": ["мобильность", "глобальный", "переезд"], "tags_zh": ["流动", "全球", "搬迁"], "sceneRoles": ["explanation", "hero"], "energy": "medium", "loopable": false},
+    {"id": "pm_scene_choice_001", "role": "scene", "composition": "ChoiceFork", "category": "conceptual", "file": "motion/premium/pm_scene_choice_001.webm", "tags": ["choice", "fork", "options", "decision", "paths"], "tags_ru": ["выбор", "развилка", "решения"], "tags_zh": ["选择", "分叉", "决策"], "sceneRoles": ["explanation", "hero"], "energy": "medium", "loopable": false}
+  ]
+}

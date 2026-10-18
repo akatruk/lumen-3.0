@@ -1,0 +1,120 @@
+{
+  "projectId": "director_v5_original1",
+  "source": "/Users/akatruk_macbook/Documents/github/lumen-3.0/data/director_v5_original1/source",
+  "out": "/Users/akatruk_macbook/Documents/github/lumen-3.0/output/director-v11-2/director-v11-2-origin1-60s.mp4",
+  "durationSeconds": 60,
+  "sourceDuration": 63.466667,
+  "speakerFile": "source-edit.mp4",
+  "language": "en-US",
+  "generationId": "ordinary_director_60s",
+  "visualSeed": 42,
+  "deliverySha256": "861ad01c34361dbf0456587735f03a0d1e6fb7bb1a425f96afd4708ea373ef88",
+  "renderer": "remotion",
+  "directorMode": "heuristic",
+  "executionValidation": "repaired",
+  "captionSource": "source_transcript",
+  "captionCount": 28,
+  "metadata": {
+    "duration": 60.053333,
+    "width": 1080,
+    "height": 1920,
+    "has_audio": true,
+    "size": 28269775,
+    "codec": "h264",
+    "fps": 30.0,
+    "orientation": "portrait"
+  },
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "query": "business meeting corporate office asia",
+      "representation": "presenter",
+      "background": "people_consult_001",
+      "foreground": "goal",
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "context",
+      "query": "capital investment finance chart",
+      "representation": "photo+presenter",
+      "background": "pm_concept_path_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "problem",
+      "query": "government building formal architecture",
+      "representation": "presenter",
+      "background": "people_apartment_001",
+      "foreground": "budget",
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "residency",
+      "query": "corporate boardroom shareholders meeting",
+      "representation": "photo+presenter",
+      "background": "i2v_consult_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "consult",
+      "query": "financial analysis spreadsheet desk",
+      "representation": "photo",
+      "background": "people_review_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "beside",
+      "query": "corporate ownership structure diagram desk",
+      "representation": "typography+presenter",
+      "background": "i2v_review_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "steps",
+      "query": "corporate control handshake boardroom",
+      "representation": "diagram",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "proof",
+      "query": "bangkok business district skyline daytime",
+      "representation": "photo",
+      "background": "still_city_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "payoff",
+      "query": "corporate control handshake boardroom",
+      "representation": "presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "return",
+      "query": "business growth arrow finance chart",
+      "representation": "presenter",
+      "background": "people_door_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    }
+  ],
+  "path": "plan_for_request≈resolve_plan → resolve_scene_plan → render_with_plan → DirectorV3Preview"
+}

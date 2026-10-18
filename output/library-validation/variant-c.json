@@ -1,0 +1,181 @@
+{
+  "visualSeed": 530033,
+  "visualStyle": "luxury_minimal",
+  "artDirection": "luxury_minimal",
+  "visualEnergy": "balanced",
+  "motionIntensity": "medium",
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "semanticPurpose": "hook",
+      "query": null,
+      "speaker": {
+        "layout": "speaker_fullscreen",
+        "treatment": "speaker_fullscreen"
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "slow_zoom_in"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "minimal_fade",
+        "animate": "fade"
+      },
+      "transition": "mask_wipe",
+      "motionIntensity": "high",
+      "rejected": []
+    },
+    {
+      "sceneId": "residency",
+      "semanticPurpose": "document",
+      "query": "document review desk",
+      "speaker": {
+        "layout": "speaker_with_foreground",
+        "treatment": "speaker_with_foreground"
+      },
+      "background": {
+        "assetId": "rp_object_003",
+        "file": "static/runpod/objects/rp_object_003.png",
+        "conceptId": "immigration.document_consultation",
+        "treatment": "subtle_drift",
+        "staged": "picked/rp_object_003.png"
+      },
+      "foreground": {
+        "treatment": "mask_reveal",
+        "assetId": "v2_detai_007",
+        "file": "static/runpod/details/v2_detai_007.png",
+        "query": "keys handover object",
+        "staged": "picked/v2_detai_007.png"
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade"
+      },
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "rejected": []
+    },
+    {
+      "sceneId": "consult",
+      "semanticPurpose": "proof",
+      "query": "advisor client documents",
+      "speaker": {
+        "layout": "speaker_with_media",
+        "treatment": "speaker_with_media"
+      },
+      "background": {
+        "assetId": "re_agent_docs",
+        "file": "static/real-estate/photos/re_agent_docs.png",
+        "conceptId": null,
+        "treatment": "parallax_depth",
+        "staged": "picked/re_agent_docs.png"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "minimal_fade",
+        "animate": "fade"
+      },
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "rejected": []
+    },
+    {
+      "sceneId": "beside",
+      "semanticPurpose": "criteria",
+      "query": null,
+      "speaker": {
+        "layout": "speaker_split_right",
+        "treatment": "speaker_split_right"
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "static_editorial"
+      },
+      "foreground": {
+        "treatment": "fade_stagger",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade"
+      },
+      "transition": "cut",
+      "motionIntensity": "medium",
+      "rejected": []
+    },
+    {
+      "sceneId": "steps",
+      "semanticPurpose": "process",
+      "query": null,
+      "speaker": {
+        "layout": "speaker_with_diagram",
+        "treatment": "speaker_with_diagram"
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "mask_reveal"
+      },
+      "foreground": {
+        "treatment": "type_build",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "minimal_fade",
+        "animate": "fade"
+      },
+      "transition": "cut",
+      "motionIntensity": "low",
+      "rejected": []
+    },
+    {
+      "sceneId": "return",
+      "semanticPurpose": "payoff",
+      "query": null,
+      "speaker": {
+        "layout": "speaker_punch_in",
+        "treatment": "speaker_punch_in"
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "slow_zoom_in"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade"
+      },
+      "transition": "cut",
+      "motionIntensity": "low",
+      "rejected": []
+    }
+  ],
+  "generationId": "gen_530033"
+}

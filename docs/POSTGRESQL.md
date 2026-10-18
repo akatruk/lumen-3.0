@@ -37,6 +37,10 @@ The full suite creates and drops one random schema per test, and refuses any dat
 
 References: [psycopg transactions](https://www.psycopg.org/psycopg3/docs/basic/transactions.html), [PostgreSQL advisory locks](https://www.postgresql.org/docs/16/explicit-locking.html).
 
+## Experience memory
+
+pgvector `0.6.0` is installed into this same server (`CREATE EXTENSION vector` on `lumen` and `lumen_qa`). Memory tables are additive. `asset_embeddings.embedding` is `public.vector(512)` with an HNSW `vector_cosine_ops` index. `media_embeddings` is a view over that table. Application backups are `pg_dump -Fc` on the media volume (`deploy/postgres/backup_lumen_db.sh`). Do not open 5432 and do not run a second PostgreSQL for memory. Details: `docs/architecture/AI_MEMORY.md`.
+
 ## Production cutover — 2026-09-15
 
 - PostgreSQL 16.15 installed on the new VM `142.93.248.163`; the old VM was not touched.

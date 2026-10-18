@@ -309,6 +309,46 @@
   font-variant-numeric: tabular-nums;
   color: #3d5876;
 }
+.analysis-activity-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #eaf2ff;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.analysis-activity-facts > div {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.analysis-activity-facts dt {
+  margin: 0;
+  color: #5d7594;
+  font-weight: 500;
+}
+.analysis-activity-facts dd {
+  margin: 0;
+  color: #234669;
+  word-break: break-word;
+}
+.analysis-activity-facts code {
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #dce7f5;
+}
+.slider-effect {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: #5d7594;
+}
 .analysis-activity ol {
   list-style: none;
   margin: 0;

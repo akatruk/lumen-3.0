@@ -1,0 +1,109 @@
+{
+  "version": "v11.2",
+  "overlays": [
+    {
+      "sceneId": "hook",
+      "component": "capital_investment",
+      "placement": "side_rail",
+      "mediaSide": "left",
+      "shelfTop": 180,
+      "layout": "speaker_punch_in",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "context",
+      "component": "capital_investment",
+      "placement": "media_column",
+      "mediaSide": "left",
+      "shelfTop": 200,
+      "layout": "speaker_with_foreground",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "problem",
+      "component": "business_process",
+      "placement": "side_rail",
+      "mediaSide": "left",
+      "shelfTop": 180,
+      "layout": "speaker_closeup",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "residency",
+      "component": "shareholder_structure",
+      "placement": "media_column",
+      "mediaSide": "left",
+      "shelfTop": 200,
+      "layout": "speaker_split_right",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "consult",
+      "component": "financial_comparison",
+      "placement": "side_rail",
+      "mediaSide": "left",
+      "shelfTop": 160,
+      "layout": "speaker_with_media",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "beside",
+      "component": "shareholder_structure",
+      "placement": "media_column",
+      "mediaSide": "right",
+      "shelfTop": 220,
+      "layout": "speaker_split_left",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "steps",
+      "component": "business_process",
+      "placement": "side_rail",
+      "mediaSide": "left",
+      "shelfTop": 180,
+      "layout": "speaker_medium",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "proof",
+      "component": "equity_distribution",
+      "placement": "side_rail",
+      "mediaSide": "left",
+      "shelfTop": 160,
+      "layout": "speaker_with_media",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "payoff",
+      "component": "company_control",
+      "placement": "side_rail",
+      "mediaSide": "left",
+      "shelfTop": 180,
+      "layout": "speaker_medium",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    },
+    {
+      "sceneId": "return",
+      "component": "investment_flow",
+      "placement": "side_rail",
+      "mediaSide": "left",
+      "shelfTop": 180,
+      "layout": "speaker_fullscreen",
+      "mitigation": "face_safe_shelf_opposite_speaker"
+    }
+  ],
+  "policy": "validate entrance/hold/exit; prefer media_column or upper_band_cutaway over face center",
+  "frameQa": {
+    "checkedSeconds": [
+      14,
+      18,
+      20,
+      24,
+      28
+    ],
+    "residencyShareholderDiagram": "left media column; speaker face clear (r2)",
+    "problemFormationPath": "left side rail; Structure not Shareholders",
+    "decorativeFloatSuppressedWhenBusinessMotion": true,
+    "ok": true
+  }
+}

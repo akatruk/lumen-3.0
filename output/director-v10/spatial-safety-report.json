@@ -1,0 +1,24 @@
+{
+  "pass": true,
+  "premium3dFloats": [
+    {
+      "sceneId": "hook",
+      "staged": "picked/l3d_premium_suitcase_slide_in.webm",
+      "assetId": "l3d_premium_suitcase",
+      "motion": "slide_in"
+    },
+    {
+      "sceneId": "problem",
+      "staged": "picked/l3d_generic_passport_reveal.webm",
+      "assetId": "l3d_generic_passport",
+      "motion": "reveal"
+    },
+    {
+      "sceneId": "payoff",
+      "staged": "picked/l3d_premium_suitcase_reveal.webm",
+      "assetId": "l3d_premium_suitcase",
+      "motion": "reveal"
+    }
+  ],
+  "opaqueBoxes": 0
+}

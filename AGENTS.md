@@ -28,11 +28,20 @@ Continue authorized diagnosis, fixes and verification autonomously. Do not ask
 the user to discover regressions one button at a time or repeat tests that can
 be performed in the available environment.
 
+## Director V3 / Remotion (MAIN product prompt)
+
+For Director V3, Remotion composition, video quality recovery, captions, shot
+plans, or preview QA: load and follow
+`docs/prompts/cinematic-director-v3-quality-recovery.md` first. See
+`docs/prompts/README.md`. Do not start those tasks from the Hypit-integration
+cursor stub. Stop generating new media unless that MAIN prompt authorizes it.
+
 ## Hypit prompt constructor
 
 Lumen-fix is the prompt constructor for open-source Hypit
 (`https://github.com/hypit-ai/hypit`). Hypit generates the video from that one
-prompt. Lumen Studio is the interface where AI elements are edited. Every AI
+prompt (`backend/assembly_prompt.txt` via `backend/hypit_prompt.py`). Lumen Studio
+is the interface where AI elements are edited. Every AI
 element a person can change in Lumen Studio — sliders, «Эффекты», captions,
 voice, music, picture notes, reference treatment — must be written into the
 final prompt. A studio control that does not change the final prompt is not

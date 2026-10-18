@@ -1,0 +1,130 @@
+{
+  "ok": true,
+  "primaryDomain": "mixed",
+  "issueCount": 0,
+  "issues": [],
+  "accepted": [
+    {
+      "sceneId": "hook",
+      "conceptId": "foreign_investment_company",
+      "evidence": "Many people think that foreign investment companies only change the language of China"
+    },
+    {
+      "sceneId": "hook",
+      "conceptId": "chinese_investment_company",
+      "evidence": "but the first step of a Chinese investment company is completely different"
+    },
+    {
+      "sceneId": "context",
+      "conceptId": "capital_investment",
+      "evidence": "The core of Chinese investment companies is the capital investment"
+    },
+    {
+      "sceneId": "context",
+      "conceptId": "chinese_investment_company",
+      "evidence": "but the first step of a Chinese investment company is completely different"
+    },
+    {
+      "sceneId": "problem",
+      "conceptId": "government_leadership",
+      "evidence": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card"
+    },
+    {
+      "sceneId": "problem",
+      "conceptId": "deferred_payment",
+      "evidence": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card"
+    },
+    {
+      "sceneId": "problem",
+      "conceptId": "residence_permit",
+      "evidence": "Bank accounts, work permits and visa applications all watch whether capital has arrived — without it, later steps stall"
+    },
+    {
+      "sceneId": "residency",
+      "conceptId": "shareholder_responsibility",
+      "evidence": "The shareholder responsibility and the capital judgment will be around it"
+    },
+    {
+      "sceneId": "residency",
+      "conceptId": "thailand_company_structure",
+      "evidence": "and the first thing in Thailand is not money, but the shareholder structure"
+    },
+    {
+      "sceneId": "residency",
+      "conceptId": "residence_permit",
+      "evidence": "Bank accounts, work permits and visa applications all watch whether capital has arrived — without it, later steps stall"
+    },
+    {
+      "sceneId": "consult",
+      "conceptId": "capital_judgment",
+      "evidence": "The shareholder responsibility and the capital judgment will be around it"
+    },
+    {
+      "sceneId": "beside",
+      "conceptId": "thai_shareholder_count",
+      "evidence": "Ordinary Thai companies usually need at least three shareholders"
+    },
+    {
+      "sceneId": "beside",
+      "conceptId": "foreign_ownership_ratio",
+      "evidence": "so the foreign capital ratio is usually less than 49%"
+    },
+    {
+      "sceneId": "beside",
+      "conceptId": "company_control",
+      "evidence": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    },
+    {
+      "sceneId": "steps",
+      "conceptId": "company_control",
+      "evidence": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    },
+    {
+      "sceneId": "steps",
+      "conceptId": "capital_return",
+      "evidence": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    },
+    {
+      "sceneId": "proof",
+      "conceptId": "thailand_company_structure",
+      "evidence": "and the first thing in Thailand is not money, but the shareholder structure"
+    },
+    {
+      "sceneId": "proof",
+      "conceptId": "foreign_ownership_ratio",
+      "evidence": "so the foreign capital ratio is usually less than 49%"
+    },
+    {
+      "sceneId": "payoff",
+      "conceptId": "company_control",
+      "evidence": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    },
+    {
+      "sceneId": "payoff",
+      "conceptId": "capital_return",
+      "evidence": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    },
+    {
+      "sceneId": "return",
+      "conceptId": "capital_return",
+      "evidence": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    }
+  ],
+  "rejected": [],
+  "conceptIds": [
+    "foreign_investment_company",
+    "chinese_investment_company",
+    "capital_investment",
+    "government_leadership",
+    "deferred_payment",
+    "shareholder_responsibility",
+    "capital_judgment",
+    "thailand_company_structure",
+    "thai_shareholder_count",
+    "foreign_ownership_ratio",
+    "company_control",
+    "capital_return",
+    "residence_permit",
+    "visa_application"
+  ]
+}

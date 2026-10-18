@@ -1,0 +1,190 @@
+{
+  "fps": 30,
+  "durationInFrames": 1676,
+  "beats": [
+    {
+      "id": "hook-speaker",
+      "from": 0,
+      "durationInFrames": 102,
+      "kind": "speaker",
+      "caption": "Планируете переезд",
+      "emphasis": [
+        "переезд"
+      ],
+      "zoom": 1.08,
+      "src": "sp-hook-speaker.mp4"
+    },
+    {
+      "id": "hook-kinetic",
+      "from": 102,
+      "durationInFrames": 74,
+      "kind": "kinetic",
+      "caption": "С чего начать",
+      "emphasis": [
+        "начать"
+      ]
+    },
+    {
+      "id": "program",
+      "from": 176,
+      "durationInFrames": 81,
+      "kind": "speaker",
+      "caption": "Подходящая программа",
+      "emphasis": [
+        "программа"
+      ],
+      "zoom": 1.04,
+      "src": "sp-program.mp4"
+    },
+    {
+      "id": "goals",
+      "from": 257,
+      "durationInFrames": 78,
+      "kind": "steps",
+      "title": "С учетом",
+      "steps": [
+        "Цели",
+        "Семья",
+        "Бюджет"
+      ]
+    },
+    {
+      "id": "family",
+      "from": 335,
+      "durationInFrames": 57,
+      "kind": "image",
+      "src": "re_buyer_plan.png",
+      "caption": "Семья и бюджет",
+      "emphasis": [
+        "бюджет"
+      ]
+    },
+    {
+      "id": "process",
+      "from": 392,
+      "durationInFrames": 87,
+      "kind": "speaker",
+      "caption": "Весь процесс",
+      "emphasis": [
+        "процесс"
+      ],
+      "zoom": 1.05,
+      "src": "sp-process.mp4"
+    },
+    {
+      "id": "steps",
+      "from": 479,
+      "durationInFrames": 108,
+      "kind": "steps",
+      "title": "Сопровождение",
+      "steps": [
+        "Консультация",
+        "Документы",
+        "Заявление"
+      ]
+    },
+    {
+      "id": "documents",
+      "from": 587,
+      "durationInFrames": 81,
+      "kind": "image",
+      "src": "re_agent_docs.png",
+      "caption": "Подача заявления",
+      "emphasis": [
+        "заявления"
+      ]
+    },
+    {
+      "id": "clear",
+      "from": 668,
+      "durationInFrames": 108,
+      "kind": "speaker",
+      "caption": "Понятно и прозрачно",
+      "emphasis": [
+        "прозрачно"
+      ],
+      "zoom": 1.08,
+      "src": "sp-clear.mp4"
+    },
+    {
+      "id": "organized",
+      "from": 776,
+      "durationInFrames": 114,
+      "kind": "kinetic",
+      "caption": "Для клиента",
+      "emphasis": [
+        "клиента"
+      ]
+    },
+    {
+      "id": "programs",
+      "from": 890,
+      "durationInFrames": 105,
+      "kind": "speaker",
+      "caption": "Международные программы",
+      "emphasis": [
+        "программы"
+      ],
+      "zoom": 1.04,
+      "src": "sp-programs.mp4"
+    },
+    {
+      "id": "investors",
+      "from": 995,
+      "durationInFrames": 105,
+      "kind": "video",
+      "src": "i2v_consult_001.mp4",
+      "caption": "Инвесторы и семьи",
+      "emphasis": [
+        "семьи"
+      ]
+    },
+    {
+      "id": "abroad",
+      "from": 1100,
+      "durationInFrames": 94,
+      "kind": "video",
+      "src": "global_route_001.webm",
+      "caption": "За рубежом",
+      "emphasis": [
+        "рубежом"
+      ]
+    },
+    {
+      "id": "consider",
+      "from": 1194,
+      "durationInFrames": 131,
+      "kind": "speaker",
+      "caption": "Если рассматриваете переезд",
+      "emphasis": [
+        "переезд"
+      ],
+      "zoom": 1.05,
+      "src": "sp-consider.mp4"
+    },
+    {
+      "id": "contact",
+      "from": 1325,
+      "durationInFrames": 163,
+      "kind": "speaker",
+      "caption": "HK Immigration",
+      "emphasis": [
+        "Immigration"
+      ],
+      "circle": true,
+      "src": "sp-contact.mp4"
+    },
+    {
+      "id": "close",
+      "from": 1488,
+      "durationInFrames": 188,
+      "kind": "speaker",
+      "caption": "Индивидуальный подход",
+      "emphasis": [
+        "подход"
+      ],
+      "zoom": 1.06,
+      "src": "sp-close.mp4"
+    }
+  ]
+}

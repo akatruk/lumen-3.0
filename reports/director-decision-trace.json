@@ -1,0 +1,735 @@
+{
+  "identity": {
+    "file": "/Users/akatruk_macbook/Downloads/lumen-fc451a1e.mp4",
+    "sha256": "e21bf8dac04f4fa5ab1a07d044159ab9be389f2e77c22604e7dea6a335f3914b",
+    "projectId": "fc451a1e44834e73a28f7e02157e28dd",
+    "generationId": "gen_448815100",
+    "renderId": "94c1b71ac66247fbbc3c768f7e6d3351",
+    "directorJobId": "89c29199445f4c5982c40de604b88ef3",
+    "transcriptionJobId": "00feff4f06da43c9821e6293a5af9f7b",
+    "sourceChecksum": "f7a6fc43c2631b053a34a59676aeef762e5ee1b33679d52765cf98dc43cdf234",
+    "transcriptChecksum": "f7a6fc43c2631b053a34a59676aeef762e5ee1b33679d52765cf98dc43cdf234",
+    "checksumMatch": true,
+    "plans": {
+      "heuristic": "/tmp/lumen-asr-e2e-20261016/fc451a1e44834e73a28f7e02157e28dd/visual-history/gen_448815100.json",
+      "rendered": "/tmp/lumen-asr-e2e-20261016/fc451a1e44834e73a28f7e02157e28dd/remotion-plans/gen_448815100.json"
+    },
+    "where": "isolated local DATA_DIR /tmp/lumen-asr-e2e-20261016. Not a lumen-fix production job."
+  },
+  "transcript": {
+    "status": "verified",
+    "sourceLanguage": "zh-CN",
+    "projectLanguage": "zh-CN",
+    "provider": "whisperx",
+    "modelId": "Systran/faster-whisper-small",
+    "segments": 28,
+    "coverage": [
+      0.0,
+      60.36
+    ],
+    "placeholder": false,
+    "directorCaptionSource": "source_transcript",
+    "directorMode": "heuristic",
+    "dubbed": false
+  },
+  "flags": {
+    "SEMANTIC_MOTION_V14_ENABLED": "default 0, apply_semantic_motion returns before any scene proposal",
+    "SEMANTIC_MOTION_V15_ENABLED": "default 0, apply_semantic_motion_v15 returns immediately",
+    "SCENE_COMPOSER_V16_ENABLED": "default 0",
+    "MOTION_QUALITY_V17_ENABLED": "default 0",
+    "MOTION_DESIGN_V18_ENABLED": "default 0",
+    "LLM_PROVIDER": "none",
+    "director_provider": "heuristic",
+    "renderPlanHasV14Payload": false,
+    "semanticMotionAudit": {
+      "resolved": [],
+      "missing": [],
+      "resolvedCount": 0,
+      "pass": false
+    }
+  },
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "start": 0.0,
+      "end": 3.0,
+      "sourceQuotes": [
+        {
+          "start": 0.0,
+          "end": 2.64,
+          "text": "很多人第一次来咨询先会问"
+        },
+        {
+          "start": 2.64,
+          "end": 4.6,
+          "text": "现在哪本护照最好办"
+        }
+      ],
+      "planned": {
+        "representation": "presenter",
+        "query": null,
+        "background": null,
+        "speaker": "speaker_closeup",
+        "headline": ""
+      },
+      "selected": {
+        "query": "family home doorway relocation",
+        "semanticConcepts": [
+          {
+            "id": "relocation_move",
+            "start": 38.24,
+            "end": 40.4,
+            "evidence": "也有人根本不準備搬家"
+          },
+          {
+            "id": "passport_document",
+            "start": 2.64,
+            "end": 4.6,
+            "evidence": "现在哪本护照最好办"
+          }
+        ],
+        "background": "people_door_001",
+        "backgroundFile": "static/people/people_door_001.png",
+        "foreground": "imm_obj_suitcase",
+        "headline": "很多人第一次来咨询 先会问",
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "speaker",
+        "speakerLayout": "speaker_punch_in"
+      },
+      "rendered": {
+        "observation": "speaker fullscreen plus a small suitcase outline. Door plate not visible.",
+        "class": "speaker",
+        "backgroundVisible": false
+      }
+    },
+    {
+      "sceneId": "context",
+      "start": 3.0,
+      "end": 9.02,
+      "sourceQuotes": [
+        {
+          "start": 2.64,
+          "end": 4.6,
+          "text": "现在哪本护照最好办"
+        },
+        {
+          "start": 4.6,
+          "end": 6.76,
+          "text": "但这个问题就像走进医院"
+        },
+        {
+          "start": 6.76,
+          "end": 9.76,
+          "text": "先问哪种要最贵一样顺序反了"
+        }
+      ],
+      "planned": null,
+      "selected": {
+        "query": "family home doorway relocation",
+        "semanticConcepts": [
+          {
+            "id": "relocation_move",
+            "start": 38.24,
+            "end": 40.4,
+            "evidence": "也有人根本不準備搬家"
+          }
+        ],
+        "background": "people_door_001",
+        "backgroundFile": "static/people/people_door_001.png",
+        "foreground": null,
+        "headline": null,
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "speaker_media",
+        "speakerLayout": "speaker_with_foreground"
+      },
+      "rendered": {
+        "observation": "split: family in a doorway on the left, speaker on the right. Caption is the hospital line.",
+        "class": "broll",
+        "backgroundVisible": true
+      }
+    },
+    {
+      "sceneId": "problem",
+      "start": 9.02,
+      "end": 16.03,
+      "sourceQuotes": [
+        {
+          "start": 6.76,
+          "end": 9.76,
+          "text": "先问哪种要最贵一样顺序反了"
+        },
+        {
+          "start": 9.76,
+          "end": 12.76,
+          "text": "身份规划的第一步不是选国家"
+        },
+        {
+          "start": 12.76,
+          "end": 16.04,
+          "text": "而是定义问题你究竟想解决什么"
+        }
+      ],
+      "planned": null,
+      "selected": {
+        "query": "consultation meeting advisor",
+        "semanticConcepts": [
+          {
+            "id": "consultation",
+            "start": 0.0,
+            "end": 2.64,
+            "evidence": "很多人第一次来咨询 先会问"
+          },
+          {
+            "id": "passport_document",
+            "start": 2.64,
+            "end": 4.6,
+            "evidence": "现在哪本护照最好办"
+          }
+        ],
+        "background": "people_consult_001",
+        "backgroundFile": "static/people/people_consult_001.png",
+        "foreground": "fg_passport",
+        "headline": null,
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "speaker",
+        "speakerLayout": "speaker_closeup"
+      },
+      "rendered": {
+        "observation": "speaker fullscreen. Faint passport outline. Consult plate not visible.",
+        "class": "speaker",
+        "backgroundVisible": false
+      }
+    },
+    {
+      "sceneId": "residency",
+      "start": 16.03,
+      "end": 26.04,
+      "sourceQuotes": [
+        {
+          "start": 12.76,
+          "end": 16.04,
+          "text": "而是定义问题你究竟想解决什么"
+        },
+        {
+          "start": 16.04,
+          "end": 19.04,
+          "text": "是出行受限是孩子未来教育"
+        },
+        {
+          "start": 19.04,
+          "end": 22.16,
+          "text": "是退休居住是企业跨境经营"
+        },
+        {
+          "start": 22.16,
+          "end": 24.4,
+          "text": "还是家庭成员国籍不同"
+        },
+        {
+          "start": 24.4,
+          "end": 26.76,
+          "text": "需要一个共同生活的地方"
+        }
+      ],
+      "planned": {
+        "representation": "photo+presenter",
+        "query": "family home doorway relocation",
+        "background": "people_door_001",
+        "speaker": "speaker_split_left",
+        "headline": ""
+      },
+      "selected": {
+        "query": "document review desk paperwork",
+        "semanticConcepts": [
+          {
+            "id": "consultation",
+            "start": 0.0,
+            "end": 2.64,
+            "evidence": "很多人第一次来咨询 先会问"
+          },
+          {
+            "id": "passport_document",
+            "start": 2.64,
+            "end": 4.6,
+            "evidence": "现在哪本护照最好办"
+          }
+        ],
+        "background": "people_door_001",
+        "backgroundFile": "static/people/people_door_001.png",
+        "foreground": null,
+        "headline": null,
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "speaker_media",
+        "speakerLayout": "speaker_split_right"
+      },
+      "rendered": {
+        "observation": "same doorway family split again. Caption is retirement and cross-border business.",
+        "class": "broll",
+        "backgroundVisible": true
+      }
+    },
+    {
+      "sceneId": "consult",
+      "start": 26.04,
+      "end": 34.06,
+      "sourceQuotes": [
+        {
+          "start": 24.4,
+          "end": 26.76,
+          "text": "需要一个共同生活的地方"
+        },
+        {
+          "start": 26.76,
+          "end": 29.2,
+          "text": "这些目标看起来都叫移民"
+        },
+        {
+          "start": 29.2,
+          "end": 32.0,
+          "text": "實際需要的法律工具完全不同"
+        },
+        {
+          "start": 32.0,
+          "end": 34.56,
+          "text": "有人只需要一張長期拒留"
+        }
+      ],
+      "planned": {
+        "representation": "photo",
+        "query": "advisor client meeting trust",
+        "background": "i2v_consult_001",
+        "speaker": "speaker_with_media",
+        "headline": ""
+      },
+      "selected": {
+        "query": "consultation meeting advisor",
+        "semanticConcepts": [
+          {
+            "id": "consultation",
+            "start": 0.0,
+            "end": 2.64,
+            "evidence": "很多人第一次来咨询 先会问"
+          }
+        ],
+        "background": "i2v_consult_001",
+        "backgroundFile": "motion/people/i2v_consult_001.mp4",
+        "foreground": null,
+        "headline": null,
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "broll",
+        "speakerLayout": "speaker_with_media"
+      },
+      "rendered": {
+        "observation": "consult-room couple full frame, speaker PIP. Caption is different legal tools.",
+        "class": "broll",
+        "backgroundVisible": true
+      }
+    },
+    {
+      "sceneId": "beside",
+      "start": 34.06,
+      "end": 40.07,
+      "sourceQuotes": [
+        {
+          "start": 32.0,
+          "end": 34.56,
+          "text": "有人只需要一張長期拒留"
+        },
+        {
+          "start": 34.56,
+          "end": 36.24,
+          "text": "有人需要工作權"
+        },
+        {
+          "start": 36.24,
+          "end": 38.24,
+          "text": "有人關心最終入籍"
+        },
+        {
+          "start": 38.24,
+          "end": 40.4,
+          "text": "也有人根本不準備搬家"
+        }
+      ],
+      "planned": {
+        "representation": "typography+presenter",
+        "query": null,
+        "background": null,
+        "speaker": "speaker_split_right",
+        "headline": ""
+      },
+      "selected": {
+        "query": "consultation meeting advisor",
+        "semanticConcepts": [
+          {
+            "id": "consultation",
+            "start": 0.0,
+            "end": 2.64,
+            "evidence": "很多人第一次来咨询 先会问"
+          },
+          {
+            "id": "passport_document",
+            "start": 2.64,
+            "end": 4.6,
+            "evidence": "现在哪本护照最好办"
+          }
+        ],
+        "background": "cev6_i2v_biz_meeting_002",
+        "backgroundFile": "motion/cinematic-env-v6/clips/cev6_i2v_biz_meeting_002.mp4",
+        "foreground": null,
+        "headline": "目标",
+        "cardMode": "progressive_one",
+        "criteriaCards": [
+          {
+            "title": "目标",
+            "explanation": "迁往哪里以及为何出发"
+          },
+          {
+            "title": "家庭",
+            "explanation": "同行家人与时间安排"
+          },
+          {
+            "title": "预算",
+            "explanation": "项目费用是否可承受"
+          }
+        ],
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "infographic",
+        "speakerLayout": "speaker_split_left"
+      },
+      "rendered": {
+        "observation": "speaker left, black card 家庭 / 同行家人与时间安排. Meeting clip not visible. Caption is 最终入籍.",
+        "class": "text_card",
+        "backgroundVisible": false
+      }
+    },
+    {
+      "sceneId": "steps",
+      "start": 40.07,
+      "end": 45.08,
+      "sourceQuotes": [
+        {
+          "start": 38.24,
+          "end": 40.4,
+          "text": "也有人根本不準備搬家"
+        },
+        {
+          "start": 40.4,
+          "end": 42.76,
+          "text": "只想保留一個備用選項"
+        },
+        {
+          "start": 42.76,
+          "end": 45.08,
+          "text": "我建議先做三個篩選"
+        }
+      ],
+      "planned": {
+        "representation": "diagram",
+        "query": null,
+        "background": null,
+        "speaker": "speaker_with_diagram",
+        "headline": ""
+      },
+      "selected": {
+        "query": "consultation meeting advisor",
+        "semanticConcepts": [
+          {
+            "id": "consultation",
+            "start": 0.0,
+            "end": 2.64,
+            "evidence": "很多人第一次来咨询 先会问"
+          },
+          {
+            "id": "passport_document",
+            "start": 2.64,
+            "end": 4.6,
+            "evidence": "现在哪本护照最好办"
+          }
+        ],
+        "background": "i2v_phone_001",
+        "backgroundFile": "motion/people/i2v_phone_001.mp4",
+        "foreground": null,
+        "headline": "全程陪同",
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": [
+          "咨询",
+          "方案",
+          "文件"
+        ],
+        "stepsTitle": "全程陪同",
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "speaker",
+        "speakerLayout": "speaker_medium"
+      },
+      "rendered": {
+        "observation": "speaker fullscreen with 全程陪同 / 步骤 2 / 方案. Phone clip not visible. Caption is 备用选项.",
+        "class": "text_card",
+        "backgroundVisible": false
+      }
+    },
+    {
+      "sceneId": "proof",
+      "start": 45.08,
+      "end": 51.09,
+      "sourceQuotes": [
+        {
+          "start": 42.76,
+          "end": 45.08,
+          "text": "我建議先做三個篩選"
+        },
+        {
+          "start": 45.08,
+          "end": 47.36,
+          "text": "第一層叫使用場景"
+        },
+        {
+          "start": 47.36,
+          "end": 48.24,
+          "text": "未來五年"
+        },
+        {
+          "start": 48.24,
+          "end": 50.64,
+          "text": "你每年願意在當地住多久"
+        },
+        {
+          "start": 50.64,
+          "end": 51.72,
+          "text": "會不會工作"
+        }
+      ],
+      "planned": null,
+      "selected": {
+        "query": "phone consultation office advisor",
+        "semanticConcepts": [
+          {
+            "id": "consultation",
+            "start": 0.0,
+            "end": 2.64,
+            "evidence": "很多人第一次来咨询 先会问"
+          },
+          {
+            "id": "passport_document",
+            "start": 2.64,
+            "end": 4.6,
+            "evidence": "现在哪本护照最好办"
+          }
+        ],
+        "background": "people_consult_001",
+        "backgroundFile": "static/people/people_consult_001.png",
+        "foreground": null,
+        "headline": null,
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "broll",
+        "speakerLayout": "speaker_with_media"
+      },
+      "rendered": {
+        "observation": "same consult-room couple, speaker PIP. Caption is 未来五年.",
+        "class": "broll",
+        "backgroundVisible": true
+      }
+    },
+    {
+      "sceneId": "payoff",
+      "start": 51.09,
+      "end": 56.09,
+      "sourceQuotes": [
+        {
+          "start": 50.64,
+          "end": 51.72,
+          "text": "會不會工作"
+        },
+        {
+          "start": 51.72,
+          "end": 52.56,
+          "text": "開公司"
+        },
+        {
+          "start": 52.56,
+          "end": 53.8,
+          "text": "送孩子上學"
+        },
+        {
+          "start": 53.8,
+          "end": 55.8,
+          "text": "如果一年只能去幾天"
+        },
+        {
+          "start": 55.8,
+          "end": 57.56,
+          "text": "就不要研究依賴長期"
+        }
+      ],
+      "planned": null,
+      "selected": {
+        "query": "consultation meeting advisor",
+        "semanticConcepts": [
+          {
+            "id": "consultation",
+            "start": 0.0,
+            "end": 2.64,
+            "evidence": "很多人第一次来咨询 先会问"
+          },
+          {
+            "id": "passport_document",
+            "start": 2.64,
+            "end": 4.6,
+            "evidence": "现在哪本护照最好办"
+          }
+        ],
+        "background": "cev6_i2v_biz_boardroom_001",
+        "backgroundFile": "motion/cinematic-env-v6/clips/cev6_i2v_biz_boardroom_001.mp4",
+        "foreground": "consultation",
+        "headline": null,
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "speaker",
+        "speakerLayout": "speaker_medium"
+      },
+      "rendered": {
+        "observation": "speaker fullscreen. Boardroom clip not visible.",
+        "class": "speaker",
+        "backgroundVisible": false
+      }
+    },
+    {
+      "sceneId": "return",
+      "start": 56.09,
+      "end": 60.1,
+      "sourceQuotes": [
+        {
+          "start": 55.8,
+          "end": 57.56,
+          "text": "就不要研究依賴長期"
+        },
+        {
+          "start": 57.56,
+          "end": 59.36,
+          "text": "真实居住的路线"
+        },
+        {
+          "start": 59.36,
+          "end": 60.1,
+          "text": "第二层"
+        }
+      ],
+      "planned": {
+        "representation": "presenter",
+        "query": null,
+        "background": null,
+        "speaker": "speaker_closeup",
+        "headline": ""
+      },
+      "selected": {
+        "query": "consultation meeting advisor",
+        "semanticConcepts": [
+          {
+            "id": "consultation",
+            "start": 0.0,
+            "end": 2.64,
+            "evidence": "很多人第一次来咨询 先会问"
+          },
+          {
+            "id": "passport_document",
+            "start": 2.64,
+            "end": 4.6,
+            "evidence": "现在哪本护照最好办"
+          }
+        ],
+        "background": "cev6_i2v_fam_consult_003",
+        "backgroundFile": "motion/cinematic-env-v6/clips/cev6_i2v_fam_consult_003.mp4",
+        "foreground": null,
+        "headline": null,
+        "cardMode": "none",
+        "criteriaCards": null,
+        "steps": null,
+        "stepsTitle": null,
+        "semanticMotion": {
+          "display": "omit"
+        },
+        "semanticMotionV14": null,
+        "primaryVisualRole": "speaker",
+        "speakerLayout": "speaker_fullscreen"
+      },
+      "rendered": {
+        "observation": "speaker fullscreen. Family-consult clip not visible.",
+        "class": "speaker",
+        "backgroundVisible": false
+      }
+    }
+  ],
+  "durationsSeconds": {
+    "speaker": 19.02,
+    "broll": 30.06,
+    "text_card": 11.02
+  },
+  "reuse": {
+    "people_door_001": [
+      "hook selected but not visible",
+      "context visible",
+      "residency visible"
+    ],
+    "consult_couple": [
+      "consult i2v_consult_001 visible",
+      "proof people_consult_001 visible, same room"
+    ]
+  }
+}

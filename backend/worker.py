@@ -12,9 +12,158 @@ from . import media,ai
 
 log=logging.getLogger('lumen.worker')
 
-def progress(pid,stage,value):
-    update(pid,stage=stage,progress=value)
-    event(pid,'stage',stage)
+# Create-video / Remotion steps shown in the live activity card (not analysis).
+RENDER_ACTIVITY = (
+    'preparing_voice', 'creating', 'preparing_picture', 'matching_music',
+    'drawing_graphics', 'rendering', 'rendering_shots', 'assembling',
+    'mixing_music', 'burning_captions', 'writing_file', 'checking', 'render_queued',
+)
+
+
+def progress(pid, stage, value, *, note=None, plan=None):
+    """Update stage/progress and refresh the live activity card (clock + step list)."""
+    current = project(pid) or {}
+    meta = dict(current.get('metadata') or {})
+    previous = meta.get('activity') if isinstance(meta.get('activity'), dict) else {}
+    log = [row for row in (previous.get('log') or []) if isinstance(row, dict) and row.get('step')]
+    if previous.get('step') and previous.get('step') != stage:
+        log.append({'step': previous['step']})
+        log = log[-12:]
+    if isinstance(plan, list) and plan:
+        chosen = plan
+    elif stage in RENDER_ACTIVITY:
+        # Drop stale analysis steps (director / reference_*) so the page shows the render path.
+        base = [
+            'preparing_voice', 'drawing_graphics', 'rendering', 'assembling', 'checking',
+        ]
+        if stage == 'render_queued':
+            chosen = ['render_queued'] + [s for s in base if s != 'preparing_voice']
+        elif stage in base:
+            # Keep voice step only when this job actually entered it (or stays on it).
+            if stage == 'preparing_voice' or previous.get('step') == 'preparing_voice' or any(
+                row.get('step') == 'preparing_voice' for row in log
+            ):
+                chosen = list(base)
+            else:
+                chosen = [s for s in base if s != 'preparing_voice']
+            if stage not in chosen:
+                chosen = [stage] + chosen
+        else:
+            chosen = [stage]
+    else:
+        chosen = previous.get('plan') if isinstance(previous.get('plan'), list) and previous.get('plan') else [stage]
+    same = previous.get('step') == stage and previous.get('at')
+    meta['activity'] = {
+        'step': stage,
+        'part': None,
+        'done': None,
+        'total': None,
+        'at': previous.get('at') if same else time.time(),
+        'log': log,
+        'plan': chosen,
+        'note': note if note is not None else (previous.get('note') if same else None),
+    }
+    status = current.get('status')
+    # Keep analyzing for analysis notes; render jobs stay queued/rendering.
+    if status not in ('analyzing', 'importing') and stage in RENDER_ACTIVITY:
+        if status not in ('rendering', 'complete', 'failed', 'needs_review'):
+            status = 'rendering' if stage != 'render_queued' else 'queued'
+        update(pid, status=status, stage=stage, progress=value, metadata=meta)
+    else:
+        update(pid, stage=stage, progress=value, metadata=meta)
+    event(pid, 'stage', stage)
+
+def fit_caption_ends(rows, audio):
+    """Keep caption times inside the speech file. Alignment can run a little past it."""
+    from pathlib import Path
+    if not audio or not Path(audio).is_file():
+        return rows
+    from .music import probe_audio
+    spoken = float((probe_audio(audio) or {}).get('duration') or 0)
+    if spoken <= 0:
+        return rows
+    fitted = []
+    for row in rows:
+        start = float(row['start'])
+        end = min(float(row['end']), spoken)
+        if start >= spoken or end - start < 0.08:
+            continue
+        fitted.append({**row, 'end': end})
+    return fitted
+
+
+def dub_captions(segments, code):
+    """Captions follow the dubbed lines. The schema still requires every language field."""
+    rows = []
+    language = code if code in ('en', 'zh', 'ru') else 'en'
+    for segment in segments or []:
+        text = segment['text']
+        row = {
+            'start': segment['start'],
+            'end': segment['end'],
+            'original': text,
+            'en': '',
+            'zh': '',
+            'ru': '',
+        }
+        row[language] = text
+        rows.append(row)
+    return rows
+
+
+def _ready_speech(folder, expected, voice):
+    """Reuse speech already recorded for these lines. Do not call a translator again."""
+    from pathlib import Path
+    path = Path(folder) / 'rendition.json'
+    if not path.is_file():
+        return None
+    saved = json.loads(path.read_text(encoding='utf-8'))
+    audio = (saved.get('audio') or {}).get('file')
+    if not audio or not Path(audio).is_file():
+        return None
+    if saved.get('status') not in {'audio_ready', 'aligned', 'ready', 'rendered'}:
+        return None
+    if voice and saved.get('voiceId') not in (None, voice):
+        return None
+    spoken = [(line.get('text') or '').strip() for line in saved.get('localizedScript') or []]
+    if spoken != [text.strip() for text in expected]:
+        return None
+    return saved
+
+
+def _dub_for_job(pid, payload, folder):
+    """Target-language speech for this rendition. The source recording stays untouched."""
+    from .dubbing_audio import localize_for_speech, synthesize
+    from .language import rendition_dir
+    from .rendition import localize_script, materialize_speech, semantic_segments, source_record, store_rendition, translations_from_rows
+    locale = payload.get('target_language')
+    transcript = (payload.get('plan') or {}).get('transcript') or []
+    translations = translations_from_rows(transcript, locale)
+    if not translations:
+        segments = semantic_segments(transcript)
+        if not segments:
+            raise ValueError('localized_script_missing')
+        translations = localize_for_speech(pid, segments, locale)
+    source = source_record(transcript)
+    spoken = localize_script(source['segments'], locale, source['sourceLanguage'], translations)
+    saved = _ready_speech(rendition_dir(settings.data_dir, pid, locale), [line['text'] for line in spoken], payload.get('voice'))
+    if saved:
+        del folder
+        return saved
+
+    record = materialize_speech(
+        rendition_dir(settings.data_dir, pid, locale),
+        transcript,
+        locale,
+        synthesize,
+        translations=translations,
+        voice=payload.get('voice'),
+    )
+    store_rendition(rendition_dir(settings.data_dir, pid, locale), record)
+    if not (record.get('audio') or {}).get('file') and record.get('audioMode') != 'original':
+        raise ValueError('VOICE_SETUP_REQUIRED')
+    del folder
+    return record
 
 def analyze_job(p):
     pid=p['id']; folder=settings.data_dir/pid; source=folder/'source'
@@ -53,6 +202,9 @@ def analyze_job(p):
             enqueue(db,pid,'render',{'recommendations':selected})
 
 def render_job(p,payload):
+    from .director_v3 import PROJECT_ID
+    if p['id'] == PROJECT_ID:
+        raise ValueError('director_v3_required')
     pid=p['id']; folder=settings.data_dir/pid
     analysis=Analysis.model_validate(p['analysis'])
     selected=[r for r in analysis.recommendations if r.id in payload['recommendations']]
@@ -104,7 +256,12 @@ def render_job(p,payload):
             manual=attach_recommended_bed(pid, manual, current)
         from .assets import validate as validate_assets
         from .manual import Edit
-        with connect() as db:asset_paths=validate_assets(Edit.model_validate(manual),pid,db)
+        from .media import _without_dub
+        # Prompt-assembly bindings (duration/width/…) may ride on the job manual.
+        if isinstance(manual, dict):
+            for key in ('duration', 'width', 'height', 'aspect', 'visual_energy', 'promptBindings'):
+                manual.pop(key, None)
+        with connect() as db:asset_paths=validate_assets(Edit.model_validate(_without_dub(manual)),pid,db)
     voice_audio=render_audio.prepare(pid,delivery['voice'],render_folder,timeline) if delivery and delivery['voice'] and not payload.get('illustration') else None
     picture_engine='hypit'
     effect_board=None
@@ -120,14 +277,24 @@ def render_job(p,payload):
             progress(pid,'drawing_graphics',22)
             manual=animate_for_render(manual)
             manual=present_for_render(manual)
+        if payload.get('dubbed'):
+            progress(pid,'preparing_voice',18)
+            record=_dub_for_job(pid, payload, render_folder)
+            manual=dict(manual)
+            if (record.get('audio') or {}).get('file'):
+                manual['dub_audio']=record['audio']['file']
+            code=payload.get('language') or 'en'
+            manual['captions']=fit_caption_ends(
+                dub_captions((record.get('alignment') or {}).get('segments') or [], code),
+                (record.get('audio') or {}).get('file'),
+            )
+            manual['subtitles']=bool(manual['captions'])
         if payload.get('illustration'):
             from .hypit_prompt import illustration_request
+            from .media import _without_dub
             manual=dict(manual)
-            manual['presentation_prompt']=illustration_request()
-            manual['card_motion']=40
-            manual['animation_intensity']=60
-            manual['animation_motion']=80
-            manual['animation_density']=70
+            # Prompt assembly must not see the speech file path as an Edit field.
+            manual['presentation_prompt']=illustration_request(_without_dub(manual))
         picture_engine=engine_for((current or {}).get('context') if current else None)
     spoken=(delivery or {}).get('voice') or {}
     result=media.render(folder/'source',render_folder,p['metadata'],analysis,selected,p['language'],p['aspect'],brolls,preserve_caption_master=True,on_progress=lambda stage,value:progress(pid,stage,value),picture_engine=picture_engine,presentation_language=spoken.get('language'),effect_board=effect_board if manual else None,**({'voice_audio':voice_audio} if voice_audio else {}),**({'manual':manual,'asset_paths':asset_paths} if manual else {}))
@@ -162,6 +329,11 @@ def render_job(p,payload):
     status='complete' if result['qa_status']=='passed' else 'needs_review'
     with connect() as db:
         db.lock();render_audio.publish(db,p,result,render_folder,delivery,status)
+    try:
+        from .render_retention import prune_pictures
+        prune_pictures(pid, result['render_id'])
+    except Exception:
+        log.exception('render retention failed for %s', pid)
     event(pid,'render_complete',json.dumps({'applied':result['applied'],'quality':result['qa_status']}))
 
 def safe_error(exc):
@@ -169,7 +341,7 @@ def safe_error(exc):
     'provider_credits_required','provider_auth_failed','provider_request_failed','provider_invalid_analysis','provider_analysis_truncated','analysis_timestamps_invalid','analysis_proxy_missing','stock_unavailable',
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
-    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable',
+    'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready','VOICE_SETUP_REQUIRED','MISSING_TARGET_LANGUAGE_VOICE','VOICE_PROVIDER_NOT_CONFIGURED','TRANSCRIPTION_PROVIDER_UNAVAILABLE','SOURCE_TRANSCRIPT_UNAVAILABLE','SOURCE_LANGUAGE_UNVERIFIED','TRANSCRIPTION_FAILED','TRANSCRIPTION_TIMEOUT','localized_script_missing','director_v3_required','director_v3_renderer_missing','director_v3_render_failed','duration_step','visual_energy','visual_variation',
     'unverified_claim','property_not_approved','property_plan_changed','property_workflow','property_too_short','property_delivery_missing','reference_media_blocked','invalid_media_path','asset_not_found'}
     return str(exc) if str(exc) in allowed else 'processing_failed'
 
@@ -192,6 +364,12 @@ def run_once():
         elif job['kind']=='studio_analyze':
             from .studio import analyze
             analyze(p)
+        elif job['kind']=='transcribe':
+            from .transcription import run_job as transcribe_job
+            transcribe_job(p,json.loads(job['payload'] or '{}'))
+        elif job['kind']=='director_v3':
+            from .director_v3 import run_job as director_v3_job
+            director_v3_job(p,json.loads(job['payload']))
         elif job['kind']=='studio_render':
             from .studio import render_job as studio_render
             studio_render(p,json.loads(job['payload']))
@@ -230,6 +408,7 @@ def run_once():
     except Exception as exc:
         code=safe_error(exc)
         # A closed worker terminal must not skip the status update or hide the cause.
+        detail=''
         try:
             detail=failure_detail(exc)
             log.error('Job %s failed: %s (%s)%s',job['id'],code,type(exc).__name__,f'; {detail}' if detail else '')
@@ -237,7 +416,29 @@ def run_once():
                 handler.flush()
         except Exception:
             pass
-        if job['kind'] not in ('final_music','dubbing','platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'): update(p['id'],status='failed',stage='failed',error=code)
+        if job['kind']=='transcribe':
+            from .transcription import mark_transcription
+            mark_transcription(p['id'], 'transcription_failed', transcription_error=code)
+        elif job['kind'] not in ('final_music','dubbing','platform_variants','director_alternative','timeline_proposal','creative_plan','music_plan','stock_import','stock_discover'):
+            # Keep a human note on the activity card — safe_error alone hides ModuleNotFound etc.
+            try:
+                current = project(p['id']) or {}
+                meta = dict(current.get('metadata') or {})
+                prev = meta.get('activity') if isinstance(meta.get('activity'), dict) else {}
+                note = detail or f'{type(exc).__name__}: {exc}'
+                if len(note) > 280:
+                    note = note[:277] + '…'
+                meta['activity'] = {
+                    **prev,
+                    'step': prev.get('step') or current.get('stage') or 'failed',
+                    'note': note,
+                    'at': prev.get('at') or time.time(),
+                    'plan': prev.get('plan') or [],
+                    'log': prev.get('log') or [],
+                }
+                update(p['id'], status='failed', stage='failed', error=code, metadata=meta)
+            except Exception:
+                update(p['id'], status='failed', stage='failed', error=code)
         event(p['id'],'failed',code)
         state='failed'
     with connect() as db:
@@ -250,7 +451,7 @@ def serve(guard):
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     # Do not auto-replay ambiguous paid calls after process death.
     with connect() as db:
-        for row in db.execute("SELECT project_id,kind,payload FROM jobs WHERE status='running'"):
+        for row in db.execute("SELECT project_id,kind,payload,id FROM jobs WHERE status='running'"):
             if row["kind"]=="final_music":
                 db.execute("UPDATE final_music_versions SET status='failed',error='worker_interrupted' WHERE id=?",(json.loads(row['payload'])['id'],))
             elif row["kind"]=="dubbing":
@@ -269,6 +470,9 @@ def serve(guard):
                 db.execute("UPDATE director_proposals SET status='failed' WHERE project_id=? AND status='queued'",(row[0],))
             elif row["kind"]=="platform_variants":
                 db.execute("UPDATE platform_packages SET status='failed' WHERE project_id=?",(row[0],))
+            elif row["kind"]=="transcribe":
+                from .transcription import recover_transcribe_job
+                recover_transcribe_job(db, row)
             else:
                 db.execute("UPDATE projects SET status='failed',stage='failed',error='worker_interrupted' WHERE id=?",(row[0],))
         db.execute("UPDATE jobs SET status='failed' WHERE status='running'")

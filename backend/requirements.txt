@@ -8,3 +8,5 @@ psycopg[binary]==3.2.10
 jieba==0.42.1
 numpy==2.5.3
 opencv-python-headless==5.0.0.93
+faster-whisper==1.2.1
+ctranslate2==4.8.3

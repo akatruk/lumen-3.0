@@ -1,0 +1,85 @@
+{
+  "projectId": "director_v4_exec_compliance",
+  "source": "/Users/akatruk_macbook/Desktop/original1.mp4",
+  "out": "/Users/akatruk_macbook/Documents/github/lumen-3.0/output/director-v4/preview-20s.mp4",
+  "durationSeconds": 20,
+  "sourceDuration": 63.466667,
+  "speakerFile": "speaker.mp4",
+  "language": "en-US",
+  "generationId": "ordinary_director_20s",
+  "visualSeed": 32012,
+  "deliverySha256": "bd1816cc5befeb96d971a89ab28ae1ebaebbf19c3a0935b776feacb3a1e7538a",
+  "metadata": {
+    "duration": 20.053333,
+    "width": 1080,
+    "height": 1920,
+    "has_audio": true,
+    "size": 6725232,
+    "codec": "h264",
+    "fps": 30.0,
+    "orientation": "portrait"
+  },
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "query": null,
+      "representation": "presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "residency",
+      "query": "residence permit application desk",
+      "representation": "photo+presenter",
+      "background": "people_property_001",
+      "foreground": null,
+      "rejected": [
+        "parallax_depth"
+      ],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "consult",
+      "query": "consultation meeting advisor",
+      "representation": "photo",
+      "background": "i2v_phone_001",
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "beside",
+      "query": null,
+      "representation": "typography+presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "steps",
+      "query": null,
+      "representation": "diagram",
+      "background": null,
+      "foreground": null,
+      "rejected": [
+        "mask_reveal"
+      ],
+      "mediaGap": null
+    },
+    {
+      "sceneId": "return",
+      "query": null,
+      "representation": "presenter",
+      "background": null,
+      "foreground": null,
+      "rejected": [
+        "vertical_pan"
+      ],
+      "mediaGap": null
+    }
+  ],
+  "path": "plan_for_request≈resolve_plan → resolve_scene_plan → render_with_plan → DirectorV3Preview"
+}

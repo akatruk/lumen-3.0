@@ -58,6 +58,7 @@ import "./style.css";
 import { DouyinSearch } from "./DouyinSearch";
 import { StudioCreate } from "./Studio";
 import { CreateVideo } from "./CreateVideo";
+import { QualityFeedback } from "./QualityFeedback";
 import "./workspace.css";
 import "./apple-design.css";
 const Locale = createContext<{ lang: Lang; t: (key: string) => string }>({
@@ -79,8 +80,9 @@ function initialRoute() {
     page: ["studio", "library", "settings"].includes(h) ? h : "studio",
   };
 }
-const active = (p: { status: string }) =>
-  ["queued", "analyzing", "rendering"].includes(p.status);
+const active = (p: { status: string; active_job?: { status?: string } | null }) =>
+  Boolean(p.active_job) ||
+  ["queued", "analyzing", "rendering", "importing"].includes(p.status);
 async function api(path: string, init?: RequestInit) {
   const r = await fetch("/api" + path, { credentials: "same-origin", ...init });
   let d;
@@ -448,6 +450,8 @@ function App() {
                     key={project.id}
                     pid={project.id}
                     lang={lang}
+                    project={project}
+                    sourceSeconds={project.metadata?.duration || 20}
                     working={active(project)}
                     onStarted={async () => {
                       setProject(await api("/projects/" + pid));
@@ -1470,6 +1474,9 @@ function ProjectView({
                 ))}
               </div>
             </div>
+            {p.result && (
+              <QualityFeedback lang={lang} projectId={p.id} timestamp={time} />
+            )}
           </div>
           }
           {working && <AnalysisActivity project={p} lang={lang} />}
@@ -1580,12 +1587,24 @@ function ProjectView({
                 <ScanLine size={34} />
               </div>
               <h2>
-                {t(p.status === "failed" ? "stage_failed" : "analysisPending")}
+                {t(
+                  p.status === "failed"
+                    ? "stage_failed"
+                    : p.status === "ready"
+                      ? "status_ready"
+                      : "analysisPending",
+                )}
               </h2>
               <p>
                 {working
                   ? activityDetail(p.metadata?.activity, lang, p.stage)
-                  : t(p.status === "failed" ? "processing_failed" : "pendingDesc")}
+                  : t(
+                      p.status === "failed"
+                        ? "processing_failed"
+                        : p.status === "ready"
+                          ? "readyNoPlan"
+                          : "pendingDesc",
+                    )}
               </p>
               <div className="skeleton-line" />
               <div className="skeleton-line short" />

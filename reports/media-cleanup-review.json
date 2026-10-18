@@ -1,0 +1,661 @@
+{
+  "version": 1,
+  "generated_at": "2026-10-10T19:49:29Z",
+  "library": "/mnt/volume_nyc1_1791446889637/app-library",
+  "manifest": "/mnt/volume_nyc1_1791446889637/app-library/manifest.json",
+  "dry_run": true,
+  "inventory": {
+    "manifest_assets": 811,
+    "files_present": 806,
+    "files_missing": 5,
+    "missing_ids": [
+      "re_motion_price_counter",
+      "re_motion_price_change",
+      "re_motion_rental_yield",
+      "re_motion_comparison",
+      "re_motion_purchase"
+    ],
+    "disk_files_total": 1094,
+    "by_type": {
+      "image": 789,
+      "video": 17,
+      "motion": 5
+    },
+    "by_category": {
+      "details": 105,
+      "people": 89,
+      "real-estate": 89,
+      "objects": 80,
+      "icons": 78,
+      "immigration": 76,
+      "foreground": 71,
+      "decorative": 60,
+      "real_estate": 60,
+      "backgrounds": 44,
+      "metaphor": 20,
+      "layers": 15,
+      "transition": 10,
+      "documents": 5,
+      "global": 4,
+      "concepts": 3,
+      "business": 1,
+      "conceptual": 1
+    },
+    "by_source": {
+      "runpod": 400,
+      "vector": 341,
+      "generated": 55,
+      "remotion": 10,
+      "?": 5
+    },
+    "by_status": {
+      "active": 811
+    },
+    "library": "/mnt/volume_nyc1_1791446889637/app-library",
+    "at": "2026-10-10T19:49:29Z"
+  },
+  "quality_counts": {
+    "GOOD": 431,
+    "PREMIUM": 375,
+    "LEGACY": 5
+  },
+  "exact_duplicate_groups": [
+    {
+      "sha256": "4c0827ccde186b1596b59300e0c5c5a967cce0b07482a8d9851eb2553b051bd8",
+      "ids": [
+        "v2_layer_relocation-city_background",
+        "v2_layer_passport-journey_background",
+        "v2_layer_property-balcony_background"
+      ],
+      "recommend_keep": "v2_layer_relocation-city_background",
+      "recommend_quarantine": [
+        "v2_layer_passport-journey_background",
+        "v2_layer_property-balcony_background"
+      ],
+      "kind": "exact_sha256"
+    },
+    {
+      "sha256": "d52873acf24f5375f02c06dfca3a7baa090dd587766eeae2d420344371d3042c",
+      "ids": [
+        "icon_home",
+        "imm_obj_home"
+      ],
+      "recommend_keep": "imm_obj_home",
+      "recommend_quarantine": [
+        "icon_home"
+      ],
+      "kind": "exact_sha256"
+    },
+    {
+      "sha256": "1aa35a5a274e0c2f030c1fcdfd526e1381b536e95d56a60d3b7d7e5650dada51",
+      "ids": [
+        "concept_path_001",
+        "path_route"
+      ],
+      "recommend_keep": "path_route",
+      "recommend_quarantine": [
+        "concept_path_001"
+      ],
+      "kind": "exact_sha256"
+    }
+  ],
+  "perceptual_duplicate_groups": [
+    {
+      "phash_seed": "f000f020f024f067f0e7f027f02cc02c902cd3ecc3c0ffc0ffe000807080f1c1",
+      "ids": [
+        "people_consult_001",
+        "i2v_consult_001"
+      ],
+      "recommend_keep": "people_consult_001",
+      "recommend_quarantine": [
+        "i2v_consult_001"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "00000000000000f807fc1ffe3fff7ffffffefffefffcfe7cf07000ff00ff0000",
+      "ids": [
+        "people_review_001",
+        "i2v_review_001"
+      ],
+      "recommend_keep": "people_review_001",
+      "recommend_quarantine": [
+        "i2v_review_001"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "0000ff80e000e000f3cefbeefbeefbeea32e006e07ee07ee0ffc1ffc00000000",
+      "ids": [
+        "people_door_001",
+        "i2v_door_001"
+      ],
+      "recommend_keep": "people_door_001",
+      "recommend_quarantine": [
+        "i2v_door_001"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "00050005001c0cd5feddfe9dfe2dfe05fe15f705fe05f70437041610001c0004",
+      "ids": [
+        "people_phone_001",
+        "i2v_phone_001"
+      ],
+      "recommend_keep": "people_phone_001",
+      "recommend_quarantine": [
+        "i2v_phone_001"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "00002000100018008874e5f972e738ef2cfc3ce738ea38f83fff7807ffffffff",
+      "ids": [
+        "people_apartment_001",
+        "i2v_apartment_001"
+      ],
+      "recommend_keep": "people_apartment_001",
+      "recommend_quarantine": [
+        "i2v_apartment_001"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "0000000000000000000003c00ff01ff81ff80ff003c000000000000000000000",
+      "ids": [
+        "target_hit_001",
+        "global_route_001"
+      ],
+      "recommend_keep": "global_route_001",
+      "recommend_quarantine": [
+        "target_hit_001"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "ff00ffe0fffffffffffffffbfff3fff300100010000000000000000000000000",
+      "ids": [
+        "re_view_balcony",
+        "re_view_balcony_motion"
+      ],
+      "recommend_keep": "re_view_balcony",
+      "recommend_quarantine": [
+        "re_view_balcony_motion"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "0000ff80fff8fffcfffffffffff1ffe1ffef8cff00ff03bf03e0000000000000",
+      "ids": [
+        "re_int_living",
+        "re_int_living_motion"
+      ],
+      "recommend_keep": "re_int_living",
+      "recommend_quarantine": [
+        "re_int_living_motion"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "000000007f00ffbf1fffffffffdffffefffeff80fff0ff1e000e000e00000000",
+      "ids": [
+        "re_int_empty",
+        "re_int_empty_motion"
+      ],
+      "recommend_keep": "re_int_empty",
+      "recommend_quarantine": [
+        "re_int_empty_motion"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    },
+    {
+      "phash_seed": "f000f800fc70ffe0ffe0ffd0fff0fff0fff0fff0fff0fff0fff0fff0fe000000",
+      "ids": [
+        "re_ext_condo_day",
+        "re_ext_condo_day_motion"
+      ],
+      "recommend_keep": "re_ext_condo_day",
+      "recommend_quarantine": [
+        "re_ext_condo_day_motion"
+      ],
+      "kind": "perceptual",
+      "threshold": 10
+    }
+  ],
+  "recommended_quarantine": [
+    {
+      "id": "re_motion_price_counter",
+      "reason": "legacy_missing",
+      "quality": "LEGACY",
+      "file": "motion/src/realestate/scenes.tsx"
+    },
+    {
+      "id": "re_motion_price_change",
+      "reason": "legacy_missing",
+      "quality": "LEGACY",
+      "file": "motion/src/realestate/scenes.tsx"
+    },
+    {
+      "id": "re_motion_rental_yield",
+      "reason": "legacy_missing",
+      "quality": "LEGACY",
+      "file": "motion/src/realestate/scenes.tsx"
+    },
+    {
+      "id": "re_motion_comparison",
+      "reason": "legacy_missing",
+      "quality": "LEGACY",
+      "file": "motion/src/realestate/scenes.tsx"
+    },
+    {
+      "id": "re_motion_purchase",
+      "reason": "legacy_missing",
+      "quality": "LEGACY",
+      "file": "motion/src/realestate/scenes.tsx"
+    },
+    {
+      "id": "v2_layer_passport-journey_background",
+      "reason": "exact_duplicate_of:v2_layer_relocation-city_background",
+      "quality": "GOOD",
+      "file": "static/v2/layers/passport-journey/background.svg"
+    },
+    {
+      "id": "v2_layer_property-balcony_background",
+      "reason": "exact_duplicate_of:v2_layer_relocation-city_background",
+      "quality": "GOOD",
+      "file": "static/v2/layers/property-balcony/background.svg"
+    },
+    {
+      "id": "icon_home",
+      "reason": "exact_duplicate_of:imm_obj_home",
+      "quality": "GOOD",
+      "file": "static/icons/home.svg"
+    },
+    {
+      "id": "concept_path_001",
+      "reason": "exact_duplicate_of:path_route",
+      "quality": "GOOD",
+      "file": "static/decorative/path-route-gold.svg"
+    },
+    {
+      "id": "target_hit_001",
+      "reason": "near_duplicate_of:global_route_001",
+      "quality": "GOOD",
+      "file": "motion/conceptual/target_hit_001.webm"
+    }
+  ],
+  "recommended_quarantine_count": 10,
+  "unstable_recent_writes_30m": [
+    "contact-sheets/cleanup/_frames/abstract_drift_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/document_approval_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/global_route_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/i2v_apartment_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/i2v_consult_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/i2v_couple_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/i2v_door_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/i2v_packing_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/i2v_phone_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/i2v_review_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/location_pins_001_phash.jpg",
+    "contact-sheets/cleanup/_frames/re_buyer_plan_phash.jpg",
+    "contact-sheets/cleanup/_frames/re_ext_condo_day_phash.jpg",
+    "contact-sheets/cleanup/_frames/re_int_empty_phash.jpg",
+    "contact-sheets/cleanup/_frames/re_int_living_phash.jpg",
+    "contact-sheets/cleanup/_frames/re_view_balcony_phash.jpg",
+    "contact-sheets/cleanup/_frames/target_hit_001_phash.jpg"
+  ],
+  "unstable_asset_ids": [],
+  "note": "FIRST PASS DRY RUN — status changes not applied. Preserve asset ids.",
+  "assets_sample": [
+    {
+      "id": "icon_goal",
+      "file": "static/icons/goal.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "86eeb4cb1a63765170a05e1516bde01074dafbfd4956d9a094195394e9d0d0aa",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 243
+    },
+    {
+      "id": "icon_target",
+      "file": "static/icons/target.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "9be9ea24d5e0d3aafea57e1ee8e0cce081cac04898008af53118ec237a6e24ce",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 357
+    },
+    {
+      "id": "icon_success",
+      "file": "static/icons/success.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "1d9aa9afc25ee5e8352786794adfa69cac10a6323fca3061eb0a93576902e3d5",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 257
+    },
+    {
+      "id": "icon_planning",
+      "file": "static/icons/planning.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "2648333a5b04892124a5bc9c29275e329af6bb0dfa5d739a22e550cd031b2599",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 300
+    },
+    {
+      "id": "icon_strategy",
+      "file": "static/icons/strategy.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "207484669c7d67535a134e1c4874dc7718ed48a5c5bf6963535f4993cded1069",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 316
+    },
+    {
+      "id": "icon_growth",
+      "file": "static/icons/growth.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "84f511f599c637dd607385c13f2a978c208ede253a868cecec046f4d219db535",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 270
+    },
+    {
+      "id": "icon_progress",
+      "file": "static/icons/progress.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "20eca878816a7f27d26443c97f78b6dfa398437d8edf33af9a7bcd9b28a59f94",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 276
+    },
+    {
+      "id": "icon_family",
+      "file": "static/icons/family.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "7b7b6bf5d0a0119da31953f126ecd71f1b05b767b91a16412eaf4d3dcd84fd0a",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 458
+    },
+    {
+      "id": "icon_couple",
+      "file": "static/icons/couple.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "7e4e996f1125d7737c130e5102fe1cf77113deb873ca84a1e5ccb51606853588",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 360
+    },
+    {
+      "id": "icon_children",
+      "file": "static/icons/children.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "996d09506ba1bc62ace47393ac12de09d5cf808f71777b3357b992487c422638",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 374
+    },
+    {
+      "id": "icon_home",
+      "file": "static/icons/home.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "d52873acf24f5375f02c06dfca3a7baa090dd587766eeae2d420344371d3042c",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 250
+    },
+    {
+      "id": "icon_relocation",
+      "file": "static/icons/relocation.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "27e6237697040c5c71444bfd8080b756b9ded293dd2d4cec92f3d6a3c76fba17",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 280
+    },
+    {
+      "id": "icon_moving",
+      "file": "static/icons/moving.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "d7ae4b6b45338bd0ddcfeb0b062cde7916f020a9be4590fa44a5540406a0f751",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 271
+    },
+    {
+      "id": "icon_travel",
+      "file": "static/icons/travel.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "ce06329ef5c3e76de65a512f795a86066b74624245fd4762306956437af1e295",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 268
+    },
+    {
+      "id": "icon_flight",
+      "file": "static/icons/flight.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "c79cffd9b305e1079667cb0e6ffa9ebc30d21eeb1ab8a41f89c2eeff11b1df4f",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 389
+    },
+    {
+      "id": "icon_passport",
+      "file": "static/icons/passport.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "fa546f42c6896b971d78d356f141ac9fb144aee96f6d921ca7d6a7bc901e10e2",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 299
+    },
+    {
+      "id": "icon_document",
+      "file": "static/icons/document.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "bcd19f996cf36d1808871f716e7ed8b751d9279f40a29498a316cd595d83e247",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 272
+    },
+    {
+      "id": "icon_contract",
+      "file": "static/icons/contract.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "8c836c0c691e6ffd8da58be70b99b915dfc1174e61d515fff11025ef38f4e5c6",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 268
+    },
+    {
+      "id": "icon_consultation",
+      "file": "static/icons/consultation.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "b650d6b906ca7224204470ec841d67e9931f6b5039e4d05411545c46781e2756",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 348
+    },
+    {
+      "id": "icon_legal",
+      "file": "static/icons/legal.svg",
+      "type": "image",
+      "category": "icons",
+      "source": "vector",
+      "status": "active",
+      "quality": "GOOD",
+      "reasons": [
+        "vector_ok"
+      ],
+      "sha256": "1ba91332555354671b0f7d8e630102708f981d1ada84e068dcb5c3743a9e45b4",
+      "phash": null,
+      "width": null,
+      "height": null,
+      "bytes": 535
+    }
+  ],
+  "assets_count": 811
+}

@@ -1,0 +1,926 @@
+[
+  {
+    "id": "l3d_apartment_building__camera_push",
+    "conceptId": "property",
+    "category": "real_estate",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_apartment_building_camera_push.webm",
+    "modelFile": "models/premium3d/l3d_apartment_building_camera_push.glb",
+    "sourceBlend": "blender/l3d_apartment_building_camera_push.blend",
+    "preview": "thumbnails/premium3d/l3d_apartment_building_camera_push.png",
+    "tags": [
+      "building",
+      "apartment",
+      "property",
+      "real estate",
+      "residence"
+    ],
+    "tags_ru": [
+      "здание",
+      "квартира",
+      "недвижимость",
+      "жилье"
+    ],
+    "tags_zh": [
+      "公寓",
+      "楼宇",
+      "房产"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "camera_push",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "cbfe4acc7a86a5ba20ad1b731a72a328007d6c6baafdac64039158558929d0ed",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_apartment_building__depth_entrance",
+    "conceptId": "property",
+    "category": "real_estate",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_apartment_building_depth_entrance.webm",
+    "modelFile": "models/premium3d/l3d_apartment_building_depth_entrance.glb",
+    "sourceBlend": "blender/l3d_apartment_building_depth_entrance.blend",
+    "preview": "thumbnails/premium3d/l3d_apartment_building_depth_entrance.png",
+    "tags": [
+      "building",
+      "apartment",
+      "property",
+      "real estate",
+      "residence"
+    ],
+    "tags_ru": [
+      "здание",
+      "квартира",
+      "недвижимость",
+      "жилье"
+    ],
+    "tags_zh": [
+      "公寓",
+      "楼宇",
+      "房产"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "depth_entrance",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "c10f9dbe5aecfed576a23b9f6710b555f8a3ab91ed309d85bee426c132ad424f",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_apartment_building__reveal",
+    "conceptId": "property",
+    "category": "real_estate",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_apartment_building_reveal.webm",
+    "modelFile": "models/premium3d/l3d_apartment_building_reveal.glb",
+    "sourceBlend": "blender/l3d_apartment_building_reveal.blend",
+    "preview": "thumbnails/premium3d/l3d_apartment_building_reveal.png",
+    "tags": [
+      "building",
+      "apartment",
+      "property",
+      "real estate",
+      "residence"
+    ],
+    "tags_ru": [
+      "здание",
+      "квартира",
+      "недвижимость",
+      "жилье"
+    ],
+    "tags_zh": [
+      "公寓",
+      "楼宇",
+      "房产"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "reveal",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "d1888f790260916db3ad2000c984a6440b2595d42d11307ce45c3134bf110c3b",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_document_folder__open",
+    "conceptId": "documents",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_document_folder_open.webm",
+    "modelFile": "models/premium3d/l3d_document_folder_open.glb",
+    "sourceBlend": "blender/l3d_document_folder_open.blend",
+    "preview": "thumbnails/premium3d/l3d_document_folder_open.png",
+    "tags": [
+      "folder",
+      "documents",
+      "paperwork",
+      "files",
+      "approval"
+    ],
+    "tags_ru": [
+      "папка",
+      "документы",
+      "бумаги",
+      "заявление"
+    ],
+    "tags_zh": [
+      "文件夹",
+      "文件",
+      "材料"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_left_lower",
+    "motionPreset": "open",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "0be21063b074a068c1e5743b2378ad12914003b4f0acc09d481de396a91b113c",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_document_folder__reveal",
+    "conceptId": "documents",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_document_folder_reveal.webm",
+    "modelFile": "models/premium3d/l3d_document_folder_reveal.glb",
+    "sourceBlend": "blender/l3d_document_folder_reveal.blend",
+    "preview": "thumbnails/premium3d/l3d_document_folder_reveal.png",
+    "tags": [
+      "folder",
+      "documents",
+      "paperwork",
+      "files",
+      "approval"
+    ],
+    "tags_ru": [
+      "папка",
+      "документы",
+      "бумаги",
+      "заявление"
+    ],
+    "tags_zh": [
+      "文件夹",
+      "文件",
+      "材料"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_left_lower",
+    "motionPreset": "reveal",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "dab479b70f9bf3cd19883c4bfcd6b88b4030798e437f339096d3de73a89f935d",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_document_folder__scale_reveal",
+    "conceptId": "documents",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_document_folder_scale_reveal.webm",
+    "modelFile": "models/premium3d/l3d_document_folder_scale_reveal.glb",
+    "sourceBlend": "blender/l3d_document_folder_scale_reveal.blend",
+    "preview": "thumbnails/premium3d/l3d_document_folder_scale_reveal.png",
+    "tags": [
+      "folder",
+      "documents",
+      "paperwork",
+      "files",
+      "approval"
+    ],
+    "tags_ru": [
+      "папка",
+      "документы",
+      "бумаги",
+      "заявление"
+    ],
+    "tags_zh": [
+      "文件夹",
+      "文件",
+      "材料"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_left_lower",
+    "motionPreset": "scale_reveal",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "55c2507fb05f6272b4df83ff7490c433a9b14782d0add83091c431d7e14dc79a",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_generic_passport__open",
+    "conceptId": "passport",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_generic_passport_open.webm",
+    "modelFile": "models/premium3d/l3d_generic_passport_open.glb",
+    "sourceBlend": "blender/l3d_generic_passport_open.blend",
+    "preview": "thumbnails/premium3d/l3d_generic_passport_open.png",
+    "tags": [
+      "passport",
+      "second passport",
+      "travel document",
+      "identity",
+      "mobility",
+      "citizenship",
+      "second"
+    ],
+    "tags_ru": [
+      "паспорт",
+      "второй паспорт",
+      "документ",
+      "переезд",
+      "вид на жительство",
+      "гражданство"
+    ],
+    "tags_zh": [
+      "护照",
+      "第二本护照",
+      "证件",
+      "移民"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "open",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "82bb4bec538be7001111a03bf4e287da85c3b08a1141c7a6da100af5aa52e2a3",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_generic_passport__reveal",
+    "conceptId": "passport",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_generic_passport_reveal.webm",
+    "modelFile": "models/premium3d/l3d_generic_passport_reveal.glb",
+    "sourceBlend": "blender/l3d_generic_passport_reveal.blend",
+    "preview": "thumbnails/premium3d/l3d_generic_passport_reveal.png",
+    "tags": [
+      "passport",
+      "second passport",
+      "travel document",
+      "identity",
+      "mobility",
+      "citizenship",
+      "second"
+    ],
+    "tags_ru": [
+      "паспорт",
+      "второй паспорт",
+      "документ",
+      "переезд",
+      "вид на жительство",
+      "гражданство"
+    ],
+    "tags_zh": [
+      "护照",
+      "第二本护照",
+      "证件",
+      "移民"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "reveal",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "041f044c0b12c91761789d7865982018ab7697743ff1a94158bc39aea8ff0fe7",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_generic_passport__rotate_subtle",
+    "conceptId": "passport",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_generic_passport_rotate_subtle.webm",
+    "modelFile": "models/premium3d/l3d_generic_passport_rotate_subtle.glb",
+    "sourceBlend": "blender/l3d_generic_passport_rotate_subtle.blend",
+    "preview": "thumbnails/premium3d/l3d_generic_passport_rotate_subtle.png",
+    "tags": [
+      "passport",
+      "second passport",
+      "travel document",
+      "identity",
+      "mobility",
+      "citizenship",
+      "second"
+    ],
+    "tags_ru": [
+      "паспорт",
+      "второй паспорт",
+      "документ",
+      "переезд",
+      "вид на жительство",
+      "гражданство"
+    ],
+    "tags_zh": [
+      "护照",
+      "第二本护照",
+      "证件",
+      "移民"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "rotate_subtle",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "af44d5a30a90ebdaea992f8216bb2e90d2aba418b7f59f1c3d46bdb616cf986f",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_global_mobility_globe__light_reveal",
+    "conceptId": "global_mobility",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_global_mobility_globe_light_reveal.webm",
+    "modelFile": "models/premium3d/l3d_global_mobility_globe_light_reveal.glb",
+    "sourceBlend": "blender/l3d_global_mobility_globe_light_reveal.blend",
+    "preview": "thumbnails/premium3d/l3d_global_mobility_globe_light_reveal.png",
+    "tags": [
+      "globe",
+      "world",
+      "mobility",
+      "international",
+      "connections"
+    ],
+    "tags_ru": [
+      "глобус",
+      "мир",
+      "международный",
+      "мобильность"
+    ],
+    "tags_zh": [
+      "地球仪",
+      "国际",
+      "流动"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "light_reveal",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "4e2434efed7e7b0625611f554f353a85ed4bca0920ea48352976adbd014533b7",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_global_mobility_globe__reveal",
+    "conceptId": "global_mobility",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_global_mobility_globe_reveal.webm",
+    "modelFile": "models/premium3d/l3d_global_mobility_globe_reveal.glb",
+    "sourceBlend": "blender/l3d_global_mobility_globe_reveal.blend",
+    "preview": "thumbnails/premium3d/l3d_global_mobility_globe_reveal.png",
+    "tags": [
+      "globe",
+      "world",
+      "mobility",
+      "international",
+      "connections"
+    ],
+    "tags_ru": [
+      "глобус",
+      "мир",
+      "международный",
+      "мобильность"
+    ],
+    "tags_zh": [
+      "地球仪",
+      "国际",
+      "流动"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "reveal",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "7f12c61c945c5f9e5cd4aab1a49f09ac7272af277261902e7b7f9a86dc93bfcb",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_global_mobility_globe__rotate_subtle",
+    "conceptId": "global_mobility",
+    "category": "immigration",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_global_mobility_globe_rotate_subtle.webm",
+    "modelFile": "models/premium3d/l3d_global_mobility_globe_rotate_subtle.glb",
+    "sourceBlend": "blender/l3d_global_mobility_globe_rotate_subtle.blend",
+    "preview": "thumbnails/premium3d/l3d_global_mobility_globe_rotate_subtle.png",
+    "tags": [
+      "globe",
+      "world",
+      "mobility",
+      "international",
+      "connections"
+    ],
+    "tags_ru": [
+      "глобус",
+      "мир",
+      "международный",
+      "мобильность"
+    ],
+    "tags_zh": [
+      "地球仪",
+      "国际",
+      "流动"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_right_lower",
+    "motionPreset": "rotate_subtle",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "dfcc5e10ef9a61c6be02e424c1c723f9a802d91bc19cee6bd7a759f4eb90c01f",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_premium_suitcase__floating_hold",
+    "conceptId": "relocation",
+    "category": "relocation",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_premium_suitcase_floating_hold.webm",
+    "modelFile": "models/premium3d/l3d_premium_suitcase_floating_hold.glb",
+    "sourceBlend": "blender/l3d_premium_suitcase_floating_hold.blend",
+    "preview": "thumbnails/premium3d/l3d_premium_suitcase_floating_hold.png",
+    "tags": [
+      "suitcase",
+      "luggage",
+      "relocation",
+      "travel",
+      "packing",
+      "move"
+    ],
+    "tags_ru": [
+      "чемодан",
+      "переезд",
+      "багаж",
+      "путешествие",
+      "упаковка"
+    ],
+    "tags_zh": [
+      "行李箱",
+      "搬家",
+      "旅行",
+      "打包"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_left_lower",
+    "motionPreset": "floating_hold",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "2d58e3f8b727b986ba47fb01c673cbc5dd8a70434fb45374c151514a24cbe5b9",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_premium_suitcase__reveal",
+    "conceptId": "relocation",
+    "category": "relocation",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_premium_suitcase_reveal.webm",
+    "modelFile": "models/premium3d/l3d_premium_suitcase_reveal.glb",
+    "sourceBlend": "blender/l3d_premium_suitcase_reveal.blend",
+    "preview": "thumbnails/premium3d/l3d_premium_suitcase_reveal.png",
+    "tags": [
+      "suitcase",
+      "luggage",
+      "relocation",
+      "travel",
+      "packing",
+      "move"
+    ],
+    "tags_ru": [
+      "чемодан",
+      "переезд",
+      "багаж",
+      "путешествие",
+      "упаковка"
+    ],
+    "tags_zh": [
+      "行李箱",
+      "搬家",
+      "旅行",
+      "打包"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_left_lower",
+    "motionPreset": "reveal",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "197acc0c19e1059a049df749373cd411261baa7ace39c2c79b176d62b5681d10",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  },
+  {
+    "id": "l3d_premium_suitcase__slide_in",
+    "conceptId": "relocation",
+    "category": "relocation",
+    "family": "premium_3d",
+    "visualFamily": "premium_3d",
+    "kind": "3d_motion",
+    "file": "motion/premium3d/l3d_premium_suitcase_slide_in.webm",
+    "modelFile": "models/premium3d/l3d_premium_suitcase_slide_in.glb",
+    "sourceBlend": "blender/l3d_premium_suitcase_slide_in.blend",
+    "preview": "thumbnails/premium3d/l3d_premium_suitcase_slide_in.png",
+    "tags": [
+      "suitcase",
+      "luggage",
+      "relocation",
+      "travel",
+      "packing",
+      "move"
+    ],
+    "tags_ru": [
+      "чемодан",
+      "переезд",
+      "багаж",
+      "путешествие",
+      "упаковка"
+    ],
+    "tags_zh": [
+      "行李箱",
+      "搬家",
+      "旅行",
+      "打包"
+    ],
+    "supportedLocales": [
+      "ru-RU",
+      "en-US",
+      "zh-CN"
+    ],
+    "duration": 3.0,
+    "fps": 30,
+    "resolution": [
+      1080,
+      1080
+    ],
+    "preferredPlacement": "speaker_left_lower",
+    "motionPreset": "slide_in",
+    "alpha": true,
+    "pixFmt": "yuva420p",
+    "qualityStatus": "approved",
+    "qualityScore": 0.92,
+    "sceneRoles": [
+      "foreground_object",
+      "semantic_object",
+      "cutaway"
+    ],
+    "textSafeAreas": [],
+    "sha256": "cb246b808734447383487ea59f96870b98b6d6f6bb37b70a398b740657142270",
+    "version": "v1",
+    "provenance": {
+      "source": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "factory": "3d_asset_factory_v1"
+    }
+  }
+]

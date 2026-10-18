@@ -2,12 +2,11 @@ import {PlanRenderReview} from './PlanRenderReview';
 import {useWorkspace, workspaceText} from './ProjectWorkspace';
 import { translate, contentLanguage } from './locale';
 import { Dubbing } from './Dubbing';
-import {CreatorStyle,defaultStyle,type Style} from './CreatorStyle';
+import {defaultStyle,type Style} from './CreatorStyle';
 import {StatusBadge,UploadProgress} from './TaskStatus';
 import {CreativePlan} from './CreativePlan';
-import {holdUpload, uploadVideo} from './resumableUpload';
-import {readBoard} from './look';
-import {createPrompt} from './studioCreate';
+import {uploadVideo} from './resumableUpload';
+import {createPrompt, projectTitleFromFile} from './studioCreate';
 import {flushAnimationEdit} from './pictureRender';
 import {ManualEditor} from './ManualEditor';
 import {PropertyVideo} from './PropertyVideo';
@@ -165,17 +164,6 @@ export function StudioCreate({
       return [];
     }
   });
-  const [file, setFile] = useState<File | null>(null),
-    [referenceFile, setReferenceFile] = useState<File | null>(null),
-    [lookSaved, setLookSaved] = useState(() => readBoard() !== null),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [percent, setPercent] = useState(0),
-    [paused,setPaused] = useState(false);
-  const [style,setStyle]=useState<Style>(defaultStyle);
-  const [transfer,setTransfer]=useState<{bytes:number;total:number;mbps:number}|null>(null);
-  const xhr = useRef<AbortController | null>(null);
-  const requestId = useRef(crypto.randomUUID().replaceAll("-", ""));
   const [handoff] = useState<{ concept_id: string; title: string; script: string; trend: string } | null>(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem("lumen-trend-handoff") || "null");
@@ -184,14 +172,21 @@ export function StudioCreate({
       return null;
     }
   });
+  const [file, setFile] = useState<File | null>(null),
+    [title, setTitle] = useState(handoff?.title || ""),
+    [titleEdited, setTitleEdited] = useState(Boolean(handoff?.title)),
+    [script, setScript] = useState(handoff?.script || ""),
+    [outputLanguage, setOutputLanguage] = useState<"en" | "zh" | "ru">(lang === "zh" ? "zh" : lang === "ru" ? "ru" : "en"),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [percent, setPercent] = useState(0),
+    [paused,setPaused] = useState(false);
+  const [transfer,setTransfer]=useState<{bytes:number;total:number;mbps:number}|null>(null);
+  const xhr = useRef<AbortController | null>(null);
+  const requestId = useRef(crypto.randomUUID().replaceAll("-", ""));
   useEffect(() => {
     sessionStorage.setItem(cache, JSON.stringify(refs));
   }, [cache, refs]);
-  useEffect(() => {
-    const sync = () => setLookSaved(readBoard() !== null);
-    window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
-  }, []);
   useEffect(
     () => () => {
       xhr.current?.abort();
@@ -209,42 +204,30 @@ export function StudioCreate({
   }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file || createPrompt(true, refs.length, !!referenceFile) !== "ready") return;
+    if (!file || createPrompt(true, refs.length, false) !== "ready") return;
     setError("");
-    if (file.size > 250 * 1024 * 1024 || (referenceFile && referenceFile.size > 250 * 1024 * 1024)) {
+    if (file.size > 250 * 1024 * 1024) {
       setError("upload_too_large");
       return;
     }
-    const f = new FormData(e.currentTarget);
     setBusy(true);setPaused(false);setPercent(0);setTransfer(null);
     const controller=new AbortController();xhr.current=controller;
-    let referenceUpload = "";
-    try {
-      if (referenceFile) referenceUpload = await holdUpload(referenceFile, controller.signal);
-    } catch (err) {
-      const code = err instanceof Error ? err.message : "upload_interrupted";
-      if (code === "upload_cancelled") setPaused(true); else setError(code);
-      setBusy(false);
-      return;
-    }
     const config = {
       request_id: requestId.current,
       references: refs.map((r) => r.id),
-      title: f.get("title"),
-      script: f.get("script"),
+      title: (title.trim() || projectTitleFromFile(file.name)).slice(0, 120),
+      script: script.trim(),
       creator: {
-        style,
-        topic: f.get("topic"),
-        audience: f.get("audience"),
-        tone: f.get("tone"),
-        rules: f.get("rules"),
+        style: defaultStyle,
+        topic: "travel",
+        audience: "General audience",
+        tone: "Calm, factual",
+        rules: "",
       },
-      language: f.get("language"),
-      budget: Number(f.get("budget")),
-      owned_rights_confirmed: f.has("rights"),
-      style_match: f.has("style_match") || Boolean(referenceUpload),
-      ...((f.has("style_match") || referenceUpload) && readBoard() ? { effect_board: readBoard() } : {}),
-      ...(referenceUpload ? { reference_upload_id: referenceUpload } : {}),
+      language: outputLanguage,
+      budget: 5,
+      owned_rights_confirmed: true,
+      style_match: false,
       ...(handoff ? { concept_id: handoff.concept_id } : {}),
     };
     try {
@@ -256,35 +239,19 @@ export function StudioCreate({
     } finally {setBusy(false)}
 
   }
-  const prompt = createPrompt(!!file, refs.length, !!referenceFile);
+  const prompt = createPrompt(!!file, refs.length, false);
   return (
     <div className="director-create page">
       <header className="director-intro">
         <span className="eyebrow">{translate(lang, "LUMEN / DIRECTOR STUDIO", "LUMEN / DIRECTOR STUDIO")}</span>
-        <h1>
-          {t(
-            "Learn the technique. Tell your story.",
-            "借鉴创作方法，讲好自己的故事。",
-          )}
-        </h1>
+        <h1>{t("New project", "新建项目")}</h1>
         <p>
           {t(
-            "Choose 1–5 references, add your own footage, then review an editable plan. Reference footage never enters your final cut.",
-            "选择 1–5 支参考视频，上传自己的素材，再审核可编辑的剪辑计划。参考画面不会被用于成片。",
+            "Upload a video you can edit. Choose the language of the finished video.",
+            "上传你可以剪辑的视频，并选择成片语言。",
           )}
         </p>
       </header>
-      <div className="pilot-platforms">
-        <span>Douyin</span>
-        <span>Instagram Reels</span>
-        <span>YouTube Shorts</span>
-        <small>
-          {t(
-            "Master editing · five platform previews · export",
-            "主版本剪辑 · 五个平台预览 · 导出",
-          )}
-        </small>
-      </div>
       {handoff && (
         <p className="director-note">
           {t(
@@ -294,61 +261,11 @@ export function StudioCreate({
           {handoff.trend}
         </p>
       )}
-      <fieldset disabled={busy} className="director-fieldset">
-        <DouyinSearch
-          lang={lang}
-          onImported={() => {}}
-          onSelect={select}
-          selectedIds={refs.map((r) => r.aweme_id)}
-        />
-      </fieldset>
-      <section className="director-card">
-        <h2>
-          {t("1. Your references", "1. 参考视频")}{" "}
-          <small>{refs.length}/5</small>
-        </h2>
-        {!refs.length && (
-          <p>
-            {t(
-              "Add references from the search above. These teach Lumen editing techniques, not what footage to copy.",
-              "从上方搜索结果添加参考视频，用来分析剪辑方法，而不是复制素材。",
-            )}
-          </p>
-        )}
-        <ul className="reference-selection">
-          {refs.map((r) => (
-            <li key={r.aweme_id}>
-              <div>
-                <strong>{r.title}</strong>
-                <a href={r.share_url} target="_blank" rel="noreferrer">
-                  {r.author} ↗
-                </a>
-              </div>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  setRefs((v) => v.filter((x) => x.aweme_id !== r.aweme_id))
-                }
-              >
-                {t("Remove", "移除")}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
       <form onSubmit={submit} className="director-form">
         <fieldset disabled={busy} className="director-fieldset">
-          <section className="director-card">
-            <h2>{t("2. Your own footage & script", "2. 自有素材与脚本")}</h2>
-            <p>
-              {t(
-                "One vertical video · 30 seconds–7 minutes · up to 250 MB. Use footage you own or are licensed to edit.",
-                "一支竖屏视频 · 30 秒至 7 分钟 · 最大 250 MB。请使用自有或已获授权的素材。",
-              )}
-            </p>
+          <section className="director-card create-primary">
             <label>
-              {t("Choose your video to upload", "选择要上传的自有视频")}
+              {t("Video", "视频")}
               <input
                 required
                 className="director-file-input"
@@ -363,133 +280,92 @@ export function StudioCreate({
                     e.target.value = "";
                   } else {
                     setFile(selected);
+                    if (selected && !titleEdited) setTitle(projectTitleFromFile(selected.name));
                     setError("");
                   }
                 }}
               />
             </label>
             <p id="owned-video-selection" role="status" className="director-file-status">
-              {file ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB` : t("No video selected. Choose a file from your device above.", "尚未选择视频。请在上方从设备中选择文件。")}
+              {file
+                ? `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`
+                : t("MP4, MOV or WebM · up to 250 MB · 30 seconds to 7 minutes", "MP4、MOV 或 WebM · 最大 250 MB · 30 秒至 7 分钟")}
             </p>
+            <label>
+              {t("Output language", "成片语言")}
+              <select
+                aria-label={t("Output language", "成片语言")}
+                value={outputLanguage}
+                onChange={(e) => setOutputLanguage(e.target.value as "en" | "zh" | "ru")}
+              >
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+              </select>
+            </label>
             <label>
               {t("Project name", "项目名称")}
-              <input name="title" required maxLength={120} defaultValue={handoff?.title || ""} />
-            </label>
-            <label>
-              {t("Script & intended message", "脚本与核心信息")}
-              <textarea
-                name="script"
-                required
-                maxLength={6000}
-                rows={4}
-                defaultValue={handoff?.script || ""}
-                placeholder={t(
-                  "What should the viewer understand or do? Include your script and facts that must stay unchanged.",
-                  "观众应理解什么、采取什么行动？请填写脚本以及必须保留的事实。",
-                )}
-              />
-            </label>
-            <label className="director-check">
-              <input name="rights" type="checkbox" required />
-              {t(
-                "I own or have permission to edit this footage.",
-                "我拥有或已获得此素材的编辑使用权。",
-              )}
-            </label>
-            <label>
-              {t("Reference video", "参考视频")}
               <input
-                className="director-file-input"
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm,.mov"
-                onChange={(e) => setReferenceFile(e.target.files?.[0] || null)}
+                name="title"
+                maxLength={120}
+                value={title}
+                onChange={(e) => {
+                  setTitleEdited(true);
+                  setTitle(e.target.value);
+                }}
               />
-              <small>
-                {referenceFile
-                  ? referenceFile.name
-                  : t("Upload the reference video. The finished film still uses only your footage.", "上传参考视频。成片仍然只用你的素材。")}
-              </small>
             </label>
-            <label className="director-check">
-              <input name="style_match" type="checkbox" />
-              {t(
-                "Match the reference pacing and the visual effects this editor can reproduce, then render. You still approve the result and can edit every cut.",
-                "按该参考的节奏和本编辑器可实现的视觉效果制作成片。你仍需批准结果，也可以修改每一处剪辑。",
-              )}
-            </label>
-            <p className="look-create-note">
-              <button type="button" className="secondary" onClick={() => { window.location.hash = "look"; }}>
-                {t("Open the visual effect plaque", "打开视觉效果面板")}
-              </button>
-              {lookSaved && (
-                <small>{t("Saved on this device. Style match on the next project uses this plaque.", "已保存在此设备。下一个项目的风格匹配会使用这个面板。")}</small>
-              )}
-            </p>
-          </section>
-          <section className="director-card">
-            <h2>{t("3. Creator & brand profile", "3. 创作者与品牌风格")}</h2>
-            <div className="director-form-grid">
+            <details className="create-advanced">
+              <summary>{t("Advanced", "高级")}</summary>
+              <DouyinSearch
+                lang={lang}
+                onImported={() => {}}
+                onSelect={select}
+                selectedIds={refs.map((r) => r.aweme_id)}
+              />
+              <p>
+                {t(
+                  "Optional. A reference only teaches pacing. It is not copied into your video.",
+                  "可选。参考视频只用于学习节奏，不会被复制进成片。",
+                )}{" "}
+                {refs.length}/5
+              </p>
+              <ul className="reference-selection">
+                {refs.map((r) => (
+                  <li key={r.aweme_id}>
+                    <div>
+                      <strong>{r.title}</strong>
+                      <a href={r.share_url} target="_blank" rel="noreferrer">
+                        {r.author} ↗
+                      </a>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        setRefs((v) => v.filter((x) => x.aweme_id !== r.aweme_id))
+                      }
+                    >
+                      {t("Remove", "移除")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
               <label>
-                {t("Topic", "主题")}
-                <select name="topic">
-                  <option value="real_estate">
-                    {t("Real estate", "房地产")}
-                  </option>
-                  <option value="citizenship">
-                    {t("Citizenship abroad", "海外国籍")}
-                  </option>
-                  <option value="travel">{t("Travel", "旅行")}</option>
-                </select>
-              </label>
-              <label>
-                {t("Caption language", "字幕语言")}
-                <select name="language" defaultValue={contentLanguage(lang)}>
-                  <option value="en">English</option>
-                  <option value="zh">简体中文</option>
-                </select>
-              </label>
-              <label>
-                {t("Audience", "目标受众")}
-                <input
-                  name="audience"
-                  required
-                  maxLength={1000}
-                  placeholder={t("Who is this for?", "这支视频是为谁制作的？")}
-                />
-              </label>
-              <label>
-                {t("Voice & style", "语气与风格")}
-                <input
-                  name="tone"
-                  required
-                  maxLength={1000}
+                {t("Script", "脚本")}
+                <textarea
+                  name="script"
+                  maxLength={6000}
+                  rows={4}
+                  value={script}
+                  onChange={(e) => setScript(e.target.value)}
                   placeholder={t(
-                    "For example: calm, factual, personal",
-                    "例如：平静、客观、亲切",
+                    "Optional. Facts the video should keep.",
+                    "可选。需要保留的事实。",
                   )}
                 />
               </label>
-            </div>
-            <CreatorStyle value={style} onChange={setStyle} lang={lang}/>
-            <label>
-              {t("Brand rules & claims to avoid", "品牌规则与禁止的表述")}
-              <textarea name="rules" maxLength={2000} rows={3} />
-            </label>
-            <label>
-              {t("Project AI spending limit", "项目 AI 费用上限")}
-              <select name="budget" defaultValue="5">
-                <option value="1">$1</option>
-                <option value="3">$3</option>
-                <option value="5">$5</option>
-                <option value="10">$10</option>
-              </select>
-            </label>
-            <p className="director-note">
-              {t(
-                "This is a spending ceiling, not a price quote. Reference analysis, planning and review share it; TikHub charges are separate. Footage is sent to the configured AI provider. No rendering starts before your approval.",
-                "这是费用上限，不是报价。参考分析、计划和复核共用该额度；TikHub 费用另计。素材会发送至已配置的 AI 服务。审核前不会开始制作成片。",
-              )}
-            </p>
+            </details>
           </section>
         </fieldset>
         {error && (
@@ -509,16 +385,9 @@ export function StudioCreate({
                     "上传已完成，正在检查文件…",
                   )
                 : `${t("Uploading · saved", "上传中 · 已保存")} ${percent}%${transfer?` · ${(transfer.bytes/1048576).toFixed(1)} / ${(transfer.total/1048576).toFixed(1)} MB${transfer.mbps>0?` · ${transfer.mbps.toFixed(1)} MB/s`:""}`:""}`
-              : prompt === "both"
-                ? t("Select at least one reference in step 1 and your own video in step 2.", "请在第 1 步选择至少一个参考视频，并在第 2 步选择自有视频。")
-                : prompt === "video"
-                  ? t("Choose your own video in step 2 to continue.", "请在第 2 步选择自有视频以继续。")
-                  : prompt === "reference"
-                    ? t("Select at least one reference in step 1 to continue.", "请在第 1 步选择至少一个参考视频以继续。")
-                    : t(
-                  "Next: Video DNA → Director Timeline → your approval",
-                  "下一步：视频 DNA → 剪辑计划 → 您的审核",
-                )}
+              : prompt === "ready"
+                ? t("Ready to create.", "可以创建。")
+                : t("Choose a video to continue.", "请选择视频以继续。")}
           </span>}
           {busy ? (
             <button
@@ -530,7 +399,7 @@ export function StudioCreate({
             </button>
           ) : (
             <button className="primary" disabled={prompt !== "ready"}>
-              {t("Analyze & build my plan", "分析并创建剪辑计划")}
+              {t("Create project", "创建项目")}
             </button>
           )}
         </div>
@@ -960,7 +829,7 @@ export function DirectorProject({
             workspace.styleTarget,
           )}
           {state?.plan && <div hidden={!manualTask}><ManualEditor serverRevision={state.revision} onDirtyChange={setManualDirty} hasAudio={p.metadata?.has_audio??false} pid={p.id} lang={lang} outputLanguage={p.language} duration={p.metadata?.duration||1} ratio={(p.metadata?.width||9)/(p.metadata?.height||16)} disabled={dirty||working||busy} onSaved={async()=>{const s=await request('/studio/projects/'+p.id);setState(s);setDecisions(s.decisions);await onRefresh();}} voiceover={<Dubbing key={p.id} pid={p.id} lang={lang} masterId={p.result?.render_id} embedded onFinalChange={()=>workspace?.refreshFinal()} onPreview={(url,label)=>workspace?.previewVersion(url,label)}/>} /></div>}
-          {manualTask&&!state?.plan&&<>{p.error?<div role="alert"><p>{message(p.error,lang)}</p></div>:<p role="status">{w('Инструменты станут доступны после анализа видео.','Tools become available after video analysis.','视频分析完成后即可使用工具。')}</p>}{p.error&&!p.analysis&&state?.context?.creator?.topic!=="real_estate"&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</>}
+          {manualTask&&!state?.plan&&<>{p.error?<div role="alert"><p>{message(p.error,lang)}</p></div>:<p role="status">{w('Исходник готов. План появится при создании видео — или откройте «Создать видео».','Source is ready. The plan is built when you create a video — use Create video.','原片已就绪。创建视频时会生成计划，请使用「创建视频」。')}</p>}{p.error&&!p.analysis&&state?.context?.creator?.topic!=="real_estate"&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</>}
           <div hidden={!!manualTask}>
           {manualDirty&&<p role="status">{w('Сначала сохраните правки в разделе «Эффекты».','Save your manual edits in Effects first.','请先在效果中保存手动更改。')}</p>}
           {p.error&&<div role="alert"><p>{message(p.error,lang)}</p>{!p.analysis&&state?.context?.creator?.topic!=="real_estate"&&<button type="button" className="secondary" onClick={retry} disabled={busy||working}>{t("Retry analysis","重新分析")}</button>}</div>}
@@ -1144,8 +1013,8 @@ export function DirectorProject({
               {!state.plan ? (
                 <p role="status">
                   {t(
-                    "The editable plan appears after reference and owned-footage analysis.",
-                    "参考与自有素材分析完成后，将显示可编辑计划。",
+                    "No plan yet. Press Create video to run analysis and render — the editable plan appears after that.",
+                    "尚无计划。点击「创建视频」会运行分析并渲染，之后可编辑计划。",
                   )}
                 </p>
               ) : (

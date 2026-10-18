@@ -5,6 +5,7 @@ that source. The prompt names the percent and the spoken words. ``hypit build``
 returns one video. Lumen does not cut the footage into scenes or set a
 parameter on each frame.
 """
+import html
 import json
 import logging
 import os
@@ -17,6 +18,9 @@ from pathlib import Path
 from .media import ffmpeg, run
 
 log = logging.getLogger('lumen.hypit')
+# A 63-second software-Chrome film with a full sticker pass was still
+# encoding past one hour. Three hours is the local capture ceiling.
+LOCAL_RENDER_TIMEOUT_S = 3 * 60 * 60
 FPS = 30
 SCRIPT = Path(__file__).resolve().parent / 'hypit_render.mjs'
 _LEAK = re.compile(
@@ -110,7 +114,7 @@ def spawn(argv, env):
     work = str(Path(argv[-1]).resolve().parent)
     try:
         subprocess.run(
-            argv, check=True, env=env, timeout=70 * 60, cwd=work,
+            argv, check=True, env=env, timeout=LOCAL_RENDER_TIMEOUT_S, cwd=work,
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, errors='replace',
         )
@@ -168,7 +172,7 @@ def _software_chrome(work, chrome):
 
 
 def _runtime_profile(work):
-    """Local capture. The picture is not sent to hypit.ai."""
+    """Local capture. The graphic is drawn on this machine."""
     chrome = _chrome()
     # This host has no GPU. Hardware ANGLE/EGL closed the target. Software
     # SwiftShader is selected, and the wrapper drops ``--disable-gpu`` and
@@ -183,7 +187,7 @@ def _runtime_profile(work):
             'workers': 1,
             'defaultConcurrency': 1,
             'browserGpu': 'software',
-            'processTimeoutMs': 55 * 60 * 1000,
+            'processTimeoutMs': LOCAL_RENDER_TIMEOUT_S * 1000,
             'maxDecodedSourceBytes': 64 * 1024 * 1024,
             'maxPendingFrameBytes': 32 * 1024 * 1024,
         },
@@ -227,6 +231,12 @@ def _alignment_ready():
 def deliver(work):
     """Build the one prompt and write visual.mp4. The source is not spliced."""
     work = Path(work)
+    if os.environ.get('LUMEN_HYPIT_GPU') == '1':
+        from .hypit_gpu import film
+        visual = film(work)
+        if not visual.is_file() or visual.stat().st_size < 32:
+            raise RuntimeError('hypit_unavailable')
+        return visual
     binary = _root() / 'bin' / 'hypit.mjs'
     if not binary.is_file():
         raise RuntimeError('hypit_unavailable')
@@ -234,7 +244,7 @@ def deliver(work):
     env = os.environ.copy()
     env['HYPIT_ROOT'] = str(_root())
     from .config import settings
-    home = Path(settings.data_dir) / 'hypit-home'
+    home = Path(settings.data_dir).parent / 'hypit-home'
     home.mkdir(parents=True, exist_ok=True)
     env['HOME'] = str(home)
     env['XDG_CACHE_HOME'] = str(home / '.cache')
@@ -249,7 +259,7 @@ def deliver(work):
         try:
             return subprocess.run(
                 [node, str(binary), *args, '--workspace', str(work)],
-                check=True, cwd=str(work), env=env, timeout=70 * 60,
+                check=True, cwd=str(work), env=env, timeout=LOCAL_RENDER_TIMEOUT_S,
                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True, errors='replace',
             )
@@ -282,11 +292,14 @@ def _picture_cut(source, work, clips, width, height):
         f'scale={int(width)}:{int(height)}:force_original_aspect_ratio=increase,'
         f'crop={int(width)}:{int(height)},fps={FPS},format=yuv420p'
     )
+    # FFmpeg 7+ dropped -filter_complex_script; keep the graph on disk for debug
+    # and pass the same string via -filter_complex.
     graph = work / 'picture.txt'
-    graph.write_text(f'[0:v]{chain}[v]\n')
+    filter_graph = f'[0:v]{chain}[v]'
+    graph.write_text(filter_graph + '\n')
     out = work / 'cut.mp4'
     ffmpeg(
-        '-i', str(source), '-filter_complex_script', str(graph), '-map', '[v]', '-an',
+        '-i', str(source), '-filter_complex', filter_graph, '-map', '[v]', '-an',
         '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
         str(out), timeout=600,
     )
@@ -337,7 +350,7 @@ def _video_program_seconds(path):
 
 
 def render_picture(source, folder, manual, width, height, metadata, asset_paths=None, language='en', board=None, voiceover=False):
-    """Film the project source with the hand prompt. Hypit.ai is not called."""
+    """Film the source. LUMEN_HYPIT_GPU sends the capture to the RTX 4090."""
     clips = [dict(clip) for clip in manual['clips'] if clip.get('approved', True)]
     if not clips:
         raise RuntimeError('hypit_unavailable')
@@ -347,11 +360,25 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
             raise ValueError('asset_not_found')
     work = Path(folder) / 'hypit'
     work.mkdir(parents=True, exist_ok=True)
-    from .hypit_prompt import author_source, write_author
+    from .hypit_prompt import animation_shots, author_source, write_author
     duration = _picture_cut(source, work, clips, width, height)[1]
     if 'card_motion' in manual:
         (Path(folder) / 'animation-share.txt').write_text(str(_card_motion(manual)))
-    if metadata.get('has_audio'):
+    from .language import keep_source_audio
+    dub_audio = manual.get('dub_audio')
+    dub_path = Path(dub_audio) if dub_audio else None
+    if dub_path and dub_path.is_file():
+        ffmpeg(
+            '-i', work / 'cut.mp4', '-i', dub_path,
+            '-filter_complex', '[0:v]tpad=stop_mode=clone:stop_duration=600[v]',
+            '-map', '[v]', '-map', '1:a:0',
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest',
+            '-movflags', '+faststart', work / 'source.mp4', timeout=600,
+        )
+    elif metadata.get('has_audio') and not keep_source_audio(manual):
+        raise ValueError('target_voice_not_ready')
+    elif metadata.get('has_audio') and keep_source_audio(manual):
         ffmpeg(
             '-i', work / 'cut.mp4', '-i', str(source),
             '-map', '0:v:0', '-map', '1:a:0',
@@ -363,7 +390,55 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     program = _video_program_seconds(work / 'source.mp4')
     if program <= 0:
         program = duration
-    write_author(work, author_source(manual, width, height, board, language, voiceover=voiceover, duration=program))
+    markup = author_source(manual, width, height, board, language, voiceover=voiceover, duration=program)
+    write_author(work, markup)
+    motion = work / 'motion'
+    motion.mkdir(exist_ok=True)
+    shots = animation_shots(manual, program)
+    from .library_clips import stage, write_assets_manifest
+    stage(motion, shots, width, height, ffmpeg)
+    (motion / 'plan.json').write_text(json.dumps({
+        'width': width,
+        'height': height,
+        'shots': shots,
+    }, ensure_ascii=False))
+    # Persist the actual Hypit request with filled OUTPUT/SOURCE placeholders + staged map.
+    from .prompt_modules.assemble import assemble_hypit_prompt
+    from .library_clips import staged_media_block as _staged_block
+    staged_block = _staged_block(shots)
+    speech_ref = './source.mp4 (embedded speech)'
+    if dub_path and dub_path.is_file():
+        speech_ref = './source.mp4 (dubbed target-language track)'
+    elif manual.get('voice_cleanup'):
+        speech_ref = './host-cleaned.wav when produced; else ./source.mp4 speech'
+    prompt_manual = dict(manual)
+    if language and not prompt_manual.get('language'):
+        prompt_manual['language'] = language
+    assembly = assemble_hypit_prompt(prompt_manual, extras={
+        'width': width,
+        'height': height,
+        'duration': program,
+        'source_video_reference': './source.mp4',
+        'speech_audio_reference': speech_ref,
+        'staged_asset_manifest': staged_block,
+    })
+    final_prompt = assembly.text.rstrip() + '\n'
+    (work / 'final_prompt.txt').write_text(final_prompt, encoding='utf-8')
+    write_assets_manifest(work, shots, prompt_text=final_prompt)
+    # Replace the SVML request Value with the filled final prompt Hypit should film.
+    try:
+        main = work / 'main.svml'
+        body = main.read_text(encoding='utf-8')
+        open_tag = '<text:Value id="request">'
+        close_tag = '</text:Value>'
+        if open_tag in body:
+            start = body.index(open_tag) + len(open_tag)
+            end = body.index(close_tag, start)
+            inject = html.escape(final_prompt, quote=False)
+            main.write_text(body[:start] + inject + body[end:], encoding='utf-8')
+    except (OSError, ValueError):
+        pass
+    shutil.copy(Path(__file__).resolve().parent / 'hypit_figures.py', work / 'hypit_figures.py')
     page = work / 'index.html'
     if page.is_file():
         page.unlink()
@@ -379,9 +454,10 @@ def render_picture(source, folder, manual, width, height, metadata, asset_paths=
     if not visual.is_file() or visual.stat().st_size < 32:
         raise RuntimeError('hypit_unavailable')
     assembled = Path(folder) / 'assembled.mp4'
-    if metadata.get('has_audio'):
-        audio = source
-        if manual.get('voice_cleanup'):
+    speech = dub_path if dub_path and dub_path.is_file() else None
+    if speech or metadata.get('has_audio'):
+        audio = speech or source
+        if manual.get('voice_cleanup') and not speech:
             from .hypit_controls import clean_host
             audio = clean_host(audio, work)
         ffmpeg('-i', visual, '-i', audio, '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', '-movflags', '+faststart', assembled, timeout=600)

@@ -41,15 +41,25 @@ def seed_plan(pid):
 
 def test_roles_and_validation(client,monkeypatch):
  assert create(client,owned_rights_confirmed=False).status_code==422
- assert create(client,references=[]).status_code==422
  assert create(client,references=['b'*32]).status_code==422
+ assert create(client,language='fr').status_code==422
+ bare=client.post('/api/studio/projects',data={'config':json.dumps(dict(request_id=uuid.uuid4().hex,references=[],title='咨询-обзор',script='',creator=dict(topic='travel',audience='Families',tone='Calm',rules=''),owned_rights_confirmed=True,language='ru',budget=5))},files={'file':('咨询-обзор.mp4',b'bare-source-bytes','video/mp4')})
+ assert bare.status_code==201
+ assert bare.json()['language']=='ru'
+ assert bare.json()['brief']==''
+ assert bare.json()['title']=='咨询-обзор'
+ assert bare.json()['status']=='ready'
+ bare_state=client.get('/api/studio/projects/'+bare.json()['id']).json()
+ assert bare_state['context']['references']==[]
+ assert bare_state['context']['video_language']=='ru-RU'
  r=create(client);assert r.status_code==201
  pid=r.json()['id'];assert r.json()['studio'] is True
+ assert r.json()['status']=='ready'
  s=client.get('/api/studio/projects/'+pid).json()
  assert s['context']['references'][0]['role']=='reference_only'
  assert s['context']['platforms']==['douyin','instagram_reels','youtube_shorts','tiktok','xiaohongshu']
  assert (settings.data_dir/pid/'source').read_bytes()==b'owned-source-only'
- with connect() as db:assert db.execute('SELECT kind FROM jobs WHERE project_id=?',(pid,)).fetchone()[0]=='studio_analyze'
+ with connect() as db:assert db.execute('SELECT kind FROM jobs WHERE project_id=?',(pid,)).fetchone()[0]=='transcribe'
  app.dependency_overrides[current_user]=lambda:{'id':'v','email':'other@example.com'}
  assert client.get('/api/studio/projects/'+pid).status_code==404
  assert client.get('/api/studio/projects/'+pid+'/references/1234567890123456789').status_code==404
@@ -60,7 +70,7 @@ def test_revision_lock_and_render_snapshot(client):
  assert client.post('/api/studio/projects/'+pid+'/render',json={'revision':1}).status_code==409
  ds[0].update(approved=True,locked=True)
  assert client.put('/api/studio/projects/'+pid+'/plan',json={'revision':1,'decisions':ds}).status_code==409
- started=client.post('/api/studio/projects/'+pid+'/create-video',json={'illustration_percent':50})
+ started=client.post('/api/studio/projects/'+pid+'/create-video',json={'animation_percent':50,'intensity_percent':60,'motion_percent':80,'density_percent':70})
  assert started.status_code==200
  with connect() as db:
   payload=json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'",(pid,)).fetchone()[0])
@@ -85,7 +95,8 @@ def test_render_uses_owned_source_and_edited_times(client,monkeypatch):
  studio.render_job(project(pid),dict(revision=3,plan=plan().model_dump(),decisions=[dict(id='cut',start=3,end=4,approved=True,locked=True)]))
  assert captured[0][0]['id']==pid
  assert captured[0][0]['analysis']['recommendations'][0]['start']==3
- assert captured[0][1]=={'recommendations':['cut']}
+ assert captured[0][1]['recommendations']==['cut']
+ assert 'plan' in captured[0][1]
  assert project(pid)['result']['plan_revision']==3
 
 
@@ -97,9 +108,17 @@ def test_create_retry_is_idempotent(client):
  assert first.json()['id']==second.json()['id']
  with connect() as db:
   assert db.execute('SELECT COUNT(*) FROM projects').fetchone()[0]==1
-  assert db.execute('SELECT COUNT(*) FROM jobs').fetchone()[0]==1
+  # Fast create: transcription only, no analyze job.
+  assert db.execute("SELECT COUNT(*) FROM jobs WHERE kind='transcribe'").fetchone()[0]==1
+  assert db.execute("SELECT COUNT(*) FROM jobs WHERE kind!='transcribe'").fetchone()[0]==0
+
+def _enable_openrouter_analyze(monkeypatch):
+ monkeypatch.setattr(settings,'llm_provider','openrouter')
+ monkeypatch.setattr(settings,'openrouter_api_key','test-key')
+ monkeypatch.setattr(settings,'fast_project_creation_enabled',False)
 
 def test_retry_with_cached_reference_reaches_review_without_reanalyzing_reference(client,monkeypatch):
+ _enable_openrouter_analyze(monkeypatch)
  pid=create(client).json()['id']
  cached=[dict(reference_id='1234567890123456789',duration=20,analysis={'summary':T})]
  with connect() as db:
@@ -124,6 +143,7 @@ def test_retry_with_cached_reference_reaches_review_without_reanalyzing_referenc
 
 
 def test_analysis_automatically_queues_dna_based_decisions(client,monkeypatch):
+ _enable_openrouter_analyze(monkeypatch)
  pid=create(client).json()['id']
  cached=[dict(reference_id='1234567890123456789',duration=20,analysis={'summary':T})]
  with connect() as db:db.execute('UPDATE studio_projects SET dna=? WHERE project_id=?',(json.dumps(cached),pid))
@@ -138,6 +158,7 @@ def test_analysis_automatically_queues_dna_based_decisions(client,monkeypatch):
   assert db.execute("SELECT COUNT(*) FROM jobs WHERE project_id=? AND kind='creative_plan'",(pid,)).fetchone()[0]==1
 
 def test_analysis_publishes_each_step_and_keeps_the_video_metadata(client,monkeypatch):
+ _enable_openrouter_analyze(monkeypatch)
  pid=create(client).json()['id']
  cached=[dict(reference_id='1234567890123456789',duration=20,analysis={'summary':T,'shots':[]})]
  with connect() as db:db.execute('UPDATE studio_projects SET dna=? WHERE project_id=?',(json.dumps(cached),pid))
@@ -158,3 +179,15 @@ def test_analysis_publishes_each_step_and_keeps_the_video_metadata(client,monkey
  assert item['status']=='ready' and item['progress']==100
  assert item['metadata']['duration']==40 and item['metadata']['preview_ready'] is True
  assert item['metadata']['activity']['step']=='director'
+
+
+def test_density_seventy_films_more_china_thailand_figures_than_twenty():
+    from backend.tests.test_hypit_picture import _density_markup, _motion_parts
+
+    line = '再看出资节奏，中国认缴时间弹性很大，泰国则要求实缴部分资本，银行开户、工作证、签证申请都会盯着资金到位情况'
+    low = _motion_parts(_density_markup(20, line))
+    high = _motion_parts(_density_markup(70, line))
+    assert len(low) == 1
+    assert len(high) > len(low)
+    assert len(high) > 3
+    assert '中国认缴时间弹性很大' in high and '泰国则要求实缴部分资本' in high

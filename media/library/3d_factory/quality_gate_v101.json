@@ -1,0 +1,124 @@
+{
+  "version": "v10.1",
+  "policy": "3d_optional_quality_mandatory",
+  "review": {
+    "date": "2026-10-13",
+    "baseline": "director-v9-e-preview-60s.mp4",
+    "trialRender": "output/director-v10-1/3d-comparison-clips/v101-trial-3d-REJECTED.mp4",
+    "decision": "Reject all float-over-speaker 3D for production. V10.1 delivery = V9 editorial baseline + hard gate.",
+    "findings": [
+      "passport open @ hero scale covered mouth/chin (face collision) and remained unrecognizable slabs",
+      "folder open on steps added plastic clutter vs clean V9 type hierarchy",
+      "suitcase reveal still toy/plastic vs restrained V9 SVG pin",
+      "factory WebM is yuv420p not yuva420p — PNG seq fixes alpha but not asset quality"
+    ]
+  },
+  "notes": "V10 regressed vs V9 (user 4/10 vs 6–7/10). Pilot procedural geometry is NOT production-ready. Do not auto-bind 3D until production_ready is non-empty AND a cutaway/hero layout passes moving review without face collisions.",
+  "defects": [
+    "RENDERING: libvpx-vp9 on this host emits opaque yuv420p despite yuva420p request",
+    "OBJECT_SCALE: large float over speaker collides with face; small float reads as icon junk",
+    "ASSET_QUALITY / MODEL_GEOMETRY: primitive bevelled boxes, plastic materials",
+    "MOTION_EXECUTION: slide_in / floating_hold / weak reveal",
+    "COMPOSITION: 3D forced onto hook punch-in and over face-safe zones",
+    "SPATIAL_SAFETY: hero passport open failed face protection"
+  ],
+  "assets": {
+    "l3d_generic_passport": {
+      "status": "rejected",
+      "variants": {
+        "open": {
+          "status": "rejected",
+          "reason": "Face collision at hero scale; geometry unrecognizable (intersecting slabs)."
+        },
+        "reveal": {
+          "status": "rejected",
+          "reason": "Weak motion; plastic slab silhouette."
+        },
+        "rotate_subtle": {
+          "status": "rejected",
+          "reason": "Decorative spin without meaning."
+        }
+      }
+    },
+    "l3d_document_folder": {
+      "status": "rejected",
+      "variants": {
+        "open": {
+          "status": "rejected",
+          "reason": "Semantic open OK; materials/composition lose to V9 CleanSteps."
+        },
+        "reveal": { "status": "rejected", "reason": "Generic float-in." },
+        "scale_reveal": { "status": "rejected", "reason": "Generic scale pop." }
+      }
+    },
+    "l3d_premium_suitcase": {
+      "status": "rejected",
+      "variants": {
+        "reveal": {
+          "status": "rejected",
+          "reason": "Recognizable but plastic; V9 SVG cleaner on speaker."
+        },
+        "slide_in": {
+          "status": "rejected",
+          "reason": "Clips frame; sticker entrance."
+        },
+        "floating_hold": {
+          "status": "rejected",
+          "reason": "Decorative bob."
+        }
+      }
+    },
+    "l3d_apartment_building": {
+      "status": "experimental",
+      "variants": {
+        "reveal": { "status": "experimental", "reason": "Hold for future cutaway-only tests." },
+        "camera_push": { "status": "experimental", "reason": "Needs cutaway layout." },
+        "depth_entrance": { "status": "experimental", "reason": "Not validated." }
+      }
+    },
+    "l3d_global_mobility_globe": {
+      "status": "rejected",
+      "variants": {
+        "reveal": { "status": "rejected", "reason": "Toy ball." },
+        "rotate_subtle": { "status": "rejected", "reason": "Decorative." },
+        "light_reveal": { "status": "rejected", "reason": "Decorative." }
+      }
+    }
+  },
+  "production_ready": [],
+  "approved_trial_v101": [],
+  "rejected": [
+    "l3d_generic_passport__open",
+    "l3d_generic_passport__reveal",
+    "l3d_generic_passport__rotate_subtle",
+    "l3d_document_folder__open",
+    "l3d_document_folder__reveal",
+    "l3d_document_folder__scale_reveal",
+    "l3d_premium_suitcase__reveal",
+    "l3d_premium_suitcase__slide_in",
+    "l3d_premium_suitcase__floating_hold",
+    "l3d_global_mobility_globe__reveal",
+    "l3d_global_mobility_globe__rotate_subtle",
+    "l3d_global_mobility_globe__light_reveal"
+  ],
+  "sceneAllowlist": {
+    "hook": [],
+    "context": [],
+    "problem": [],
+    "residency": [],
+    "consult": [],
+    "beside": [],
+    "steps": [],
+    "proof": [],
+    "payoff": [],
+    "return": []
+  },
+  "scaleProfiles": {
+    "hero": { "areaShare": 0.3, "minPx": 400, "maxPx": 560 },
+    "supporting": { "areaShare": 0.22, "minPx": 300, "maxPx": 440 },
+    "foreground": { "areaShare": 0.26, "minPx": 340, "maxPx": 500 },
+    "background": { "areaShare": 0.12, "minPx": 200, "maxPx": 280 }
+  },
+  "deliveryFormat": "png_seq",
+  "deliveryNotes": "PNG sequences preserve RGBA. Do not ship opaque yuv420p WebM as alpha. Next experiment: cutaway_hero plate (not float-over-face) with production-ready assets only."
+}

@@ -1,0 +1,384 @@
+{
+  "version": "v11",
+  "locale": "en-US",
+  "primaryDomain": "mixed",
+  "domainScores": {
+    "investment": 23,
+    "immigration": 2,
+    "generic": 0
+  },
+  "segments": [
+    {
+      "id": "seg_000",
+      "start": 0.66,
+      "end": 5.26,
+      "text": "Many people think that foreign investment companies only change the language of China"
+    },
+    {
+      "id": "seg_001",
+      "start": 5.26,
+      "end": 8.86,
+      "text": "but the first step of a Chinese investment company is completely different"
+    },
+    {
+      "id": "seg_002",
+      "start": 8.86,
+      "end": 11.86,
+      "text": "The core of Chinese investment companies is the capital investment"
+    },
+    {
+      "id": "seg_003",
+      "start": 11.86,
+      "end": 16.46,
+      "text": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card"
+    },
+    {
+      "id": "seg_004",
+      "start": 16.46,
+      "end": 19.46,
+      "text": "The shareholder responsibility and the capital judgment will be around it"
+    },
+    {
+      "id": "seg_005",
+      "start": 19.46,
+      "end": 22.66,
+      "text": "and the first thing in Thailand is not money, but the shareholder structure"
+    },
+    {
+      "id": "seg_006",
+      "start": 22.66,
+      "end": 26.06,
+      "text": "Ordinary Thai companies usually need at least three shareholders"
+    },
+    {
+      "id": "seg_007",
+      "start": 26.06,
+      "end": 28.86,
+      "text": "so the foreign capital ratio is usually less than 49%"
+    },
+    {
+      "id": "seg_008",
+      "start": 29.26,
+      "end": 34.46,
+      "text": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    },
+    {
+      "id": "seg_009",
+      "start": 34.46,
+      "end": 40.46,
+      "text": "Look at the initial rhythm — China allows flexible capital timing; Thailand requires paid-in capital"
+    },
+    {
+      "id": "seg_010",
+      "start": 40.46,
+      "end": 47.06,
+      "text": "Bank accounts, work permits and visa applications all watch whether capital has arrived — without it, later steps stall"
+    },
+    {
+      "id": "seg_011",
+      "start": 47.06,
+      "end": 55.86,
+      "text": "Governance also differs — China emphasizes the legal representative; Thailand weights director authority, and many filings accept director signatures over company seals"
+    },
+    {
+      "id": "seg_012",
+      "start": 55.86,
+      "end": 61.46,
+      "text": "The difference is plain: China company formation looks at the numbers; Thailand looks at the structure"
+    }
+  ],
+  "concepts": [
+    {
+      "conceptId": "foreign_investment_company",
+      "domain": "investment",
+      "match": "foreign\\s+investment",
+      "query": "business meeting corporate office asia",
+      "keyword": "investment",
+      "segmentId": "seg_000",
+      "start": 0.66,
+      "end": 5.26,
+      "evidence": "Many people think that foreign investment companies only change the language of China"
+    },
+    {
+      "conceptId": "chinese_investment_company",
+      "domain": "investment",
+      "match": "chinese\\s+investment",
+      "query": "china business office skyline corporate",
+      "keyword": "investment",
+      "segmentId": "seg_001",
+      "start": 5.26,
+      "end": 8.86,
+      "evidence": "but the first step of a Chinese investment company is completely different"
+    },
+    {
+      "conceptId": "chinese_investment_company",
+      "domain": "investment",
+      "match": "chinese\\s+investment",
+      "query": "china business office skyline corporate",
+      "keyword": "investment",
+      "segmentId": "seg_002",
+      "start": 8.86,
+      "end": 11.86,
+      "evidence": "The core of Chinese investment companies is the capital investment"
+    },
+    {
+      "conceptId": "capital_investment",
+      "domain": "investment",
+      "match": "capital\\s+investment",
+      "query": "capital investment finance chart",
+      "keyword": "capital",
+      "segmentId": "seg_002",
+      "start": 8.86,
+      "end": 11.86,
+      "evidence": "The core of Chinese investment companies is the capital investment"
+    },
+    {
+      "conceptId": "government_leadership",
+      "domain": "investment",
+      "match": "government",
+      "query": "government building formal architecture",
+      "keyword": "governance",
+      "segmentId": "seg_003",
+      "start": 11.86,
+      "end": 16.46,
+      "evidence": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card"
+    },
+    {
+      "conceptId": "deferred_payment",
+      "domain": "investment",
+      "match": "pay\\s+immediately",
+      "query": "business contract signing desk",
+      "keyword": "capital",
+      "segmentId": "seg_003",
+      "start": 11.86,
+      "end": 16.46,
+      "evidence": "Under the leadership of the government, no need to pay immediately, but this number is the company's credit card"
+    },
+    {
+      "conceptId": "capital_investment",
+      "domain": "investment",
+      "match": "\\bcapital\\b",
+      "query": "capital investment finance chart",
+      "keyword": "capital",
+      "segmentId": "seg_004",
+      "start": 16.46,
+      "end": 19.46,
+      "evidence": "The shareholder responsibility and the capital judgment will be around it"
+    },
+    {
+      "conceptId": "shareholder_responsibility",
+      "domain": "investment",
+      "match": "shareholder\\s+responsib",
+      "query": "corporate boardroom shareholders meeting",
+      "keyword": "shareholder",
+      "segmentId": "seg_004",
+      "start": 16.46,
+      "end": 19.46,
+      "evidence": "The shareholder responsibility and the capital judgment will be around it"
+    },
+    {
+      "conceptId": "capital_judgment",
+      "domain": "investment",
+      "match": "capital\\s+judgment",
+      "query": "financial analysis spreadsheet desk",
+      "keyword": "capital",
+      "segmentId": "seg_004",
+      "start": 16.46,
+      "end": 19.46,
+      "evidence": "The shareholder responsibility and the capital judgment will be around it"
+    },
+    {
+      "conceptId": "shareholder_responsibility",
+      "domain": "investment",
+      "match": "shareholder",
+      "query": "corporate boardroom shareholders meeting",
+      "keyword": "shareholder",
+      "segmentId": "seg_005",
+      "start": 19.46,
+      "end": 22.66,
+      "evidence": "and the first thing in Thailand is not money, but the shareholder structure"
+    },
+    {
+      "conceptId": "thailand_company_structure",
+      "domain": "investment",
+      "match": "thailand",
+      "query": "bangkok business district skyline daytime",
+      "keyword": "thailand",
+      "segmentId": "seg_005",
+      "start": 19.46,
+      "end": 22.66,
+      "evidence": "and the first thing in Thailand is not money, but the shareholder structure"
+    },
+    {
+      "conceptId": "shareholder_responsibility",
+      "domain": "investment",
+      "match": "shareholder",
+      "query": "corporate boardroom shareholders meeting",
+      "keyword": "shareholder",
+      "segmentId": "seg_006",
+      "start": 22.66,
+      "end": 26.06,
+      "evidence": "Ordinary Thai companies usually need at least three shareholders"
+    },
+    {
+      "conceptId": "thai_shareholder_count",
+      "domain": "investment",
+      "match": "three\\s+shareholders",
+      "query": "corporate ownership structure diagram desk",
+      "keyword": "shareholder",
+      "segmentId": "seg_006",
+      "start": 22.66,
+      "end": 26.06,
+      "evidence": "Ordinary Thai companies usually need at least three shareholders"
+    },
+    {
+      "conceptId": "capital_investment",
+      "domain": "investment",
+      "match": "\\bcapital\\b",
+      "query": "capital investment finance chart",
+      "keyword": "capital",
+      "segmentId": "seg_007",
+      "start": 26.06,
+      "end": 28.86,
+      "evidence": "so the foreign capital ratio is usually less than 49%"
+    },
+    {
+      "conceptId": "foreign_ownership_ratio",
+      "domain": "investment",
+      "match": "foreign\\s+capital\\s+ratio",
+      "query": "equity ownership pie chart business",
+      "keyword": "ownership",
+      "segmentId": "seg_007",
+      "start": 26.06,
+      "end": 28.86,
+      "evidence": "so the foreign capital ratio is usually less than 49%"
+    },
+    {
+      "conceptId": "company_control",
+      "domain": "investment",
+      "match": "control\\s+power",
+      "query": "corporate control handshake boardroom",
+      "keyword": "control",
+      "segmentId": "seg_008",
+      "start": 29.26,
+      "end": 34.46,
+      "evidence": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    },
+    {
+      "conceptId": "capital_return",
+      "domain": "investment",
+      "match": "money\\s+is\\s+returned",
+      "query": "business growth arrow finance chart",
+      "keyword": "capital",
+      "segmentId": "seg_008",
+      "start": 29.26,
+      "end": 34.46,
+      "evidence": "In other words, the control power is locked in from the moment of the investment, and the money is returned"
+    },
+    {
+      "conceptId": "capital_investment",
+      "domain": "investment",
+      "match": "\\bcapital\\b",
+      "query": "capital investment finance chart",
+      "keyword": "capital",
+      "segmentId": "seg_009",
+      "start": 34.46,
+      "end": 40.46,
+      "evidence": "Look at the initial rhythm — China allows flexible capital timing; Thailand requires paid-in capital"
+    },
+    {
+      "conceptId": "thailand_company_structure",
+      "domain": "investment",
+      "match": "thailand",
+      "query": "bangkok business district skyline daytime",
+      "keyword": "thailand",
+      "segmentId": "seg_009",
+      "start": 34.46,
+      "end": 40.46,
+      "evidence": "Look at the initial rhythm — China allows flexible capital timing; Thailand requires paid-in capital"
+    },
+    {
+      "conceptId": "capital_return",
+      "domain": "investment",
+      "match": "initial\\s+rhythm",
+      "query": "business growth arrow finance chart",
+      "keyword": "capital",
+      "segmentId": "seg_009",
+      "start": 34.46,
+      "end": 40.46,
+      "evidence": "Look at the initial rhythm — China allows flexible capital timing; Thailand requires paid-in capital"
+    },
+    {
+      "conceptId": "capital_investment",
+      "domain": "investment",
+      "match": "\\bcapital\\b",
+      "query": "capital investment finance chart",
+      "keyword": "capital",
+      "segmentId": "seg_010",
+      "start": 40.46,
+      "end": 47.06,
+      "evidence": "Bank accounts, work permits and visa applications all watch whether capital has arrived — without it, later steps stall"
+    },
+    {
+      "conceptId": "residence_permit",
+      "domain": "immigration",
+      "match": "permit",
+      "query": "residence permit document",
+      "keyword": "residency",
+      "segmentId": "seg_010",
+      "start": 40.46,
+      "end": 47.06,
+      "evidence": "Bank accounts, work permits and visa applications all watch whether capital has arrived — without it, later steps stall"
+    },
+    {
+      "conceptId": "visa_application",
+      "domain": "immigration",
+      "match": "\\bvisa\\b",
+      "query": "visa application paperwork desk",
+      "keyword": "passport",
+      "segmentId": "seg_010",
+      "start": 40.46,
+      "end": 47.06,
+      "evidence": "Bank accounts, work permits and visa applications all watch whether capital has arrived — without it, later steps stall"
+    },
+    {
+      "conceptId": "thailand_company_structure",
+      "domain": "investment",
+      "match": "thailand",
+      "query": "bangkok business district skyline daytime",
+      "keyword": "thailand",
+      "segmentId": "seg_011",
+      "start": 47.06,
+      "end": 55.86,
+      "evidence": "Governance also differs — China emphasizes the legal representative; Thailand weights director authority, and many filings accept director signatures over company seals"
+    },
+    {
+      "conceptId": "thailand_company_structure",
+      "domain": "investment",
+      "match": "thailand",
+      "query": "bangkok business district skyline daytime",
+      "keyword": "thailand",
+      "segmentId": "seg_012",
+      "start": 55.86,
+      "end": 61.46,
+      "evidence": "The difference is plain: China company formation looks at the numbers; Thailand looks at the structure"
+    }
+  ],
+  "conceptIds": [
+    "foreign_investment_company",
+    "chinese_investment_company",
+    "capital_investment",
+    "government_leadership",
+    "deferred_payment",
+    "shareholder_responsibility",
+    "capital_judgment",
+    "thailand_company_structure",
+    "thai_shareholder_count",
+    "foreign_ownership_ratio",
+    "company_control",
+    "capital_return",
+    "residence_permit",
+    "visa_application"
+  ],
+  "bannedWithoutEvidence": []
+}

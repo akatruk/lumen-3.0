@@ -1,0 +1,7 @@
+source_quote,source_start,source_end,export_start,export_end,intended_state,actual_graphic,observed_offset,result
+我建议先做三个筛选,42.80,45.20,0.00,2.40,no list row yet,frame 1.0s is the speaker and an empty column,not waveform-aligned,PASS
+第一层叫使用场景,45.20,47.40,2.40,4.60,使用场景 active; later rows hidden,frame 3.0s shows only 使用场景 in the large column; caption matches,sampled inside the window; 300ms not measured,PASS
+送孩子上学,52.56,53.84,9.76,11.04,使用场景 stays visible and is not the current thought,frame 10.0s shows 使用场景 dim; caption is 送孩子上学,sampled inside the window,PASS
+第二层叫家庭结构,59.32,61.56,16.52,18.76,家庭结构 active; 使用场景 dim,frame 17.5s matches,sampled inside the window,PASS
+今天适合三口之家的方案,67.72,70.12,24.92,27.32,no row active; 代价 hidden,frame 26.0s shows 使用场景 and 家庭结构 dim and no 代价; caption matches,sampled inside the window,PASS
+第三层叫代价,73.24,75.00,30.44,32.20,代价 active; earlier rows dim,frame 31.2s matches; caption matches,sampled inside the window,PASS

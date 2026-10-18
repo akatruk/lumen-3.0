@@ -1,0 +1,107 @@
+{
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "layout": "speaker_punch_in",
+      "framing": "fullscreen",
+      "background": null,
+      "motionFamily": "camera+kinetic",
+      "cardMode": "none"
+    },
+    {
+      "sceneId": "residency",
+      "layout": "speaker_with_foreground",
+      "framing": "split",
+      "background": "people_apartment_001",
+      "motionFamily": "media+mask",
+      "cardMode": "none"
+    },
+    {
+      "sceneId": "consult",
+      "layout": "speaker_with_media",
+      "framing": "pip",
+      "background": "people_phone_001",
+      "motionFamily": "broll",
+      "cardMode": "none"
+    },
+    {
+      "sceneId": "beside",
+      "layout": "speaker_split_left",
+      "framing": "split",
+      "background": null,
+      "motionFamily": "info_reveal",
+      "cardMode": "progressive_one"
+    },
+    {
+      "sceneId": "steps",
+      "layout": "speaker_with_diagram",
+      "framing": "pip",
+      "background": null,
+      "motionFamily": "infographic",
+      "cardMode": "none"
+    },
+    {
+      "sceneId": "return",
+      "layout": "speaker_medium",
+      "framing": "fullscreen",
+      "background": null,
+      "motionFamily": "camera",
+      "cardMode": "none"
+    }
+  ],
+  "keywords": [
+    {
+      "id": "relocation",
+      "preset": "route_link",
+      "match": "переезд"
+    },
+    {
+      "id": "residency",
+      "preset": "document_stamp",
+      "match": "жительств"
+    },
+    {
+      "id": "program",
+      "preset": "steps_reveal",
+      "match": "программ"
+    },
+    {
+      "id": "consult",
+      "preset": "comparison_columns",
+      "match": "консульт"
+    },
+    {
+      "id": "documents",
+      "preset": "document_stamp",
+      "match": "документ"
+    },
+    {
+      "id": "family",
+      "preset": "family_cluster",
+      "match": "семь"
+    },
+    {
+      "id": "budget",
+      "preset": "budget_scale",
+      "match": "бюджет"
+    },
+    {
+      "id": "goals",
+      "preset": "comparison_columns",
+      "match": "целей"
+    }
+  ],
+  "antiRepetition": {
+    "signatures": [
+      "fullscreen|speaker_punch_in|camera+kinetic|none|",
+      "split|speaker_with_foreground|media+mask|none|people_apartment_001",
+      "pip|speaker_with_media|broll|none|people_phone_001",
+      "split|speaker_split_left|info_reveal|progressive_one|",
+      "pip|speaker_with_diagram|infographic|none|",
+      "fullscreen|speaker_medium|camera|none|"
+    ],
+    "maxIdenticalStreak": 1,
+    "maxSplitStreak": 1,
+    "pass": true
+  }
+}

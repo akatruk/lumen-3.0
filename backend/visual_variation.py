@@ -1,0 +1,605 @@
+"""Resolve one visual plan before Remotion runs.
+
+Meaning stays fixed. A seed chooses compatible treatments inside one
+art-direction profile. The renderer does not roll dice.
+"""
+from __future__ import annotations
+
+import json
+import random
+from pathlib import Path
+
+LIBRARY = Path(__file__).resolve().parent.parent / 'media' / 'library' / 'out'
+
+# Still plates the Director may put behind or beside the host.
+_PLATE_FAMILIES = frozenset({
+    'photography',
+    'editorial_object',
+    'generative_motion',
+    'deterministic_motion',
+    'cinematic_environment',
+})
+_FOREGROUND_QUERIES = (
+    'passport document object',
+    'residence permit document',
+    'approval stamp document',
+    'keys handover object',
+)
+
+PROFILES = (
+    'cinematic_editorial',
+    'dynamic_social',
+    'premium_motion_graphics',
+    'documentary',
+    'modern_explainer',
+    'luxury_minimal',
+)
+
+ENERGY = {'calm': 'low', 'balanced': 'medium', 'dynamic': 'high'}
+
+PROFILE_WEIGHTS = {
+    'calm': {
+        'documentary': 5, 'luxury_minimal': 4, 'cinematic_editorial': 3,
+        'modern_explainer': 1, 'premium_motion_graphics': 1, 'dynamic_social': 0,
+    },
+    'balanced': {
+        'cinematic_editorial': 4, 'modern_explainer': 3, 'premium_motion_graphics': 3,
+        'documentary': 2, 'luxury_minimal': 2, 'dynamic_social': 1,
+    },
+    'dynamic': {
+        'dynamic_social': 5, 'modern_explainer': 3, 'premium_motion_graphics': 2,
+        'cinematic_editorial': 1, 'documentary': 0, 'luxury_minimal': 0,
+    },
+}
+
+SCENES = (
+    {'id': 'hook', 'intent': 'hook', 'kind': 'speaker', 'base': 'high', 'representation': 'presenter'},
+    # Internal beat id. Not a semantic label. Investment speech replaces these
+    # default queries in director_v11 before media selection.
+    {'id': 'residency', 'intent': 'document', 'kind': 'speaker_object', 'base': 'medium',
+     'role': 'hero', 'representation': 'photo+presenter', 'query': (
+        'family home doorway relocation',
+        'family new home arrival residence',
+        'document review desk paperwork',
+        'residence permit application desk',
+    )},
+    {'id': 'consult', 'intent': 'proof', 'kind': 'broll', 'base': 'medium',
+     'role': 'supporting_broll', 'representation': 'photo', 'query': (
+        'consultation meeting advisor',
+        'advisor client meeting trust',
+        'phone consultation office advisor',
+    )},
+    {'id': 'beside', 'intent': 'criteria', 'kind': 'speaker_text', 'base': 'medium',
+     'representation': 'typography+presenter'},
+    {'id': 'steps', 'intent': 'process', 'kind': 'infographic', 'base': 'low',
+     'representation': 'diagram'},
+    {'id': 'return', 'intent': 'payoff', 'kind': 'speaker', 'base': 'low',
+     'representation': 'presenter'},
+)
+
+SPEAKER = {
+    'speaker': ('speaker_fullscreen', 'speaker_closeup', 'speaker_medium', 'speaker_punch_in'),
+    'speaker_object': ('speaker_split_left', 'speaker_split_right', 'speaker_with_foreground'),
+    'speaker_text': ('speaker_split_left', 'speaker_split_right', 'speaker_with_diagram'),
+    # Media cutaway reuses speaker_with_media framing but consult beat pairs with fullscreen return.
+    'broll': ('speaker_with_media', 'speaker_split_right'),
+    'infographic': ('speaker_with_diagram', 'speaker_split_left'),
+}
+
+BACKGROUND = {
+    'speaker': ('slow_zoom_in', 'slow_zoom_out', 'static_editorial', 'cinematic_crop', 'subtle_drift', 'vertical_pan'),
+    'speaker_object': ('slow_zoom_in', 'static_editorial', 'cinematic_crop', 'subtle_drift'),
+    'speaker_text': ('static_editorial', 'subtle_drift', 'slow_zoom_in'),
+    'broll': ('ambient_loop',),
+    'infographic': ('static_editorial', 'gradient_reveal', 'mask_reveal'),
+    'photo': ('slow_zoom_in', 'slow_zoom_out', 'horizontal_pan', 'vertical_pan', 'subtle_drift', 'cinematic_crop', 'parallax_depth', 'mask_reveal'),
+    'motion': ('ambient_loop',),
+}
+
+FOREGROUND = {
+    'speaker_object': ('scale_reveal', 'slide_up', 'slide_left', 'mask_reveal', 'reveal_and_hold'),
+    'speaker_text': ('slide_up', 'fade_stagger', 'reveal_and_hold'),
+    'infographic': ('type_build', 'reveal_and_hold'),
+    'speaker': ('reveal_and_hold',),
+    'broll': ('reveal_and_hold',),
+}
+
+TEXT = ('phrase_reveal', 'word_pop', 'mask_reveal', 'slide_stack', 'minimal_fade', 'fade_stagger')
+TRANSITIONS = ('cut', 'crossfade', 'mask_wipe')
+
+# One place the renderer and the selector agree. A treatment outside its row is not chosen.
+COMPATIBILITY = {
+    'background_speaker': BACKGROUND['speaker'],
+    'background_photo': BACKGROUND['photo'],
+    'background_motion': BACKGROUND['motion'],
+    'background_abstract': ('subtle_drift', 'gradient_reveal', 'mask_reveal', 'static_editorial'),
+    'speaker_address': SPEAKER['speaker'],
+    'speaker_with_object': SPEAKER['speaker_object'],
+    'typography': TEXT,
+    'transition': TRANSITIONS,
+}
+
+PROFILE_TEXT = {
+    'luxury_minimal': ('minimal_fade', 'phrase_reveal'),
+    'documentary': ('minimal_fade', 'phrase_reveal', 'fade_stagger'),
+    'dynamic_social': ('word_pop', 'slide_stack', 'mask_reveal', 'phrase_reveal'),
+    'premium_motion_graphics': ('mask_reveal', 'phrase_reveal', 'scale_punch'),
+    'cinematic_editorial': ('phrase_reveal', 'minimal_fade', 'mask_reveal'),
+    'modern_explainer': ('phrase_reveal', 'fade_stagger', 'slide_stack'),
+}
+
+TEXT_TO_ANIMATE = {
+    'phrase_reveal': 'fade',
+    'word_pop': 'pop',
+    'mask_reveal': 'mask',
+    'slide_stack': 'slide',
+    'minimal_fade': 'fade',
+    'fade_stagger': 'fade',
+    'scale_punch': 'pop',
+    'editorial_reveal': 'mask',
+    'type_build': 'fade',
+    'keyword_highlight': 'fade',
+}
+
+
+def _rng(seed):
+    return random.Random(int(seed) % (2 ** 32))
+
+
+def _pick(rng, options, blocked=()):
+    pool = [item for item in options if item not in blocked]
+    if not pool:
+        pool = list(options)
+    return rng.choice(pool)
+
+
+def _weighted_profile(rng, energy):
+    weights = PROFILE_WEIGHTS[energy]
+    bag = [name for name, weight in weights.items() for _ in range(weight) if weight]
+    return rng.choice(bag)
+
+
+def _intensity(base, energy):
+    order = ('low', 'medium', 'high')
+    cap = {'calm': 1, 'balanced': 2, 'dynamic': 2}[energy]
+    floor = {'calm': 0, 'balanced': 0, 'dynamic': 1}[energy]
+    index = order.index(base)
+    if energy == 'dynamic' and base == 'high':
+        index = 2
+    if energy == 'calm' and base == 'high':
+        index = 1
+    return order[min(cap, max(floor, index))]
+
+
+def _candidates(query, exclude, recent=(), families=_PLATE_FAMILIES, limit=8, preferred_scene_role='explanation', locale=None):
+    import sys
+    # Search module lives next to the real library package, not next to a
+    # monkeypatched LIBRARY path used in tests.
+    folder = str(Path(__file__).resolve().parent.parent / 'media' / 'library')
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    from search import search_assets
+    blocked = set(exclude or ())
+    found = []
+    for asset in search_assets(
+        query,
+        limit=32,
+        preferred_scene_role=preferred_scene_role,
+        path=LIBRARY / 'manifest.json',
+        recent_ids=recent,
+        exclude_ids=blocked,
+        locale=locale,
+    ):
+        if asset.get('id') in blocked:
+            continue
+        family = asset.get('visualFamily')
+        if family not in families:
+            continue
+        file_name = str(asset.get('file') or '')
+        if file_name.endswith('.svg') or file_name.endswith('.tsx'):
+            continue
+        # Sparse stamp webms / restricted ids never become plates.
+        if (asset.get('status') or '') in ('restricted', 'quarantined', 'rejected', 'needs_review'):
+            continue
+        if 'document_approval' in (asset.get('id') or ''):
+            continue
+        # Do not select missing bytes — staging would null them and leave empty plates.
+        if not (LIBRARY / file_name).is_file():
+            continue
+        found.append(asset)
+        if len(found) == limit:
+            break
+    fresh = [asset for asset in found if asset.get('id') not in set(recent or ())]
+    return fresh or found
+
+
+def _weight_asset(asset, recent_set, used_concepts, used_prefixes):
+    weight = max(1, int((asset.get('qualityScore') or 1) * 10))
+    if asset.get('id') in recent_set:
+        weight = 1
+    concept = asset.get('conceptId')
+    if concept and concept in used_concepts:
+        weight = max(1, weight // 3)
+    prefix = (asset.get('id') or '').split('_')[0] + '_'
+    if prefix in used_prefixes:
+        weight = max(1, weight // 2)
+    # Curated people/i2v plates beat anonymous RunPod stills for situation beats.
+    aid = asset.get('id') or ''
+    if aid.startswith('people_') or aid.startswith('i2v_'):
+        weight += 4
+    elif asset.get('source') == 'runpod':
+        weight += 1
+    if asset.get('visualFamily') == 'editorial_object' and asset.get('category') in ('details', 'objects', 'foreground'):
+        weight += 1
+    if (asset.get('matchMode') or '') == 'situational':
+        weight += 2
+    return weight
+
+
+def _choose_asset(rng, found, recent=(), used_concepts=(), used_prefixes=()):
+    if not found:
+        return None
+    recent_set = set(recent or ())
+    concepts = set(used_concepts or ())
+    prefixes = set(used_prefixes or ())
+    # Prefer never-recent plates when any exist — cuts cross-video template repeat.
+    fresh = [asset for asset in found if asset.get('id') not in recent_set]
+    pool = fresh or list(found)
+    weights = [_weight_asset(asset, recent_set, concepts, prefixes) for asset in pool]
+    # Prefer the top-weighted band (seeded) so situational plates win over weak tails.
+    ranked = sorted(zip(weights, pool), key=lambda item: item[0], reverse=True)
+    top_w = ranked[0][0]
+    band = [asset for weight, asset in ranked if weight == top_w]
+    return rng.choice(band)
+
+
+def _background(rng, scene, exclude, recent=(), used_concepts=(), used_prefixes=(), locale=None):
+    if not scene.get('query'):
+        return None, None
+    options = scene['query']
+    query = _pick(rng, options) if isinstance(options, (list, tuple)) else options
+    role = scene.get('role') or 'explanation'
+    found = _candidates(query, exclude, recent, preferred_scene_role=role, locale=locale)
+    if not found and role != 'explanation':
+        found = _candidates(query, exclude, recent, preferred_scene_role='explanation', locale=locale)
+    if not found:
+        return None, query
+    return _choose_asset(rng, found, recent, used_concepts, used_prefixes), query
+
+
+def _foreground_asset(rng, exclude, recent=(), used_concepts=(), used_prefixes=(), background_id=None):
+    from .director_media_rules import same_media_source
+
+    query = _pick(rng, _FOREGROUND_QUERIES)
+    found = _candidates(
+        query,
+        exclude,
+        recent,
+        families=frozenset({'editorial_object', 'photography'}),
+        limit=10,
+    )
+    # Ban same canonical identity as the main plate (still vs i2v counts as same).
+    found = [asset for asset in found if not same_media_source(background_id, asset.get('id'))]
+    # Prefer object / foreground / detail plates for the residency card.
+    preferred = [
+        asset for asset in found
+        if asset.get('category') in ('objects', 'foreground', 'details')
+        or (asset.get('id') or '').endswith(('_obj',))
+        or 'object' in (asset.get('action') or '')
+        or 'detail' in (asset.get('action') or '')
+        or 'foreground' in (asset.get('action') or '')
+    ]
+    # Conceptual marks (shield/path icons) are not desk/document insets.
+    preferred = [
+        asset for asset in preferred
+        if not (asset.get('id') or '').startswith('concept_')
+    ]
+    pool = preferred or [
+        asset for asset in found if not (asset.get('id') or '').startswith('concept_')
+    ] or found
+    return _choose_asset(rng, pool, recent, used_concepts, used_prefixes), query
+
+
+def _motion_file(asset):
+    file_name = str((asset or {}).get('file') or '')
+    return (asset or {}).get('type') == 'video' or file_name.endswith(('.mp4', '.webm', '.mov'))
+
+
+def _budget(kind, text, background, foreground, motion_file=False):
+    """One dominant motion. Complex type quiets the background. A moving plate gets no second camera."""
+    rejected = []
+    if motion_file and background != 'ambient_loop':
+        rejected.append(background)
+        background = 'ambient_loop'
+    if text in ('word_pop', 'mask_reveal', 'slide_stack') and background not in ('static_editorial', 'ambient_loop', 'gradient_reveal'):
+        rejected.append(background)
+        background = 'static_editorial' if kind != 'broll' else 'ambient_loop'
+    if foreground in ('slide_up', 'slide_left', 'mask_reveal') and background in ('horizontal_pan', 'vertical_pan', 'parallax_depth'):
+        rejected.append(background)
+        background = 'slow_zoom_in'
+    return background, foreground, rejected
+
+
+def recent_asset_ids(data_dir, limit=12):
+    """Asset ids from the newest stored plans. Missing history is an empty set."""
+    root = Path(data_dir)
+    if not root.is_dir():
+        return []
+    files = []
+    for path in root.glob('*/visual-history/*.json'):
+        if path.name == 'latest.json':
+            continue
+        files.append(path)
+    files.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    seen = []
+    for path in files[:limit]:
+        try:
+            plan = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for scene in plan.get('scenes') or []:
+            for key in ('background', 'foreground'):
+                asset_id = (scene.get(key) or {}).get('assetId')
+                if asset_id and asset_id not in seen and asset_id != 'passport.png':
+                    seen.append(asset_id)
+    return seen
+
+
+def resolve_plan(seed, energy='balanced', variation='automatic', recent_ids=(), language=None):
+    """One coherent plan. The same seed and energy always return the same choices."""
+    if energy not in ENERGY:
+        raise ValueError('visual_energy')
+    if variation not in ('automatic', 'keep', 'remix'):
+        raise ValueError('visual_variation')
+    rng = _rng(seed)
+    profile = _weighted_profile(rng, energy)
+    scenes = []
+    used_assets = []
+    used_concepts = []
+    used_prefixes = []
+    used_layouts = []
+    used_text = []
+    used_transitions = []
+    used_camera = []
+    for scene in SCENES:
+        kind = scene['kind']
+        layout = _pick(rng, SPEAKER[kind], blocked=used_layouts[-2:])
+        if scene.get('query'):
+            asset, chosen_query = _background(
+                rng, scene, used_assets, recent_ids, used_concepts, used_prefixes,
+                locale=language,
+            )
+        else:
+            asset, chosen_query = None, None
+        fg_asset, fg_query = (None, None)
+        if kind == 'speaker_object':
+            blocked = list(used_assets)
+            if asset:
+                blocked.append(asset.get('id'))
+            fg_asset, fg_query = _foreground_asset(
+                rng, blocked, recent_ids, used_concepts, used_prefixes,
+                background_id=asset.get('id') if asset else None,
+            )
+        motion_file = _motion_file(asset)
+        if motion_file:
+            media_kind = 'motion'
+        elif asset and asset.get('type') == 'image':
+            media_kind = 'photo'
+        elif kind == 'broll':
+            media_kind = 'broll'
+        else:
+            media_kind = kind
+        options = BACKGROUND[media_kind if media_kind in BACKGROUND else kind]
+        background = _pick(rng, options, blocked=used_camera[-2:])
+        foreground = _pick(rng, FOREGROUND[kind])
+        allowed_text = PROFILE_TEXT.get(profile, TEXT)
+        text = _pick(rng, allowed_text, blocked=used_text[-2:])
+        background, foreground, rejected = _budget(kind, text, background, foreground, motion_file)
+        if used_transitions[-2:] == ['crossfade', 'crossfade']:
+            transition = 'cut'
+        elif profile in ('documentary', 'luxury_minimal') and rng.random() < 0.75:
+            transition = 'cut'
+        else:
+            transition = _pick(rng, TRANSITIONS, blocked=used_transitions[-1:] if used_transitions[-1:] == ['mask_wipe'] else ())
+        media_gap = None
+        if scene.get('query') and not asset:
+            media_gap = {'sceneId': scene['id'], 'query': chosen_query, 'reason': 'no_eligible_library_hit'}
+        framing = (
+            'fullscreen' if layout in ('speaker_fullscreen', 'speaker_closeup', 'speaker_medium', 'speaker_punch_in')
+            else 'split' if layout in ('speaker_split_left', 'speaker_split_right')
+            else 'pip'
+        )
+        record = {
+            'sceneId': scene['id'],
+            'semanticPurpose': scene['intent'],
+            'query': chosen_query,
+            'representation': scene.get('representation') or 'presenter',
+            'speaker': {
+                'layout': layout,
+                'treatment': 'speaker_punch_in' if layout == 'speaker_punch_in' else layout,
+                'framing': framing,
+                'visibility': 'primary' if framing in ('fullscreen', 'split') else 'pip',
+            },
+            'background': {
+                'assetId': asset.get('id') if asset else None,
+                'file': asset.get('file') if asset else None,
+                'conceptId': asset.get('conceptId') if asset else None,
+                'treatment': background,
+            },
+            'foreground': {
+                'treatment': foreground,
+                # No passport.png placeholder — gaps stay null; Remotion uses photo/typography.
+                'assetId': fg_asset.get('id') if fg_asset else None,
+                'file': fg_asset.get('file') if fg_asset else None,
+                'query': fg_query,
+            },
+            'typography': {'treatment': text, 'animate': TEXT_TO_ANIMATE.get(text, 'fade')},
+            # Structured Director V4 execution contract (validated in remotion_engine).
+            'execution': {
+                'scenePurpose': scene['intent'],
+                'speakerFraming': framing,
+                'speakerVisibility': 'primary' if framing in ('fullscreen', 'split') else 'pip',
+                'mediaRole': 'supporting' if asset else 'none',
+                'headline': '',
+                'cardText': '',
+                'caption': '',
+                'captionMode': 'speech',
+                'motionPreset': TEXT_TO_ANIMATE.get(text, 'fade'),
+                'expectedResult': f'{framing} speaker with {scene["intent"]} intent',
+            },
+            'transition': transition,
+            'motionIntensity': _intensity(scene['base'], energy),
+            'rejected': rejected,
+            'mediaGap': media_gap,
+        }
+        from .director_media_rules import sanitize_scene_layers
+        scenes.append(sanitize_scene_layers(record))
+        used_layouts.append(layout)
+        used_text.append(text)
+        used_transitions.append(transition)
+        used_camera.append(background)
+        for picked in (asset, fg_asset):
+            if not picked:
+                continue
+            asset_id = picked.get('id')
+            if asset_id:
+                used_assets.append(asset_id)
+                prefix = asset_id.split('_')[0] + '_'
+                if prefix not in used_prefixes:
+                    used_prefixes.append(prefix)
+            concept = picked.get('conceptId')
+            if concept and concept not in used_concepts:
+                used_concepts.append(concept)
+    return {
+        'visualSeed': int(seed),
+        'visualStyle': profile,
+        'artDirection': profile,
+        'visualEnergy': energy,
+        'motionIntensity': ENERGY[energy],
+        'scenes': scenes,
+        **({'language': language} if language else {}),
+    }
+
+
+def new_seed():
+    return random.SystemRandom().randrange(1, 1_000_000_000)
+
+
+def history_dir(data_dir, project_id):
+    folder = Path(data_dir) / project_id / 'visual-history'
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+def load_latest(data_dir, project_id):
+    pointer = history_dir(data_dir, project_id) / 'latest.json'
+    if not pointer.is_file():
+        return None
+    ref = json.loads(pointer.read_text(encoding='utf-8'))
+    plan_file = history_dir(data_dir, project_id) / f"{ref['generationId']}.json"
+    if not plan_file.is_file():
+        return None
+    return json.loads(plan_file.read_text(encoding='utf-8'))
+
+
+def store_plan(data_dir, project_id, plan):
+    folder = history_dir(data_dir, project_id)
+    dest = folder / f"{plan['generationId']}.json"
+    # Always overwrite — semantic enrichment / locale stamps must persist.
+    dest.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding='utf-8')
+    (folder / 'latest.json').write_text(json.dumps({
+        'generationId': plan['generationId'],
+        'visualSeed': plan['visualSeed'],
+        'language': plan.get('language'),
+    }), encoding='utf-8')
+    return dest
+
+
+def plan_for_request(data_dir, project_id, variation, energy, language=None, editing=None):
+    """New generations get a new seed. Keep, a language switch, and a retry reuse the last plan.
+
+    A language switch reuses the visual seed/scenes but always stamps the new
+    ``language`` / targetLocale onto the plan — never keep a stale locale.
+
+    ``editing`` (animation/intensity/motion/density) is always re-applied so
+    slider changes affect Remotion even when the seed is kept.
+    """
+    if variation not in ('automatic', 'keep', 'remix'):
+        raise ValueError('visual_variation')
+    if energy not in ENERGY:
+        raise ValueError('visual_energy')
+    previous = load_latest(data_dir, project_id)
+    if variation == 'keep' and previous:
+        plan = dict(previous)
+        if language:
+            plan['language'] = language
+    elif (
+        variation == 'automatic'
+        and previous
+        and language
+        and previous.get('language')
+        and previous.get('language') != language
+    ):
+        plan = dict(previous)
+        plan['language'] = language
+    else:
+        seed = new_seed()
+        plan = resolve_plan(seed, energy, variation, recent_asset_ids(data_dir), language=language)
+        plan['generationId'] = f"gen_{seed}"
+        if language:
+            plan['language'] = language
+    from .prompt_modules.editing_controls import apply_editing_controls
+    if editing is not None:
+        # Explicit slider pass (create-video) — always re-stamp Remotion prefs.
+        controls = dict(editing)
+        controls.setdefault('visualEnergy', energy)
+        plan = apply_editing_controls(plan, controls)
+    elif not plan.get('editingControls'):
+        # Fresh plan without slider payload — Balanced defaults once.
+        plan = apply_editing_controls(plan, {'visualEnergy': energy})
+    # Language/keep reuse with no new editing keeps prior editingControls as-is.
+    from .experience_memory import attach_to_visual_plan
+    plan = attach_to_visual_plan(plan, project_id)
+    store_plan(data_dir, project_id, plan)
+    return plan
+
+
+def _manifest_ids(library: Path):
+    path = library / 'manifest.json'
+    if not path.is_file():
+        return set()
+    manifest = json.loads(path.read_text(encoding='utf-8'))
+    return {item.get('id') for item in manifest.get('assets') or []}
+
+
+def _stage_one(root: Path, picked: Path, indexed: set, slot: dict):
+    relative = slot.get('file')
+    asset_id = slot.get('assetId')
+    if not relative or not asset_id or asset_id not in indexed or asset_id == 'passport.png':
+        if relative and asset_id != 'passport.png':
+            slot['staged'] = None
+        return
+    source = root / relative
+    if not source.is_file():
+        slot['staged'] = None
+        return
+    dest = picked / f"{asset_id}{source.suffix.lower()}"
+    if not dest.exists() or dest.stat().st_size != source.stat().st_size:
+        dest.write_bytes(source.read_bytes())
+    slot['staged'] = f"picked/{dest.name}"
+
+
+def stage_backgrounds(plan, public_dir: Path, library: Path | None = None):
+    """Copy chosen stills next to the Remotion public files.
+
+    A still is staged only when its id is already in the library manifest.
+    Newly generated files have to be indexed first.
+    """
+    root = Path(library) if library is not None else LIBRARY
+    indexed = _manifest_ids(root)
+    picked = public_dir / 'picked'
+    picked.mkdir(parents=True, exist_ok=True)
+    for scene in plan.get('scenes') or []:
+        _stage_one(root, picked, indexed, scene.setdefault('background', {}))
+        _stage_one(root, picked, indexed, scene.setdefault('foreground', {}))
+    return plan

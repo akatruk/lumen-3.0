@@ -68,8 +68,137 @@ async def security(request,call_next):
 
 @app.get('/api/health')
 def health():
-    with connect() as db: db.execute('SELECT 1')
-    return {'status':'ok','version':'0.1.0'}
+    memory = {
+        'enabled': bool(settings.visual_experience_memory_enabled),
+        'visual_intelligence': bool(settings.visual_intelligence_enabled),
+    }
+    with connect() as db:
+        db.execute('SELECT 1')
+        if db.postgres:
+            row = db.execute("SELECT extversion FROM pg_extension WHERE extname='vector'").fetchone()
+            memory['pgvector'] = row['extversion'] if row else None
+    return {
+        'status': 'ok',
+        'version': '0.1.0',
+        'llm_provider': settings.llm_provider,
+        'fast_project_creation': bool(settings.fast_project_creation_enabled),
+        'visual_experience_memory': memory,
+    }
+
+
+class MemoryReviewBody(BaseModel):
+    generation_id: str = Field(min_length=4, max_length=80)
+    rating: int = Field(ge=1, le=10)
+    comments: str = ''
+    defects: list[str] = Field(default_factory=list)
+    fixes: str = ''
+    story: int | None = Field(default=None, ge=1, le=10)
+    media_relevance: int | None = Field(default=None, ge=1, le=10)
+    motion: int | None = Field(default=None, ge=1, le=10)
+    captions: int | None = Field(default=None, ge=1, le=10)
+    composition: int | None = Field(default=None, ge=1, le=10)
+    audio: int | None = Field(default=None, ge=1, le=10)
+    overall: int | None = Field(default=None, ge=1, le=10)
+
+
+class SceneFeedbackBody(BaseModel):
+    generation_id: str = Field(min_length=4, max_length=80)
+    scene_id: str = Field(min_length=1, max_length=80)
+    scene_index: int = Field(default=0, ge=0, le=200)
+    timestamp_seconds: float | None = Field(default=None, ge=0, le=36000)
+    asset_ids: list[str] = Field(default_factory=list)
+    motion_treatment: str = ''
+    issue_category: str
+    comments: str = ''
+
+
+@app.get('/api/memory/status')
+def memory_status(user=Depends(current_user)):
+    from .experience_memory import status
+    return status()
+
+
+@app.get('/api/projects/{pid}/memory/context')
+def memory_context(pid: str, q: str = '', user=Depends(current_user)):
+    if not project(pid, user['id']):
+        raise HTTPException(404, 'not_found')
+    from .experience_memory import enabled as memory_enabled
+    if not memory_enabled():
+        return {'enabled': False, 'items': [], 'overridesSourceFacts': False, 'overridesSafetyRules': False}
+    from .experience_memory import bounded_context
+    return bounded_context(pid, q[:1800])
+
+
+@app.get('/api/projects/{pid}/memory/generations')
+def memory_generations(pid: str, user=Depends(current_user)):
+    if not project(pid, user['id']):
+        raise HTTPException(404, 'not_found')
+    from .experience_memory import list_generations
+    return {'generations': list_generations(pid)}
+
+
+@app.post('/api/projects/{pid}/memory/reviews', status_code=201)
+def memory_review(pid: str, body: MemoryReviewBody, user=Depends(current_user)):
+    if not project(pid, user['id']):
+        raise HTTPException(404, 'not_found')
+    from .experience_memory import MemoryUnavailable, add_review
+    dimensions = {
+        'story': body.story,
+        'media_relevance': body.media_relevance,
+        'motion': body.motion,
+        'captions': body.captions,
+        'composition': body.composition,
+        'audio': body.audio,
+        'overall': body.overall,
+    }
+    try:
+        review_id = add_review(
+            project_id=pid,
+            generation_id=body.generation_id,
+            review_source='user',
+            user_quality_rating=body.rating,
+            comments=body.comments[:4000],
+            defects=body.defects[:20],
+            fixes=body.fixes[:4000],
+            dimensions=dimensions,
+        )
+    except MemoryUnavailable as exc:
+        raise HTTPException(422, str(exc)) from None
+    return {'id': review_id, 'review_source': 'user'}
+
+
+@app.post('/api/projects/{pid}/memory/scenes', status_code=201)
+def memory_scene(pid: str, body: SceneFeedbackBody, user=Depends(current_user)):
+    if not project(pid, user['id']):
+        raise HTTPException(404, 'not_found')
+    from .experience_memory import SCENE_ISSUES, MemoryUnavailable, add_scene_feedback
+    if body.issue_category not in SCENE_ISSUES:
+        raise HTTPException(422, 'scene_issue')
+    try:
+        row_id = add_scene_feedback(
+            project_id=pid,
+            generation_id=body.generation_id,
+            scene_index=body.scene_index,
+            review_source='user',
+            treatment=body.motion_treatment[:200],
+            comments=body.comments[:4000],
+            scene_id=body.scene_id,
+            timestamp_seconds=body.timestamp_seconds,
+            asset_ids=body.asset_ids[:12],
+            issue_category=body.issue_category,
+        )
+    except MemoryUnavailable as exc:
+        raise HTTPException(422, str(exc)) from None
+    return {'id': row_id, 'issue_category': body.issue_category}
+
+
+@app.get('/api/health/runpod-llm')
+def health_runpod_llm(user=Depends(current_user)):
+    """Authenticated deep probe of RunPod-local Ollama (SSH tunnel). Fail-closed signal."""
+    from . import runpod_llm
+
+    return runpod_llm.health_check(ensure_model=True)
+
 
 @app.get('/api/session')
 def session(user=Depends(current_user)):
@@ -220,7 +349,8 @@ def detail(pid:str,user=Depends(current_user)):
     p=project(pid,user['id'])
     if not p: raise HTTPException(404,'not_found')
     p['pictures']=finished_pictures(pid,(p.get('result') or {}).get('render_id',''))
-    return p
+    from .project_status import attach_job_status
+    return attach_job_status(p)
 
 class DouyinSearchRequest(BaseModel):
     keyword: str = Field(min_length=1,max_length=120)
@@ -427,6 +557,8 @@ from .final_music import router as final_music_router
 app.include_router(final_music_router)
 from .studio import router as studio_router
 app.include_router(studio_router)
+from .media_gpu import router as media_gpu_router
+app.include_router(media_gpu_router)
 from .manual import router as manual_router
 app.include_router(manual_router)
 from .creative_plans import router as creative_plans_router

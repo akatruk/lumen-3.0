@@ -12,6 +12,6 @@ def test_generation_is_reviewable_private_asset_and_not_applied(client,monkeypat
         return {'path':generated}
     monkeypatch.setattr(ai,'generate_broll',generate)
     base=f'/api/studio/projects/{pid}/timeline-proposals'
-    response=client.post(base,json={'revision':1,'clip_id':edit['clips'][0]['id'],'instruction':'Illustrate the narrated scene','mode':'generated_broll'})
+    response=client.post(base,json={'revision':revision,'clip_id':edit['clips'][0]['id'],'instruction':'Illustrate the narrated scene','mode':'generated_broll'})
     assert response.status_code==422 and response.json()['detail']=='hypit_prompt_only'
     assert calls==[]

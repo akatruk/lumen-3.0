@@ -16,8 +16,10 @@ def edit(**extra):
 
 
 def test_plan_stores_the_hand_prompt():
-    stored = plan(edit(card_motion=10, presentation_prompt='make ilustration', animation_prompt='Будет добавлена анимация'))
-    assert stored.presentation_prompt == illustration_request()
+    saved = edit(card_motion=10, presentation_prompt='make ilustration', animation_prompt='Будет добавлена анимация')
+    stored = plan(saved)
+    assert stored.presentation_prompt == illustration_request(saved)
+    assert 'Доля анимации — 10%' in stored.presentation_prompt
     assert stored.animation_prompt == ''
     assert stored.presentation == []
     assert 'make ilustration' not in stored.presentation_prompt
@@ -44,13 +46,15 @@ def test_create_video_enqueues_the_short_prompt(client):
     seed_plan(pid)
     refused = client.post(f'/api/studio/projects/{pid}/render', json={'revision': 1})
     assert refused.status_code == 409 and refused.json()['detail'] == 'studio_surface_disabled'
-    started = client.post(f'/api/studio/projects/{pid}/create-video', json={'illustration_percent': 50})
+    started = client.post(f'/api/studio/projects/{pid}/create-video', json={
+        'animation_percent': 50, 'intensity_percent': 40, 'motion_percent': 80, 'density_percent': 70,
+    })
     assert started.status_code == 200
     with connect() as db:
         row = db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'", (pid,)).fetchone()
     payload = json.loads(row[0])
-    assert payload['illustration'] is True and payload['manual']['card_motion'] == 40
-    assert payload['manual']['animation_intensity'] == 60
+    assert payload['illustration'] is True and payload['manual']['card_motion'] == 50
+    assert payload['manual']['animation_intensity'] == 40
     assert payload['manual']['animation_motion'] == 80
     assert payload['manual']['animation_density'] == 70
     assert payload['manual']['voice_cleanup'] is True and payload['manual']['normalize'] is True
@@ -58,19 +62,214 @@ def test_create_video_enqueues_the_short_prompt(client):
     assert payload['manual']['font_size'] == 'medium' and payload['manual']['position'] == 'bottom'
     assert payload['manual']['color'] == 'white'
     assert payload['manual']['music'] is None and payload['decisions'] == []
-    text = illustration_request()
+    assert 'promptAssembly' in payload
+    assert payload['promptAssembly']['mainPromptVersion'].startswith('assembly:')
+    assert isinstance(payload['promptAssembly']['modules'], list)
+    text = illustration_request(payload['manual'])
     assert payload['manual']['presentation_prompt'] == text
-    assert 'Анимация 40%  ведущий' in text
-    assert 'Звуковые акценты: щелчок, свист, колокольчик.' in text
-    assert client.post(f'/api/studio/projects/{pid}/create-video', json={'illustration_percent': 80}).status_code == 409
+    assert payload['manual'].get('width') and payload['manual'].get('height')
+    assert payload['manual'].get('duration') == 40
+    preview = client.get('/api/studio/picture-prompt?animation_percent=50&intensity_percent=40&motion_percent=80&density_percent=70')
+    assert preview.status_code == 200
+    # Preview is slider-only (no project duration/transcript); bindings still match coverage.
+    assert preview.json()['promptAssembly']['mainPromptVersion'] == payload['promptAssembly']['mainPromptVersion']
+    assert 'Graphics coverage: 50%' in preview.json()['prompt']
+    assert 'Интенсивность — 40' in preview.json()['prompt'] or 'Graphics intensity: 40' in preview.json()['prompt']
+    assert 'Доля анимации — 50%' in text
+    assert 'Интенсивность — 40' in text
+    assert 'FACE PROTECTION' in text
+    assert "The original presenter remains the protagonist." in text
+    assert 'Graphics coverage: 50%' in text
+    assert 'MEDIA LIBRARY' in text or 'supplied media-library' in text.lower() or 'SUPPLIED MEDIA LIBRARY' in text
+    assert 'PIP' in text or 'presenter-window' in text or 'circle' in text.lower()
+    assert client.post(f'/api/studio/projects/{pid}/create-video', json={'animation_percent': 80}).status_code == 409
     other = create(client).json()['id']
     seed_plan(other)
-    changed = client.post(f'/api/studio/projects/{other}/create-video', json={'illustration_percent': 80})
+    changed = client.post(f'/api/studio/projects/{other}/create-video', json={'animation_percent': 80})
     assert changed.status_code == 200
     with connect() as db:
         second = json.loads(db.execute("SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'", (other,)).fetchone()[0])
-    assert second['manual']['card_motion'] == 40
-    assert second['manual']['presentation_prompt'] == illustration_request()
+    assert second['manual']['card_motion'] == 80
+    assert second['manual']['animation_intensity'] == 60
+    assert second['manual']['presentation_prompt'] == illustration_request(second['manual'])
+    odd = client.post(f'/api/studio/projects/{other}/create-video', json={'animation_percent': 7})
+    assert odd.status_code == 422
+
+
+def test_one_language_switch_sets_card_labels_and_drops_the_three_language_dump(client, monkeypatch):
+    """One language changes the cards and the request. Three languages are not dumped."""
+    from backend import studio
+    from backend.db import connect, project
+    from backend.hypit_prompt import author_source, illustration_request
+
+    sentence = "The original presenter remains the protagonist."
+    line = {
+        'start': 1.0, 'end': 8.0,
+        'original': 'Планируете переезд, второй вид на жительство',
+        'ru': 'Планируете переезд, второй вид на жительство',
+        'en': 'Are you planning a move, a second residency',
+        'zh': '您是否正在计划移居，获取第二居留权',
+    }
+    late = {
+        'start': 30.0, 'end': 36.0,
+        'original': 'Поздняя фраза',
+        'ru': 'Поздняя фраза',
+        'en': 'A later phrase',
+        'zh': '较晚的一句',
+    }
+    bare = {
+        'clips': [{'start': 0, 'end': 40}],
+        'captions': [line, late],
+        'card_motion': 60,
+    }
+    dumped = illustration_request({**bare, 'translate_all': True})
+    assert 'русский:' not in dumped and 'English:' not in dumped and '中文:' not in dumped
+    assert sentence in dumped
+    russian = illustration_request({**bare, 'language': 'ru'})
+    chinese = illustration_request({**bare, 'language': 'zh'})
+    assert sentence in russian and '--- PROJECT LANGUAGE ---' in russian and '"locale": "ru-RU"' in russian
+    assert 'Планируете переезд' in russian  # aligned transcript uses target-language rows
+    assert sentence in chinese and '"locale": "zh-CN"' in chinese and '简体中文' in chinese
+    assert '原始视频和脸部保持清晰' not in chinese
+    filmed = author_source({**bare, 'language': 'ru'}, 464, 848, duration=40)
+    value = filmed.split('id="request">', 1)[1].split('</text:Value>', 1)[0]
+    assert sentence in value and 'ru-RU' in value
+    assert 'Планируете переезд' in value
+    assert 'русский:' not in filmed and 'English:' not in filmed and '中文:' not in filmed
+    picture = filmed.split('<picture>', 1)[1].split('</picture>', 1)[0]
+    assert picture.startswith('<Планируете переезд, второй вид на жительство|您是否正在计划移居，获取第二居留权>')
+    assert '&lt;' not in picture
+    assert 'Планируете переезд' in filmed and '您是否正在计划移居' not in filmed.split('id="motion-1">', 1)[1].split('</text:Value>', 1)[0]
+    kept = author_source({**bare, 'language': 'zh'}, 464, 848, duration=40)
+    assert '您是否正在计划移居' in kept and 'Планируете переезд' not in kept
+    assert 'src="./motion/1.mp4"' in filmed and 'FACE PROTECTION' in value
+
+    pid = create(client).json()['id']
+    seed_plan(pid)
+    with connect() as db:
+        stored = json.loads(db.execute('SELECT plan FROM studio_projects WHERE project_id=?', (pid,)).fetchone()[0])
+        stored['transcript'] = [line]
+        db.execute('UPDATE studio_projects SET plan=? WHERE project_id=?', (json.dumps(stored, ensure_ascii=False), pid))
+    started = client.post(f'/api/studio/projects/{pid}/create-video', json={
+        'animation_percent': 60, 'language': 'ru',
+    })
+    assert started.status_code == 200
+    with connect() as db:
+        payload = json.loads(db.execute(
+            "SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render' AND status='queued'",
+            (pid,),
+        ).fetchone()[0])
+    assert payload.get('translate_all') is None and payload['manual'].get('translate_all') is not True
+    assert payload['language'] == 'ru' and payload['manual']['language'] == 'ru'
+    assert payload['manual']['host_language'] == 'ru'
+    assert payload['manual']['subtitle_language'] == 'ru'
+    assert payload['manual']['effects_language'] == 'ru'
+    assert payload['manual']['presentation_prompt'] == illustration_request(payload['manual'])
+    assert sentence in payload['manual']['presentation_prompt']
+    assert 'Планируете переезд' in payload['manual']['presentation_prompt']  # aligned transcript
+    assert [m['id'] for m in payload['promptAssembly']['modules']] == ['editing_controls', 'localization']
+    assert payload['promptAssembly']['runParams']['targetLocale'] == 'ru-RU'
+    assert 'MODULE LOCALIZATION RULES' in payload['manual']['presentation_prompt']
+    markup = author_source(payload['manual'], 464, 848, duration=40)
+    assert 'Планируете переезд' in markup
+    assert '您是否正在计划移居' not in markup.split('id="motion-1">', 1)[1].split('</text:Value>', 1)[0]
+    assert '<Планируете переезд, второй вид на жительство|您是否正在计划移居' in markup
+    refused = client.post(f'/api/studio/projects/{pid}/create-video', json={
+        'animation_percent': 60, 'translate_all': True,
+    })
+    assert refused.status_code == 422
+    other_language = create(client).json()['id']
+    seed_plan(other_language)
+    with connect() as db:
+        stored = json.loads(db.execute('SELECT plan FROM studio_projects WHERE project_id=?', (other_language,)).fetchone()[0])
+        stored['transcript'] = [line]
+        db.execute('UPDATE studio_projects SET plan=? WHERE project_id=?', (json.dumps(stored, ensure_ascii=False), other_language))
+    pending = client.post(f'/api/studio/projects/{other_language}/create-video', json={
+        'animation_percent': 60, 'language': 'en-US',
+    })
+    assert pending.status_code == 200 and pending.json()['ok'] is True
+    with connect() as db:
+        queued = db.execute(
+            "SELECT payload FROM jobs WHERE project_id=? AND kind='studio_render'",
+            (other_language,),
+        ).fetchone()
+    assert queued is not None
+    body = json.loads(queued[0])
+    assert body['dubbed'] is True
+    assert body['voice'] == 'en-male'
+    assert body['voice_resolution']['mode'] == 'dubbed'
+    assert body['voice_resolution']['path'] == 'project_default'
+    assert 'Выберите язык исходника' not in json.dumps(body, ensure_ascii=False)
+    seen = {}
+
+    def stop(_project, handed):
+        seen.update(handed)
+        raise RuntimeError('stop_after_handoff')
+
+    monkeypatch.setattr('backend.worker.render_job', stop)
+    try:
+        studio.render_job(project(other_language), body)
+    except RuntimeError as exc:
+        assert str(exc) == 'stop_after_handoff'
+    else:
+        raise AssertionError('render continued without the handoff')
+    assert seen['dubbed'] is True
+    assert seen['target_language'] == 'en-US'
+    assert seen['source_language'] == 'ru-RU'
+    assert seen['voice'] == 'en-male'
+    assert seen['language'] == 'en'
+    assert seen['plan']['transcript'][0]['en'] == 'Are you planning a move, a second residency'
+
+
+def test_dub_audio_is_not_an_edit_field():
+    from backend.manual import Edit
+    from backend.media import _without_dub
+
+    body = {'clips': [{'start': 0, 'end': 1}], 'dub_audio': '/tmp/speech.m4a'}
+    edit = Edit.model_validate(_without_dub(body))
+    assert edit.clips[0].end == 1
+
+
+def test_caption_end_stays_inside_the_speech_file(tmp_path):
+    import wave
+    from backend.worker import dub_captions, fit_caption_ends
+
+    path = tmp_path / 'speech.wav'
+    with wave.open(str(path), 'wb') as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(48000)
+        handle.writeframes(b'\x00\x00' * 48000)
+    rows = dub_captions([{'start': 0, 'end': 2.4, 'text': 'Раз'}], 'ru')
+    fitted = fit_caption_ends(rows, path)
+    assert fitted[0]['end'] <= 1.05
+    assert fitted[0]['ru'] == 'Раз'
+
+
+def test_dubbed_russian_captions_validate_past_the_source():
+    from backend.manual import Edit, check
+    from backend.schemas import Caption
+    from backend.worker import dub_captions
+
+    rows = dub_captions([
+        {'start': 0, 'end': 10.7, 'text': 'Многие думают, что регистрация компании за рубежом совсем другая.'},
+        {'start': 81.94, 'end': 90.62, 'text': 'Разница прямая: смотрят на структуру.'},
+    ], 'ru')
+    for row in rows:
+        Caption.model_validate(row)
+        assert row['ru'] and row['en'] == '' and row['zh'] == ''
+    edit = {
+        'clips': [{'start': 0, 'end': 61.8}],
+        'captions': rows,
+        'subtitles': True,
+    }
+    check(Edit.model_validate(edit), 90.62)
+    try:
+        check(Edit.model_validate(edit), 61.8)
+    except Exception as exc:
+        assert getattr(exc, 'detail', None) == 'invalid_caption_range' or 'invalid_caption_range' in str(exc)
+    else:
+        raise AssertionError('source duration accepted speech that runs past it')
 
 
 def test_effect_board_cannot_change_the_picture(client):
@@ -81,3 +280,15 @@ def test_effect_board_cannot_change_the_picture(client):
     board = client.put(f'/api/studio/projects/{pid}/effect-board', json={'name': 'punch', 'amount': 1.6, 'effects': effects})
     assert board.status_code == 409 and board.json()['detail'] == 'studio_surface_disabled'
     assert client.get(f'/api/studio/projects/{pid}').json()['revision'] == 1
+
+
+def test_higher_density_films_more_spoken_parts_on_the_figure():
+    from backend.tests.test_hypit_picture import _density_markup, _motion_parts
+
+    line = '再看出资节奏，中国认缴时间弹性很大，泰国则要求实缴部分资本，银行开户、工作证、签证申请都会盯着资金到位情况'
+    low = _motion_parts(_density_markup(20, line))
+    high = _motion_parts(_density_markup(70, line))
+    assert len(high) > len(low)
+    assert len(high) > 3
+    assert 'Визуальная плотность — 70%' in _density_markup(70, line)
+    assert 'src="./motion/1.mp4"' in _density_markup(70, line)

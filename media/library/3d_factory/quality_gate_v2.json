@@ -1,0 +1,83 @@
+{
+  "version": "v10.2",
+  "policy": "3d_optional_quality_mandatory",
+  "production_ready": [],
+  "needs_rework": [
+    "l3d_v2_folder__documents_stack",
+    "l3d_v2_folder__folder_open",
+    "l3d_v2_folder__folder_reveal",
+    "l3d_v2_passport__passport_open",
+    "l3d_v2_passport__passport_reveal",
+    "l3d_v2_passport__second_passport_reveal",
+    "l3d_v2_suitcase__suitcase_arrival",
+    "l3d_v2_suitcase__suitcase_foreground_pass",
+    "l3d_v2_suitcase__suitcase_roll"
+  ],
+  "experimental": [
+    "l3d_apartment_building__reveal",
+    "l3d_apartment_building__camera_push",
+    "l3d_apartment_building__depth_entrance"
+  ],
+  "rejected": [
+    "l3d_generic_passport__open",
+    "l3d_generic_passport__reveal",
+    "l3d_generic_passport__rotate_subtle",
+    "l3d_premium_suitcase__reveal",
+    "l3d_premium_suitcase__slide_in",
+    "l3d_premium_suitcase__floating_hold",
+    "l3d_document_folder__open",
+    "l3d_document_folder__reveal",
+    "l3d_document_folder__scale_reveal",
+    "l3d_global_mobility_globe__reveal",
+    "l3d_global_mobility_globe__rotate_subtle",
+    "l3d_global_mobility_globe__light_reveal"
+  ],
+  "heroBindings": {
+    "problem": {
+      "assetId": "l3d_v2_passport",
+      "motion": "passport_open",
+      "scaleProfile": "hero",
+      "areaShare": 0.28,
+      "placement": "speaker_right_lower"
+    },
+    "payoff": {
+      "assetId": "l3d_v2_suitcase",
+      "motion": "suitcase_roll",
+      "scaleProfile": "hero",
+      "areaShare": 0.26,
+      "placement": "speaker_left_lower"
+    },
+    "steps": {
+      "assetId": "l3d_v2_folder",
+      "motion": "folder_open",
+      "scaleProfile": "supporting",
+      "areaShare": 0.2,
+      "placement": "speaker_left_lower"
+    }
+  },
+  "activationRule": "Director may bind a variant only when listed in production_ready AND sceneAllowlist. V9 treatment otherwise.",
+  "sceneAllowlist": {
+    "hook": [],
+    "context": [],
+    "problem": [],
+    "residency": [],
+    "consult": [],
+    "beside": [],
+    "steps": [],
+    "proof": [],
+    "payoff": [],
+    "return": []
+  },
+  "notes": "sceneAllowlist populated only after human showcase QA marks variants production_ready. Until then V10.2 delivery = V9 baseline.",
+  "_backup_production_ready": [],
+  "review": {
+    "date": "2026-10-13",
+    "trial": "output/3d-quality-recovery/scene-ab-comparison/v102-trial-3d.mp4",
+    "decision": "KEEP_V9 \u2014 V2 alpha/framing improved vs V10 but materials/geometry still not commercial; V9 cleaner in A/B",
+    "ab": [
+      "passport_v9_vs_v102.mp4",
+      "folder_v9_vs_v102.mp4",
+      "suitcase_v9_vs_v102.mp4"
+    ]
+  }
+}

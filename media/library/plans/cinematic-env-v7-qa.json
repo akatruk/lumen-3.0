@@ -1,0 +1,162 @@
+{
+  "reviewed": "2026-10-14",
+  "method": "start and mid frames plus stills, 420px contact copies of the 1080x1920 masters",
+  "durationNote": "ffprobe 3.571429s, 25 frames, 7/1 fps, 1080x1920. SVD-XT playback. Not setpts and not 30fps 6s motion.",
+  "decisions": {
+    "cev7_cap_office_seniors_001": "approved",
+    "cev7_i2v_cap_office_seniors_001": "approved",
+    "cev7_cap_exec_negotiate_002": "approved",
+    "cev7_i2v_cap_exec_negotiate_002": "rejected",
+    "cev7_cap_documents_003": "approved",
+    "cev7_i2v_cap_documents_003": "approved",
+    "cev7_cap_shareholders_004": "rejected",
+    "cev7_i2v_cap_shareholders_004": "rejected",
+    "cev7_cap_district_005": "approved",
+    "cev7_i2v_cap_district_005": "approved",
+    "cev7_cap_ceo_advisor_006": "approved",
+    "cev7_i2v_cap_ceo_advisor_006": "approved",
+    "cev7_cap_exec_docs_007": "approved",
+    "cev7_i2v_cap_exec_docs_007": "approved",
+    "cev7_cap_property_008": "approved",
+    "cev7_i2v_cap_property_008": "approved",
+    "cev7_cap_founders_glass_009": "approved",
+    "cev7_i2v_cap_founders_glass_009": "rejected",
+    "cev7_cap_global_skyline_010": "approved",
+    "cev7_i2v_cap_global_skyline_010": "approved"
+  },
+  "visualGrounding": {
+    "cev7_cap_office_seniors_001": {
+      "observedPeople": 2,
+      "setting": "Two older men in suits at a wood table in a glass office, blurred pages in front of them",
+      "edgeNote": "A cropped shape at the right edge is not counted as a third person",
+      "readableText": false,
+      "plasticFaces": false,
+      "morph": false,
+      "syntheticCity": false
+    },
+    "cev7_i2v_cap_office_seniors_001": {
+      "observedPeople": 2,
+      "setting": "Same two men; mid frame keeps both faces and the table",
+      "readableText": false,
+      "plasticFaces": false,
+      "morph": false,
+      "motion": "small pose change across 25 frames, not a dolly that travels the room"
+    },
+    "cev7_cap_exec_negotiate_002": {
+      "observedPeople": 3,
+      "setting": "Glass boardroom, three people at a reflective table, papers without readable type",
+      "readableText": false,
+      "plasticFaces": false,
+      "morph": false,
+      "note": "Intent asked for four. The still shows three."
+    },
+    "cev7_i2v_cap_exec_negotiate_002": {
+      "observedPeople": 4,
+      "setting": "Mid frame adds a fourth man on the left who is not in the still",
+      "readableText": false,
+      "morph": true,
+      "rejectReason": "person_count_morph"
+    },
+    "cev7_cap_documents_003": {
+      "observedPeople": 0,
+      "setting": "Two pens on a blurred document page, leather folder edge, no cash",
+      "readableText": false,
+      "abstractOnly": false
+    },
+    "cev7_i2v_cap_documents_003": {
+      "observedPeople": 0,
+      "setting": "Same still life; type stays illegible",
+      "readableText": false,
+      "morph": false
+    },
+    "cev7_cap_shareholders_004": {
+      "observedPeople": 2,
+      "setting": "Two men standing in a wood-paneled room, no diagrams",
+      "readableText": false,
+      "rejectReason": "observed_two_people_brief_was_three"
+    },
+    "cev7_i2v_cap_shareholders_004": {
+      "observedPeople": 2,
+      "setting": "Same two men, stable, still not three",
+      "morph": false,
+      "rejectReason": "observed_two_people_brief_was_three"
+    },
+    "cev7_cap_district_005": {
+      "observedPeople": 0,
+      "setting": "Night glass towers and a spired roof reflected in water",
+      "readableText": false,
+      "syntheticCity": true,
+      "cityVerified": false,
+      "note": "Looks like a familiar financial skyline. Not verified as a real city photograph."
+    },
+    "cev7_i2v_cap_district_005": {
+      "observedPeople": 0,
+      "setting": "Same skyline, towers stay coherent at mid frame",
+      "syntheticCity": true,
+      "cityVerified": false,
+      "morph": false
+    },
+    "cev7_cap_ceo_advisor_006": {
+      "observedPeople": 2,
+      "setting": "Two men in dark suits at a round table by tall windows",
+      "readableText": false,
+      "plasticFaces": false,
+      "morph": false
+    },
+    "cev7_i2v_cap_ceo_advisor_006": {
+      "observedPeople": 2,
+      "setting": "Same pair, hands stay clasped, no extra person",
+      "morph": false,
+      "motion": "small shift, not an orbit"
+    },
+    "cev7_cap_exec_docs_007": {
+      "observedPeople": 2,
+      "setting": "Two men holding a large blurred page in a windowed office",
+      "readableText": false,
+      "plasticFaces": false
+    },
+    "cev7_i2v_cap_exec_docs_007": {
+      "observedPeople": 2,
+      "setting": "Same two men and the same blurred page",
+      "readableText": false,
+      "morph": false
+    },
+    "cev7_cap_property_008": {
+      "observedPeople": 3,
+      "setting": "Three men outside a glass commercial facade",
+      "readableText": false,
+      "note": "Intent said investors at a commercial property. Count on screen is three."
+    },
+    "cev7_i2v_cap_property_008": {
+      "observedPeople": 3,
+      "setting": "Same three figures and facade at mid frame",
+      "morph": false
+    },
+    "cev7_cap_founders_glass_009": {
+      "observedPeople": 5,
+      "setting": "Glass corner office, four people seated at a table and one standing at the window, city beyond",
+      "readableText": false,
+      "syntheticCity": true,
+      "cityVerified": false
+    },
+    "cev7_i2v_cap_founders_glass_009": {
+      "observedPeople": 5,
+      "setting": "Mid frame smears the seated people",
+      "morph": true,
+      "rejectReason": "subject_smear"
+    },
+    "cev7_cap_global_skyline_010": {
+      "observedPeople": 0,
+      "setting": "Empty interior, skyline through a window wall, sun low, floor reflection",
+      "readableText": false,
+      "syntheticCity": true,
+      "cityVerified": false
+    },
+    "cev7_i2v_cap_global_skyline_010": {
+      "observedPeople": 0,
+      "setting": "Same window and skyline, no people introduced",
+      "syntheticCity": true,
+      "morph": false
+    }
+  }
+}

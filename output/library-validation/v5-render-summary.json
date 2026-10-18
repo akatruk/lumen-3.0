@@ -1,0 +1,129 @@
+{
+  "variants": {
+    "a": {
+      "seed": 510011,
+      "sha256": "166ba7c7dd5adde7ad1f2eaff54baafe6ef689f5917dceef54c3c8890a30ce75",
+      "bytes": 5313351,
+      "artDirection": "luxury_minimal",
+      "assets": [
+        "rp_photo_065",
+        "rp_photo_067",
+        "re_inv_meeting"
+      ],
+      "layouts": [
+        "speaker_punch_in",
+        "speaker_with_foreground",
+        "speaker_with_media",
+        "speaker_with_diagram",
+        "speaker_with_diagram",
+        "speaker_punch_in"
+      ],
+      "bg_treatments": [
+        "cinematic_crop",
+        "slow_zoom_in",
+        "horizontal_pan",
+        "subtle_drift",
+        "mask_reveal",
+        "slow_zoom_out"
+      ],
+      "transitions": [
+        "cut",
+        "cut",
+        "cut",
+        "cut",
+        "mask_wipe",
+        "cut"
+      ],
+      "path": "/opt/lumen-rebuild/output/library-validation/variant-a.mp4"
+    },
+    "b": {
+      "seed": 520022,
+      "sha256": "bb3462e1edc40f1a41143cd1711dd6976909f05bc898f77e6bd1852b16c23c86",
+      "bytes": 5277751,
+      "artDirection": "cinematic_editorial",
+      "assets": [
+        "rp_photo_033",
+        "v2_photo_007",
+        "v2_photo_011"
+      ],
+      "layouts": [
+        "speaker_medium",
+        "speaker_with_foreground",
+        "speaker_with_media",
+        "speaker_with_diagram",
+        "speaker_with_diagram",
+        "speaker_closeup"
+      ],
+      "bg_treatments": [
+        "vertical_pan",
+        "static_editorial",
+        "slow_zoom_out",
+        "slow_zoom_in",
+        "static_editorial",
+        "cinematic_crop"
+      ],
+      "transitions": [
+        "crossfade",
+        "mask_wipe",
+        "crossfade",
+        "crossfade",
+        "cut",
+        "cut"
+      ],
+      "path": "/opt/lumen-rebuild/output/library-validation/variant-b.mp4"
+    },
+    "c": {
+      "seed": 530033,
+      "sha256": "4bc9468de5ce65e00d155885b6906281bec838ee36f5f2d383a383f7fc94bb8a",
+      "bytes": 5274243,
+      "artDirection": "luxury_minimal",
+      "assets": [
+        "rp_object_003",
+        "v2_detai_007",
+        "re_agent_docs"
+      ],
+      "layouts": [
+        "speaker_fullscreen",
+        "speaker_with_foreground",
+        "speaker_with_media",
+        "speaker_split_right",
+        "speaker_with_diagram",
+        "speaker_punch_in"
+      ],
+      "bg_treatments": [
+        "slow_zoom_in",
+        "subtle_drift",
+        "parallax_depth",
+        "static_editorial",
+        "mask_reveal",
+        "slow_zoom_in"
+      ],
+      "transitions": [
+        "mask_wipe",
+        "cut",
+        "cut",
+        "cut",
+        "cut",
+        "cut"
+      ],
+      "path": "/opt/lumen-rebuild/output/library-validation/variant-c.mp4"
+    }
+  },
+  "unused_repeat": {
+    "picked_total": 9,
+    "picked_unique": 9,
+    "repeat_count": 0,
+    "runpod_used": 7,
+    "runpod_unused": 393,
+    "runpod_total": 400,
+    "prefix_mix": {
+      "rp_": 4,
+      "re_": 2,
+      "v2_": 3
+    },
+    "cross_variant_overlap": [],
+    "overlap_ab": [],
+    "overlap_ac": [],
+    "overlap_bc": []
+  }
+}

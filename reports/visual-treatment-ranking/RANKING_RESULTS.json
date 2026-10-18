@@ -1,0 +1,124 @@
+{
+  "original3": {
+    "elapsed_ms": 0.034,
+    "decisions": [
+      {
+        "scene_id": "consult__evt_ce7bc4fc9df6",
+        "current": "speaker_visual",
+        "winner": "speaker_visual",
+        "changed": false,
+        "reason": [
+          "region 504x1214",
+          "width_slack 18px",
+          "speaker 500x1424",
+          "caption_band_clear",
+          "speaker_column"
+        ]
+      },
+      {
+        "scene_id": "return__gap1",
+        "current": "NO_CHANGE",
+        "winner": null,
+        "changed": false,
+        "reason": "no_semantic_motion"
+      }
+    ]
+  },
+  "original2": {
+    "elapsed_ms": 0.068,
+    "decisions": [
+      {
+        "scene_id": "hook__evt_cce45bee8d61",
+        "current": "speaker_visual",
+        "winner": "speaker_visual",
+        "changed": false,
+        "reason": [
+          "region 504x1214",
+          "width_slack 24px",
+          "speaker 500x1424",
+          "caption_band_clear",
+          "speaker_column"
+        ]
+      },
+      {
+        "scene_id": "residency__evt_86a2a6b07a8c",
+        "current": "speaker_visual",
+        "winner": "speaker_visual",
+        "changed": false,
+        "reason": [
+          "region 504x1214",
+          "width_slack 24px",
+          "speaker 500x1424",
+          "caption_band_clear",
+          "speaker_column"
+        ]
+      },
+      {
+        "scene_id": "residency__gap2",
+        "current": "NO_CHANGE",
+        "winner": null,
+        "changed": false,
+        "reason": "no_semantic_motion"
+      },
+      {
+        "scene_id": "consult__evt_2526582d1fd5",
+        "current": "speaker_visual",
+        "winner": "speaker_visual",
+        "changed": false,
+        "reason": [
+          "region 504x1214",
+          "width_slack 24px",
+          "speaker 500x1424",
+          "caption_band_clear",
+          "speaker_column"
+        ]
+      },
+      {
+        "scene_id": "beside__evt_60b1c8bb76b2",
+        "current": "speaker_visual",
+        "winner": "speaker_visual",
+        "changed": false,
+        "reason": [
+          "region 504x1214",
+          "width_slack 24px",
+          "speaker 500x1424",
+          "caption_band_clear",
+          "speaker_column"
+        ]
+      },
+      {
+        "scene_id": "beside__evt_6e21acd97fcf",
+        "current": "speaker_visual",
+        "winner": "speaker_visual",
+        "changed": false,
+        "reason": [
+          "region 504x1214",
+          "width_slack 24px",
+          "speaker 500x1424",
+          "caption_band_clear",
+          "speaker_column"
+        ]
+      },
+      {
+        "scene_id": "steps__gap6",
+        "current": "NO_CHANGE",
+        "winner": null,
+        "changed": false,
+        "reason": "no_semantic_motion"
+      },
+      {
+        "scene_id": "return__evt_d9d8cbf6fd01",
+        "current": "speaker_visual",
+        "winner": "speaker_visual",
+        "changed": false,
+        "reason": [
+          "region 504x1214",
+          "width_slack 24px",
+          "speaker 500x1424",
+          "caption_band_clear",
+          "speaker_column"
+        ]
+      }
+    ]
+  }
+}

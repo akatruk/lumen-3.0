@@ -1,0 +1,4 @@
+# Optional. Install torch from the CPU index first so pip does not pull CUDA wheels:
+#   pip install torch==2.14.1+cpu --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r backend/requirements-memory.txt
+sentence-transformers==5.1.1

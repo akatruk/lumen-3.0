@@ -32,3 +32,27 @@ onboarding-video/voice-candidates/
 onboarding-video/public/guide-v5/*.wav
 
 !backend/data/soundtracks.json
+
+# V5 Director validation renders (keep JSON/docs; omit large mp4s)
+output/library-validation/*.mp4
+
+# Premium motion binaries live on DO volume; keep recipes/rows/reports only
+media/library/out/motion/premium/*.webm
+media/library/out/motion/premium/*.preview.jpg
+media/library/out/contact-sheets/premium-motion/*.jpg
+
+# Premium 3D masters live on DO volume; keep factory scripts + registry JSON
+3d-library/alpha/
+3d-library/alpha_png/
+3d-library/models/
+3d-library/blender/
+3d-library/previews/
+media/library/out/motion/premium3d/
+media/library/out/models/premium3d/
+media/library/out/thumbnails/premium3d/
+output/director-v10/*.mp4
+
+# Database dumps and embedding weights stay off Git.
+*.dump
+*.pgdump
+embedding-models/

@@ -1,0 +1,244 @@
+{
+  "durationSeconds": 60.053333,
+  "compositionAudit": {
+    "scenes": [
+      {
+        "sceneId": "hook",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "medium",
+        "score": 1.78,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": "imm_obj_suitcase",
+        "silhouette": "suitcase",
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "context",
+        "primaryVisualRole": "speaker_media",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "problem",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "medium",
+        "score": 1.74,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": "passport",
+        "silhouette": "passport",
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "residency",
+        "primaryVisualRole": "speaker_media",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "consult",
+        "primaryVisualRole": "broll",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "beside",
+        "primaryVisualRole": "infographic",
+        "visualComplexity": "medium",
+        "score": 1.65,
+        "budget": 1.8,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "steps",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "proof",
+        "primaryVisualRole": "broll",
+        "visualComplexity": "medium",
+        "score": 1.7,
+        "budget": 2.0,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "payoff",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "medium",
+        "score": 1.74,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": "imm_obj_pin",
+        "silhouette": "pin",
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      },
+      {
+        "sceneId": "return",
+        "primaryVisualRole": "speaker",
+        "visualComplexity": "low",
+        "score": 1.0,
+        "budget": 2.2,
+        "overBudget": false,
+        "floatObject": null,
+        "silhouette": null,
+        "semanticMotionDisplay": "omit",
+        "suppressHeadline": true,
+        "containerPolicy": "minimal"
+      }
+    ],
+    "uniqueFloatAssets": 3,
+    "uniqueSilhouettes": 3,
+    "overBudgetCount": 0,
+    "opaqueMotionBoxes": 0,
+    "pass": true
+  },
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "role": "speaker",
+      "complexity": "medium",
+      "score": 1.78,
+      "budget": 2.2,
+      "overBudget": false,
+      "float": "imm_obj_suitcase",
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "context",
+      "role": "speaker_media",
+      "complexity": "medium",
+      "score": 1.7,
+      "budget": 2.0,
+      "overBudget": false,
+      "float": null,
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "problem",
+      "role": "speaker",
+      "complexity": "medium",
+      "score": 1.74,
+      "budget": 2.2,
+      "overBudget": false,
+      "float": "passport",
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "residency",
+      "role": "speaker_media",
+      "complexity": "medium",
+      "score": 1.7,
+      "budget": 2.0,
+      "overBudget": false,
+      "float": null,
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "consult",
+      "role": "broll",
+      "complexity": "medium",
+      "score": 1.7,
+      "budget": 2.0,
+      "overBudget": false,
+      "float": null,
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "beside",
+      "role": "infographic",
+      "complexity": "medium",
+      "score": 1.65,
+      "budget": 1.8,
+      "overBudget": false,
+      "float": null,
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "steps",
+      "role": "speaker",
+      "complexity": "medium",
+      "score": 1.7,
+      "budget": 2.2,
+      "overBudget": false,
+      "float": null,
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "proof",
+      "role": "broll",
+      "complexity": "medium",
+      "score": 1.7,
+      "budget": 2.0,
+      "overBudget": false,
+      "float": null,
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "payoff",
+      "role": "speaker",
+      "complexity": "medium",
+      "score": 1.74,
+      "budget": 2.2,
+      "overBudget": false,
+      "float": "imm_obj_pin",
+      "motionDisplay": "omit"
+    },
+    {
+      "sceneId": "return",
+      "role": "speaker",
+      "complexity": "low",
+      "score": 1.0,
+      "budget": 2.2,
+      "overBudget": false,
+      "float": null,
+      "motionDisplay": "omit"
+    }
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "visualSeed": 520022,
+  "visualStyle": "cinematic_editorial",
+  "artDirection": "cinematic_editorial",
+  "visualEnergy": "balanced",
+  "motionIntensity": "medium",
+  "scenes": [
+    {
+      "sceneId": "hook",
+      "semanticPurpose": "hook",
+      "query": null,
+      "speaker": {
+        "layout": "speaker_medium",
+        "treatment": "speaker_medium"
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "vertical_pan"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "minimal_fade",
+        "animate": "fade"
+      },
+      "transition": "crossfade",
+      "motionIntensity": "high",
+      "rejected": []
+    },
+    {
+      "sceneId": "residency",
+      "semanticPurpose": "document",
+      "query": "passport document approval",
+      "speaker": {
+        "layout": "speaker_with_foreground",
+        "treatment": "speaker_with_foreground"
+      },
+      "background": {
+        "assetId": "rp_photo_033",
+        "file": "static/runpod/photographs/rp_photo_033.png",
+        "conceptId": "immigration.second_passport",
+        "treatment": "static_editorial",
+        "staged": "picked/rp_photo_033.png"
+      },
+      "foreground": {
+        "treatment": "slide_left",
+        "assetId": "v2_photo_007",
+        "file": "static/runpod/photographs/v2_photo_007.png",
+        "query": "approval stamp document",
+        "staged": "picked/v2_photo_007.png"
+      },
+      "typography": {
+        "treatment": "mask_reveal",
+        "animate": "mask"
+      },
+      "transition": "mask_wipe",
+      "motionIntensity": "medium",
+      "rejected": [
+        "mask_reveal"
+      ]
+    },
+    {
+      "sceneId": "consult",
+      "semanticPurpose": "proof",
+      "query": "consultation meeting",
+      "speaker": {
+        "layout": "speaker_with_media",
+        "treatment": "speaker_with_media"
+      },
+      "background": {
+        "assetId": "v2_photo_011",
+        "file": "static/runpod/photographs/v2_photo_011.png",
+        "conceptId": "immigration.document_consultation",
+        "treatment": "slow_zoom_out",
+        "staged": "picked/v2_photo_011.png"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade"
+      },
+      "transition": "crossfade",
+      "motionIntensity": "medium",
+      "rejected": []
+    },
+    {
+      "sceneId": "beside",
+      "semanticPurpose": "criteria",
+      "query": null,
+      "speaker": {
+        "layout": "speaker_with_diagram",
+        "treatment": "speaker_with_diagram"
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "slow_zoom_in"
+      },
+      "foreground": {
+        "treatment": "fade_stagger",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "minimal_fade",
+        "animate": "fade"
+      },
+      "transition": "crossfade",
+      "motionIntensity": "medium",
+      "rejected": []
+    },
+    {
+      "sceneId": "steps",
+      "semanticPurpose": "process",
+      "query": null,
+      "speaker": {
+        "layout": "speaker_with_diagram",
+        "treatment": "speaker_with_diagram"
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "static_editorial"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "mask_reveal",
+        "animate": "mask"
+      },
+      "transition": "cut",
+      "motionIntensity": "low",
+      "rejected": []
+    },
+    {
+      "sceneId": "return",
+      "semanticPurpose": "payoff",
+      "query": null,
+      "speaker": {
+        "layout": "speaker_closeup",
+        "treatment": "speaker_closeup"
+      },
+      "background": {
+        "assetId": null,
+        "file": null,
+        "conceptId": null,
+        "treatment": "cinematic_crop"
+      },
+      "foreground": {
+        "treatment": "reveal_and_hold",
+        "assetId": null,
+        "file": null,
+        "query": null
+      },
+      "typography": {
+        "treatment": "phrase_reveal",
+        "animate": "fade"
+      },
+      "transition": "cut",
+      "motionIntensity": "low",
+      "rejected": []
+    }
+  ],
+  "generationId": "gen_520022"
+}

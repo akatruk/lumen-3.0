@@ -14,5 +14,5 @@ def test_real_generated_asset_can_be_previewed(client,monkeypatch):
     monkeypatch.setattr(media,'probe',REAL_PROBE)
     edit=client.get(f'/api/studio/projects/{pid}/manual').json()['edit']
     base=f'/api/studio/projects/{pid}/timeline-proposals'
-    response=client.post(base,json={'revision':1,'clip_id':edit['clips'][0]['id'],'instruction':'An abstract blue ocean-like wave, gentle motion, no people, no buildings, no text. Clearly illustrative.','mode':'generated_broll'})
+    response=client.post(base,json={'revision':revision,'clip_id':edit['clips'][0]['id'],'instruction':'An abstract blue ocean-like wave, gentle motion, no people, no buildings, no text. Clearly illustrative.','mode':'generated_broll'})
     assert response.status_code==422 and response.json()['detail']=='hypit_prompt_only'

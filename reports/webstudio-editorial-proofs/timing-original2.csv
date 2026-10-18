@@ -1,0 +1,6 @@
+source_quote,source_start,source_end,export_start,export_end,intended_state,actual_graphic,observed_offset,result
+月薪差不多在1.5-2.5万泰国左右吧,15.46,20.66,0.00,5.20,月薪 1.5万–2.5万 unit 泰国,frame 2.0s shows those strings; both ends are on screen together,segment start matches the scene; word-level order not measured,UNCERTAIN
+折合人民币三四千,20.66,22.66,5.20,7.20,previous salary range gone,frame 6.0s shows 3千 / 4千 / 人民币 from the spoken 三四千; label 金额,sampled inside the window,PASS
+加上正规的中文系毕业的,25.26,27.66,9.80,12.20,no range,frame 10.0s is the speaker only,sampled inside the window,PASS
+那月薪普通是2.5-3.5万泰诸,27.66,32.26,12.20,16.80,月薪 2.5万–3.5万 unit 泰诸,frame 14.0s matches; 泰诸 is not rewritten,sampled inside the window; word-level order not measured,UNCERTAIN
+优秀的甚至能拿到4-5万泰诸,32.26,35.46,16.80,20.00,4万–5万 unit 泰诸; this sentence does not say 月薪,frame 18.0s shows 4万 / 5万 / 泰诸 and the label 金额,sampled inside the window,PASS

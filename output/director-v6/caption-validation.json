@@ -1,0 +1,85 @@
+{
+  "captionSource": "source_transcript",
+  "count": 12,
+  "captions": [
+    {
+      "start": 0.0,
+      "end": 1.32,
+      "text": "Планируете переезд",
+      "source": "source_transcript"
+    },
+    {
+      "start": 1.32,
+      "end": 2.64,
+      "text": "второй вид на жительство или",
+      "source": "source_transcript"
+    },
+    {
+      "start": 2.64,
+      "end": 5.28,
+      "text": "новый международный статус но не знаете",
+      "source": "source_transcript"
+    },
+    {
+      "start": 5.28,
+      "end": 6.6,
+      "text": "с чего начать?",
+      "source": "source_transcript"
+    },
+    {
+      "start": 7.4,
+      "end": 9.325,
+      "text": "Мы помогаем клиентам подобрать подходящую",
+      "source": "source_transcript"
+    },
+    {
+      "start": 9.325,
+      "end": 11.25,
+      "text": "иммиграционную программу с",
+      "source": "source_transcript"
+    },
+    {
+      "start": 11.25,
+      "end": 13.175,
+      "text": "учетом их целей",
+      "source": "source_transcript"
+    },
+    {
+      "start": 13.175,
+      "end": 15.1,
+      "text": "семьи и бюджета..",
+      "source": "source_transcript"
+    },
+    {
+      "start": 15.8,
+      "end": 16.85,
+      "text": "Мы сопровождаем весь процесс",
+      "source": "source_transcript"
+    },
+    {
+      "start": 16.85,
+      "end": 17.9,
+      "text": "от первичной консультации и выбора",
+      "source": "source_transcript"
+    },
+    {
+      "start": 17.9,
+      "end": 18.95,
+      "text": "программы до подготовки документов",
+      "source": "source_transcript"
+    },
+    {
+      "start": 18.95,
+      "end": 20.0,
+      "text": "подачи заявления и дальнейшего сопровождения..",
+      "source": "source_transcript"
+    }
+  ],
+  "languageValidation": {
+    "ok": true,
+    "locale": "ru-RU",
+    "captionLocaleOk": true,
+    "cardLocaleOk": true,
+    "issues": []
+  }
+}

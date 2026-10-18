@@ -1,0 +1,57 @@
+{
+  "canvas": {"width": 1080, "height": 1920, "fps": 30},
+  "caption_band_computed": {"left": 0, "top": 1390, "width": 1080, "height": 530, "plate": 210, "clearance": 320},
+  "cause_of_full_frame_collision": {
+    "pip": {"left": 684, "top": 1072, "width": 360, "height": 480, "bottom": 1552},
+    "caption_band_top": 1390,
+    "overlap_y": [1390, 1552],
+    "why": "layoutIsSafe checked the graphic against the PIP. It did not check the PIP against the caption band."
+  },
+  "layouts_computed": {
+    "speaker_visual": {
+      "graphic": {"left": 28, "top": 160, "width": 504, "height": 1214},
+      "speaker": {"left": 552, "top": 140, "width": 500, "height": 1424},
+      "graphic_width_share": 0.467
+    },
+    "full_frame": {
+      "graphic": {"left": 64, "top": 150, "width": 592, "height": 1220},
+      "speaker": {"left": 684, "top": 1072, "width": 360, "height": 480},
+      "rejected": "speaker_overlaps_caption_band"
+    },
+    "overlay": {
+      "graphic": {"left": 72, "top": 1056, "width": 936, "height": 298},
+      "rejected_for_timeline": "height 298 < timeline floor 300"
+    },
+    "editorial_focus": {
+      "graphic": {"left": 64, "top": 128, "width": 952, "height": 582},
+      "speaker": {"left": 656, "top": 730, "width": 360, "height": 640},
+      "graphic_width_share": 0.881,
+      "note": "952/1080 is the full inset row. A 70% side column leaves 286px, under the 324px PIP floor, so the layout stacks.",
+      "gaps_px": {"graphic_to_speaker": 20, "speaker_to_caption_band": 20},
+      "speaker_aspect": "9:16"
+    }
+  },
+  "rendered_visible": {
+    "method": "1080x1920 PNG, luminance bands. PIP box is pixels above the background, not a DOM measure.",
+    "editorial_pip_both_sources": {"x": 656, "y": 730, "w": 360, "h": 640},
+    "original3_active_label_ink": {
+      "speaker_visual_30.5s_代价": {"y": 1147, "h": 79, "x": 200, "w": 161},
+      "editorial_30.5s_代价": {"y": 458, "h": 120, "x": 349, "w": 245},
+      "speaker_visual_3.0s_使用场景": {"y": 727, "h": 79, "x": 33, "w": 409},
+      "editorial_3.0s_使用场景": {"y": 358, "h": 121, "x": 69, "w": 571}
+    },
+    "original2_figure_ink": {
+      "speaker_visual_30.5s": {"figures_h": 63, "bar": {"x": 28, "w": 504, "h": 18}},
+      "editorial_30.5s": {"figures_h": 121, "bar": {"x": 64, "w": 952, "h": 18}, "unit_ink": {"y": 603, "h": 45, "w": 139, "text": "人民币"}},
+      "speaker_visual_2.0s": {"figures_h": 73, "bar_w": 504},
+      "editorial_2.0s": {"figures_h": 141, "bar_w": 952, "unit": "omitted"}
+    },
+    "caption_ink": {
+      "editorial_original3_3.0s": {"x": 291, "y": 1479, "w": 500, "h": 60},
+      "editorial_original2_2.0s": {"x": 242, "y": 1490, "w": 600, "h": 38},
+      "editorial_original2_30.5s": {"x": 246, "y": 1487, "w": 589, "h": 43},
+      "pip_bottom": 1370,
+      "caption_pixels_inside_pip": 0
+    }
+  }
+}
