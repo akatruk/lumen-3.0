@@ -39,7 +39,7 @@ def is_placeholder_transcript(segments) -> bool:
     return hits >= max(1, (len(usable) + 1) // 2)
 
 
-def _transcribe_source(source: Path, *, duration: float | None, language: str | None = None, project_id: str | None = None) -> tuple[list[dict], str]:
+def _transcribe_source(source: Path, *, duration: float | None, language: str | None = None, project_id: str | None = None, on_phase=None) -> tuple[list[dict], str]:
     """Real ASR, or a checksum-matched cache. Never a silence grid."""
     if project_id:
         from .source_transcript import as_ranged_rows, load_verified
@@ -52,6 +52,20 @@ def _transcribe_source(source: Path, *, duration: float | None, language: str | 
     if os.environ.get("LUMEN_FORBID_ASR", "").strip() == "1":
         raise RuntimeError("asr_forbidden")
     transcript_provider = get_transcript_provider()
+    if transcript_provider.name == "qwen3-asr":
+        from .qwen3_asr import QwenAsrError, transcribe
+        from .source_transcript import TranscriptError
+
+        try:
+            result = transcribe(source, language=language, on_phase=on_phase)
+        except QwenAsrError as exc:
+            raise TranscriptError(str(exc) or "TRANSCRIPTION_FAILED") from exc
+        if result.get("speech") == "silence":
+            return [], "qwen3-asr"
+        segments = list(result.get("segments") or [])
+        if is_placeholder_transcript(segments):
+            raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
+        return segments, "qwen3-asr"
     try:
         if transcript_provider.name == "placeholder":
             segments = transcript_provider.transcribe(
@@ -119,6 +133,8 @@ def _cache_valid(meta: dict, path: Path, plan: dict | None = None) -> bool:
         return False
     # Placeholder ASR must never block a real Create Video re-analysis.
     if (meta or {}).get("transcript_provider") == "placeholder":
+        return False
+    if (meta or {}).get("analysis_stale"):
         return False
     if plan is not None and is_placeholder_transcript((plan or {}).get("transcript")):
         return False

@@ -1,0 +1,25 @@
+[Unit]
+Description=Lumen Qwen3-ASR service
+After=network.target
+
+[Service]
+User=lumen
+Group=lumen
+WorkingDirectory=/opt/lumen-rebuild
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=HF_HOME=/mnt/volume_nyc1_1791446889637/qwen3-asr/hf
+Environment=QWEN_PYTHON=/mnt/volume_nyc1_1791446889637/qwen3-asr/venv/bin/python
+Environment=QWEN_ASR_SOCKET=/mnt/volume_nyc1_1791446889637/qwen3-asr/asr.sock
+Environment=QWEN_ASR_WORK=/mnt/volume_nyc1_1791446889637/qwen3-asr/work
+Environment=OMP_NUM_THREADS=2
+ExecStart=/opt/lumen-rebuild/venv/bin/python -m backend.qwen3_asr_service
+Restart=on-failure
+RestartSec=3
+MemoryMax=6200M
+MemorySwapMax=0
+CPUQuota=300%
+NoNewPrivileges=true
+UMask=0007
+
+[Install]
+WantedBy=multi-user.target

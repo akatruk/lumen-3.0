@@ -21,6 +21,20 @@ class TranscriptError(ValueError):
         super().__init__(code)
 
 
+def _archive_current(path: Path) -> None:
+    if not path.is_file():
+        return
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        previous = {}
+    label = str((previous or {}).get("modelId") or (previous or {}).get("provider") or "previous")
+    label = label.replace("/", "-")
+    archive = path.with_name(f"source-transcript-{label}.json")
+    if not archive.exists():
+        archive.write_bytes(path.read_bytes())
+
+
 def transcript_path(pid: str) -> Path:
     return settings.data_dir / pid / "localization" / "source-transcript.json"
 
@@ -50,7 +64,10 @@ def normalize_segments(rows) -> list[dict]:
         if start < previous - 0.05:
             raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
         previous = start
-        out.append({"start": round(start, 3), "end": round(end, 3), "text": text})
+        item = {"start": round(start, 3), "end": round(end, 3), "text": text}
+        if isinstance(row, dict) and row.get("words"):
+            item["words"] = row["words"]
+        out.append(item)
     if not out:
         raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
     return out
@@ -107,12 +124,15 @@ def build_record(
         raise TranscriptError("SOURCE_LANGUAGE_UNVERIFIED")
     stored = []
     for index, row in enumerate(rows, start=1):
-        stored.append({
+        item = {
             "id": f"segment_{index:03d}",
             "text": row["text"],
             "start": row["start"],
             "end": row["end"],
-        })
+        }
+        if row.get("words"):
+            item["words"] = row["words"]
+        stored.append(item)
     provenance = provenance or {}
     return {
         "projectId": project_id,
@@ -133,12 +153,18 @@ def build_record(
         "text": " ".join(row["text"] for row in stored),
         "status": "verified",
         "createdAt": time.time(),
+        "rawText": provenance.get("rawText") or "",
+        "uncertain": list(provenance.get("uncertain") or []),
+        "alignment": provenance.get("alignment") or {},
+        "corrections": [],
         "provenance": provenance,
     }
 
 
 def cache_matches_model(record: dict) -> bool:
     """Legacy small-model files stay valid. A different model version does not."""
+    if record.get("corrections"):
+        return True
     wanted = (getattr(settings, "asr_model", "small") or "small").strip()
     config = (getattr(settings, "asr_config_version", "") or "").strip()
     recorded = str(record.get("modelId") or "")
@@ -172,6 +198,8 @@ def load_verified(pid: str, source: Path) -> dict | None:
     if record.get("projectId") != pid:
         return None
     if record.get("sourceChecksum") != source_checksum(source):
+        return None
+    if not cache_matches_model(record):
         return None
     try:
         normalize_segments(record.get("segments") or [])
@@ -210,15 +238,81 @@ def save_verified(
     )
     path = transcript_path(pid)
     path.parent.mkdir(parents=True, exist_ok=True)
-    if existing and path.is_file():
-        label = str(existing.get("modelId") or existing.get("provider") or "previous").replace("/", "-")
-        archive = path.with_name(f"source-transcript-{label}.json")
-        if not archive.exists():
-            archive.write_bytes(path.read_bytes())
+    _archive_current(path)
     temporary = path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(temporary, path)
     return record
+
+
+def save_silence(pid: str, source: Path, *, provenance: dict, duration: float | None) -> dict:
+    """A file with no speech. This is not a transcript and not a success."""
+    record = {
+        "projectId": pid,
+        "sourceChecksum": source_checksum(source),
+        "transcriptVersion": TRANSCRIPT_VERSION,
+        "status": "silence",
+        "speech": "silence",
+        "segments": [],
+        "text": "",
+        "duration": duration,
+        "modelId": provenance.get("modelId"),
+        "modelVersion": provenance.get("modelVersion"),
+        "createdAt": time.time(),
+        "provenance": provenance,
+    }
+    path = transcript_path(pid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _archive_current(path)
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+    return record
+
+
+def load_silence(pid: str, source: Path) -> dict | None:
+    path = transcript_path(pid)
+    if not path.is_file() or not source.is_file():
+        return None
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(record, dict) or record.get("status") != "silence":
+        return None
+    if record.get("sourceChecksum") != source_checksum(source):
+        return None
+    if not cache_matches_model(record):
+        return None
+    return record
+
+
+def apply_correction(pid: str, source: Path, segment_id: str, text: str) -> dict:
+    """Keep the raw recognition and append an auditable correction. Retries must not replace it."""
+    record = load_verified(pid, source)
+    if not record:
+        raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
+    updated = json.loads(json.dumps(record))
+    found = False
+    for row in updated["segments"]:
+        if row["id"] == segment_id:
+            row["text"] = text
+            found = True
+    if not found:
+        raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
+    updated["corrections"] = list(updated.get("corrections") or [])
+    updated["corrections"].append({
+        "segmentId": segment_id,
+        "text": text,
+        "at": time.time(),
+    })
+    updated["text"] = " ".join(row["text"] for row in updated["segments"])
+    path = transcript_path(pid)
+    _archive_current(path)
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+    return updated
 
 
 def as_ranged_rows(record: dict) -> list[dict]:
