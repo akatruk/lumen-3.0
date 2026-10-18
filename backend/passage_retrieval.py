@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 GENERIC = {
@@ -218,6 +219,241 @@ def _scene_from_passage(index: int, start: float, end: float, passage: dict) -> 
     return scene
 
 
+_ORDINAL_NUM = set("一二三四五六七八九十")
+_ACCENT = ("四种证据链", "反洗钱", "拒签")
+
+
+def _flatten_words(transcript: list | None) -> list[dict]:
+    words = []
+    for row in transcript or []:
+        if not isinstance(row, dict):
+            continue
+        for token in row.get("words") or []:
+            if not isinstance(token, dict):
+                continue
+            text = str(token.get("text") or "")
+            if not text:
+                continue
+            try:
+                start = float(token.get("start"))
+                end = float(token.get("end"))
+            except (TypeError, ValueError):
+                continue
+            if end <= start:
+                continue
+            words.append({"text": text, "start": start, "end": end})
+    return words
+
+
+def _locate_quote(words: list[dict], quote: str) -> tuple[float, float] | None:
+    target = "".join(str(quote or "").split())
+    if not target or not words:
+        return None
+    text = "".join(item["text"] for item in words)
+    index = text.find(target)
+    if index < 0:
+        return None
+    last = index + len(target) - 1
+    if last >= len(words):
+        return None
+    return float(words[index]["start"]), float(words[last]["end"])
+
+
+def _slice_text(words: list[dict], start: float, end: float) -> str:
+    return "".join(
+        item["text"] for item in words
+        if float(item["end"]) > start + 0.001 and float(item["start"]) < end - 0.001
+    )
+
+
+def _chain_label(text: str) -> str | None:
+    if "合法的证据" in text:
+        return "合法的证据"
+    for token in (
+        "原始积累证明", "资产变现链条", "跨境路径合规性", "监管账户",
+        "四种证据链", "反洗钱", "拒签",
+    ):
+        if token in text:
+            return token
+    body = re.sub(r"^第[一二三四五六七八九十]+叫?", "", text)
+    body = re.split(r"包括|或者|以及", body)[0]
+    body = body[:8]
+    return body or None
+
+
+def _ordinal_marks(words: list[dict], start: float, end: float) -> list[int]:
+    window = [
+        item for item in words
+        if float(item["end"]) > start + 0.001 and float(item["start"]) < end - 0.001
+    ]
+    marks = []
+    for index, item in enumerate(window[:-1]):
+        if item["text"] == "第" and window[index + 1]["text"] in _ORDINAL_NUM:
+            marks.append(index)
+    return marks
+
+
+def _label_scene(index: int, start: float, end: float, quote: str, label: str) -> dict:
+    scene = _scene_from_passage(index, start, end, {
+        "quote": quote,
+        "intent": label,
+        "narrative_role": "evidence",
+        "executed_treatment": "process",
+        "visual_treatment": "process",
+        "visual_concept": label,
+        "semantic_reason": "spoken ordinal",
+    })
+    scene["kind"] = "process"
+    scene["query"] = None
+    scene["background"] = {}
+    scene["speaker"] = {"layout": "speaker_split_right", "framing": "split", "visibility": "primary"}
+    scene["sceneComposition"] = {"speakerPresentation": "split", "editorial": "spoken-split"}
+    scene["typography"] = {"steps": [label], "stepsTitle": "", "cardMode": "none"}
+    scene["steps"] = [label]
+    scene["spokenStructure"] = {"evidence": True}
+    scene["ordinalGraphic"] = True
+    scene["mediaDecision"] = {"status": "NO_ASSET", "reason": "spoken_label", "searched": False}
+    return scene
+
+
+def _head_scene(index: int, start: float, end: float, quote: str) -> dict:
+    scene = _scene_from_passage(index, start, end, {
+        "quote": quote,
+        "intent": "speech",
+        "narrative_role": "context",
+        "executed_treatment": "talking_head",
+        "visual_treatment": "talking_head",
+        "visual_concept": None,
+    })
+    scene["kind"] = "talking_head"
+    scene["query"] = None
+    scene["background"] = {}
+    scene["speaker"] = {"layout": "speaker_fullscreen", "framing": "fullscreen"}
+    scene["sceneComposition"] = {"speakerPresentation": "fullscreen"}
+    scene["typography"] = {}
+    scene["mediaDecision"] = {"status": "NO_ASSET", "reason": "talking_head", "searched": False}
+    return scene
+
+
+def _split_piece(start: float, end: float, words: list[dict]) -> list[tuple[float, float, str | None]]:
+    """One primary scene per spoken ordinal. Times are the aligner tokens."""
+    window = [
+        item for item in words
+        if float(item["end"]) > start + 0.001 and float(item["start"]) < end - 0.001
+    ]
+    if len(window) < 2:
+        return [(start, end, None)]
+    marks = []
+    for index, item in enumerate(window[:-1]):
+        if item["text"] == "第" and window[index + 1]["text"] in _ORDINAL_NUM:
+            marks.append(index)
+    pieces: list[tuple[float, float, str | None]] = []
+    if not marks:
+        text = "".join(item["text"] for item in window)
+        accent_at = [(text.find(token), token) for token in _ACCENT if token in text]
+        accent_at = [(pos, token) for pos, token in accent_at if pos >= 0]
+        if not accent_at:
+            return [(start, end, None)]
+        accent_at.sort()
+        cursor = start
+        for pos, token in accent_at:
+            at = float(window[pos]["start"])
+            if at - cursor > 0.4:
+                pieces.append((cursor, at, None))
+            hold = min(end, max(float(window[min(len(window) - 1, pos + len(token) - 1)]["end"]), at + 3.2))
+            nxt = next((float(window[other]["start"]) for other, _token in accent_at if float(window[other]["start"]) > at + 0.2), end)
+            hold = min(hold, nxt)
+            if hold - at >= 1.2:
+                pieces.append((at, hold, token))
+                cursor = hold
+        if end - cursor > 0.4:
+            pieces.append((cursor, end, None))
+        return pieces or [(start, end, None)]
+    if marks[0] > 0:
+        pieces.extend(_split_piece(start, float(window[marks[0]]["start"]), words))
+    for nth, index in enumerate(marks):
+        piece_end = float(window[marks[nth + 1]]["start"]) if nth + 1 < len(marks) else end
+        text = "".join(item["text"] for item in window[index:])
+        if nth + 1 < len(marks):
+            text = "".join(item["text"] for item in window[index:marks[nth + 1]])
+        label = _chain_label(text)
+        if label and piece_end - float(window[index]["start"]) >= 0.8:
+            pieces.append((float(window[index]["start"]), piece_end, label))
+        else:
+            pieces.append((float(window[index]["start"]), piece_end, None))
+    return pieces
+
+
+def _scenes_from_word_times(passages: list[dict], words: list[dict]) -> list[dict] | None:
+    located = []
+    for passage in passages:
+        span = _locate_quote(words, str(passage.get("quote") or ""))
+        if span is None:
+            return None
+        located.append((span[0], span[1], passage))
+    located.sort(key=lambda item: (item[0], item[1]))
+    duration = float(words[-1]["end"])
+    clipped = []
+    for index, (start, end, passage) in enumerate(located):
+        nxt = located[index + 1][0] if index + 1 < len(located) else duration
+        end = min(end, nxt)
+        if end - start >= 0.45:
+            clipped.append((start, end, passage))
+    scenes = []
+    cursor = 0.0
+    pieces: list[tuple[float, float, str | None, str]] = []
+
+    def _add_span(start: float, end: float) -> None:
+        for piece_start, piece_end, label in _split_piece(start, end, words):
+            pieces.append((piece_start, piece_end, label, _slice_text(words, piece_start, piece_end)))
+
+    for start, end, passage in clipped:
+        if start - cursor > 0.55:
+            _add_span(cursor, start)
+        _add_span(start, end)
+        cursor = end
+    if duration - cursor > 0.55:
+        _add_span(cursor, duration)
+    elif pieces:
+        start, _end, label, quote = pieces[-1]
+        pieces[-1] = (start, duration, label, quote)
+    # A clause after 第N that does not open the next item still belongs to that item.
+    folded: list[tuple[float, float, str | None, str]] = []
+    for start, end, label, quote in pieces:
+        if (
+            folded and label is None and folded[-1][2] == "跨境路径合规性"
+            and "监管账户" in (quote or "")
+        ):
+            folded.append((start, end, "监管账户", quote))
+            continue
+        if folded and label is None and folded[-1][2] in {
+            "原始积累证明", "资产变现链条", "合法的证据", "跨境路径合规性",
+        }:
+            prev = folded[-1]
+            folded[-1] = (prev[0], end, prev[2], (prev[3] or "") + (quote or ""))
+            continue
+        folded.append((start, end, label, quote))
+    pieces = folded
+    # Abut so a breath between phrases is not an empty frame.
+    abutted = []
+    for index, (start, end, label, quote) in enumerate(pieces):
+        if abutted and start - abutted[-1][1] < 0.8:
+            prev = abutted[-1]
+            abutted[-1] = (prev[0], start, prev[2], prev[3])
+        if end - start < 0.35:
+            continue
+        abutted.append((start, end, label, quote))
+    if abutted:
+        start, _end, label, quote = abutted[-1]
+        abutted[-1] = (start, max(_end, duration), label, quote)
+    for index, (start, end, label, quote) in enumerate(abutted, start=1):
+        if label and label in (quote or ""):
+            scenes.append(_label_scene(index, start, end, quote, label))
+        else:
+            scenes.append(_head_scene(index, start, end, quote))
+    return scenes or None
+
+
 def apply_semantic_beats(plan: dict, pid: str, transcript: list | None = None) -> dict:
     """Replace heuristic scene slices with passage windows taken from real segment times."""
     from .config import settings
@@ -232,6 +468,23 @@ def apply_semantic_beats(plan: dict, pid: str, transcript: list | None = None) -
         if getattr(settings, "semantic_planner_required", False):
             raise PlannerError("PLANNER_UNAVAILABLE")
         return plan
+    words = _flatten_words(transcript)
+    word_scenes = _scenes_from_word_times(semantic["passages"], words) if words else None
+    if word_scenes:
+        out = dict(plan)
+        out["scenes"] = word_scenes
+        out["beatWeights"] = [round((scene["end"] - scene["start"]) * 1000) for scene in word_scenes]
+        out["form"] = "semantic"
+        out["director"] = "semantic_openrouter"
+        out["directorMode"] = "semantic_openrouter"
+        out.pop("heroObject", None)
+        out["semanticPlan"] = {
+            "topic": semantic.get("topic"),
+            "model": semantic.get("model"),
+            "planner": semantic.get("planner"),
+            "timing": "aligner_words",
+        }
+        return out
     scenes = []
     ordered = []
     for passage in semantic["passages"]:
@@ -276,6 +529,18 @@ def revalidate_assets(plan: dict, pid: str, transcript: list | None = None, cata
     scenes = []
     for scene in out.get("scenes") or []:
         scene = dict(scene)
+        steps = list((scene.get("typography") or {}).get("steps") or scene.get("steps") or [])
+        if steps:
+            _clear(scene, "spoken_label")
+            scene["typography"] = {**(scene.get("typography") or {}), "steps": steps, "cardMode": "none"}
+            scene["steps"] = steps
+            scene["sceneComposition"] = {
+                **(scene.get("sceneComposition") or {}),
+                "speakerPresentation": "split",
+                "editorial": "spoken-split",
+            }
+            scenes.append(scene)
+            continue
         start = float(scene.get("start") or 0)
         end = float(scene.get("end") or start)
         related = []

@@ -555,6 +555,15 @@ function SceneRouter({
     );
   } else if (presentation === "graphic") {
     body = <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />;
+  } else if (
+    presentation === "split" &&
+    (look.steps?.length || look.typography?.steps?.length) &&
+    (look.steps?.length ? look.steps : look.typography?.steps || []).every(
+      (label) => [...String(label || "").trim()].length > 0 && [...String(label || "").trim()].length <= 12,
+    )
+  ) {
+    // A short spoken label is the picture. A stock plate must not cover it.
+    body = <SpokenSplit file={file} from={from} frames={frames} look={look} locale={locale} />;
   } else if (presentation === "split" && hasPlate) {
     body = <Residency file={file} from={from} frames={frames} look={look} />;
   } else if (presentation === "split" && (look.steps?.length || look.typography?.steps?.length)) {

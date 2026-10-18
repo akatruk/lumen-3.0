@@ -45,6 +45,20 @@ def rows_in_window(rows: list[dict], win: tuple[float, float], pad: float = 0.4)
             continue
         if end <= start:
             continue
+        words = [
+            token for token in (row.get("words") or [])
+            if isinstance(token, dict)
+            and _overlaps(float(token.get("start") or 0), float(token.get("end") or 0), win, pad)
+        ]
+        if words:
+            kept.append({
+                **row,
+                "text": "".join(str(token.get("text") or "") for token in words),
+                "start": float(words[0].get("start") or start),
+                "end": float(words[-1].get("end") or end),
+                "words": words,
+            })
+            continue
         if _overlaps(start, end, win, pad):
             kept.append(row)
     return kept

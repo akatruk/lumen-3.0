@@ -79,6 +79,23 @@ def test_russian_groups_readable_phrases():
     assert not any(p.rstrip().endswith(' с') for p in parts)
 
 
+def test_unpunctuated_chinese_segment_does_not_become_one_caption():
+    text = "现在办移民最难的早就不是你手头有没有钱而是你怎么向官方及其严苛的证明这笔钱究竟是从哪来的"
+    words = []
+    cursor = 0.0
+    for char in text:
+        words.append({"text": char, "start": round(cursor, 3), "end": round(cursor + 0.24, 3)})
+        cursor += 0.24
+    rows = phrases_from_transcript([
+        {"id": "segment_001", "start": 0, "end": cursor, "text": text, "words": words},
+    ], locale="zh-CN", duration_s=cursor)
+    assert rows
+    assert all(len(row["text"]) <= 12 for row in rows)
+    assert rows[0]["end"] < 4
+    assert abs(rows[0]["end"] - words[len(rows[0]["text"]) - 1]["end"]) < 0.05
+    assert rows[-1]["end"] < cursor
+
+
 def test_chinese_does_not_leave_a_one_character_line():
     parts = group_phrase_texts('买房送身份听起来是不是特别诱人', 'zh-CN')
     assert parts
