@@ -187,6 +187,11 @@ export function StudioCreate({
   useEffect(() => {
     sessionStorage.setItem(cache, JSON.stringify(refs));
   }, [cache, refs]);
+  useEffect(() => {
+    const sync = () => setLookSaved(readBoard() !== null);
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
   useEffect(
     () => () => {
       xhr.current?.abort();
@@ -584,6 +589,7 @@ function StyleMatch({
         <li>{t("Color treatment", "色彩处理")}: {report.scores.color_treatment}/100</li>
         <li>{t("Production quality", "成片完成度")}: {report.scores.production_quality}/100</li>
       </ul>
+      {report.measured_effect_similarity == null && <p>{t("Frames have not been compared yet.", "尚未比较画面。")}</p>}
       <ul>
         {report.applied.map((id) => (
           <li key={id}>{appliedLine(id)}</li>
