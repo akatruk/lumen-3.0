@@ -8,6 +8,7 @@ import { normalizeScene } from "../registry/validateScene";
 import { renderScene } from "../registry/motionRegistry";
 import { ConceptViz, syncConceptTriggers, type SyncedConceptTrigger } from "../concepts";
 import { BackgroundPlate, HeroObject, ParallaxLayers } from "../cinematic";
+import { cardLines, heldListCategory } from "./documentCards";
 import { PORTRAIT, pipRect, splitMediaRect, splitSpeakerRect } from "./portraitLayouts";
 import { editorialFocusRects } from "../semantic/layouts";
 import { sceneThemeFromPlate } from "../utils/adaptiveLineStyle";
@@ -511,6 +512,7 @@ function SceneRouter({
   frames,
   locale,
   plate,
+  heldCategory = "",
 }: {
   look: SceneLook;
   file: string;
@@ -518,6 +520,8 @@ function SceneRouter({
   frames: number;
   locale: SupportedLocale;
   plate?: string | null;
+  /** Category already spoken in the scene before a talking-head gap. */
+  heldCategory?: string;
 }) {
   const layout = look.speaker?.layout || "speaker_fullscreen";
   const sid = look.sceneId;
@@ -564,11 +568,11 @@ function SceneRouter({
     )
   ) {
     // A short spoken label is the picture. A stock plate must not cover it.
-    body = <SpokenSplit file={file} from={from} frames={frames} look={look} locale={locale} />;
+    body = <SpokenSplit file={file} from={from} frames={frames} look={look} locale={locale} heldCategory={heldCategory} />;
   } else if (presentation === "split" && hasPlate) {
     body = <Residency file={file} from={from} frames={frames} look={look} />;
   } else if (presentation === "split" && (look.steps?.length || look.typography?.steps?.length)) {
-    body = <SpokenSplit file={file} from={from} frames={frames} look={look} locale={locale} />;
+    body = <SpokenSplit file={file} from={from} frames={frames} look={look} locale={locale} heldCategory={heldCategory} />;
   } else if (presentation === "fullscreen" || presentation === "speaker" || cutawayWithoutPlate) {
     body = (
       <Enter transition={look.transition}>
@@ -1212,33 +1216,47 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
   );
 }
 
-/** Split already used by Residency. The side panel is the spoken ordinal line, not a stock plate. */
+/**
+ * Spoken labels on the left. The first cue is the category. Later cues are
+ * separate cards. A category spoken before a talking-head gap stays the
+ * heading, and every cue in the following list is a card.
+ */
 function SpokenSplit({
   file,
   from,
   frames,
   look,
   locale = "en-US",
+  heldCategory = "",
 }: {
   file: string;
   from: number;
   frames: number;
   look: SceneLook;
   locale?: SupportedLocale;
+  heldCategory?: string;
 }) {
   const frame = useCurrentFrame();
   const steps = look.steps?.length ? look.steps : look.typography?.steps || [];
-  const cues = (look.typography?.stepCues || []) as { text: string; start: number }[];
+  const cues = look.typography?.stepCues || [];
   const sceneStart = Number(look.start || 0);
   const now = sceneStart + frame / DIRECTOR_V3_FPS;
-  const visibleCues = cues.filter((cue) => Number(cue.start) <= now + 0.04);
-  const activeCue = visibleCues.length ? visibleCues[visibleCues.length - 1].text : "";
+  const documents = heldCategory ? cues : cues.slice(1);
+  const category = heldCategory || cues[0]?.text || "";
+  const categoryCue = heldCategory ? null : cues[0];
+  const showCategory =
+    Boolean(category) &&
+    (heldCategory !== "" || !categoryCue || Number(categoryCue.start) <= now + 0.04);
+  const visibleDocs = documents.filter((cue) => Number(cue.start) <= now + 0.04);
+  const activeCue = visibleDocs.length ? visibleDocs[visibleDocs.length - 1].text : "";
   const count = Math.max(1, steps.length);
   const slot = Math.min(count - 1, Math.max(0, Math.floor((frame / Math.max(1, frames)) * count)));
-  const label = activeCue || steps[slot] || steps[0] || "";
+  const label = activeCue || (showCategory ? category : "") || steps[slot] || steps[0] || "";
   const speakerBox = splitSpeakerRect("right");
   const mediaBox = splitMediaRect("left");
   const enter = interpolate(frame, [0, 12], [0, 1], clamp);
+  const cardInner = Math.max(96, mediaBox.width - 56 - 44);
+  const categoryFit = cardLines(category, cardInner, 40);
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill style={{ background: theme.color.bg }}>
@@ -1257,24 +1275,49 @@ function SpokenSplit({
             boxSizing: "border-box",
           }}
         >
-          {visibleCues.length > 1 ? (
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 18 }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: theme.color.muted, lineHeight: 1.15 }}>
-                {visibleCues[0].text}
-              </div>
-              {visibleCues.slice(1).map((cue) => (
+          {cues.length ? (
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 14 }}>
+              {showCategory ? (
                 <div
-                  key={`${cue.start}-${cue.text}`}
                   style={{
-                    fontSize: cue.text === activeCue ? 56 : 32,
-                    fontWeight: cue.text === activeCue ? 800 : 600,
-                    color: cue.text === activeCue ? theme.color.paper : theme.color.muted,
-                    lineHeight: 1.12,
+                    fontSize: categoryFit.size,
+                    fontWeight: 600,
+                    color: theme.color.muted,
+                    lineHeight: 1.2,
                   }}
                 >
-                  {cue.text}
+                  {categoryFit.lines.map((line) => (
+                    <div key={line}>{line}</div>
+                  ))}
                 </div>
-              ))}
+              ) : null}
+              {visibleDocs.map((cue) => {
+                const age = (now - Number(cue.start)) * DIRECTOR_V3_FPS;
+                const shown = interpolate(age, [0, 8], [0, 1], clamp);
+                const on = cue.text === activeCue;
+                const fit = cardLines(cue.text, cardInner, 48);
+                return (
+                  <div
+                    key={`${cue.start}-${cue.text}`}
+                    style={{
+                      opacity: shown,
+                      transform: `translateY(${(1 - shown) * 10}px)`,
+                      background: on ? theme.color.paper : "rgba(244,239,230,0.1)",
+                      color: on ? theme.color.paperInk : theme.color.paper,
+                      border: on ? "none" : `1px solid ${theme.color.line}`,
+                      borderRadius: 18,
+                      padding: "16px 22px",
+                      fontSize: fit.size,
+                      fontWeight: on ? 700 : 600,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {fit.lines.map((line) => (
+                      <div key={line}>{line}</div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           ) : (
           <AutoFitText
@@ -1751,6 +1794,7 @@ export function DirectorV3({
         const beat = beatList[index];
         const look = looks[id];
         const intensity = (look.motionIntensity === "high" ? 1.2 : 0.85) * motionGain;
+        const heldCategory = heldListCategory(visualPlan?.scenes || [], index);
         return (
           <Sequence key={`${id}-${index}`} from={beat.from} durationInFrames={beat.duration} name={id}>
             {id === "hook" ? (
@@ -1768,6 +1812,7 @@ export function DirectorV3({
                         frames={beat.duration}
                         locale={planLocale}
                         plate={plate}
+                        heldCategory={heldCategory}
                       />
                     ),
                   },
@@ -1781,6 +1826,7 @@ export function DirectorV3({
                 frames={beat.duration}
                 locale={planLocale}
                 plate={plate}
+                heldCategory={heldCategory}
               />
             )}
           </Sequence>
