@@ -186,7 +186,7 @@ def test_create_video_accepts_the_source_length_and_asr_is_blocked(monkeypatch):
 def test_full_source_length_keeps_the_tail_past_the_five_second_grid():
     from backend.director_v3 import output_seconds
     source = 63.466667
-    assert output_seconds(None, source) == 20
+    assert output_seconds(None, source) == output_seconds(source, source)
     full = output_seconds(source, source)
     assert full > 61.46
     assert full <= source
