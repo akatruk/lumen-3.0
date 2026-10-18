@@ -174,3 +174,35 @@ def test_attach_on_resolve_plan():
     assert plan['captionSource'] == 'source_transcript'
     assert plan['captions']
     assert plan['executionValidation'] in ('passed', 'repaired')
+
+
+def test_plan_rows_without_words_reuse_saved_aligner_tokens(monkeypatch):
+    from backend.source_transcript import rows_with_aligner_words
+
+    saved = {
+        "segments": [{
+            "id": "segment_001",
+            "start": 0,
+            "end": 2,
+            "text": "四种证据链",
+            "words": [
+                {"text": "四", "start": 0.0, "end": 0.2},
+                {"text": "种", "start": 0.2, "end": 0.4},
+                {"text": "证", "start": 0.4, "end": 0.6},
+                {"text": "据", "start": 0.6, "end": 0.8},
+                {"text": "链", "start": 0.8, "end": 1.0},
+            ],
+        }],
+    }
+    monkeypatch.setattr(
+        "backend.source_transcript.load_verified",
+        lambda pid, source: saved,
+    )
+    rows = rows_with_aligner_words("pid", [
+        {"id": "segment_001", "start": 0, "end": 2, "text": "四种证据链"},
+    ])
+    phrases = phrases_from_transcript(rows, locale="zh-CN", duration_s=2)
+    assert rows[0]["words"][0]["start"] == 0.0
+    assert phrases[0]["text"] == "四种证据链"
+    assert phrases[0]["end"] == 1.0
+    assert "据链" not in [row["text"] for row in phrases]
