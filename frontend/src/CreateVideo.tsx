@@ -4,6 +4,7 @@ import type { Lang, Project } from "./types";
 import { ProjectJobStatus } from "./ProjectJobStatus";
 import { workspaceText } from "./ProjectWorkspace";
 import { chosenDuration } from "./durationChoice";
+import { audioMode, sourceSpeechLocale } from "./sourceSpeech";
 
 type Speech = "ru-RU" | "en-US" | "zh-CN";
 
@@ -336,10 +337,11 @@ export function CreateVideo({
   ];
   const speech = language ?? savedLanguage(uploads?.context?.video_language) ?? savedLanguage(project?.language) ?? spokenLanguage(uploads);
   const speechLabel = LANGUAGES.find((item) => item.id === speech)?.label ?? speech;
-  const sourceSpeech =
-    detectSpeech((uploads?.plan?.transcript ?? []).map((line) => line.original || "").join(" "))
-    || savedLanguage(project?.metadata?.source_language);
-  const originalVoice = !sourceSpeech || sourceSpeech === speech;
+  const sourceSpeech = sourceSpeechLocale({
+    sourceLanguage: project?.metadata?.source_language,
+    lines: uploads?.plan?.transcript,
+  });
+  const originalVoice = audioMode(sourceSpeech, speech) === "original";
   const voiceLabel = originalVoice
     ? w("Оригинальный голос ведущего", "Original speaker audio", "原声")
     : (LANGUAGES.find((item) => item.id === speech)?.voice ?? speech);
@@ -450,7 +452,7 @@ export function CreateVideo({
           visual_variation: variation,
           visual_energy: energy === "custom" ? "balanced" : energy,
           language: speech,
-          voice: voiceChoice,
+          voice: originalVoice ? null : voiceChoice,
           semantic_motion_profile: motionProfile ? "evidence_gated_v1" : null,
         }),
       });

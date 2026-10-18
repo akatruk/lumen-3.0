@@ -94,6 +94,12 @@ def select_reviewed(quote: str, seen: set[str]) -> dict | None:
         return_file = row.get("file")
         if not return_file or str(return_file).endswith(".tsx"):
             continue
+        try:
+            from .library_clips import library_root
+            if not (library_root() / return_file).is_file():
+                continue
+        except Exception:
+            continue
         clause = _matching_clause(row, quote or "")
         if clause is None:
             continue

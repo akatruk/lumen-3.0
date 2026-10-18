@@ -238,6 +238,9 @@ def persist_source_transcript(pid: str) -> dict:
         from .source_brief import write_brief
 
         write_brief(pid, saved)
+        from .semantic_planner import write_local_baseline
+
+        write_local_baseline(pid, saved)
     except Exception:
         saved = {**saved, "analysisError": "source_brief_failed"}
     fresh = project(pid) or {}

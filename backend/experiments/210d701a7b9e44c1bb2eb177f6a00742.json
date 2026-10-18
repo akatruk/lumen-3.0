@@ -1,0 +1,57 @@
+{
+  "id": "original4-checks-v1",
+  "projectId": "210d701a7b9e44c1bb2eb177f6a00742",
+  "captions": [
+    {"start": 33.72, "find": "程交", "replace": "成交"},
+    {"start": 38.84, "find": "打击折", "replace": "打几折"},
+    {"start": 42.68, "find": "诸经", "replace": "租金"},
+    {"start": 42.68, "find": "毛售益", "replace": "毛收益"},
+    {"start": 48.92, "find": "金售益", "replace": "净收益"},
+    {"start": 48.92, "find": "核税后", "replace": "和税后"},
+    {"start": 53.84, "find": "年县", "replace": "年限"},
+    {"start": 56.72, "find": "借盤", "replace": "接盘"},
+    {"start": 56.72, "find": "當地", "replace": "当地"},
+    {"start": 56.72, "find": "會", "replace": "会"},
+    {"start": 56.72, "find": "嗎", "replace": "吗"},
+    {"start": 59.34, "find": "還是", "replace": "还是"},
+    {"start": 59.34, "find": "賣給", "replace": "卖给"},
+    {"start": 59.34, "find": "下一個", "replace": "下一个"},
+    {"start": 59.34, "find": "中國買家", "replace": "中国买家"}
+  ],
+  "beats": [
+    {"end": 6.7, "keep": true},
+    {"end": 15.8, "keep": true},
+    {"end": 27.9, "keep": true},
+    {"end": 33.72, "keep": true},
+    {
+      "end": 42.68,
+      "assetId": "re_mkt_comparable_masses",
+      "labels": [
+        {"title": "二手房成交", "role": "side"},
+        {"title": "市场价值", "role": "side"}
+      ]
+    },
+    {
+      "end": 53.84,
+      "assetId": "re_rent_column_remainder",
+      "labels": [
+        {"title": "毛收益", "role": "side"},
+        {"title": "净收益", "role": "side"},
+        {"title": "物业", "role": "cost"},
+        {"title": "管理费", "role": "cost"},
+        {"title": "控制损耗", "role": "cost"}
+      ]
+    },
+    {
+      "end": 62.68,
+      "assetId": "re_liq_two_paths",
+      "labels": [
+        {"title": "本地人", "role": "side"},
+        {"title": "买家", "role": "side"}
+      ]
+    },
+    {"end": 64.68},
+    {"end": 69.3, "assetId": "re_fin_distant_building"},
+    {"end": 85.5}
+  ]
+}

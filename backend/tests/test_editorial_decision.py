@@ -339,7 +339,7 @@ def test_query_inside_the_quote_does_not_accept_a_blank_laptop():
         locale="zh-CN", target_seconds=60, source_seconds=60, duration_mode="target",
     )
     scene = out["scenes"][0]
-    assert scene["background"]["assetId"] == "re_rent_column_remainder"
+    assert scene["background"]["assetId"] == "re_gross_vs_net"
     assert scene["background"]["visualConcept"] == "gross_vs_net"
     assert scene["background"]["kind"] == "explanatory_graphic"
     assert scene["editorial"]["purpose"] == "supporting-visual"
@@ -355,7 +355,7 @@ def test_the_same_graphic_matches_english_and_russian_paraphrases():
             [{"start": 0, "end": 60, "zh": quote, "original": quote}],
             locale="zh-CN", target_seconds=60, source_seconds=60, duration_mode="target",
         )
-        assert out["scenes"][0]["background"]["assetId"] == "re_rent_column_remainder"
+        assert out["scenes"][0]["background"]["assetId"] == "re_gross_vs_net"
         assert out["scenes"][0]["background"]["visualConcept"] == concept
 
 

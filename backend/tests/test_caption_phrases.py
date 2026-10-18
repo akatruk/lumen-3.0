@@ -103,6 +103,20 @@ def test_phrases_from_transcript_skips_placeholders():
     assert caption_source_label(rows) == 'source_transcript'
 
 
+def test_chinese_captions_use_the_speech_not_the_english_gloss():
+    rows = phrases_from_transcript([
+        {
+            'start': 0, 'end': 4,
+            'zh': '很多人以为外资公司只是换了一种语言',
+            'original': '很多人以为外资公司只是换了一种语言',
+            'en': 'Many people think that foreign investment companies only change the language',
+        },
+    ], locale='zh-CN', duration_s=20)
+    assert rows
+    assert '很多人' in rows[0]['text']
+    assert 'Many people' not in rows[0]['text']
+
+
 def test_attach_on_resolve_plan():
     from backend import remotion_engine
     plan = remotion_engine.resolve_scene_plan(

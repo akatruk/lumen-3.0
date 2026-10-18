@@ -26,7 +26,7 @@ const BEAT_FRAMES_SHORT = [54, 168, 120, 132, 81, 45] as const;
 /** V8 long-form (~60s @ 30fps = 1800 frames). */
 const BEAT_FRAMES_LONG = [90, 180, 210, 300, 240, 180, 150, 180, 150, 120] as const;
 
-export type CriteriaCardLook = { title: string; explanation: string };
+export type CriteriaCardLook = { title: string; explanation?: string; role?: "side" | "cost" };
 
 export type SceneLook = {
   sceneId: string;
@@ -1041,6 +1041,65 @@ function Hook({
   );
 }
 
+function PlateLabels({ cards }: { cards?: CriteriaCardLook[] }) {
+  const rows = (cards || []).filter((card) => (card.title || "").trim());
+  if (!rows.length) return null;
+  const sides = rows.filter((card) => card.role !== "cost");
+  const costs = rows.filter((card) => card.role === "cost");
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 28,
+        right: 28,
+        top: 36,
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+      }}
+    >
+      {sides.map((card) => (
+        <div
+          key={card.title}
+          style={{
+            alignSelf: "flex-start",
+            maxWidth: "100%",
+            padding: "10px 16px",
+            borderRadius: 14,
+            background: "rgba(18,17,15,0.78)",
+            color: theme.color.paper,
+            fontSize: 40,
+            fontWeight: 760,
+            lineHeight: 1.15,
+          }}
+        >
+          {card.title}
+        </div>
+      ))}
+      {costs.length ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {costs.map((card) => (
+            <div
+              key={card.title}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 999,
+                background: "rgba(18,17,15,0.72)",
+                color: theme.color.paper,
+                fontSize: 26,
+                fontWeight: 650,
+                lineHeight: 1.2,
+              }}
+            >
+              {card.title}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Residency({ file, from, frames, look }: { file: string; from: number; frames: number; look: SceneLook }) {
   const frame = useCurrentFrame();
   const enterEnd = Math.min(28, Math.max(16, Math.round(frames * 0.22)));
@@ -1119,6 +1178,7 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
               }}
             />
           ) : null}
+          <PlateLabels cards={look.criteriaCards} />
         </div>
         <div
           style={{
@@ -1720,7 +1780,9 @@ export function DirectorV3({
         const start = Math.max(0, Number(range[0]) - lead);
         const end = Number(range[1]) + tail;
         const from = Math.max(0, Math.round(start * DIRECTOR_V3_FPS));
-        const duration = Math.max(1, Math.round((end - start) * DIRECTOR_V3_FPS));
+        const nextBeat = beatList.find((beat) => beat.from > from + 1);
+        const cap = nextBeat ? nextBeat.from : frames;
+        const duration = Math.max(1, Math.min(cap - from, Math.round((end - start) * DIRECTOR_V3_FPS)));
         return (
           <Sequence key={`emphasis-${scene.sceneId}-${index}`} from={from} durationInFrames={duration} name={`emphasis-${scene.sceneId}`}>
             <KineticHeadline text={title} locale={planLocale} />

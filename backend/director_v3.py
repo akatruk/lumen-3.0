@@ -398,6 +398,8 @@ def run_job(p, payload):
         from . import director_v8
         locale = target_locale or visual_plan.get('language')
         cleaned = director_v8.filter_locale_transcript(transcript_early, locale)
+        from .passage_experiment import correct_transcript
+        cleaned = correct_transcript(cleaned, p['id'])
         visual_plan = enrich_plan_from_transcript(visual_plan, cleaned, locale=locale)
         visual_plan = director_v8.expand_plan_for_duration(
             visual_plan, duration_seconds=seconds, transcript=cleaned, locale=locale,
@@ -516,6 +518,8 @@ def run_job(p, payload):
         or (visual_plan or {}).get('transcript')
         or []
     )
+    from .passage_experiment import correct_transcript
+    transcript = correct_transcript(transcript, p['id'])
     render_plan = remotion_engine.attach_transcript_captions(
         render_plan, transcript, locale=target_locale, dubbed=dubbed,
     )
@@ -573,6 +577,8 @@ def run_job(p, payload):
         'picture_engine': 'remotion',
         'renderer': 'remotion',
         'directorMode': director_mode,
+        'semanticPlanner': ((visual_plan or {}).get('semanticPlan') or {}).get('planner'),
+        'analysis_quality': ((visual_plan or {}).get('semanticPlan') or {}).get('analysis_quality'),
         'executionValidation': render_plan.get('executionValidation') or 'passed',
         'captionSource': render_plan.get('captionSource') or 'unavailable',
         'semanticMotionProfile': (visual_plan or {}).get('semanticMotionProfile'),

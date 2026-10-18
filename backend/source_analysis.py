@@ -138,6 +138,9 @@ def _cache_valid(meta: dict, path: Path, plan: dict | None = None) -> bool:
         return False
     if (meta or {}).get("analysis_stale"):
         return False
+    edit = (meta or {}).get("transcript_edit_version")
+    if edit and (meta or {}).get("plan_bound_transcript_edit") != edit:
+        return False
     if plan is not None and is_placeholder_transcript((plan or {}).get("transcript")):
         return False
     edit = (meta or {}).get("transcript_edit_version")
@@ -341,7 +344,12 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
         update(
             pid,
             analysis=plan.model_dump(exclude={"transfers"}),
-            metadata={**meta, **stamp},
+            metadata={
+                **meta,
+                **stamp,
+                "analysis_stale": False,
+                "plan_bound_transcript_edit": meta.get("transcript_edit_version"),
+            },
             **ready,
         )
         return {

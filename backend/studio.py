@@ -438,6 +438,20 @@ def save_editing_controls(pid: str, body: EditingControlsBody, user=Depends(curr
     return {'editing_controls': record}
 
 
+class TranscriptCorrection(Strict):
+    segment_id: str = Field(min_length=1, max_length=64)
+    text: str = Field(min_length=1, max_length=2000)
+
+
+def _mark_transcript_edit(pid: str, version: int) -> None:
+    """Future plans must be rebuilt. Existing result files stay where they are."""
+    current = project(pid) or {}
+    meta = dict(current.get("metadata") or {})
+    meta["transcript_edit_version"] = version
+    meta["analysis_stale"] = True
+    update(pid, metadata=meta)
+
+
 @router.get('/projects/{pid}/rendition')
 def rendition_board(pid: str, user=Depends(current_user)):
     """Status of each spoken rendition. Switching language does not delete the others."""

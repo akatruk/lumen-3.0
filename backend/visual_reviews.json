@@ -808,6 +808,49 @@
       ],
       "support": [],
       "exclude": {}
+    },
+    "re_gross_vs_net": {
+      "status": "accepted",
+      "frameReviewed": true,
+      "kind": "explanatory_graphic",
+      "type": "image",
+      "file": "static/real-estate/explanatory/gross-vs-net.svg",
+      "visible": "two unlabeled stacks, 毛收益 opposite 净收益, and the words 物业 管理费 控制损耗 税后. No numbers, no arrow.",
+      "support": [
+        {
+          "id": "gross_vs_net",
+          "all": [
+            "毛收益",
+            "净收益"
+          ]
+        },
+        {
+          "id": "gross_vs_net_en",
+          "all": [
+            "gross",
+            "net"
+          ]
+        },
+        {
+          "id": "gross_vs_net_ru",
+          "all": [
+            "валов",
+            "чист"
+          ]
+        }
+      ],
+      "exclude": {
+        "asking_price": [
+          "挂牌价"
+        ],
+        "buyer_pool": [
+          "买家"
+        ],
+        "residency_claim": [
+          "绿卡",
+          "签证"
+        ]
+      }
     }
   }
 }

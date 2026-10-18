@@ -122,6 +122,9 @@ def _handle(request: dict, conn: socket.socket) -> None:
     override = str(request.get("language") or "").strip()
     forced = NAMES.get(override.lower()) if override else None
     _send(conn, {"phase": "transcription_running"})
+    from .asr_memory import assert_can_load, available_mb
+
+    assert_can_load(available_mb())
     recognized = _run("recognize.py", [
         "--audio", str(wav),
         "--out", str(job / "asr.json"),

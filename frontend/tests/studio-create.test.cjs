@@ -9,6 +9,21 @@ const loaded={};
 vm.runInNewContext(code,{exports:loaded});
 const {createPrompt, projectTitleFromFile}=loaded;
 
+const speechCode=ts.transpileModule(fs.readFileSync(path.resolve(__dirname,'../src/sourceSpeech.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const speechLoaded={};
+vm.runInNewContext(speechCode,{exports:speechLoaded});
+const {sourceSpeechLocale, audioMode}=speechLoaded;
+
+test('Chinese speech stays original audio when captions are Chinese',()=>{
+  const gloss=[{original:'Many people think foreign companies only change the language', en:'Many people think foreign companies only change the language', zh:'很多人以为外资公司只是换了一种语言'}];
+  assert.equal(sourceSpeechLocale({lines:gloss}),'zh-CN');
+  assert.equal(audioMode('zh-CN','zh-CN'),'original');
+  assert.equal(audioMode('zh-CN','en-US'),'dub');
+  assert.equal(sourceSpeechLocale({sourceLanguage:'zh-CN', lines:[{original:'Many people think'}]}),'zh-CN');
+  assert.equal(sourceSpeechLocale({lines:[{en:'Ordinary Thai companies usually need at least three shareholders'}]}),null);
+  assert.equal(audioMode(null,'zh-CN'),'original');
+});
+
 test('an uploaded reference file is enough to continue without a Douyin result',()=>{
   assert.equal(createPrompt(true,0,true),'ready');
   assert.equal(createPrompt(true,1,false),'ready');
