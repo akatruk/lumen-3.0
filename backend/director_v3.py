@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import os
+import signal
 import subprocess
 import uuid
 from pathlib import Path
@@ -50,8 +51,8 @@ def output_seconds(requested, source_duration):
     source = float(source_duration)
     grid = max(5, (int(source) // 5) * 5)
     if requested is None:
-        chosen = 20 if grid >= 20 else grid
-        return frame_seconds(min(chosen, source), source)
+        # FULL_SOURCE. A missing request is the probed file, not a 20s preview.
+        return frame_seconds(source, source)
     value = float(requested)
     if value > source + 1e-3:
         raise ValueError('duration_step')
@@ -61,6 +62,29 @@ def output_seconds(requested, source_duration):
     if seconds % 5 or not 10 <= seconds <= min(grid, source):
         raise ValueError('duration_step')
     return frame_seconds(seconds, source)
+
+
+def duration_contract(requested, source_duration, fps: int = 30) -> dict:
+    """FULL_SOURCE keeps the probed file. TARGET_DURATION is an explicit request.
+
+    Both come back as a frame count at ``fps``. ``int(seconds)`` is not used,
+    so 85.5s and 151.1s are not shortened to 85 and 151.
+    """
+    source = float(source_duration)
+    if requested is None:
+        mode = 'full_source'
+        target = frame_seconds(source, source, fps)
+    else:
+        mode = 'target'
+        target = output_seconds(requested, source)
+    frames = int(round(float(target) * fps))
+    return {
+        'mode': mode,
+        'sourceSeconds': source,
+        'targetSeconds': frames / fps,
+        'durationInFrames': frames,
+        'fps': fps,
+    }
 
 
 def _public_director():
@@ -144,6 +168,63 @@ def _remotion_env(root: Path) -> dict:
     return env
 
 
+# Remotion 4.0.524 defaults both caches to half of host RAM (os.freemem),
+# which ignores the worker cgroup. 256 MiB + 128 MiB stay inside MemoryMax
+# 2800 MiB together with one Chrome renderer. Threads default to 2.
+REMOTION_CONCURRENCY = '1'
+OFFTHREAD_VIDEO_THREADS = '1'
+OFFTHREAD_CACHE_BYTES = '268435456'
+MEDIA_CACHE_BYTES = '134217728'
+
+
+def remotion_render_command(binary: str, dest: Path, seconds, speaker: str, visual_plan, public_dir: Path) -> list[str]:
+    return [
+        binary,
+        'render', 'src/index.ts', COMPOSITION, str(dest),
+        '--props', json.dumps({
+            'durationSeconds': seconds,
+            'speakerFile': speaker,
+            'visualPlan': visual_plan,
+        }),
+        f'--public-dir={public_dir}',
+        f'--concurrency={REMOTION_CONCURRENCY}',
+        f'--offthreadvideo-video-threads={OFFTHREAD_VIDEO_THREADS}',
+        f'--offthreadvideo-cache-size-in-bytes={OFFTHREAD_CACHE_BYTES}',
+        f'--media-cache-size-in-bytes={MEDIA_CACHE_BYTES}',
+        '--disallow-parallel-encoding',
+    ]
+
+
+def _render_timeout(seconds) -> int:
+    return max(900, int(float(seconds)) * 45)
+
+
+def _remove_tree(path: Path) -> None:
+    if not path.is_dir():
+        return
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            os.unlink(os.path.join(root, name))
+        for name in dirs:
+            os.rmdir(os.path.join(root, name))
+    os.rmdir(path)
+
+
+def _kill_render_group(proc: subprocess.Popen) -> None:
+    """Stop Remotion and the Chrome, compositor, and FFmpeg children it spawned."""
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=5)
+
+
 def render_assembly(dest: Path, seconds: int = 20, speaker: str = 'speaker.mp4', visual_plan=None):
     """Render the composition. The destination bytes come from Remotion."""
     root = motion_root()
@@ -156,31 +237,44 @@ def render_assembly(dest: Path, seconds: int = 20, speaker: str = 'speaker.mp4',
         from .visual_variation import stage_backgrounds
         visual_plan = stage_backgrounds(visual_plan, public)
     public_dir = remotion_public_dir()
-    command = [
+    command = remotion_render_command(
         str(root / 'node_modules' / '.bin' / 'remotion'),
-        'render', 'src/index.ts', COMPOSITION, str(dest),
-        '--props', json.dumps({
-            'durationSeconds': seconds,
-            'speakerFile': speaker,
-            'visualPlan': visual_plan,
-        }),
-        f'--public-dir={public_dir}',
-        '--concurrency=1',
-    ]
-    completed = subprocess.run(
+        dest, seconds, speaker, visual_plan, public_dir,
+    )
+    env = _remotion_env(root)
+    scratch = dest.parent / '.remotion-tmp'
+    if scratch.exists():
+        _remove_tree(scratch)
+    scratch.mkdir()
+    env['TMPDIR'] = str(scratch)
+    proc = subprocess.Popen(
         command,
         cwd=root,
-        env=_remotion_env(root),
-        capture_output=True,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=max(900, int(seconds) * 45),
+        start_new_session=True,
     )
-    if completed.returncode != 0 or not dest.is_file() or dest.stat().st_size < 100_000:
-        tail = (completed.stderr or completed.stdout or '')[-2000:]
+    try:
+        stdout, stderr = proc.communicate(timeout=_render_timeout(seconds))
+    except subprocess.TimeoutExpired:
+        _kill_render_group(proc)
+        stdout, stderr = '', 'remotion timeout'
+        proc.returncode = proc.returncode if proc.returncode is not None else -9
+    finally:
+        if proc.poll() is None:
+            _kill_render_group(proc)
+        _remove_tree(scratch)
+    if proc.returncode != 0 or not dest.is_file() or dest.stat().st_size < 100_000:
+        if dest.exists():
+            dest.unlink()
+        tail = (stderr or stdout or '')[-2000:]
         log.error('Director V3 render failed: %s', tail)
         raise ValueError('director_v3_render_failed')
     digest = hashlib.sha256(dest.read_bytes()).hexdigest()
     if digest == FROZEN_COPY_SHA256:
+        dest.unlink()
         raise ValueError('director_v3_render_failed')
     return digest
 
@@ -207,10 +301,17 @@ def run_job(p, payload):
     # Explicit Hypit request must not be silently remapped.
     if (payload or {}).get('picture_engine') == 'hypit':
         raise ValueError('remotion_required_for_supported_project')
-    seconds = output_seconds((payload or {}).get('duration_seconds'), (p.get('metadata') or {}).get('duration') or 20)
+    raw_source = (p.get('metadata') or {}).get('duration')
+    if raw_source:
+        contract = duration_contract((payload or {}).get('duration_seconds'), raw_source)
+        seconds = contract['targetSeconds']
+    else:
+        contract = None
+        seconds = output_seconds((payload or {}).get('duration_seconds'), 20)
     render_id = uuid.uuid4().hex
     folder = settings.data_dir / p['id'] / 'renders' / render_id
     folder.mkdir(parents=True)
+    (folder / '.rendering').write_text(render_id, encoding='utf-8')
     dest = folder / 'result.mp4'
     visual_plan = (payload or {}).get('visual_plan')
     speaker = speaker_for(seconds, settings.data_dir / p['id'] / 'source')
@@ -226,14 +327,17 @@ def run_job(p, payload):
         dubbed = mode == 'dubbed'
     from .language import resolve_locale
     from .source_analysis import is_placeholder_transcript
-    from .source_transcript import TranscriptError, source_locale_for_rows
+    from .source_transcript import TranscriptError, source_language_decision
     rows = (payload or {}).get('transcript') or ((payload or {}).get('plan') or {}).get('transcript') or []
     if is_placeholder_transcript(rows) and rows:
         raise ValueError('SOURCE_TRANSCRIPT_UNAVAILABLE')
     try:
-        heard = source_locale_for_rows(rows)
+        decision = source_language_decision(rows)
     except TranscriptError as exc:
         raise ValueError(exc.code) from None
+    if rows and decision.get("status") not in (None, "resolved", "unset"):
+        raise ValueError("SOURCE_LANGUAGE_UNVERIFIED")
+    heard = decision.get("sourceLanguage") if decision.get("status") == "resolved" else None
     if heard:
         try:
             asked = resolve_locale(target_locale) if target_locale else None
@@ -298,6 +402,8 @@ def run_job(p, payload):
         visual_plan = director_v8.expand_plan_for_duration(
             visual_plan, duration_seconds=seconds, transcript=cleaned, locale=locale,
         )
+        from .editorial_decision import assign_passage_queries
+        visual_plan = assign_passage_queries(visual_plan, cleaned, locale)
         visual_plan = director_v8.fill_media_for_scenes(visual_plan, seed=visual_plan.get('visualSeed'))
         from . import director_v9, director_v10, director_v11, director_v11_1, director_v11_2
         visual_plan = director_v9.apply_composition_intelligence(visual_plan)
@@ -356,6 +462,15 @@ def run_job(p, payload):
         visual_plan = apply_treatment_ranking(
             visual_plan,
             mode=(payload or {}).get('visual_treatment_mode'),
+        )
+        from .editorial_decision import apply_editorial_decision
+        visual_plan = apply_editorial_decision(
+            visual_plan,
+            cleaned,
+            locale=locale,
+            target_seconds=seconds,
+            source_seconds=float(raw_source or seconds),
+            duration_mode=(contract or {}).get('mode') or 'target',
         )
         public = _public_director()
         from .visual_variation import stage_backgrounds
@@ -417,7 +532,7 @@ def run_job(p, payload):
     result = {
         'render_id': render_id,
         'metadata': meta,
-        'timeline': [[0.0, meta['duration']]],
+        'timeline': [[0.0, seconds]],
         'applied': ['director_v3', 'remotion_engine_v1', 'director_execution_v4'],
         'picture_engine': 'remotion',
         'renderer': 'remotion',
@@ -427,6 +542,7 @@ def run_job(p, payload):
         'semanticMotionProfile': (visual_plan or {}).get('semanticMotionProfile'),
         'composition': COMPOSITION,
         'duration_seconds': seconds,
+        'duration_contract': contract,
         'visual_seed': render_plan.get('visualSeed'),
         'art_direction': render_plan.get('artDirection'),
         'render_plan_id': render_plan.get('generationId'),
@@ -451,6 +567,9 @@ def run_job(p, payload):
     if not carried:
         update(p['id'], result=result, status='complete', stage='complete', progress=100, error=None)
     try:
+        marker = folder / '.rendering'
+        if marker.is_file():
+            marker.unlink()
         from .render_retention import prune_pictures
         prune_pictures(p['id'], render_id)
     except Exception:

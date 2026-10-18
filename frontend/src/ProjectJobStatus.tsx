@@ -102,15 +102,28 @@ function jobPhase(lang: Lang, status?: string | null) {
 function projectPhase(lang: Lang, p: Project) {
   const w = (ru: string, en: string, zh: string) => workspaceText(lang, ru, en, zh);
   const transcript = p.metadata?.transcription;
-  const preparing = transcript === "transcription_pending" || transcript === "transcription_running";
+  const preparing = [
+    "transcription_pending",
+    "transcription_processing_audio",
+    "transcription_running",
+    "transcription_timing",
+    "transcription_analyzing",
+  ].includes(transcript || "");
+  if (preparing) {
+    if (transcript === "transcription_processing_audio") return w("Извлекаем звук", "Processing audio", "正在处理音频");
+    if (transcript === "transcription_running") return w("Распознаём речь", "Transcribing", "正在转写");
+    if (transcript === "transcription_timing") return w("Считаем тайминг", "Preparing timing", "正在对齐时间");
+    if (transcript === "transcription_analyzing") return w("Разбираем содержание", "Analyzing content", "正在分析内容");
+    return w("Готовим расшифровку", "Preparing transcript", "正在准备字幕稿");
+  }
   if (p.status === "complete" || p.stage === "complete") {
     return w("Ролик готов", "Video ready", "视频已就绪");
   }
   if (p.status === "rendering" || p.stage === "rendering") {
     return w("Собираем видео", "Creating video", "正在生成视频");
   }
-  if (preparing && (p.status === "ready" || p.status === "queued" || p.stage === "ready" || p.stage === "render_queued")) {
-    return w("Готовим расшифровку", "Preparing transcript", "正在准备字幕稿");
+  if (transcript === "transcription_silence") {
+    return w("В исходнике нет речи", "No speech in the source", "原片没有语音");
   }
   if (transcript === "transcription_failed" && (p.status === "ready" || p.stage === "ready")) {
     return w("Расшифровка не удалась", "Transcript failed", "字幕稿失败");
@@ -158,22 +171,49 @@ export function ProjectJobStatus({
   const job = (p.active_job || p.latest_job) as JobSnap | null | undefined;
   const locale = p.video_language || job?.language || null;
   const err = errorText(lang, p.error);
-  const title = busy
-    ? activityTitle(p.metadata?.activity, lang, p.stage) || projectPhase(lang, p)
-    : projectPhase(lang, p);
+  const transcribing = [
+    "transcription_pending",
+    "transcription_processing_audio",
+    "transcription_running",
+    "transcription_timing",
+    "transcription_analyzing",
+  ].includes(p.metadata?.transcription || "");
+  const title = transcribing
+    ? projectPhase(lang, p)
+    : busy
+      ? activityTitle(p.metadata?.activity, lang, p.stage) || projectPhase(lang, p)
+      : projectPhase(lang, p);
   const activityNote = p.metadata?.activity?.note || "";
-  const detail = busy
+  const detail = transcribing
+    ? w(
+        "Исходный звук разбирается. Готовое видео не меняется.",
+        "Source audio is being transcribed. The finished video is unchanged.",
+        "正在转写原声。已完成的视频不会改动。",
+      )
+    : busy
     ? activityDetail(p.metadata?.activity, lang, p.stage)
     : p.error
       ? [err, activityNote && activityNote !== err ? activityNote : ""].filter(Boolean).join(" — ")
       : p.result?.render_id
         ? w("Можно смотреть и скачать текущую версию.", "You can play and download the current version.", "可播放并下载当前版本。")
-        : p.metadata?.transcription === "transcription_pending" || p.metadata?.transcription === "transcription_running"
+        : [
+            "transcription_pending",
+            "transcription_processing_audio",
+            "transcription_running",
+            "transcription_timing",
+            "transcription_analyzing",
+          ].includes(p.metadata?.transcription || "")
         ? w(
             "Исходник загружен. Речь разбирается в фоне.",
             "Source uploaded. Speech is being transcribed.",
             "原片已上传，正在后台转写。",
           )
+        : p.metadata?.transcription === "transcription_silence"
+          ? w(
+              "Речи не найдено. Текст не подставлен.",
+              "No speech found. No transcript was invented.",
+              "没有检测到语音，没有编造文稿。",
+            )
         : p.metadata?.transcription === "transcription_failed"
           ? w(
               "Расшифровка не удалась. Ролик из заглушек не собирается.",

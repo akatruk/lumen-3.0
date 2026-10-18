@@ -51,6 +51,20 @@ class PlaceholderTranscriptProvider:
         return out or [{"start": 0.0, "end": round(duration, 3), "text": "[audio]"}]
 
 
+class Qwen3TranscriptProvider:
+    """Local Qwen3-ASR. A missing service is a failure, not a smaller model."""
+
+    name = "qwen3-asr"
+
+    def transcribe(self, video_path: Path, *, language: str | None = None, on_phase=None) -> list[dict]:
+        from ..qwen3_asr import transcribe
+
+        result = transcribe(video_path, language=language, on_phase=on_phase)
+        if result.get("speech") == "silence":
+            return []
+        return list(result.get("segments") or [])
+
+
 class WhisperXTranscriptProvider:
     name = "whisperx"
 
@@ -71,6 +85,9 @@ class UnavailableTranscriptProvider:
 
 
 def get_transcript_provider(name: str | None = None) -> TranscriptProvider:
+    model = (getattr(settings, "asr_model", "") or "").strip()
+    if model.startswith("Qwen/Qwen3-ASR"):
+        return Qwen3TranscriptProvider()
     chosen = (name or getattr(settings, "transcript_provider", "auto") or "auto").strip().lower()
     if chosen == "placeholder":
         return PlaceholderTranscriptProvider()

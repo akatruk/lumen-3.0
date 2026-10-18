@@ -58,7 +58,24 @@ function wrapAuto(words: readonly string[], fontSize: number, maxWidth: number, 
     }
   }
   if (current.length > 0) lines.push(current);
-  return lines;
+  return gap === "" ? avoidCjkOrphan(lines) : lines;
+}
+
+function avoidCjkOrphan(lines: string[][]): string[][] {
+  if (lines.length < 2) return lines;
+  const last = lines[lines.length - 1];
+  const prev = lines[lines.length - 2];
+  const lastText = last.join("");
+  const prevText = prev.join("");
+  if ([...lastText].length !== 1 || [...prevText].length < 3) return lines;
+  const moved = prev[prev.length - 1];
+  if (!moved || [...moved].length > 1) return lines;
+  const nextPrev = prev.slice(0, -1);
+  if (nextPrev.length === 0) return lines;
+  const copy = lines.slice();
+  copy[copy.length - 2] = nextPrev;
+  copy[copy.length - 1] = [moved, ...last];
+  return copy;
 }
 
 function tokensFor(input: LayoutInput): { tokens: string[]; gap: string } {

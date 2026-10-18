@@ -215,16 +215,162 @@ def build_language_directive(locale):
     return _DIRECTIVES[locale]
 
 
-def detect_source_locale(text):
-    """The speech already in the source. Empty text is not a guess."""
+_WHISPER_CODES = {"en": "en-US", "ru": "ru-RU", "zh": "zh-CN"}
+# A confident automatic detection. Below this, dubbing stays off.
+WHISPER_TRUST = 0.8
+# One short stretch in another script cannot relabel the file.
+_SCRIPT_DOMINANT = 0.85
+_SCRIPT_MINORITY = 0.10
+_SCRIPT_MIXED = 0.20
+
+
+def _script_counts(text):
     sample = text or ""
-    if re.search(r"[\u4e00-\u9fff]", sample):
-        return "zh-CN"
-    if re.search(r"[\u0400-\u04ff]", sample):
-        return "ru-RU"
-    if re.search(r"[A-Za-z]", sample):
-        return "en-US"
+    return {
+        "zh-CN": len(re.findall(r"[\u4e00-\u9fff]", sample)),
+        "ru-RU": len(re.findall(r"[\u0400-\u04ff]", sample)),
+        "en-US": len(re.findall(r"[A-Za-z]", sample)),
+    }
+
+
+def script_locale(text):
+    """Majority script of one string. A few CJK characters do not make it Chinese."""
+    counts = _script_counts(text)
+    total = sum(counts.values())
+    if total <= 0:
+        return None
+    ranked = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+    top, top_n = ranked[0]
+    second_n = ranked[1][1]
+    if top_n / total >= _SCRIPT_DOMINANT and second_n / total < _SCRIPT_MINORITY:
+        return top
+    if second_n / total >= _SCRIPT_MIXED:
+        return "mixed"
+    if top_n / total >= _SCRIPT_DOMINANT:
+        return top
     return None
+
+
+def detect_source_locale(text):
+    """The speech already in the source. Empty or mixed text is not a guess."""
+    locale = script_locale(text)
+    if locale in LANGUAGE_CONFIG:
+        return locale
+    return None
+
+
+def explicit_user_source_language(context):
+    """A source-language setting the user actually stored. Output language is not one."""
+    if not isinstance(context, dict) or "source_language" not in context:
+        return None
+    raw = context.get("source_language")
+    if raw is None or str(raw).strip() == "":
+        return None
+    return resolve_locale(raw)
+
+
+def _whisper_locale(code):
+    if not code:
+        return None
+    return _WHISPER_CODES.get(str(code).split("-")[0].lower())
+
+
+def _duration_vote(segments):
+    buckets = {locale: 0.0 for locale in LANGUAGE_CONFIG}
+    buckets["mixed"] = 0.0
+    total = 0.0
+    for row in segments or []:
+        start = float(row.get("start") or 0)
+        end = float(row.get("end") or 0)
+        dur = max(0.0, end - start)
+        total += dur
+        kind = script_locale(str(row.get("text") or row.get("original") or ""))
+        if kind in buckets:
+            buckets[kind] += dur
+    ranked = sorted(
+        ((locale, buckets[locale]) for locale in LANGUAGE_CONFIG),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    top, top_v = ranked[0]
+    second_v = ranked[1][1]
+    vote = None
+    if total > 0 and top_v / total >= _SCRIPT_DOMINANT and second_v / total < _SCRIPT_MINORITY:
+        vote = top
+    elif total > 0 and second_v / total >= _SCRIPT_MIXED and top_v / total < _SCRIPT_DOMINANT:
+        vote = "mixed"
+    return {"vote": vote, "seconds": {key: round(value, 3) for key, value in buckets.items()}, "total": round(total, 3)}
+
+
+def decide_source_language(segments, *, project_language=None, user_source_language=None, detection=None):
+    """Source speech, independent of the requested output language.
+
+    project_language is recorded and never selected.
+    A forced Whisper language is not reported as an automatic detection.
+    """
+    detection = detection or {}
+    try:
+        project_locale = resolve_locale(project_language) if project_language else None
+    except LanguageError:
+        project_locale = None
+    try:
+        user_locale = resolve_locale(user_source_language) if user_source_language else None
+    except LanguageError:
+        user_locale = None
+    vote = _duration_vote(segments)
+    forced_code = detection.get("forcedTranscriptionLanguage")
+    forced_locale = _whisper_locale(forced_code) or (
+        user_locale if detection.get("languageMode") == "forced" else None
+    )
+    automatic = detection.get("languageMode") != "forced"
+    detected = _whisper_locale(detection.get("detectedLanguage")) if automatic else None
+    probability = detection.get("languageProbability") if automatic else None
+    try:
+        probability = float(probability) if probability is not None else None
+    except (TypeError, ValueError):
+        probability = None
+    trustworthy = bool(detected and probability is not None and probability >= WHISPER_TRUST)
+
+    def pack(status, source, provenance, dubbing):
+        return {
+            "status": status,
+            "sourceLanguage": source,
+            "projectLanguage": project_locale,
+            "detectedLanguage": detected,
+            "languageProbability": probability,
+            "forcedTranscriptionLanguage": forced_locale,
+            "languageProvenance": provenance,
+            "languageMode": "forced" if forced_locale else ("automatic" if trustworthy else None),
+            "scriptVote": vote["vote"],
+            "scriptSeconds": vote["seconds"],
+            "dubbing": dubbing,
+        }
+
+    if user_locale:
+        chosen = pack("resolved", user_locale, "user_confirmed", "allowed")
+        chosen["detectedLanguage"] = None
+        chosen["languageProbability"] = None
+        chosen["forcedTranscriptionLanguage"] = user_locale
+        chosen["languageMode"] = "forced"
+        return chosen
+    if detection.get("languageMode") == "forced":
+        if not forced_locale:
+            blocked = pack("uncertain", None, "forced", "blocked")
+            blocked["languageMode"] = "forced"
+            blocked["detectedLanguage"] = None
+            blocked["languageProbability"] = None
+            return blocked
+        return pack("resolved", forced_locale, "forced", "allowed")
+    if vote["vote"] == "mixed":
+        return pack("mixed", None, "mixed", "blocked")
+    if trustworthy:
+        if vote["vote"] in (None, detected):
+            return pack("resolved", detected, "automatic", "allowed")
+        # A different majority script vetoes into uncertain. It does not replace the detection.
+        return pack("uncertain", None, "uncertain", "blocked")
+    if vote["vote"] in LANGUAGE_CONFIG:
+        return pack("resolved", vote["vote"], "script_majority", "allowed")
+    return pack("uncertain", None, "uncertain", "blocked")
 
 
 def default_locale(stored=None, transcript=""):
@@ -252,7 +398,7 @@ def voice_for(locale):
 CLONE_SUPPORTED = False
 
 
-def resolve_voice(*, speaker=None, source_language=None, target_language=None, voice=None):
+def resolve_voice(*, speaker=None, source_language=None, target_language=None, voice=None, language_status=None):
     """The voice for project.language. A different source language is a dub, not an error.
 
     Speech is recorded on the RunPod pod lumen-web-gpu with Qwen3-TTS CustomVoice.
@@ -267,6 +413,17 @@ def resolve_voice(*, speaker=None, source_language=None, target_language=None, v
         source = resolve_locale(source_language) if source_language else None
     except LanguageError:
         source = None
+    if language_status in ("uncertain", "mixed", "unset"):
+        return {
+            "status": "resolved",
+            "mode": "original",
+            "path": "language_uncertain",
+            "voiceId": None,
+            "providerVoice": None,
+            "label": "Original speaker",
+            "cloned": False,
+            "dubbing": "blocked",
+        }
     if source == target or not source:
         return {
             "status": "resolved",

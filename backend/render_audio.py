@@ -5,6 +5,7 @@ import shutil
 import time
 import uuid
 from html import unescape
+from pathlib import Path
 from .config import settings
 from . import media, final_output
 
@@ -86,6 +87,51 @@ def replace_picture_audio(picture,voice,folder,duration):
     out=folder/'voiced-picture.mp4'
     media.ffmpeg('-i',picture,'-i',voice,'-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac','-b:a','192k','-af','apad','-t',duration,'-movflags','+faststart',out,timeout=600)
     return out
+
+
+def attach_selected(db, p, folder, result):
+    """Put the already-selected voice and music on a finished picture.
+
+    Director picture jobs render source speech into the file. A later Create
+    video must not publish that file as the download while a mix is selected.
+    Returns False when the selection is still the untouched master.
+    """
+    delivery = snapshot(db, p)
+    if not delivery or not (delivery.get('voice') or delivery.get('music')):
+        return False
+    folder = Path(folder)
+    picture = folder / 'picture-source.mp4'
+    if not picture.is_file():
+        shutil.copyfile(folder / 'result.mp4', picture)
+    timeline = result.get('timeline') or [[0.0, float(result['metadata']['duration'])]]
+    result['timeline'] = timeline
+    duration = float(result['metadata']['duration'])
+    current = picture
+    if delivery.get('voice'):
+        clean = prepare(p['id'], delivery['voice'], folder, timeline)
+        current = replace_picture_audio(picture, clean, folder, duration)
+        result['voiceover'] = {k: delivery['voice'][k] for k in ('language', 'voice')}
+        if not (folder / 'original-audio.mp4').is_file():
+            shutil.copyfile(picture, folder / 'original-audio.mp4')
+    config = delivery.get('music')
+    if config:
+        from . import assets, music
+        if delivery.get('voice'):
+            shutil.copyfile(current, folder / 'music-free.mp4')
+        mixed = music.mix(
+            current, assets.path(p['id'], config['asset_id']), folder, config, duration,
+            media.probe(current)['has_audio'],
+        )
+        shutil.copyfile(mixed, folder / 'result.mp4')
+        result['music'] = config
+    else:
+        shutil.copyfile(current, folder / 'result.mp4')
+    applied = list(result.get('applied') or [])
+    if 'selected_audio' not in applied:
+        applied.append('selected_audio')
+    result['applied'] = applied
+    publish(db, p, result, folder, delivery, 'complete')
+    return True
 
 
 def publish(db,p,result,folder,delivery,status):

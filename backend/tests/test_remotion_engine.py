@@ -1,4 +1,6 @@
 """Remotion engine V1: feature flag, resolveScenePlan, Hypit legacy fallback."""
+from pathlib import Path
+
 from backend import remotion_engine
 
 
@@ -69,3 +71,47 @@ def test_project_e_uses_remotion_even_when_flag_off(monkeypatch):
     assert remotion_engine.should_use_remotion('other') is False
     monkeypatch.setattr(remotion_engine.settings, 'remotion_engine_enabled', True)
     assert remotion_engine.should_use_remotion('other') is True
+
+
+def test_resolve_keeps_emphasis_headline_for_the_router():
+    plan = remotion_engine.resolve_scene_plan(
+        visual_plan={
+            'visualSeed': 1,
+            'language': 'zh-CN',
+            'scenes': [{
+                'sceneId': 'hook',
+                'speaker': {'layout': 'speaker_fullscreen', 'visibility': 'primary'},
+                'background': {},
+                'foreground': {},
+                'typography': {'headline': '甜美的陷阱', 'cardMode': 'none'},
+                'execution': {'headline': '甜美的陷阱往往就藏在这种占便宜的心理里'},
+                'sceneComposition': {'speakerPresentation': 'emphasis', 'editorial': 'emphasis'},
+                'emphasisRange': [6.68, 11.36],
+                'transition': 'cut',
+            }],
+        },
+        locale='zh-CN',
+        duration_seconds=85.5,
+        speaker_file='source-edit.mp4',
+    )
+    scene = plan['scenes'][0]
+    assert scene['headline'] == '甜美的陷阱'
+    assert scene['emphasisRange'] == [6.68, 11.36]
+    assert scene['sceneComposition']['speakerPresentation'] == 'emphasis'
+    assert plan['durationSeconds'] == 85.5
+
+
+def test_render_with_plan_does_not_truncate_fractional_seconds(monkeypatch):
+    seen = {}
+
+    def fake(dest, seconds, speaker, visual_plan):
+        seen['seconds'] = seconds
+        return 'deadbeef'
+
+    monkeypatch.setattr('backend.director_v3.render_assembly', fake)
+    digest = remotion_engine.render_with_plan(
+        Path('/tmp/lumen-emphasis-duration.mp4'),
+        {'durationSeconds': 85.5, 'generationId': 'gen_frac', 'speakerFile': 'source-edit.mp4'},
+    )
+    assert digest == 'deadbeef'
+    assert seen['seconds'] == 85.5

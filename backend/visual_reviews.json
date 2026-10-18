@@ -1,0 +1,813 @@
+{
+  "assets": {
+    "re_rent_column_remainder": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_rent_column_remainder.mp4",
+      "visible": "A column loses unnamed layers and leaves a shorter remainder. No numerals and no rising arrow.",
+      "marks": [],
+      "support": [
+        {
+          "id": "gross_vs_net",
+          "all": [
+            "毛收益",
+            "净收益"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_asr",
+          "all": [
+            "毛售益",
+            "金售益"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_en",
+          "all": [
+            "gross",
+            "net"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_ru",
+          "all": [
+            "валов",
+            "чист"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_rent_peel_layers": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_rent_peel_layers.mp4",
+      "visible": "Layers peel off a column until a shorter remainder remains. No numerals.",
+      "marks": [],
+      "support": [
+        {
+          "id": "gross_vs_net",
+          "all": [
+            "毛收益",
+            "净收益"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_asr",
+          "all": [
+            "毛售益",
+            "金售益"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_en",
+          "all": [
+            "gross",
+            "net"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_ru",
+          "all": [
+            "валов",
+            "чист"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_rent_poster_ledger": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_rent_poster_ledger.mp4",
+      "visible": "A poster shape beside a ledger with a shorter remainder. No readable yield and no percent.",
+      "marks": [],
+      "support": [
+        {
+          "id": "gross_vs_net",
+          "all": [
+            "毛收益",
+            "净收益"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_asr",
+          "all": [
+            "毛售益",
+            "金售益"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_en",
+          "all": [
+            "gross",
+            "net"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_ru",
+          "all": [
+            "валов",
+            "чист"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_rent_two_columns": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_rent_two_columns.mp4",
+      "visible": "Two columns. One is shorter after unnamed layers leave. No numerals.",
+      "marks": [],
+      "support": [
+        {
+          "id": "gross_vs_net",
+          "all": [
+            "毛收益",
+            "净收益"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_asr",
+          "all": [
+            "毛售益",
+            "金售益"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_en",
+          "all": [
+            "gross",
+            "net"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        },
+        {
+          "id": "gross_vs_net_ru",
+          "all": [
+            "валов",
+            "чист"
+          ],
+          "query": "gross yield versus net yield after unnamed costs"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_mkt_comparable_masses": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_mkt_comparable_masses.mp4",
+      "visible": "Three building masses. The middle mass steps forward. No numerals and no price.",
+      "marks": [],
+      "support": [
+        {
+          "id": "local_resale",
+          "all": [
+            "市场价值"
+          ],
+          "query": "local resale comparable market value"
+        },
+        {
+          "id": "local_resale_trad",
+          "all": [
+            "市場價值"
+          ],
+          "query": "local resale comparable market value"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_mkt_street_row": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_mkt_street_row.mp4",
+      "visible": "A row of blocks. One block moves forward. No street name and no price.",
+      "marks": [],
+      "support": [
+        {
+          "id": "local_resale",
+          "all": [
+            "市场价值"
+          ],
+          "query": "local resale comparable market value"
+        },
+        {
+          "id": "local_resale_trad",
+          "all": [
+            "市場價值"
+          ],
+          "query": "local resale comparable market value"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_mkt_blank_card": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_mkt_blank_card.mp4",
+      "visible": "Building masses and a blank card. No printed price.",
+      "marks": [],
+      "support": [
+        {
+          "id": "local_resale",
+          "all": [
+            "市场价值"
+          ],
+          "query": "local resale comparable market value"
+        },
+        {
+          "id": "local_resale_trad",
+          "all": [
+            "市場價值"
+          ],
+          "query": "local resale comparable market value"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_mkt_unlabeled_scale": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_mkt_unlabeled_scale.mp4",
+      "visible": "A mark on an unlabeled scale beside building masses. No currency.",
+      "marks": [],
+      "support": [
+        {
+          "id": "local_resale",
+          "all": [
+            "市场价值"
+          ],
+          "query": "local resale comparable market value"
+        },
+        {
+          "id": "local_resale_trad",
+          "all": [
+            "市場價值"
+          ],
+          "query": "local resale comparable market value"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_liq_two_paths": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_liq_two_paths.mp4",
+      "visible": "A path splits toward two groups of marks. No flags and no nationality label.",
+      "marks": [],
+      "support": [
+        {
+          "id": "buyer_pool",
+          "all": [
+            "本地人",
+            "買家"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_sim",
+          "all": [
+            "本地人",
+            "买家"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_next",
+          "all": [
+            "本地人",
+            "下一個"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_next_sim",
+          "all": [
+            "本地人",
+            "下一位"
+          ],
+          "query": "resale liquidity buyer pool"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_liq_key_handoff": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_liq_key_handoff.mp4",
+      "visible": "A key moves between two circles. No passport and no flag.",
+      "marks": [],
+      "support": [
+        {
+          "id": "buyer_pool",
+          "all": [
+            "本地人",
+            "買家"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_sim",
+          "all": [
+            "本地人",
+            "买家"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_next",
+          "all": [
+            "本地人",
+            "下一個"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_next_sim",
+          "all": [
+            "本地人",
+            "下一位"
+          ],
+          "query": "resale liquidity buyer pool"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_liq_mark_travels": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_liq_mark_travels.mp4",
+      "visible": "One mark travels from a cluster toward a single mark. No demographic label.",
+      "marks": [],
+      "support": [
+        {
+          "id": "buyer_pool",
+          "all": [
+            "本地人",
+            "買家"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_sim",
+          "all": [
+            "本地人",
+            "买家"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_next",
+          "all": [
+            "本地人",
+            "下一個"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_next_sim",
+          "all": [
+            "本地人",
+            "下一位"
+          ],
+          "query": "resale liquidity buyer pool"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_liq_cluster_versus_one": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_liq_cluster_versus_one.mp4",
+      "visible": "A cluster of marks opposite one mark. No flag.",
+      "marks": [],
+      "support": [
+        {
+          "id": "buyer_pool",
+          "all": [
+            "本地人",
+            "買家"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_sim",
+          "all": [
+            "本地人",
+            "买家"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_next",
+          "all": [
+            "本地人",
+            "下一個"
+          ],
+          "query": "resale liquidity buyer pool"
+        },
+        {
+          "id": "buyer_pool_next_sim",
+          "all": [
+            "本地人",
+            "下一位"
+          ],
+          "query": "resale liquidity buyer pool"
+        }
+      ],
+      "exclude": {}
+    },
+    "re_fin_distant_building": {
+      "status": "accepted",
+      "kind": "explanatory_graphic",
+      "type": "video",
+      "file": "re-residency/clips/re_fin_distant_building.mp4",
+      "visible": "A small building far from the foreground blocks. No rate and no bank name.",
+      "marks": [],
+      "support": [
+        {
+          "id": "remote_holding",
+          "all": [
+            "偏远"
+          ],
+          "query": "remote holding distant residential building"
+        },
+        {
+          "id": "remote_holding_trad",
+          "all": [
+            "偏遠"
+          ],
+          "query": "remote holding distant residential building"
+        }
+      ],
+      "exclude": {}
+    },
+    "passport_cover": {
+      "status": "accepted",
+      "kind": "contextual",
+      "type": "image",
+      "file": "static/passport/cover.png",
+      "visible": "a passport cover",
+      "marks": [],
+      "support": [
+        {
+          "id": "passport",
+          "all": [
+            "护照"
+          ],
+          "query": "passport"
+        }
+      ],
+      "exclude": {
+        "rental_yield": [
+          "回报率",
+          "收益率",
+          "毛收益",
+          "净收益",
+          "yield"
+        ]
+      }
+    },
+    "re_dd_sheet_stack": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_dd_sheet_stack.mp4",
+      "visible": "Sheet stacks. No readable writing.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_dd_three_marks": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_dd_three_marks.mp4",
+      "visible": "Three empty check marks. No form text.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_dd_door_approach": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_dd_door_approach.mp4",
+      "visible": "A doorway approach. No signage.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_dd_two_piles": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_dd_two_piles.mp4",
+      "visible": "Two piles of sheets. No readable writing.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_res_two_doors": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_res_two_doors.mp4",
+      "visible": "Two doors that do not merge. No permit form.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_res_unmerged_paths": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_res_unmerged_paths.mp4",
+      "visible": "Two paths that stay separate. No country name.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_res_closed_folder": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_res_closed_folder.mp4",
+      "visible": "A closed folder beside a separate path. No visa stamp.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_res_dwelling_versus_column": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_res_dwelling_versus_column.mp4",
+      "visible": "A dwelling shape beside a separate column. No numerals.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_fin_two_discs": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_fin_two_discs.mp4",
+      "visible": "Two plain discs. No currency symbol.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_fin_blocks_concentrate": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_fin_blocks_concentrate.mp4",
+      "visible": "Blocks gathering. No interest rate.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_fin_tilting_beam": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/clips/re_fin_tilting_beam.mp4",
+      "visible": "A beam tilting. No bank logo.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_ai_mkt_street": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/ai/re_ai_mkt_street.mp4",
+      "visible": "A daylight residential street of mid-rise apartments. No readable signs and no people.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_ai_dd_desk": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/ai/re_ai_dd_desk.mp4",
+      "visible": "A stack of blank paper on a desk. No writing.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_ai_rent_window": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/ai/re_ai_rent_window.mp4",
+      "visible": "An apartment window and curtains. No ledger and no numbers.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_ai_liq_entry": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/ai/re_ai_liq_entry.mp4",
+      "visible": "A glass residential entrance. No signage and no people.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_ai_res_doorway": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/ai/re_ai_res_doorway.mp4",
+      "visible": "A home doorway into a lived-in room. No documents.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_ai_fin_distant": {
+      "status": "reviewed",
+      "kind": "reviewed_picture",
+      "type": "video",
+      "file": "re-residency/ai/re_ai_fin_distant.mp4",
+      "visible": "A small apartment building across a street at dusk. No readable signs.",
+      "marks": [],
+      "support": [],
+      "exclude": {}
+    },
+    "re_inv_laptop": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "static/real-estate/photos/re_inv_laptop.png",
+      "visible": "A laptop whose screen is a blank field. The yield tag is not the picture.",
+      "marks": [
+        "blank-screen"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_obj_yield": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "static/real-estate/re_yield.svg",
+      "visible": "Bars rising with an arrow. Not a gross-versus-net remainder.",
+      "marks": [
+        "rising-bar"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_int_empty": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "static/real-estate/photos/re_int_empty.png",
+      "visible": "An empty apartment interior. Not a resale price.",
+      "marks": [
+        "empty-apartment"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_int_empty_motion": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "motion/real-estate/re_int_empty_motion.mp4",
+      "visible": "A move through an empty apartment. Not a resale price.",
+      "marks": [
+        "empty-apartment"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_view_empty_walk": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "static/real-estate/photos/re_view_empty_walk.png",
+      "visible": "A walk through an empty apartment. Not a buyer pool.",
+      "marks": [
+        "empty-apartment"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_motion_rental_yield": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "motion/src/re_motion_rental_yield.tsx",
+      "visible": "A motion stub, not a reviewed remainder graphic.",
+      "marks": [
+        "tsx-stub"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "cev6_biz_boardroom_001": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "motion/cinematic-env-v6/stills/cev6_biz_boardroom_001.png",
+      "visible": "A boardroom. Not the gross-versus-net question.",
+      "marks": [
+        "boardroom"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "cev6_i2v_biz_boardroom_001": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "motion/cinematic-env-v6/clips/cev6_i2v_biz_boardroom_001.mp4",
+      "visible": "A boardroom clip. Not the gross-versus-net question.",
+      "marks": [
+        "boardroom"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_neg_rising_bar": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "re-residency/rejects/re_neg_rising_bar.mp4",
+      "visible": "A single column grows upward. Rejected for the gross-versus-net question.",
+      "marks": [
+        "rising-bar"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_neg_blank_laptop": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "re-residency/rejects/re_neg_blank_laptop.mp4",
+      "visible": "A blank laptop screen. Rejected.",
+      "marks": [
+        "blank-screen"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_neg_empty_apartment": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "re-residency/rejects/re_neg_empty_apartment.mp4",
+      "visible": "An empty apartment. Rejected as a resale price.",
+      "marks": [
+        "empty-apartment"
+      ],
+      "support": [],
+      "exclude": {}
+    },
+    "re_neg_boardroom": {
+      "status": "rejected",
+      "kind": "rejected_picture",
+      "type": "video",
+      "file": "re-residency/rejects/re_neg_boardroom.mp4",
+      "visible": "A boardroom. Rejected.",
+      "marks": [
+        "boardroom"
+      ],
+      "support": [],
+      "exclude": {}
+    }
+  }
+}

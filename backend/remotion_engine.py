@@ -134,6 +134,14 @@ def plans_dir(data_dir, project_id: str) -> Path:
     return folder
 
 
+def _emphasis_headline(raw: dict) -> str:
+    """The short spoken span, not the whole caption sitting on execution.headline."""
+    typography = raw.get('typography') or {}
+    execution = raw.get('execution') or {}
+    phrase = typography.get('headline') or execution.get('headline') or raw.get('headline') or ''
+    return phrase
+
+
 def resolve_scene_plan(
     *,
     visual_plan: dict | None,
@@ -185,8 +193,10 @@ def resolve_scene_plan(
             'criteriaCards': list((raw.get('typography') or {}).get('cards') or []),
             'stepsTitle': (raw.get('typography') or {}).get('stepsTitle'),
             'steps': list((raw.get('typography') or {}).get('steps') or []),
-            'headline': (raw.get('execution') or {}).get('headline')
-            or (raw.get('typography') or {}).get('headline'),
+            'headline': _emphasis_headline(raw) if (raw.get('sceneComposition') or {}).get('speakerPresentation') == 'emphasis' else (
+                (raw.get('execution') or {}).get('headline')
+                or (raw.get('typography') or {}).get('headline')
+            ),
             'cardMode': (raw.get('typography') or {}).get('cardMode')
             or (raw.get('execution') or {}).get('cardMode')
             or (raw.get('shotPlan') or {}).get('cardMode'),
@@ -202,6 +212,8 @@ def resolve_scene_plan(
             'businessMotion': dict(raw.get('businessMotion') or {}) or None,
             'semanticMotionV14': dict(raw.get('semanticMotionV14') or {}) or None,
             'sceneComposition': dict(raw.get('sceneComposition') or {}) or None,
+            'emphasisRange': list(raw.get('emphasisRange') or []),
+            'editorial': dict(raw.get('editorial') or {}),
             'semanticConcepts': list(raw.get('semanticConcepts') or []),
         }
         # Strip director-illegal keys if a buggy planner leaked them.
@@ -220,7 +232,7 @@ def resolve_scene_plan(
         'fps': FPS,
         'width': WIDTH,
         'height': HEIGHT,
-        'durationSeconds': float(duration_seconds),
+        'durationSeconds': int(round(float(duration_seconds) * FPS)) / FPS,
         'visualSeed': seed,
         'artDirection': plan.get('artDirection') or plan.get('visualStyle'),
         'visualEnergy': plan.get('visualEnergy') or 'balanced',
@@ -245,6 +257,7 @@ def resolve_scene_plan(
         'antiRepetition': plan.get('antiRepetition') or {},
         'form': plan.get('form'),
         'beatWeights': list(plan.get('beatWeights') or []),
+        'editorialAudit': list(plan.get('editorialAudit') or []),
         'semanticMotionAudit': plan.get('semanticMotionAudit') or {},
         'semanticEventAudit': list(plan.get('semanticEventAudit') or []),
         'semanticMotionProfile': plan.get('semanticMotionProfile'),
@@ -323,9 +336,12 @@ def render_with_plan(dest: Path, render_plan: dict) -> str:
     """Render via Director V3 Remotion using a resolved plan. Returns sha256."""
     from . import director_v3
     visual = visual_plan_from_render_plan(render_plan)
+    raw = render_plan.get('durationSeconds')
+    # Frame-quantized seconds. int() turned 85.5 into 85 before Remotion.
+    seconds = float(raw) if raw not in (None, '') else 20.0
     return director_v3.render_assembly(
         dest,
-        seconds=float(render_plan.get('durationSeconds') or 20),
+        seconds=seconds,
         speaker=render_plan.get('speakerFile') or 'speaker.mp4',
         visual_plan=visual,
     )

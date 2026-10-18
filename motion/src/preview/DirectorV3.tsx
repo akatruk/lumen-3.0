@@ -99,6 +99,8 @@ export type SceneLook = {
     speakerPresentation?: "fullscreen" | "split" | string;
     layout?: string;
   } | null;
+  /** Spoken span for a title. Absent means the title holds for the whole beat. */
+  emphasisRange?: [number, number] | number[];
 };
 
 export type EditingControls = {
@@ -509,14 +511,41 @@ function SceneRouter({
       : look.semanticMotion?.staged || null;
   const suppressHeadline = Boolean(look.composition?.suppressHeadline);
   const v14 = look.semanticMotionV14?.componentId ? look.semanticMotionV14 : null;
+  const presentation = look.sceneComposition?.speakerPresentation;
+  const hasPlate = Boolean(look.background?.staged || look.background?.file || look.background?.assetId);
+  const framing = look.speaker?.framing || look.execution?.speakerFraming || "";
+  const cutawayWithoutPlate =
+    !hasPlate &&
+    (framing === "split" ||
+      framing === "pip" ||
+      layout.includes("split") ||
+      layout.includes("with_media") ||
+      layout.includes("diagram") ||
+      sid === "consult" ||
+      sid === "proof" ||
+      sid === "context" ||
+      sid === "residency" ||
+      sid === "steps" ||
+      sid === "beside");
+  const emphasisLine = look.headline || look.typography?.headline || "";
   let body: ReactNode = null;
   if (v14) {
     body = <V14Stage file={file} from={from} frames={frames} look={look} />;
-  } else if (look.sceneComposition?.speakerPresentation === "fullscreen") {
+  } else if (presentation === "emphasis" && emphasisLine) {
+    body = (
+      <Hook file={file} from={from} frames={frames} look={look} locale={locale} />
+    );
+  } else if (presentation === "graphic") {
+    body = <CleanSteps file={file} from={from} frames={frames} look={look} locale={locale} />;
+  } else if (presentation === "split" && hasPlate) {
+    body = <Residency file={file} from={from} frames={frames} look={look} />;
+  } else if (presentation === "split" && (look.steps?.length || look.typography?.steps?.length)) {
+    body = <SpokenSplit file={file} from={from} frames={frames} look={look} locale={locale} />;
+  } else if (presentation === "fullscreen" || presentation === "speaker" || cutawayWithoutPlate) {
     body = (
       <Enter transition={look.transition}>
         <AbsoluteFill>
-          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.04} />
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={layoutZoom(layout)} />
           <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
         </AbsoluteFill>
       </Enter>
@@ -907,9 +936,9 @@ function KineticHeadline({ text, locale }: { text: string; locale: SupportedLoca
       <div
         style={{
           position: "absolute",
-          left: 56,
-          right: 56,
-          top: 220,
+          left: 140,
+          right: 140,
+          top: 1040,
           opacity: enter,
           transform: `translateY(${(1 - enter) * 28}px) scale(${0.96 + enter * 0.04})`,
         }}
@@ -923,10 +952,10 @@ function KineticHeadline({ text, locale }: { text: string; locale: SupportedLoca
         >
           <AutoFitText
             text={text}
-            maxWidth={940}
-            maxHeight={160}
-            role={{ min: 64, max: 96, weight: 800, lineHeight: 1.05, tracking: -0.03 }}
-            align="left"
+            maxWidth={800}
+            maxHeight={112}
+            role={{ min: 40, max: 64, weight: 760, lineHeight: 1.08, tracking: -0.02 }}
+            align="center"
             vertical="center"
             wrapMode="auto"
             maxLines={2}
@@ -956,10 +985,14 @@ function Hook({
 }) {
   const frame = useCurrentFrame();
   const baseZoom = layoutZoom(look.speaker.layout);
+  const emphasis = look.sceneComposition?.speakerPresentation === "emphasis";
   // Mid-hook punch keeps the opener from reading as a locked still when the beat stretches.
+  // Emphasis already uses speaker_medium. An extra punch would push the face into the title.
   const punchAt = Math.max(18, Math.round(frames * 0.42));
-  const punch = interpolate(frame, [punchAt, punchAt + 16], [0, 0.12], clamp);
-  const headline = suppressHeadline ? "" : look.headline || look.typography?.headline || "";
+  const punch = emphasis ? 0 : interpolate(frame, [punchAt, punchAt + 16], [0, 0.12], clamp);
+  const headline = suppressHeadline || look.emphasisRange?.length === 2
+    ? ""
+    : look.headline || look.typography?.headline || "";
   return (
     <Enter transition={look.transition}>
       <AbsoluteFill>
@@ -1067,6 +1100,78 @@ function Residency({ file, from, frames, look }: { file: string; from: number; f
           <Move treatment={look.background.treatment} intensity={look.motionIntensity} frames={frames}>
             <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.08} />
           </Move>
+        </div>
+        <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
+      </AbsoluteFill>
+    </Enter>
+  );
+}
+
+/** Split already used by Residency. The side panel is the spoken ordinal line, not a stock plate. */
+function SpokenSplit({
+  file,
+  from,
+  frames,
+  look,
+  locale = "en-US",
+}: {
+  file: string;
+  from: number;
+  frames: number;
+  look: SceneLook;
+  locale?: SupportedLocale;
+}) {
+  const frame = useCurrentFrame();
+  const steps = look.steps?.length ? look.steps : look.typography?.steps || [];
+  const count = Math.max(1, steps.length);
+  const slot = Math.min(count - 1, Math.max(0, Math.floor((frame / Math.max(1, frames)) * count)));
+  const label = steps[slot] || steps[0] || "";
+  const speakerBox = splitSpeakerRect("right");
+  const mediaBox = splitMediaRect("left");
+  const enter = interpolate(frame, [0, 12], [0, 1], clamp);
+  return (
+    <Enter transition={look.transition}>
+      <AbsoluteFill style={{ background: theme.color.bg }}>
+        <div
+          style={{
+            position: "absolute",
+            left: mediaBox.left,
+            top: mediaBox.top,
+            width: mediaBox.width,
+            height: mediaBox.height,
+            borderRadius: PORTRAIT.radius,
+            overflow: "hidden",
+            background: theme.color.bgElevated,
+            opacity: enter,
+            padding: 28,
+            boxSizing: "border-box",
+          }}
+        >
+          <AutoFitText
+            text={label}
+            maxWidth={Math.max(80, mediaBox.width - 56)}
+            maxHeight={Math.max(80, mediaBox.height - 56)}
+            role={theme.type.title}
+            align="left"
+            vertical="center"
+            wrapMode="auto"
+            maxLines={5}
+            locale={locale}
+          />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: speakerBox.left,
+            top: speakerBox.top,
+            width: speakerBox.width,
+            height: speakerBox.height,
+            borderRadius: PORTRAIT.radius,
+            overflow: "hidden",
+            boxShadow: theme.shadow.soft,
+          }}
+        >
+          <Speaker file={file} startFrom={from} frames={frames} zoomTo={1.08} />
         </div>
         <AbsoluteFill style={{ background: theme.gradient.scrimBottom, pointerEvents: "none" }} />
       </AbsoluteFill>
@@ -1457,7 +1562,9 @@ export function DirectorV3({
       if (!hookHeadline) return true;
       if (row.sceneId !== "hook") return true;
       const t = String(row.text || "").trim();
-      return t !== hookHeadline && !hookHeadline.startsWith(t) && !t.startsWith(hookHeadline);
+      // Hide only an exact duplicate of the title. A longer spoken line that
+      // merely contains the title stays on screen, under the caption inset.
+      return t !== hookHeadline;
     });
   const controls = visualPlan?.editingControls || null;
   const motionGain = editingMotionGain(controls);
@@ -1563,6 +1670,23 @@ export function DirectorV3({
           </AbsoluteFill>
         </Sequence>
       ) : null}
+      {(visualPlan?.scenes || []).map((scene, index) => {
+        const range = scene.emphasisRange;
+        const title = (scene.headline || scene.typography?.headline || "").trim();
+        if (!range || range.length !== 2 || !title) return null;
+        if (scene.sceneComposition?.speakerPresentation !== "emphasis") return null;
+        const lead = 0.4;
+        const tail = 0.4;
+        const start = Math.max(0, Number(range[0]) - lead);
+        const end = Number(range[1]) + tail;
+        const from = Math.max(0, Math.round(start * DIRECTOR_V3_FPS));
+        const duration = Math.max(1, Math.round((end - start) * DIRECTOR_V3_FPS));
+        return (
+          <Sequence key={`emphasis-${scene.sceneId}-${index}`} from={from} durationInFrames={duration} name={`emphasis-${scene.sceneId}`}>
+            <KineticHeadline text={title} locale={planLocale} />
+          </Sequence>
+        );
+      })}
       {captions
         .filter((row) => String(row.text || "").trim().length > 0 && row.duration > 0)
         .map((row) => (

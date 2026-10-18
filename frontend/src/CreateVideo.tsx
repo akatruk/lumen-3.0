@@ -25,6 +25,8 @@ type StudioState = {
       density?: number;
       visualEnergy?: string;
       preset?: string;
+      durationMode?: "full" | "custom";
+      durationSeconds?: number;
     };
   };
 };
@@ -198,7 +200,9 @@ export function CreateVideo({
 }) {
   const w = (ru: string, en: string, zh: string) => workspaceText(lang, ru, en, zh);
   const limit = durationLimit(sourceSeconds);
-  const [length, setLength] = useState(limit.max >= 20 ? 20 : limit.max);
+  const [durationMode, setDurationMode] = useState<"full" | "custom">("custom");
+  const [customLength, setCustomLength] = useState(limit.max >= 20 ? 20 : limit.max);
+  const length = durationMode === "full" && sourceSeconds > 0 ? sourceSeconds : customLength;
   const [variation, setVariation] = useState<"automatic" | "keep" | "remix">("automatic");
   const [energy, setEnergy] = useState<Energy>("balanced");
   const [levels, setLevels] = useState({ animation: 60, intensity: 60, motion: 80, density: 70 });
@@ -214,6 +218,23 @@ export function CreateVideo({
   const [renditions, setRenditions] = useState<Record<string, RenditionSnap>>({});
   const notice = useRef<HTMLParagraphElement>(null);
   const persistTimer = useRef<number | null>(null);
+  const durationRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const node = durationRef.current;
+    if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      if (document.activeElement !== node && !node.matches(":hover")) return;
+      event.preventDefault();
+      const direction = event.deltaY > 0 ? -limit.step : limit.step;
+      const base = durationMode === "full" && sourceSeconds > 0 ? sourceSeconds : customLength;
+      const next = chosenDuration(Math.min(limit.max, Math.max(limit.min, base + direction)), sourceSeconds);
+      setDurationMode("custom");
+      setCustomLength(next);
+      if (hydrated) persistEditing(levels, energy, variation, "custom", next);
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  });
   useEffect(() => {
     let cancelled = false;
     fetch("/api/studio/projects/" + pid, { credentials: "same-origin" })
@@ -230,6 +251,12 @@ export function CreateVideo({
             density: Number(saved.density ?? 70),
           };
           setLevels(next);
+          if (saved.durationMode === "full" || saved.durationMode === "custom") {
+            setDurationMode(saved.durationMode);
+          }
+          if (typeof saved.durationSeconds === "number" && saved.durationSeconds > 0) {
+            setCustomLength(saved.durationSeconds);
+          }
           const fromSaved = (saved.visualEnergy || data?.context?.visual_energy || matchPreset(next)) as Energy;
           setEnergy(fromSaved === "custom" ? "custom" : matchPreset(next) === fromSaved ? fromSaved : matchPreset(next));
         }
@@ -257,7 +284,14 @@ export function CreateVideo({
       cancelled = true;
     };
   }, [pid]);
-  function persistEditing(nextLevels: typeof levels, nextEnergy: Energy, nextVariation = variation, nextProfile = motionProfile) {
+  function persistEditing(
+    nextLevels: typeof levels,
+    nextEnergy: Energy,
+    nextVariation = variation,
+    nextMode = durationMode,
+    nextLength = length,
+    nextProfile = motionProfile,
+  ) {
     // Debounced save only — never enqueue render / TTS / GPU.
     if (persistTimer.current) window.clearTimeout(persistTimer.current);
     persistTimer.current = window.setTimeout(() => {
@@ -273,6 +307,8 @@ export function CreateVideo({
           visual_energy: nextEnergy,
           visual_variation: nextVariation,
           semantic_motion_profile: nextProfile ? "evidence_gated_v1" : null,
+          duration_mode: nextMode,
+          duration_seconds: nextLength,
         }),
       }).catch(() => undefined);
     }, 400);
@@ -447,22 +483,42 @@ export function CreateVideo({
       <label>
         {w("Длительность, с", "Duration, s", "时长，秒")}
         <input
+          ref={durationRef}
           type="range"
           min={limit.min}
           max={limit.max}
           step={limit.step}
-          value={length}
+          value={Math.min(durationMode === "full" && sourceSeconds > 0 ? sourceSeconds : customLength, limit.max)}
           aria-valuetext={length + "s"}
           onChange={(event) => {
-            const next = Number(event.target.value);
-            setLength(chosenDuration(next, sourceSeconds));
+            const next = chosenDuration(Number(event.target.value), sourceSeconds);
+            setDurationMode("custom");
+            setCustomLength(next);
+            if (hydrated) persistEditing(levels, energy, variation, "custom", next);
           }}
         />
-        <strong>
-          {length}
-          {w(" с", "s", " 秒")}
-        </strong>
       </label>
+      <button
+        type="button"
+        className="secondary"
+        aria-pressed={durationMode === "full"}
+        onClick={() => {
+          const next = durationMode === "full" ? "custom" : "full";
+          setDurationMode(next);
+          const seconds = next === "full" && sourceSeconds > 0 ? sourceSeconds : customLength;
+          if (hydrated) persistEditing(levels, energy, variation, next, seconds);
+        }}
+      >
+        {w("Весь исходник", "Use full source", "使用完整原片")}
+      </button>
+      <strong>
+        {durationMode === "full"
+          ? w("Весь исходник", "Full source", "完整原片")
+          : w("Выбранная длина", "Selected length", "选定时长")}
+        {" · "}
+        {length}
+        {w(" с", "s", " 秒")}
+      </strong>
       <div className="language-switch" role="radiogroup" aria-label={w("Вариация картинки", "Visual variation", "画面变化")}>
         {(
           [

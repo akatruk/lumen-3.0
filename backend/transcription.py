@@ -125,7 +125,7 @@ def _lock_for(checksum: str):
 def persist_source_transcript(pid: str) -> dict:
     """Transcribe once and store a verified project transcript. Cache hits skip the model."""
     from .source_analysis import _transcribe_source
-    from .source_transcript import TranscriptError, save_verified
+    from .source_transcript import TranscriptError, save_silence, save_verified
     from .whisperx_local import transcribe_segments
 
     current = project(pid)
@@ -142,13 +142,30 @@ def persist_source_transcript(pid: str) -> dict:
     lock = _lock_for(str(checksum))
     try:
         duration = float(meta.get("duration") or 0) or None
+        from .language import explicit_user_source_language
+        from .source_transcript import load_silence
+        from .studio import state
+
+        silence = load_silence(pid, source)
+        if silence:
+            mark_transcription(pid, "transcription_silence")
+            return silence
+        # projects.language is the requested output. It must not force ASR.
+        explicit = explicit_user_source_language((state(pid) or {}).get("context"))
+
+        def on_phase(phase: str) -> None:
+            mark_transcription(pid, phase)
+
+        call = {
+            "language": explicit,
+            "duration": duration,
+            "project_id": pid,
+        }
+        import inspect
+        if "on_phase" in inspect.signature(_transcribe_source).parameters:
+            call["on_phase"] = on_phase
         try:
-            segments, provider = _transcribe_source(
-                source,
-                language=str(current.get("language") or ""),
-                duration=duration,
-                project_id=pid,
-            )
+            segments, provider = _transcribe_source(source, **call)
         except TranscriptError:
             raise
         except Exception as exc:
@@ -162,9 +179,32 @@ def persist_source_transcript(pid: str) -> dict:
             }:
                 raise TranscriptError(code) from exc
             raise TranscriptError("TRANSCRIPTION_FAILED") from exc
-        info = dict(getattr(transcribe_segments, "last_info", {}) or {})
+        from .qwen3_asr import transcribe as qwen_transcribe
+
+        if provider == "qwen3-asr":
+            info = dict(getattr(qwen_transcribe, "last_info", {}) or {})
+        else:
+            info = dict(getattr(transcribe_segments, "last_info", {}) or {})
+        if info.get("speech") == "silence":
+            saved = save_silence(
+                pid,
+                source,
+                provenance={
+                    "provider": provider,
+                    "modelId": (info.get("recognition") or {}).get("model") or "Qwen/Qwen3-ASR-1.7B",
+                    "modelVersion": (info.get("recognition") or {}).get("revision"),
+                    "speech": "silence",
+                },
+                duration=duration,
+            )
+            mark_transcription(pid, "transcription_silence")
+            return saved
         if not segments:
             raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
+        recognition = info.get("recognition") if isinstance(info.get("recognition"), dict) else {}
+        names = {"Chinese": "zh", "English": "en", "Russian": "ru"}
+        forced_code = names.get(info.get("forcedLanguage") or "")
+        detected_code = None if forced_code else names.get(info.get("language") or "")
         saved = save_verified(
             pid,
             source,
@@ -172,23 +212,42 @@ def persist_source_transcript(pid: str) -> dict:
             provider=provider,
             provenance={
                 "provider": provider,
-                "modelId": info.get("modelId"),
-                "modelVersion": info.get("modelVersion"),
-                "configVersion": info.get("configVersion"),
-                "detectedLanguage": info.get("detectedLanguage"),
+                "modelId": recognition.get("model") or info.get("modelId"),
+                "modelVersion": recognition.get("revision") or info.get("modelVersion"),
+                "configVersion": info.get("configVersion") or (
+                    "qwen3-asr-1.7b-bf16-cpu-align-0.6b-1" if provider == "qwen3-asr" else ""
+                ),
+                "detectedLanguage": detected_code or info.get("detectedLanguage"),
                 "languageProbability": info.get("languageProbability"),
-                "modelLoadSeconds": info.get("modelLoadSeconds"),
-                "inferSeconds": info.get("inferSeconds"),
+                "languageMode": "forced" if forced_code else info.get("languageMode"),
+                "forcedTranscriptionLanguage": forced_code or info.get("forcedTranscriptionLanguage"),
+                "projectLanguage": current.get("language"),
+                "modelLoadSeconds": recognition.get("loadSeconds") or info.get("modelLoadSeconds"),
+                "inferSeconds": recognition.get("inferSeconds") or info.get("inferSeconds"),
+                "rawText": info.get("text") or "",
+                "uncertain": info.get("uncertain") or [],
+                "alignment": info.get("alignment") or {},
+                "humanVerified": False,
             },
             duration=duration,
         )
     finally:
         fcntl.flock(lock, fcntl.LOCK_UN)
         lock.close()
+    mark_transcription(pid, "transcription_analyzing")
+    try:
+        from .source_brief import write_brief
+
+        write_brief(pid, saved)
+    except Exception:
+        saved = {**saved, "analysisError": "source_brief_failed"}
     fresh = project(pid) or {}
     merged = dict(fresh.get("metadata") or {})
+    merged["analysis_stale"] = True
     merged["transcription"] = TERMINAL_OK
     merged["source_language"] = saved.get("sourceLanguage")
+    merged["source_language_status"] = saved.get("languageStatus")
+    merged["source_language_provenance"] = saved.get("languageProvenance")
     merged["transcript_version"] = saved.get("transcriptVersion")
     merged["transcription_model"] = saved.get("modelId")
     merged.pop("transcription_error", None)
@@ -211,7 +270,7 @@ def materialize_director_payload(p, payload):
     """Fill a deferred Create Video job after the transcript exists."""
     from .language import resolve_voice, short_code
     from .source_analysis import ensure_analysis
-    from .source_transcript import TranscriptError, load_verified, source_locale_for_rows
+    from .source_transcript import TranscriptError, load_verified, source_language_decision
     from .studio import state
     from .visual_variation import plan_for_request
 
@@ -230,15 +289,19 @@ def materialize_director_payload(p, payload):
     s = state(pid)
     rows = (s.get("plan") or {}).get("transcript") or []
     try:
-        source_locale = source_locale_for_rows(rows)
+        decision = source_language_decision(rows)
     except TranscriptError as exc:
         raise ValueError(exc.code) from exc
+    if decision.get("status") in ("uncertain", "mixed"):
+        raise ValueError("SOURCE_LANGUAGE_UNVERIFIED")
+    source_locale = decision.get("sourceLanguage")
     if not source_locale:
         raise ValueError("SOURCE_TRANSCRIPT_UNAVAILABLE")
     resolved = resolve_voice(
         source_language=source_locale,
         target_language=locale,
         voice=(payload or {}).get("voice"),
+        language_status=decision.get("status") if decision.get("status") in ("uncertain", "mixed") else None,
     )
     if resolved["status"] == "VOICE_SETUP_REQUIRED":
         raise ValueError("MISSING_TARGET_LANGUAGE_VOICE")

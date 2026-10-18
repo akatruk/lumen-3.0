@@ -66,7 +66,7 @@ describe("localization", () => {
     assert.equal(salary.join(""), "8000-1万块的人民币");
     assert.equal(salary.includes("80"), false);
     assert.equal(salary.includes("00"), false);
-    assert.ok(salary.includes("8000-1"));
+    assert.ok(salary.some((token) => token.startsWith("8000-1") && token.includes("万")));
   });
 
   it("keeps 8000 on one caption line", () => {

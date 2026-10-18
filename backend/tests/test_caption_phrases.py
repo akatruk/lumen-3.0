@@ -49,6 +49,12 @@ def test_russian_groups_readable_phrases():
     assert not any(p.rstrip().endswith(' с') for p in parts)
 
 
+def test_chinese_does_not_leave_a_one_character_line():
+    parts = group_phrase_texts('买房送身份听起来是不是特别诱人', 'zh-CN')
+    assert parts
+    assert all(len(part) >= 2 for part in parts)
+
+
 def test_chinese_keeps_cjk_phrase_boundaries():
     parts = group_phrase_texts('计划搬迁吗，第二居留身份从何开始？', 'zh-CN')
     assert parts
