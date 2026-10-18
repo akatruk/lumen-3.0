@@ -265,6 +265,17 @@ def test_question_and_number_cannot_stay_talking_head():
         }, {"segment_001"})
 
 
+def test_none_provider_ignores_semantic_required_flag(monkeypatch):
+    from backend.config import settings
+    from backend.providers.director import HeuristicDirectorProvider, get_director_provider
+    from backend.semantic_planner import planner_required
+
+    monkeypatch.setattr(settings, "llm_provider", "none")
+    monkeypatch.setattr(settings, "semantic_planner_required", True)
+    assert planner_required() is False
+    assert isinstance(get_director_provider(None), HeuristicDirectorProvider)
+
+
 def test_semantic_provider_does_not_fall_back_to_heuristic(monkeypatch):
     from backend.config import settings
     from backend.providers.director import HeuristicDirectorProvider, get_director_provider

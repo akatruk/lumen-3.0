@@ -128,7 +128,8 @@ def _cache_valid(meta: dict, path: Path, plan: dict | None = None) -> bool:
         return False
     if (meta or {}).get("analysis_version") != ANALYSIS_VERSION:
         return False
-    if getattr(settings, "semantic_planner_required", False) and (meta or {}).get("director_mode") != "semantic_openrouter":
+    from .semantic_planner import planner_required
+    if planner_required() and (meta or {}).get("director_mode") != "semantic_openrouter":
         return False
     cached = (meta or {}).get("source_checksum")
     if not cached:
@@ -161,10 +162,9 @@ def plan_cache_hit(pid: str) -> bool:
     with connect() as db:
         row = db.execute("SELECT metadata FROM projects WHERE id=?", (pid,)).fetchone()
     meta = json.loads(row["metadata"] or "{}") if row else {}
-    if getattr(settings, "semantic_planner_required", False):
-        from .semantic_planner import plan_path
-        if not plan_path(pid).is_file():
-            return False
+    from .semantic_planner import planner_required, plan_path
+    if planner_required() and not plan_path(pid).is_file():
+        return False
     return _cache_valid(meta, folder / "source", s.get("plan"))
 
 
@@ -209,7 +209,8 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
         for index, row in enumerate(saved["segments"], start=1)
     ]
 
-    semantic = bool(getattr(settings, "semantic_planner_required", False))
+    from .semantic_planner import planner_required
+    semantic = planner_required()
     director = get_director_provider("semantic" if semantic else "none")
     from .experience_memory import context_for_transcript
     plan = director.build_plan(
@@ -271,8 +272,8 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
     s = state(pid)
     cached_mode = ((s or {}).get("context") or {}).get("director_mode") or meta.get("director_mode")
     semantic_cache_ok = True
-    if getattr(settings, "semantic_planner_required", False):
-        from .semantic_planner import plan_path
+    from .semantic_planner import planner_required, plan_path
+    if planner_required():
         semantic_cache_ok = cached_mode == "semantic_openrouter" and plan_path(pid).is_file()
     if not force and semantic_cache_ok and s and s.get("plan") and _cache_valid(meta, source, s.get("plan")):
         mode = (s.get("context") or {}).get("director_mode") or meta.get("director_mode") or "unknown"
@@ -287,7 +288,8 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
 
     llm = get_llm_provider()
     provider_name = (getattr(settings, "llm_provider", "none") or "none").strip().lower()
-    if getattr(settings, "semantic_planner_required", False):
+    from .semantic_planner import planner_required
+    if planner_required():
         provider_name = "semantic"
 
     if provider_name in ("runpod", "runpod_llm", "local_runpod"):
@@ -437,7 +439,7 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
     update(
         pid,
         analysis=legacy,
-        metadata={**meta, **built["metadata"], **stamp, "plan_bound_transcript_edit": bound},
+        metadata={**meta, **built["metadata"], **stamp, "plan_bound_transcript_edit": bound, "analysis_stale": False},
         **ready,
     )
     return {

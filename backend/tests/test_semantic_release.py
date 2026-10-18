@@ -8,6 +8,7 @@ def test_semantic_activation_does_not_reuse_cached_heuristic(client, monkeypatch
     from backend import source_analysis
     pid = create(client).json()["id"]
     seed_plan(pid)
+    monkeypatch.setattr(settings, "llm_provider", "openrouter")
     monkeypatch.setattr(settings, "semantic_planner_required", True)
     monkeypatch.setattr(source_analysis, "_cache_valid", lambda *args: True)
     called = []

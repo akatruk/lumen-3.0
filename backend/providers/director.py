@@ -117,41 +117,39 @@ class SemanticOpenRouterDirectorProvider:
     name = "semantic_openrouter"
 
     def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None, experience: dict | None = None, project_id: str | None = None):
-        from ..semantic_planner import PlannerError, plan_semantics
+        from ..semantic_planner import PlannerError, media_candidates, plan_editorial_once
+        from ..source_transcript import rows_with_aligner_words
         from ..studio import Director
 
         if not project_id:
             raise PlannerError("PLANNER_UNAVAILABLE")
-        semantic = plan_semantics(project_id, transcript, language)
-        by_id = {}
-        for index, row in enumerate(transcript or [], start=1):
-            if isinstance(row, dict):
-                by_id[row.get("id") or f"segment_{index:03d}"] = row
+        timed = rows_with_aligner_words(project_id, transcript)
+        text = " ".join(str(row.get("text") or "") for row in timed if isinstance(row, dict))
+        semantic = plan_editorial_once(
+            project_id, timed, language, duration=float(duration), media=media_candidates(text),
+        )
+        from ..passage_retrieval import apply_semantic_beats
+        aligned = apply_semantic_beats({"scenes": []}, project_id, timed)
 
-        def role(passage: dict) -> str:
-            intent = str(passage.get("intent") or "").lower()
-            if "question" in intent:
-                return "hook"
-            if "cta" in intent or "close" in intent:
-                return "cta"
-            if passage.get("visual_need") in {"supporting_broll", "explanatory_graphic"}:
+        def role(scene: dict) -> str:
+            if scene.get("steps") or (scene.get("typography") or {}).get("steps"):
                 return "proof"
+            if scene.get("criteriaCards") or (scene.get("typography") or {}).get("cards"):
+                return "context"
             return "context"
 
         scenes = []
-        for passage in semantic["passages"]:
-            rows = [by_id[sid] for sid in passage["segment_ids"] if sid in by_id]
-            start = min(float(row.get("start") or 0) for row in rows)
-            end = max(float(row.get("end") or 0) for row in rows)
-            end = min(max(end, start + 0.2), duration)
-            start = min(start, end - 0.2)
-            label = (passage.get("visual_concept") or passage.get("intent") or "passage")[:80]
+        for scene in aligned.get("scenes") or []:
+            steps = list((scene.get("typography") or {}).get("steps") or scene.get("steps") or [])
+            cards = list((scene.get("typography") or {}).get("cards") or scene.get("criteriaCards") or [])
+            label = steps[0] if steps else (cards[0].get("title") if cards and isinstance(cards[0], dict) else "")
+            label = label or str(scene.get("quote") or "passage")
             scenes.append(Scene(
-                start=round(max(0.0, start), 3),
-                end=round(end, 3),
-                title=_t(label),
-                observation=_t(str(passage.get("quote") or label)[:180]),
-                role=role(passage),
+                start=round(float(scene["start"]), 3),
+                end=round(min(float(scene["end"]), duration), 3),
+                title=_t(label[:80]),
+                observation=_t(str(scene.get("quote") or label)[:180]),
+                role=role(scene),
             ))
         caps = []
         for row in transcript or []:
@@ -246,7 +244,8 @@ Do not invent claims or metrics. Prefer 4–8 semantic scenes. Times within 0..{
 
 def get_director_provider(name: str | None = None) -> DirectorProvider:
     llm = (name or getattr(settings, "llm_provider", "none") or "none").strip().lower()
-    if llm == "semantic" or (name is None and getattr(settings, "semantic_planner_required", False)):
+    from ..semantic_planner import planner_required
+    if llm == "semantic" or (name is None and planner_required()):
         return SemanticOpenRouterDirectorProvider()
     if llm in ("openrouter", "or") and settings.openrouter_api_key:
         return OpenRouterDirectorProvider()

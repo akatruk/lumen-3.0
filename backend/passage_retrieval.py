@@ -303,15 +303,20 @@ _ITEM_EXAMPLES = {
 }
 
 
-def _example_cues(label: str, words: list[dict], start: float, end: float) -> list[dict]:
+def _example_cues(label: str, words: list[dict], start: float, end: float, examples: list[str] | None = None) -> list[dict]:
     window = [
         item for item in words
         if float(item["end"]) > start + 0.001 and float(item["start"]) < end - 0.001
     ]
     text = "".join(item["text"] for item in window)
-    cues = [{"text": label, "start": round(float(window[0]["start"]) if window else start, 3)}]
-    cursor = 0
-    for example in _ITEM_EXAMPLES.get(label, ()):
+    label_at = text.find(label)
+    if window and 0 <= label_at < len(window):
+        cue_start = float(window[label_at]["start"])
+    else:
+        cue_start = float(window[0]["start"]) if window else start
+    cues = [{"text": label, "start": round(cue_start, 3)}]
+    cursor = label_at + len(label) if label_at >= 0 else 0
+    for example in (examples if examples is not None else _ITEM_EXAMPLES.get(label, ())):
         at = text.find(example, cursor)
         if at < 0 or at >= len(window):
             continue
@@ -320,7 +325,7 @@ def _example_cues(label: str, words: list[dict], start: float, end: float) -> li
     return cues
 
 
-def _label_scene(index: int, start: float, end: float, quote: str, label: str, words: list[dict] | None = None) -> dict:
+def _label_scene(index: int, start: float, end: float, quote: str, label: str, words: list[dict] | None = None, examples: list[str] | None = None, reason: str | None = None) -> dict:
     scene = _scene_from_passage(index, start, end, {
         "quote": quote,
         "intent": label,
@@ -328,14 +333,14 @@ def _label_scene(index: int, start: float, end: float, quote: str, label: str, w
         "executed_treatment": "process",
         "visual_treatment": "process",
         "visual_concept": label,
-        "semantic_reason": "spoken ordinal",
+        "semantic_reason": reason or "spoken ordinal",
     })
     scene["kind"] = "process"
     scene["query"] = None
     scene["background"] = {}
     scene["speaker"] = {"layout": "speaker_split_right", "framing": "split", "visibility": "primary"}
     scene["sceneComposition"] = {"speakerPresentation": "split", "editorial": "spoken-split"}
-    cues = _example_cues(label, words or [], start, end)
+    cues = _example_cues(label, words or [], start, end, examples)
     scene["typography"] = {
         "steps": [cue["text"] for cue in cues],
         "stepsTitle": label,
@@ -417,7 +422,74 @@ def _split_piece(start: float, end: float, words: list[dict]) -> list[tuple[floa
     return pieces
 
 
+def _scenes_from_supplied_labels(passages: list[dict], words: list[dict]) -> list[dict] | None:
+    """Use labels the plan copied from each quote. Gaps stay a talking head."""
+    located = []
+    for passage in passages:
+        span = _locate_quote(words, str(passage.get("quote") or ""))
+        if span is None:
+            return None
+        located.append((span[0], span[1], passage))
+    located.sort(key=lambda item: (item[0], item[1]))
+    duration = float(words[-1]["end"])
+    scenes = []
+    cursor = 0.0
+    index = 1
+    for start, end, passage in located:
+        nxt = None
+        for other_start, _other_end, _other in located:
+            if other_start > start + 0.05:
+                nxt = other_start
+                break
+        if nxt is not None:
+            end = min(end, nxt)
+        if start - cursor > 0.45:
+            scenes.append(_head_scene(index, cursor, start, _slice_text(words, cursor, start)))
+            index += 1
+        if end - start < 0.45:
+            cursor = max(cursor, end)
+            continue
+        labels = [str(item) for item in (passage.get("labels") or []) if str(item)]
+        quote = _slice_text(words, start, end) or str(passage.get("quote") or "")
+        executed = passage.get("executed_treatment") or passage.get("visual_treatment") or "talking_head"
+        reason = str(passage.get("semantic_reason") or "") or None
+        if executed == "process" and labels:
+            scenes.append(_label_scene(index, start, end, quote, labels[0], words, labels[1:], reason=reason))
+        elif executed in {"comparison", "kinetic_typography"} and labels:
+            scene = _scene_from_passage(index, start, end, {**passage, "quote": quote, "semantic_reason": reason or passage.get("semantic_reason")})
+            cards = [{"title": label, "explanation": ""} for label in labels]
+            scene["cardMode"] = "progressive_one"
+            scene["criteriaCards"] = cards
+            scene["typography"] = {"cardMode": "progressive_one", "animate": "pop", "cards": cards}
+            scene["start"] = round(start, 3)
+            scene["end"] = round(end, 3)
+            scenes.append(scene)
+        elif executed in {"supporting_broll", "pip"}:
+            scene = _scene_from_passage(index, start, end, {**passage, "quote": quote})
+            scene["start"] = round(start, 3)
+            scene["end"] = round(end, 3)
+            asset_id = str(passage.get("visual_concept") or "")
+            if asset_id:
+                scene["assetId"] = asset_id
+                scene["background"] = {"assetId": asset_id}
+            scenes.append(scene)
+        else:
+            scenes.append(_head_scene(index, start, end, quote))
+        index += 1
+        cursor = end
+    if duration - cursor > 0.35 and scenes:
+        scenes.append(_head_scene(index, cursor, duration, _slice_text(words, cursor, duration)))
+    elif scenes:
+        last = scenes[-1]
+        last["end"] = max(float(last["end"]), duration)
+    return scenes or None
+
+
 def _scenes_from_word_times(passages: list[dict], words: list[dict]) -> list[dict] | None:
+    if any(passage.get("labels") for passage in passages):
+        labeled = _scenes_from_supplied_labels(passages, words)
+        if labeled:
+            return labeled
     located = []
     for passage in passages:
         span = _locate_quote(words, str(passage.get("quote") or ""))
@@ -489,8 +561,7 @@ def _scenes_from_word_times(passages: list[dict], words: list[dict]) -> list[dic
 
 def apply_semantic_beats(plan: dict, pid: str, transcript: list | None = None) -> dict:
     """Replace heuristic scene slices with passage windows taken from real segment times."""
-    from .config import settings
-    from .semantic_planner import PlannerError, load_valid
+    from .semantic_planner import PlannerError, load_valid, planner_required
 
     ids, times, _text = _index(transcript)
     try:
@@ -498,11 +569,16 @@ def apply_semantic_beats(plan: dict, pid: str, transcript: list | None = None) -
     except PlannerError:
         raise
     if not semantic:
-        if getattr(settings, "semantic_planner_required", False):
+        if planner_required():
             raise PlannerError("PLANNER_UNAVAILABLE")
         return plan
     words = _flatten_words(transcript)
+    labeled = any(passage.get("labels") for passage in semantic.get("passages") or [])
+    if semantic.get("planner") == "openrouter" and labeled and not words:
+        raise PlannerError("PLANNER_INVALID", "aligner_words_missing")
     word_scenes = _scenes_from_word_times(semantic["passages"], words) if words else None
+    if semantic.get("planner") == "openrouter" and labeled and words and not word_scenes:
+        raise PlannerError("PLANNER_INVALID", "quote_not_in_words")
     if word_scenes:
         out = dict(plan)
         out["scenes"] = word_scenes
@@ -515,8 +591,13 @@ def apply_semantic_beats(plan: dict, pid: str, transcript: list | None = None) -
             "topic": semantic.get("topic"),
             "model": semantic.get("model"),
             "planner": semantic.get("planner"),
+            "planHash": semantic.get("planHash"),
+            "transcriptVersion": semantic.get("transcript_version"),
             "timing": "aligner_words",
         }
+        if semantic.get("planner") == "openrouter":
+            out["editorialAuthority"] = "openrouter"
+            out["durationSeconds"] = word_scenes[-1]["end"]
         return out
     scenes = []
     ordered = []
@@ -543,19 +624,24 @@ def apply_semantic_beats(plan: dict, pid: str, transcript: list | None = None) -
         "topic": semantic.get("topic"),
         "model": semantic.get("model"),
         "planner": semantic.get("planner"),
+        "planHash": semantic.get("planHash"),
+        "transcriptVersion": semantic.get("transcript_version"),
+        "timing": "segment_times",
     }
+    if semantic.get("planner") == "openrouter":
+        out["editorialAuthority"] = "openrouter"
+        out["durationSeconds"] = scenes[-1]["end"]
     return out
 
 
 def revalidate_assets(plan: dict, pid: str, transcript: list | None = None, catalog: list[dict] | None = None) -> dict:
     """Drop assets that V11 query rewriting no longer supports."""
-    from .config import settings
-    from .semantic_planner import PlannerError, load_valid
+    from .semantic_planner import PlannerError, load_valid, planner_required
 
     ids, times, _text = _index(transcript)
     semantic = load_valid(pid, ids) if ids else None
     if not semantic:
-        if getattr(settings, "semantic_planner_required", False):
+        if planner_required():
             raise PlannerError("PLANNER_UNAVAILABLE")
         return plan
     out = dict(plan)

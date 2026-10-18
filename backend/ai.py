@@ -59,9 +59,10 @@ def strict_schema(schema):
 
 
 last_usage: dict = {}
+last_content: str = ""
 
 
-def json_call(project_id, path, prompt, schema, purpose, reference=None, system=None, validator=None, _repair=False, reference_label="ORIGINAL SOURCE VIDEO", attach_video=True, model=None):
+def json_call(project_id, path, prompt, schema, purpose, reference=None, system=None, validator=None, _repair=False, reference_label="ORIGINAL SOURCE VIDEO", attach_video=True, model=None, allow_repair=True):
     path=Path(path)
     # A missing file used to reserve $0.50 and then raise before the provider request.
     if attach_video and not path.is_file():raise ValueError('analysis_proxy_missing')
@@ -72,7 +73,7 @@ def json_call(project_id, path, prompt, schema, purpose, reference=None, system=
     if attach_video:media_parts += [{'type':'text','text':'VIDEO TO ANALYZE / REVIEW'},video_part(path)]
     else:media_parts += [{'type':'text','text':'No scene video was attached. Use only the written context.'}]
     # Full bilingual transcripts plus the executable plan exceed the reference/QA allowance.
-    output_limit = 32000 if purpose in ('director_plan','creative_plan','reference_dna') else 8000 if purpose == 'semantic_director' else 12000
+    output_limit = 32000 if purpose in ('director_plan','creative_plan','reference_dna') else 12000 if purpose == 'semantic_director' else 12000
     chosen = model or settings.analysis_model
     payload={'model':chosen,'temperature':0.15,'max_tokens':output_limit,
              'messages':[{'role':'system','content':system or SYSTEM},{'role':'user','content':[
@@ -105,6 +106,8 @@ def json_call(project_id, path, prompt, schema, purpose, reference=None, system=
     if not isinstance(content,str): raise ValueError('provider_invalid_analysis')
     content=content.strip()
     if content.startswith('```') and '\n' in content: content=content.split('\n',1)[1].rsplit('```',1)[0]
+    global last_content
+    last_content = content
     try:
         result=schema.model_validate_json(content)
         if validator:validator(result)
@@ -115,21 +118,21 @@ def json_call(project_id, path, prompt, schema, purpose, reference=None, system=
             'errors':[{'type':e['type']} for e in exc.errors(include_input=False,include_context=False)[:12]]}))
         # Only retry completed invalid responses, never ambiguous network failures.
         # The normal reservation enforces the project and daily ceilings again.
-        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking','semantic_director') and not _repair:
+        if allow_repair and purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking','semantic_director') and not _repair:
             issues=','.join(sorted({e['type'] for e in exc.errors(include_input=False,include_context=False)}))
             event(project_id,'analysis_repair',json.dumps({'purpose':purpose,'attempt':1}))
-            return json_call(project_id,path,prompt+'\nThe preceding response failed validation ('+issues+'). Return a complete JSON object strictly matching the schema; use concise fields and valid escaped strings.',schema,purpose,reference=reference,system=system,validator=validator,_repair=True,reference_label=reference_label,attach_video=attach_video,model=chosen)
+            return json_call(project_id,path,prompt+'\nThe preceding response failed validation ('+issues+'). Return a complete JSON object strictly matching the schema; use concise fields and valid escaped strings.',schema,purpose,reference=reference,system=system,validator=validator,_repair=True,reference_label=reference_label,attach_video=attach_video,model=chosen,allow_repair=allow_repair)
         raise ValueError('provider_invalid_analysis') from None
     except ValueError as exc:
         code=str(exc)
         if code not in {'analysis_timestamps_invalid','analysis_duplicate_ids','analysis_multiple_hooks','provider_invalid_analysis','PLANNER_INVALID'}:raise
         event(project_id,'analysis_validation',json.dumps({'purpose':purpose,'reason':code}))
-        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking','semantic_director') and not _repair:
+        if allow_repair and purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking','semantic_director') and not _repair:
             event(project_id,'analysis_repair',json.dumps({'purpose':purpose,'attempt':1}))
             guidance='Check the stated timeline bounds and schema. Preserve complete speech and do not invent missing evidence.'
             if purpose=='director_plan':guidance+=' Use unique recommendation IDs and exactly one valid transfer per recommendation; reference and source timelines are separate.'
             if purpose=='semantic_director':guidance+=' Quote only supplied segment text. Use only supplied segment ids. Do not add timestamps or asset ids.'
-            return json_call(project_id,path,prompt+'\nThe preceding plan failed '+code+'. '+getattr(exc,'feedback','')+'. '+guidance,schema,purpose,reference=reference,system=system,validator=validator,_repair=True,reference_label=reference_label,attach_video=attach_video,model=chosen)
+            return json_call(project_id,path,prompt+'\nThe preceding plan failed '+code+'. '+getattr(exc,'feedback','')+'. '+guidance,schema,purpose,reference=reference,system=system,validator=validator,_repair=True,reference_label=reference_label,attach_video=attach_video,model=chosen,allow_repair=allow_repair)
         raise
 
 REFERENCE_SYSTEM = """You are a bilingual video reference analyst. Watch and listen to the entire reference.
