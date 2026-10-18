@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import re
 import time
-from pathlib import Path
 
 from .config import settings
 
@@ -25,13 +24,13 @@ def write_brief(pid: str, record: dict) -> dict:
             numbers.append({"start": row.get("start"), "text": match, "quote": text})
     brief = {
         "kind": "deterministic_baseline",
-        "transcriptVersion": record.get("transcriptVersion"),
+        "notASemanticModel": True,
+        "transcriptVersion": record.get("version") or record.get("transcriptVersion"),
         "modelId": record.get("modelId"),
-        "modelVersion": record.get("modelVersion"),
         "sourceChecksum": record.get("sourceChecksum"),
         "summary": segments[0]["text"] if segments else "",
         "sections": [
-            {"start": row.get("start"), "end": row.get("end"), "text": row.get("text")}
+            {"id": row.get("id"), "start": row.get("start"), "end": row.get("end"), "text": row.get("text")}
             for row in segments
         ],
         "questions": questions,

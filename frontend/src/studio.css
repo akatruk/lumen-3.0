@@ -402,7 +402,6 @@
 .create-primary select {width:100%; min-height:48px;}
 .create-advanced {margin-top:18px;}
 .create-advanced summary {cursor:pointer; font-weight:600;}
-.create-advanced .douyin-search {margin-top:16px;}
 @media (max-width: 600px) {
   .director-create .director-submit button {width:100%;}
 }

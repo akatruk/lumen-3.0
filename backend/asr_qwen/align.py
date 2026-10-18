@@ -22,12 +22,21 @@ def main() -> None:
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["OMP_NUM_THREADS"] = "2"
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    snapshot = os.path.join(
+        os.environ["HF_HOME"],
+        "hub",
+        "models--Qwen--Qwen3-ForcedAligner-0.6B",
+        "snapshots",
+        REVISION,
+    )
+    if not os.path.isdir(snapshot):
+        raise SystemExit(f"missing pinned snapshot {snapshot}")
     import torch
     from qwen_asr import Qwen3ForcedAligner
 
     started = time.time()
     model = Qwen3ForcedAligner.from_pretrained(
-        REPO,
+        snapshot,
         dtype=torch.bfloat16,
         device_map="cpu",
     )

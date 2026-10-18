@@ -40,7 +40,8 @@ def _normalize_caption_text(text: str) -> str:
     text = ' '.join(str(text or '').split())
     text = re.sub(r'\.{2,}', '.', text)
     text = re.sub(r'\s+([?？!！.。,，])', r'\1', text)
-    return text.strip(' .')
+    # Keep terminal .?! so a finished sentence cannot be glued to the next line.
+    return text.strip().lstrip('.')
 
 
 def _split_en_ru(text: str, *, lo: int, hi: int) -> list[str]:
@@ -218,8 +219,10 @@ def phrases_from_transcript(
         short = cjk_units <= 2 if cjk_units else len(words) <= 2
         combined_units = len(_CJK.findall(prev_text + text)) if (cjk_units or _CJK.search(prev_text)) else len((prev_text + ' ' + text).split())
         # Merge only within the same spoken breath — never glue across a pause.
+        sentence_closed = bool(re.search(r"[.?!。？！]$", prev_text.strip()))
         can_merge = (
             cleaned
+            and not sentence_closed
             and gap <= 0.35
             and (_LEAD_CONJ.match(text) or short or _TRAIL_BAD.search(prev_text))
             and combined_units <= 18

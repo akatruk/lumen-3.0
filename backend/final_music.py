@@ -82,6 +82,9 @@ class Apply(Strict):
     revision:int=Field(ge=1)
     master_id:str=Field(pattern=r'^[a-f0-9]{32}$')
     final_id:str=Field(pattern=r'^(?:master|[a-f0-9]{32})$')
+    # The editor can no longer PUT /manual. The button sends the track it is showing.
+    music:Music|None=None
+    use_request_music:bool=False
 
 
 @router.get('/projects/{pid}/final-music')
@@ -97,6 +100,21 @@ def listing(pid:str,user=Depends(current_user)):
             title=asset['title'] if asset else ''
         jobs=[dict(r) for r in db.execute('SELECT id,status,error,master_id,title FROM final_music_versions WHERE project_id=? ORDER BY created DESC LIMIT 5',(pid,))]
     return {'master_id':master.get('render_id',''),'final_id':selected['id'] if selected else 'master','music':config,'title':title,'voice_id':voice_of(selected),'jobs':jobs}
+
+
+def _remember_music(db, pid, p, config):
+    """Keep the chosen track on the project so a reload shows the same level."""
+    from .manual import Clip, Edit, read as read_manual
+    stored = read_manual(pid, db)
+    if stored is None:
+        duration = float((p.get('metadata') or {}).get('duration') or 1)
+        stored = Edit(clips=[Clip(start=0, end=duration)], music=config).model_dump()
+    else:
+        stored['music'] = config.model_dump() if config else None
+    db.execute(
+        'INSERT INTO studio_manual(project_id,config) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET config=excluded.config',
+        (pid, json.dumps(stored)),
+    )
 
 
 @router.post('/projects/{pid}/final-music',status_code=202)
@@ -116,10 +134,15 @@ def apply(pid:str,body:Apply,request:Request,user=Depends(current_user)):
         selected=final_output.current(db,pid,body.master_id)
         if (selected['id'] if selected else 'master')!=body.final_id:raise HTTPException(409,'final_changed')
         edit=read(pid,db)
-        if edit is None:raise HTTPException(422,'save_manual_first')
+        if body.use_request_music:
+            _remember_music(db,pid,p,body.music)
+            config=body.music.model_dump() if body.music else None
+        else:
+            if edit is None:raise HTTPException(422,'save_manual_first')
+            config=edit.get('music')
         voice=voice_of(selected)
         if not base_path(pid,master,voice).is_file():raise HTTPException(404,'not_ready')
-        ident=queue(db,p,edit.get('music'),voice,body.final_id,body.request_id)
+        ident=queue(db,p,config,voice,body.final_id,body.request_id)
     return {'id':ident}
 
 

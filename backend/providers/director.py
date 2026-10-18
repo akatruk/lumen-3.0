@@ -111,6 +111,74 @@ class OpenRouterDirectorProvider:
         raise RuntimeError("use_studio_analyze_for_openrouter")
 
 
+class SemanticOpenRouterDirectorProvider:
+    """Passage plan from the existing OpenRouter client. No heuristic timeline."""
+
+    name = "semantic_openrouter"
+
+    def build_plan(self, *, duration: float, language: str, transcript: list[dict], dna: list | None = None, experience: dict | None = None, project_id: str | None = None):
+        from ..semantic_planner import PlannerError, plan_semantics
+        from ..studio import Director
+
+        if not project_id:
+            raise PlannerError("PLANNER_UNAVAILABLE")
+        semantic = plan_semantics(project_id, transcript, language)
+        by_id = {}
+        for index, row in enumerate(transcript or [], start=1):
+            if isinstance(row, dict):
+                by_id[row.get("id") or f"segment_{index:03d}"] = row
+
+        def role(passage: dict) -> str:
+            intent = str(passage.get("intent") or "").lower()
+            if "question" in intent:
+                return "hook"
+            if "cta" in intent or "close" in intent:
+                return "cta"
+            if passage.get("visual_need") in {"supporting_broll", "explanatory_graphic"}:
+                return "proof"
+            return "context"
+
+        scenes = []
+        for passage in semantic["passages"]:
+            rows = [by_id[sid] for sid in passage["segment_ids"] if sid in by_id]
+            start = min(float(row.get("start") or 0) for row in rows)
+            end = max(float(row.get("end") or 0) for row in rows)
+            end = min(max(end, start + 0.2), duration)
+            start = min(start, end - 0.2)
+            label = (passage.get("visual_concept") or passage.get("intent") or "passage")[:80]
+            scenes.append(Scene(
+                start=round(max(0.0, start), 3),
+                end=round(end, 3),
+                title=_t(label),
+                observation=_t(str(passage.get("quote") or label)[:180]),
+                role=role(passage),
+            ))
+        caps = []
+        for row in transcript or []:
+            if not isinstance(row, dict):
+                continue
+            start = float(row.get("start") or 0)
+            end = min(float(row.get("end") or start), duration)
+            text = str(row.get("text") or "").strip()
+            if not text or end <= start:
+                continue
+            caps.append(Caption(start=round(start, 3), end=round(end, 3), original=text[:300], en=text[:300], zh=text[:300], ru=text[:400]))
+        if not caps:
+            caps = [Caption(start=0.0, end=round(duration, 3), original="[no speech]", en="[no speech]", zh="[no speech]", ru="[no speech]")]
+        note = "Semantic plan from OpenRouter. Scores are unset because this call does not judge marketing quality."
+        return Director(
+            summary=_t(semantic.get("topic") or "Semantic director plan"),
+            strongest_moment=_t(scenes[0].observation.en if scenes else "Opening"),
+            audience=_t("Audience is not inferred."),
+            scores=[Score(category=name, value=0, reason=_t(note)) for name in ("hook", "clarity", "pacing")],
+            scenes=scenes,
+            transcript=caps,
+            recommendations=[],
+            uncertainties=[_t(note)],
+            transfers=[],
+        )
+
+
 class RunPodDirectorProvider:
     """Director V4 via RunPod-local LLM. Fail-closed — never heuristic swap."""
 
@@ -178,6 +246,8 @@ Do not invent claims or metrics. Prefer 4–8 semantic scenes. Times within 0..{
 
 def get_director_provider(name: str | None = None) -> DirectorProvider:
     llm = (name or getattr(settings, "llm_provider", "none") or "none").strip().lower()
+    if llm == "semantic" or (name is None and getattr(settings, "semantic_planner_required", False)):
+        return SemanticOpenRouterDirectorProvider()
     if llm in ("openrouter", "or") and settings.openrouter_api_key:
         return OpenRouterDirectorProvider()
     if llm in ("runpod", "runpod_llm", "local_runpod"):

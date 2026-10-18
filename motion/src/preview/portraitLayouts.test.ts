@@ -7,7 +7,7 @@ import {
   splitMediaRect,
   splitSpeakerRect,
 } from "./portraitLayouts";
-import { DIRECTOR_V3_FPS, beatsFor, framesForSeconds } from "./DirectorV3";
+import { DIRECTOR_V3_FPS, beatsFor, captionsFromTranscript, framesForSeconds } from "./DirectorV3";
 
 describe("portraitLayouts", () => {
   it("fills the 1080×1920 canvas without a bottom black void in splits", () => {
@@ -37,6 +37,24 @@ describe("portraitLayouts", () => {
     assert.match(criteriaCardsFor("ru-RU")[0].explanation, /переезжаете/);
     assert.match(criteriaCardsFor("en-US")[1].explanation, /travels|who/i);
     assert.equal(criteriaCardsFor("zh-CN")[2].title, "预算");
+  });
+
+  it("does not glue a finished caption onto the next sentence", () => {
+    const rows = captionsFromTranscript(
+      [
+        { start: 8.5, end: 12, text: "The filing fee is 500 dollars." },
+        { start: 12, end: 16, text: "I was afraid we would miss the deadline." },
+        { start: 9, end: 13, text: "Срок проверки шесть месяцев." },
+        { start: 13, end: 17, text: "Это риск, если пропустить срок." },
+      ],
+      framesForSeconds(17),
+    );
+    const fee = rows.find((row) => row.text.includes("500"));
+    const months = rows.find((row) => row.text.includes("месяцев"));
+    assert.ok(fee);
+    assert.equal(fee.text.includes("afraid"), false);
+    assert.ok(months);
+    assert.equal(months.text.includes("риск"), false);
   });
 
   it("starts the residency media beat before 4s on a 20s cut", () => {

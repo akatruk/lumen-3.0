@@ -58,7 +58,10 @@ def strict_schema(schema):
     return spec
 
 
-def json_call(project_id, path, prompt, schema, purpose, reference=None, system=None, validator=None, _repair=False, reference_label="ORIGINAL SOURCE VIDEO", attach_video=True):
+last_usage: dict = {}
+
+
+def json_call(project_id, path, prompt, schema, purpose, reference=None, system=None, validator=None, _repair=False, reference_label="ORIGINAL SOURCE VIDEO", attach_video=True, model=None):
     path=Path(path)
     # A missing file used to reserve $0.50 and then raise before the provider request.
     if attach_video and not path.is_file():raise ValueError('analysis_proxy_missing')
@@ -69,8 +72,9 @@ def json_call(project_id, path, prompt, schema, purpose, reference=None, system=
     if attach_video:media_parts += [{'type':'text','text':'VIDEO TO ANALYZE / REVIEW'},video_part(path)]
     else:media_parts += [{'type':'text','text':'No scene video was attached. Use only the written context.'}]
     # Full bilingual transcripts plus the executable plan exceed the reference/QA allowance.
-    output_limit = 32000 if purpose in ('director_plan','creative_plan','reference_dna') else 12000
-    payload={'model':settings.analysis_model,'temperature':0.15,'max_tokens':output_limit,
+    output_limit = 32000 if purpose in ('director_plan','creative_plan','reference_dna') else 8000 if purpose == 'semantic_director' else 12000
+    chosen = model or settings.analysis_model
+    payload={'model':chosen,'temperature':0.15,'max_tokens':output_limit,
              'messages':[{'role':'system','content':system or SYSTEM},{'role':'user','content':[
                  {'type':'text','text':prompt+'\nRequired JSON schema:\n'+json.dumps(schema.model_json_schema(),ensure_ascii=False)},*media_parts]}],
              'response_format':{'type':'json_schema','json_schema':{'name':schema.__name__,'strict':True,'schema':strict_schema(schema)}},
@@ -84,7 +88,14 @@ def json_call(project_id, path, prompt, schema, purpose, reference=None, system=
         if response.status_code in (401,403): raise ValueError('provider_auth_failed')
         raise ValueError('provider_request_failed')
     data=response.json()
-    settle(token,data.get('usage',{}).get('cost'))
+    usage=data.get('usage') or {}
+    settle(token,usage.get('cost'))
+    global last_usage
+    last_usage={'purpose':purpose,'model':chosen,'prompt_tokens':usage.get('prompt_tokens'),
+        'completion_tokens':usage.get('completion_tokens'),'total_tokens':usage.get('total_tokens'),
+        'cost':usage.get('cost')}
+    if purpose=='semantic_director':
+        event(project_id,'semantic_director_usage',json.dumps(last_usage))
     choice=(data.get('choices') or [{}])[0]
     if choice.get('finish_reason') == 'length':
         event(project_id,'analysis_validation',json.dumps({'purpose':purpose,'reason':'output_limit','max_tokens':output_limit,
@@ -104,20 +115,21 @@ def json_call(project_id, path, prompt, schema, purpose, reference=None, system=
             'errors':[{'type':e['type']} for e in exc.errors(include_input=False,include_context=False)[:12]]}))
         # Only retry completed invalid responses, never ambiguous network failures.
         # The normal reservation enforces the project and daily ceilings again.
-        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking') and not _repair:
+        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking','semantic_director') and not _repair:
             issues=','.join(sorted({e['type'] for e in exc.errors(include_input=False,include_context=False)}))
             event(project_id,'analysis_repair',json.dumps({'purpose':purpose,'attempt':1}))
-            return json_call(project_id,path,prompt+'\nThe preceding response failed validation ('+issues+'). Return a complete JSON object strictly matching the schema; use concise fields and valid escaped strings.',schema,purpose,reference=reference,system=system,validator=validator,_repair=True,reference_label=reference_label)
+            return json_call(project_id,path,prompt+'\nThe preceding response failed validation ('+issues+'). Return a complete JSON object strictly matching the schema; use concise fields and valid escaped strings.',schema,purpose,reference=reference,system=system,validator=validator,_repair=True,reference_label=reference_label,attach_video=attach_video,model=chosen)
         raise ValueError('provider_invalid_analysis') from None
     except ValueError as exc:
         code=str(exc)
-        if code not in {'analysis_timestamps_invalid','analysis_duplicate_ids','analysis_multiple_hooks','provider_invalid_analysis'}:raise
+        if code not in {'analysis_timestamps_invalid','analysis_duplicate_ids','analysis_multiple_hooks','provider_invalid_analysis','PLANNER_INVALID'}:raise
         event(project_id,'analysis_validation',json.dumps({'purpose':purpose,'reason':code}))
-        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking') and not _repair:
+        if purpose in ('director_plan','reference_dna','creative_plan','platform_planning','timeline_proposal','stock_discovery','stock_ranking','semantic_director') and not _repair:
             event(project_id,'analysis_repair',json.dumps({'purpose':purpose,'attempt':1}))
             guidance='Check the stated timeline bounds and schema. Preserve complete speech and do not invent missing evidence.'
             if purpose=='director_plan':guidance+=' Use unique recommendation IDs and exactly one valid transfer per recommendation; reference and source timelines are separate.'
-            return json_call(project_id,path,prompt+'\nThe preceding plan failed '+code+'. '+getattr(exc,'feedback','')+'. '+guidance,schema,purpose,reference=reference,system=system,validator=validator,_repair=True,reference_label=reference_label)
+            if purpose=='semantic_director':guidance+=' Quote only supplied segment text. Use only supplied segment ids. Do not add timestamps or asset ids.'
+            return json_call(project_id,path,prompt+'\nThe preceding plan failed '+code+'. '+getattr(exc,'feedback','')+'. '+guidance,schema,purpose,reference=reference,system=system,validator=validator,_repair=True,reference_label=reference_label,attach_video=attach_video,model=chosen)
         raise
 
 REFERENCE_SYSTEM = """You are a bilingual video reference analyst. Watch and listen to the entire reference.

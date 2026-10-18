@@ -67,12 +67,12 @@ def _transcribe_source(source: Path, *, duration: float | None, language: str | 
             raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
         return segments, "qwen3-asr"
     try:
+        kwargs = {"language": language}
         if transcript_provider.name == "placeholder":
-            segments = transcript_provider.transcribe(
-                source, language=language, duration=duration
-            )
-        else:
-            segments = transcript_provider.transcribe(source, language=language)
+            kwargs["duration"] = duration
+        if on_phase and transcript_provider.name == "qwen3-asr":
+            kwargs["on_phase"] = on_phase
+        segments = transcript_provider.transcribe(source, **kwargs)
         used = transcript_provider.name
     except Exception as exc:
         if "asr_forbidden" in str(exc):
@@ -91,6 +91,8 @@ def _transcribe_source(source: Path, *, duration: float | None, language: str | 
         if isinstance(exc, ImportError):
             raise TranscriptError("TRANSCRIPTION_PROVIDER_UNAVAILABLE") from exc
         raise TranscriptError("TRANSCRIPTION_FAILED") from exc
+    if used == "qwen3-asr" and not segments:
+        return [], used
     if is_placeholder_transcript(segments):
         from .source_transcript import TranscriptError
 
@@ -137,6 +139,9 @@ def _cache_valid(meta: dict, path: Path, plan: dict | None = None) -> bool:
     if (meta or {}).get("analysis_stale"):
         return False
     if plan is not None and is_placeholder_transcript((plan or {}).get("transcript")):
+        return False
+    edit = (meta or {}).get("transcript_edit_version")
+    if edit and (meta or {}).get("plan_bound_transcript_edit") != edit:
         return False
     return True
 
@@ -186,11 +191,17 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
     meta["transcription"] = "transcription_completed"
     meta["transcription_model"] = saved.get("modelId")
     segments = [
-        {"start": row["start"], "end": row["end"], "text": row["text"]}
-        for row in saved["segments"]
+        {
+            "id": row.get("id") or f"segment_{index:03d}",
+            "start": row["start"],
+            "end": row["end"],
+            "text": row["text"],
+        }
+        for index, row in enumerate(saved["segments"], start=1)
     ]
 
-    director = get_director_provider("none")  # local baseline — never silent LLM claim
+    semantic = bool(getattr(settings, "semantic_planner_required", False))
+    director = get_director_provider("semantic" if semantic else "none")
     from .experience_memory import context_for_transcript
     plan = director.build_plan(
         duration=float(meta["duration"]),
@@ -198,6 +209,7 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
         transcript=segments,
         dna=[],
         experience=context_for_transcript(pid, segments),
+        **({"project_id": pid} if semantic else {}),
     )
     media.validate_analysis(plan, meta["duration"])
     return {
@@ -205,8 +217,8 @@ def build_local_plan(pid: str, *, language: str = "en") -> dict:
         "metadata": meta,
         "transcript_provider": transcript_name,
         "director_provider": director.name,
-        "director_mode": "heuristic",
-        "analysis_quality": "local_baseline",
+        "director_mode": "semantic_openrouter" if semantic else "heuristic",
+        "analysis_quality": "semantic" if semantic else "local_baseline",
     }
 
 
@@ -261,6 +273,8 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
 
     llm = get_llm_provider()
     provider_name = (getattr(settings, "llm_provider", "none") or "none").strip().lower()
+    if getattr(settings, "semantic_planner_required", False):
+        provider_name = "semantic"
 
     if provider_name in ("runpod", "runpod_llm", "local_runpod"):
         from .providers.director import RunPodDirectorProvider
@@ -400,10 +414,11 @@ def ensure_analysis(pid: str, *, language: str | None = None, force: bool = Fals
         transcript_provider=built["transcript_provider"],
     )
     ready = {} if keep_status else {"status": "ready", "stage": "ready", "progress": 100, "error": None}
+    bound = (meta or {}).get("transcript_edit_version")
     update(
         pid,
         analysis=legacy,
-        metadata={**meta, **built["metadata"], **stamp},
+        metadata={**meta, **built["metadata"], **stamp, "plan_bound_transcript_edit": bound},
         **ready,
     )
     return {

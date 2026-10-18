@@ -1,5 +1,12 @@
 // Russian interface messages keyed by their English source. Generated project content is separate.
 export const ru: Record<string, string> = {
+  "Ready to edit": "Готов к редактированию",
+  "Source is ready. Choose language and press Create video — analysis runs then.": "Исходник готов. Выберите язык и нажмите «Создать видео» — после этого начнётся анализ.",
+  "not set": "не задан",
+  "Russian": "Русский",
+  "Chinese": "Китайский",
+  "Error": "Ошибка",
+  "No plan yet. Press Create video to run analysis and render — the editable plan appears after that.": "Плана пока нет. Нажмите «Создать видео», чтобы запустить анализ и рендер — затем появится редактируемый план.",
   "Play": "Смотреть",
   "Preview video": "Предпросмотр",
   " Burn edited subtitles into the video": " Встроить отредактированные субтитры в видео",

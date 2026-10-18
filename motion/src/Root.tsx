@@ -9,7 +9,13 @@ import { ImmigrationMotion } from "./immigration/scenes";
 import { DIRECTOR_V3_FRAMES, DirectorV3, framesForSeconds, type DirectorV3Props } from "./preview/DirectorV3";
 import { GALLERY_FRAMES, SemanticMotionV14Gallery, SemanticMotionV15Gallery, SemanticMotionV18Gallery, V18_GALLERY_FRAMES, V18_LOCALE_FRAMES } from "./semantic/Gallery";
 import { V15_GALLERY_FRAMES } from "./semantic/galleryV15";
+import { NUMERIC_RANGE_V2_DEFAULTS, NumericRangeV2Film, type NumericRangeV2Props } from "./preview/NumericRangeV2Film";
+import { GOLD_FRAMES, GOLD_THREE_LAYERS_DEFAULTS, GoldThreeLayersFilm, type GoldThreeLayersProps } from "./gold/GoldThreeLayersFilm";
+import { GOLD_V2_DEFAULTS, GoldV2Film, type GoldV2Props } from "./gold/v2/GoldV2Film";
+import { GOLD_DURATION, GOLD_FPS } from "./gold/v2/model";
+import { EDITORIAL_PROOF_DEFAULTS, EditorialProof, type EditorialProofProps } from "./gold/story/EditorialProof";
 import { ArtDirectionStudy, type ArtStudyProps } from "./semantic/artDirectionStudy";
+import { STORY_FRAMES } from "./gold/story/editorialModel";
 
 export function RemotionRoot() {
   return (
@@ -118,6 +124,46 @@ export function RemotionRoot() {
         component={SourceEdit}
         defaultProps={{ beats: SOURCE_EDIT_BEATS }}
         durationInFrames={SOURCE_PREVIEW_FRAMES}
+        fps={CANVAS.fps}
+        width={CANVAS.width}
+        height={CANVAS.height}
+      />
+      <Composition
+        id="NumericRangeV2Preview"
+        component={NumericRangeV2Film}
+        defaultProps={NUMERIC_RANGE_V2_DEFAULTS satisfies NumericRangeV2Props}
+        calculateMetadata={({ props }) => {
+          const frames = Math.max(1, Math.round(Number(props.durationSeconds ?? 8) * CANVAS.fps));
+          return { durationInFrames: frames, props };
+        }}
+        durationInFrames={240}
+        fps={CANVAS.fps}
+        width={CANVAS.width}
+        height={CANVAS.height}
+      />
+      <Composition
+        id="GoldStandardV2"
+        component={GoldV2Film}
+        defaultProps={GOLD_V2_DEFAULTS satisfies GoldV2Props}
+        durationInFrames={Math.round(GOLD_DURATION * GOLD_FPS)}
+        fps={CANVAS.fps}
+        width={CANVAS.width}
+        height={CANVAS.height}
+      />
+      <Composition
+        id="EditorialProof"
+        component={EditorialProof}
+        defaultProps={EDITORIAL_PROOF_DEFAULTS satisfies EditorialProofProps}
+        durationInFrames={STORY_FRAMES}
+        fps={CANVAS.fps}
+        width={CANVAS.width}
+        height={CANVAS.height}
+      />
+      <Composition
+        id="GoldThreeLayersProof"
+        component={GoldThreeLayersFilm}
+        defaultProps={GOLD_THREE_LAYERS_DEFAULTS satisfies GoldThreeLayersProps}
+        durationInFrames={GOLD_FRAMES}
         fps={CANVAS.fps}
         width={CANVAS.width}
         height={CANVAS.height}

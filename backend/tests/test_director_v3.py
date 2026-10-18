@@ -171,3 +171,33 @@ def test_remotion_public_dir_is_parent_of_director_v3(tmp_path, monkeypatch):
     public = director_v3._public_director()
     assert public.name == 'director-v3'
     assert director_v3.remotion_public_dir() == public.parent
+
+
+def test_create_video_accepts_the_source_length_and_asr_is_blocked(monkeypatch):
+    from backend.studio import CreateVideo
+    from backend.source_analysis import _transcribe_source
+    body = CreateVideo(duration_seconds=63.466667)
+    assert body.duration_seconds == 63.466667
+    monkeypatch.setenv('LUMEN_FORBID_ASR', '1')
+    with pytest.raises(RuntimeError, match='asr_forbidden'):
+        _transcribe_source(__import__('pathlib').Path('unused'), language='zh-CN', duration=1)
+
+
+def test_full_source_length_keeps_the_tail_past_the_five_second_grid():
+    from backend.director_v3 import output_seconds
+    source = 63.466667
+    assert output_seconds(None, source) == 20
+    full = output_seconds(source, source)
+    assert full > 61.46
+    assert full <= source
+    assert output_seconds(60, source) == 60
+    try:
+        output_seconds(65, source)
+    except ValueError as exc:
+        assert str(exc) == 'duration_step'
+    else:
+        raise AssertionError('65s is past the source')
+    short = 151.0908125
+    kept = output_seconds(short, short)
+    assert kept >= 151.0
+    assert kept <= short

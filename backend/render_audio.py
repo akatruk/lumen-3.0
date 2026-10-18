@@ -111,6 +111,8 @@ def attach_selected(db, p, folder, result):
         clean = prepare(p['id'], delivery['voice'], folder, timeline)
         current = replace_picture_audio(picture, clean, folder, duration)
         result['voiceover'] = {k: delivery['voice'][k] for k in ('language', 'voice')}
+        # The immutable master keeps the picture's own audio. The selected
+        # delivery is the carried mix copied before this file is restored.
         if not (folder / 'original-audio.mp4').is_file():
             shutil.copyfile(picture, folder / 'original-audio.mp4')
     config = delivery.get('music')

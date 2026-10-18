@@ -130,3 +130,94 @@ def test_auto_cleanup_keeps_selected_audio_and_changes_picture_timeline(client,m
     assert energy(path(pid,selected),.5,220)>energy(path(pid,selected),.5,110)*10
     assert energy(path(pid,selected),.5,440)>energy(path(pid,selected),.5,110)*50
     assert energy(path(pid,selected),2.5,880)>energy(path(pid,selected),2.5,110)*50
+
+
+def voiced_mix(client,monkeypatch):
+    """Select a ready voice and mix music through the live audio endpoints."""
+    import uuid
+    from backend.music import Music
+    from backend.tests.test_dubbing import MASTER,ready_delivery,setup
+    pid=setup(client,monkeypatch)
+    voice=ready_delivery(pid)
+    monkeypatch.setattr(media,'probe',REAL_PROBE)
+    root=settings.data_dir/pid
+    media.ffmpeg('-f','lavfi','-i','color=red:s=160x240:d=8:r=30','-f','lavfi','-i','sine=frequency=110:duration=8','-c:v','libx264','-c:a','aac','-f','mp4',root/'renders'/MASTER/'result.mp4')
+    spoken=root/'dubbing'/voice
+    media.ffmpeg('-f','lavfi','-i','sine=frequency=440:duration=4','-f','lavfi','-i','sine=frequency=880:duration=4','-filter_complex','[0:a][1:a]concat=n=2:v=0:a=1[a]','-map','[a]','-c:a','pcm_s16le',spoken/'voice.wav')
+    media.ffmpeg('-f','lavfi','-i','color=blue:s=160x240:d=8:r=30','-i',spoken/'voice.wav','-c:v','libx264','-c:a','aac',spoken/'video.mp4')
+    aid=uuid.uuid4().hex
+    (root/'assets').mkdir(parents=True)
+    media.ffmpeg('-f','lavfi','-i','sine=frequency=220:duration=8','-f','wav',root/'assets'/aid)
+    meta=media.probe(spoken/'video.mp4')
+    result=project(pid)['result']
+    result['timeline']=[[0,meta['duration']]]
+    result['metadata']={'duration':meta['duration'],'has_audio':True,'width':160,'height':240}
+    with connect() as db:
+        db.execute('UPDATE projects SET result=? WHERE id=?',(json.dumps(result),pid))
+        db.execute('INSERT INTO studio_assets VALUES(?,?,?,?,?,?,?)',(aid,pid,uuid.uuid4().hex,'Bed','Synthetic',json.dumps({'kind':'music','duration':60}),0))
+        db.execute('UPDATE dubbing_versions SET snapshot=? WHERE id=?',(json.dumps({'master':result}),voice))
+    assert client.put(f'/api/studio/projects/{pid}/dubbing/final',json={'master_id':MASTER,'version_id':voice}).status_code==200
+    revision=client.get(f'/api/studio/projects/{pid}/manual').json()['revision']
+    music=Music(asset_id=aid,gain_db=-12,fade_in=0,fade_out=0,duck=False).model_dump()
+    response=client.post(f'/api/studio/projects/{pid}/final-music',json={'request_id':uuid.uuid4().hex,'revision':revision,'master_id':MASTER,'final_id':voice,'music':music,'use_request_music':True})
+    assert response.status_code==202,response.text
+    assert run_once()
+    return pid,voice,aid
+
+
+def test_director_picture_keeps_selected_voice_and_music(client,monkeypatch):
+    import uuid
+    pid,voice,aid=voiced_mix(client,monkeypatch)
+    before=project(pid)
+    with connect() as db:previous=current(db,pid,before['result']['render_id'])
+    assert previous['delivery']=='mix'
+    assert client.get(f'/api/studio/projects/{pid}/manual').json()['edit']['music']['asset_id']==aid
+    assert client.get(f'/api/studio/projects/{pid}/manual').json()['edit']['music']['gain_db']==-12
+    new_id=uuid.uuid4().hex
+    folder=settings.data_dir/pid/'renders'/new_id
+    folder.mkdir(parents=True)
+    media.ffmpeg('-f','lavfi','-i','color=green:s=160x240:d=8:r=30','-f','lavfi','-i','sine=frequency=110:duration=8','-c:v','libx264','-c:a','aac','-f','mp4',folder/'result.mp4')
+    meta=media.probe(folder/'result.mp4')
+    result={**before['result'],'render_id':new_id,'metadata':meta,'timeline':[[0.0,meta['duration']]],'music':None,'applied':['director_v3']}
+    with connect() as db:
+        db.lock()
+        assert render_audio.attach_selected(db,before,folder,result)
+    after=project(pid)
+    assert after['result']['render_id']==new_id
+    assert 'selected_audio' in after['result']['applied']
+    with connect() as db:selected=current(db,pid,new_id)
+    assert selected['delivery']=='mix' and selected['id']!=previous['id']
+    video=path(pid,selected)
+    assert energy(video,.5,440)>energy(video,.5,110)*20
+    assert energy(video,.5,220)>energy(video,.5,110)*5
+    assert client.get(f'/api/projects/{pid}/media/result').content==video.read_bytes()
+    assert client.get(f'/api/projects/{pid}/media/master').content!=video.read_bytes()
+    assert energy(folder/'result.mp4',.5,110)>energy(folder/'result.mp4',.5,440)*20
+
+
+def test_director_audio_failure_keeps_the_previous_mix(client,monkeypatch):
+    import uuid
+    pid,voice,_aid=voiced_mix(client,monkeypatch)
+    before=project(pid)
+    with connect() as db:previous=current(db,pid,before['result']['render_id'])
+    kept=path(pid,previous).read_bytes()
+    origin=settings.data_dir/pid/'dubbing'/previous['source_voice']
+    moved=[]
+    for name in ('voice.wav','video.mp4'):
+        file=origin/name
+        if file.is_file():
+            aside=file.with_name(name+'.aside')
+            file.rename(aside)
+            moved.append((aside,file))
+    new_id=uuid.uuid4().hex
+    folder=settings.data_dir/pid/'renders'/new_id
+    folder.mkdir(parents=True)
+    (folder/'result.mp4').write_bytes(b'not a picture')
+    result={**before['result'],'render_id':new_id,'music':None}
+    with pytest.raises(ValueError,match='selected_audio_unavailable'):
+        with connect() as db:
+            db.lock()
+            render_audio.attach_selected(db,before,folder,result)
+    assert project(pid)['result']['render_id']==before['result']['render_id']
+    assert client.get(f'/api/projects/{pid}/media/result').content==kept
+    for aside,file in moved:aside.rename(file)

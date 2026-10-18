@@ -1,4 +1,5 @@
 import {ProjectWorkspace, useWorkspace} from './ProjectWorkspace';
+import {ProjectAudio} from './ProjectAudio';
 import { LanguageSelect } from './LanguageSelect';
 import { translate, contentLanguage, readLanguage } from './locale';
 import {StatusBadge} from './TaskStatus';
@@ -446,6 +447,7 @@ function App() {
             {pid ? (
               project ? (
                 <ProjectWorkspace simple key={project.id} p={project} lang={lang} onBack={() => navigate("library")} onDelete={() => setDeleteId(project.id)}>{project.studio ? (
+                  <>
                   <CreateVideo
                     key={project.id}
                     pid={project.id}
@@ -458,6 +460,8 @@ function App() {
                       void refresh();
                     }}
                   />
+                  <ProjectAudio pid={project.id} lang={lang} />
+                  </>
                 ) : (
                   <ProjectView
                     p={project}

@@ -14,7 +14,6 @@ import { DirectorAlternatives } from "./DirectorAlternatives";
 import { PlatformVariants } from "./PlatformVariants";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { DouyinSearch, type Hit } from "./DouyinSearch";
 import type { Lang, Project, Analysis, Text } from "./types";
 import "./studio.css";
 const labels: Record<string, [string, string]> = {
@@ -156,14 +155,7 @@ export function StudioCreate({
   onCreated: (id: string) => void;
 }) {
   const t = (en: string, cn: string) => translate(lang, en, cn);
-  const cache = "lumen-reference-draft:" + userKey;
-  const [refs, setRefs] = useState<Hit[]>(() => {
-    try {
-      return JSON.parse(sessionStorage.getItem(cache) || "[]");
-    } catch {
-      return [];
-    }
-  });
+  void userKey;
   const [handoff] = useState<{ concept_id: string; title: string; script: string; trend: string } | null>(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem("lumen-trend-handoff") || "null");
@@ -184,32 +176,15 @@ export function StudioCreate({
   const [transfer,setTransfer]=useState<{bytes:number;total:number;mbps:number}|null>(null);
   const xhr = useRef<AbortController | null>(null);
   const requestId = useRef(crypto.randomUUID().replaceAll("-", ""));
-  useEffect(() => {
-    sessionStorage.setItem(cache, JSON.stringify(refs));
-  }, [cache, refs]);
-  useEffect(() => {
-    const sync = () => setLookSaved(readBoard() !== null);
-    window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
-  }, []);
   useEffect(
     () => () => {
       xhr.current?.abort();
     },
     [],
   );
-  function select(hit: Hit) {
-    if (refs.length >= 5) {
-      setError("max_references");
-      return;
-    }
-    setRefs((v) =>
-      v.some((r) => r.aweme_id === hit.aweme_id) ? v : [...v, hit],
-    );
-  }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file || createPrompt(true, refs.length, false) !== "ready") return;
+    if (!file || createPrompt(true, 0, false) !== "ready") return;
     setError("");
     if (file.size > 250 * 1024 * 1024) {
       setError("upload_too_large");
@@ -219,7 +194,7 @@ export function StudioCreate({
     const controller=new AbortController();xhr.current=controller;
     const config = {
       request_id: requestId.current,
-      references: refs.map((r) => r.id),
+      references: [],
       title: (title.trim() || projectTitleFromFile(file.name)).slice(0, 120),
       script: script.trim(),
       creator: {
@@ -237,14 +212,14 @@ export function StudioCreate({
     };
     try {
       const p=await uploadVideo(file,config,controller.signal,(n,info)=>{setPercent(n);if(info)setTransfer(info)});
-      sessionStorage.removeItem(cache);onCreated(p.id);
+      onCreated(p.id);
     } catch(e) {
       const code=e instanceof Error?e.message:'upload_interrupted';
       if(code==='upload_cancelled')setPaused(true);else setError(code);
     } finally {setBusy(false)}
 
   }
-  const prompt = createPrompt(!!file, refs.length, false);
+  const prompt = createPrompt(!!file, 0, false);
   return (
     <div className="director-create page">
       <header className="director-intro">
@@ -322,40 +297,6 @@ export function StudioCreate({
             </label>
             <details className="create-advanced">
               <summary>{t("Advanced", "高级")}</summary>
-              <DouyinSearch
-                lang={lang}
-                onImported={() => {}}
-                onSelect={select}
-                selectedIds={refs.map((r) => r.aweme_id)}
-              />
-              <p>
-                {t(
-                  "Optional. A reference only teaches pacing. It is not copied into your video.",
-                  "可选。参考视频只用于学习节奏，不会被复制进成片。",
-                )}{" "}
-                {refs.length}/5
-              </p>
-              <ul className="reference-selection">
-                {refs.map((r) => (
-                  <li key={r.aweme_id}>
-                    <div>
-                      <strong>{r.title}</strong>
-                      <a href={r.share_url} target="_blank" rel="noreferrer">
-                        {r.author} ↗
-                      </a>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() =>
-                        setRefs((v) => v.filter((x) => x.aweme_id !== r.aweme_id))
-                      }
-                    >
-                      {t("Remove", "移除")}
-                    </button>
-                  </li>
-                ))}
-              </ul>
               <label>
                 {t("Script", "脚本")}
                 <textarea
@@ -375,9 +316,7 @@ export function StudioCreate({
         </fieldset>
         {error && (
           <p role="alert" className="error-box">
-            {error === "max_references"
-              ? t("Choose up to five references.", "最多选择五支参考视频。")
-              : message(error, lang)}
+            {message(error, lang)}
           </p>
         )}
         {paused && <p role="status"><StatusBadge status="paused">{t('Upload paused — saved chunks are preserved. Start again to resume.','上传已暂停 — 已保存的部分保留。再次开始即可继续。')}</StatusBadge></p>}

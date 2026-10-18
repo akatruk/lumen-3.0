@@ -3,7 +3,7 @@ import time
 import pytest
 from backend.db import connect,init_db,reserve
 from backend.config import settings
-from backend.database import worker_guard
+from backend.database import uses_postgres, worker_guard
 
 def test_concurrent_budget_reservations(tmp_path,monkeypatch):
     monkeypatch.setattr(settings,'data_dir',tmp_path)
@@ -29,14 +29,29 @@ def test_transaction_rollback(tmp_path,monkeypatch):
     with connect() as db: assert db.execute('SELECT COUNT(*) FROM users').fetchone()[0]==0
 
 def test_postgres_worker_singleton():
-    if not settings.database_url:pytest.skip('PostgreSQL only')
+    if not uses_postgres():pytest.skip('PostgreSQL only')
     with worker_guard():
         with pytest.raises(RuntimeError,match='already running'):
             with worker_guard(): pass
     with worker_guard(): pass
 
+def test_absolute_sqlite_url_opens_that_file(tmp_path,monkeypatch):
+    target = tmp_path / 'isolated' / 'lumen.db'
+    url = 'sqlite:///' + target.as_posix()
+    monkeypatch.setattr(settings, 'database_url', url)
+    monkeypatch.setattr(settings, 'data_dir', tmp_path / 'unused-data')
+    init_db()
+    with connect() as db:
+        db.execute('CREATE TABLE IF NOT EXISTS probe(id INTEGER)')
+        db.execute('INSERT INTO probe VALUES(1)')
+    assert target.is_file()
+    assert not (tmp_path / 'unused-data' / 'lumen.db').exists()
+    with connect() as db:
+        assert db.execute('SELECT id FROM probe').fetchone()[0] == 1
+
+
 def test_sqlite_migration_preserves_values_and_sequences(tmp_path,monkeypatch):
-    if not settings.database_url:pytest.skip('PostgreSQL only')
+    if not uses_postgres():pytest.skip('PostgreSQL only')
     from backend.migrate_postgres import migrate
     url=settings.database_url
     monkeypatch.setattr(settings,'data_dir',tmp_path)

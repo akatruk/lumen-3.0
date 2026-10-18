@@ -30,8 +30,11 @@ export type CriteriaCardLook = { title: string; explanation: string };
 
 export type SceneLook = {
   sceneId: string;
-  speaker: { layout: string };
-  background: { treatment: string; staged?: string | null };
+  start?: number;
+  end?: number;
+  speaker: { layout: string; framing?: string };
+  background: { treatment: string; staged?: string | null; file?: string; assetId?: string };
+  execution?: { executedTreatment?: string; speakerFraming?: string };
   foreground: { treatment: string; staged?: string | null; assetId?: string | null };
   typography: {
     animate?: string;
@@ -190,6 +193,21 @@ export function editingConceptCap(controls?: EditingControls | null): number {
 export function framesForSeconds(seconds: number) {
   const safe = Number.isFinite(seconds) ? seconds : 20;
   return Math.max(DIRECTOR_V3_FPS, Math.round(safe * DIRECTOR_V3_FPS));
+}
+
+/** Semantic scenes carry source start/end. Cuts land on those frames, not on a weight grid. */
+export function beatsFromBounds(
+  scenes: { start?: number; end?: number }[],
+  frames: number,
+  fps = DIRECTOR_V3_FPS,
+) {
+  return scenes.map((scene) => {
+    const start = Math.round(Number(scene.start) * fps);
+    const end = Math.round(Number(scene.end) * fps);
+    const from = Math.max(0, Math.min(Math.max(0, frames - 1), start));
+    const to = Math.max(from + 1, Math.min(frames, end));
+    return { from, duration: to - from };
+  });
 }
 
 export function beatsFor(frames: number, weights?: readonly number[] | number[]) {
@@ -703,8 +721,18 @@ function captionsForBeats(beats: { from: number; duration: number }[], locale: s
   return rows;
 }
 
+const CAPTION_LEAD = /^(and|but|or|the|a|an|with|for|of|и|а|но|да|или|чтобы|когда|если)\b/i;
+const CAPTION_TRAIL =
+  /\b(and|or|but|the|a|an|of|to|for|with|in|at|from|by|as|into|onto|than|need|и|а|но|да|или|с|со|к|ко|у|о|об|от|по|за|для|на|из)\s*$/i;
+
+function captionUnits(value: string): number {
+  const cjk = (value.match(/[\u4e00-\u9fff]/g) || []).length;
+  if (cjk) return cjk;
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
 /** Prefer real transcript phrases (seconds → frames). Pack is legacy fallback only. */
-function captionsFromTranscript(
+export function captionsFromTranscript(
   phrases: TranscriptCaption[] | undefined,
   totalFrames: number,
   fps = DIRECTOR_V3_FPS,
@@ -727,8 +755,16 @@ function captionsFromTranscript(
     const combined = prev ? `${prev.text} ${row.text}`.trim() : row.text;
     const cjk = (value: string) => (value.match(/[\u4e00-\u9fff]/g) || []).length;
     // A Chinese sentence has no spaces. Gluing adjacent lines paints a caption wall.
+    const closed = /[.?!。？！]$/.test(prev?.text.trim() || "");
+    const continuation =
+      !!prev &&
+      (CAPTION_LEAD.test(row.text) ||
+        CAPTION_TRAIL.test(prev.text) ||
+        (captionUnits(prev.text) <= 2 && captionUnits(row.text) <= 2));
     const canMerge =
       prev &&
+      continuation &&
+      !closed &&
       gap <= Math.round(0.35 * fps) &&
       combined.length <= 72 &&
       !prev.text.includes("\n") &&
@@ -811,7 +847,6 @@ function Enter({ transition, children }: { transition: string; children: ReactNo
 function Caption({
   text,
   emphasis,
-  animate = "fade",
   locale = "ru-RU",
 }: {
   text: string;
@@ -1409,7 +1444,7 @@ function stepsCopy(locale: string) {
   return { title: "Сопровождение", steps: [{ label: "Консультация" }, { label: "Программа" }, { label: "Документы" }] };
 }
 
-function Steps({
+export function Steps({
   frames,
   locale,
   look,
@@ -1538,7 +1573,12 @@ export function DirectorV3({
     visualPlan?.beatWeights?.length === sceneIds.length
       ? visualPlan.beatWeights
       : undefined;
-  const beatList = beatsFor(frames, weights);
+  const semanticClock =
+    visualPlan?.form === "semantic" &&
+    (visualPlan.scenes || []).every((scene) => Number.isFinite(scene.start) && Number.isFinite(scene.end));
+  const beatList = semanticClock
+    ? beatsFromBounds(visualPlan?.scenes || [], frames)
+    : beatsFor(frames, weights);
   // Align beat count to scene count (pad/trim safely).
   while (beatList.length < sceneIds.length) {
     const last = beatList[beatList.length - 1] || { from: 0, duration: frames };

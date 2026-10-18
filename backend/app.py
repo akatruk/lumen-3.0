@@ -35,6 +35,11 @@ def rate_limit(request,category,count,seconds=60):
     if len(q)>=count: raise HTTPException(429,'rate_limited')
     q.append(now)
 
+# Voice selection and the final music mix stay live. Picture edits stay on create-video.
+_AUDIO_DELIVERY = re.compile(
+    r'^/api/studio/projects/[^/]+/(?:dubbing/final|final-music)$'
+)
+
 _RETIRED_SURFACE = re.compile(
     r'^/api/(?:'
     r'projects/[^/]+/render|'
@@ -50,7 +55,7 @@ _RETIRED_SURFACE = re.compile(
 
 @app.middleware('http')
 async def security(request,call_next):
-    if request.method not in ('GET','HEAD','OPTIONS') and _RETIRED_SURFACE.match(request.url.path):
+    if request.method not in ('GET','HEAD','OPTIONS') and _RETIRED_SURFACE.match(request.url.path) and not _AUDIO_DELIVERY.match(request.url.path):
         return JSONResponse({'detail':'studio_surface_disabled'}, status_code=409)
     if request.method not in ('GET','HEAD','OPTIONS'):
         origin=request.headers.get('origin')

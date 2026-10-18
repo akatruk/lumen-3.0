@@ -1182,3 +1182,8 @@
 .layer-row-art .layer-lane > span { background: #d2ebe3; }
 .layer-row-broll .layer-lane > span { background: #d8eeb8; }
 .layer-playhead { position: absolute; top: 0; width: 2px; height: 100%; background: #163e32; pointer-events: none; }
+.source-transcript { margin-top: 16px; display: grid; gap: 8px; }
+.source-transcript header { display: flex; justify-content: space-between; gap: 12px; }
+.source-transcript ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.source-transcript li { display: grid; grid-template-columns: 92px 1fr auto; gap: 8px; align-items: center; }
+.source-transcript input { width: 100%; }

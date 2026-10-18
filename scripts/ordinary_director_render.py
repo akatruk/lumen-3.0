@@ -21,7 +21,7 @@ def main():
     parser.add_argument('--project-id', required=True)
     parser.add_argument('--language', default='ru-RU')
     parser.add_argument('--energy', default='balanced')
-    parser.add_argument('--duration', type=int, default=None, help='seconds (step 5); default=max from source')
+    parser.add_argument('--duration', type=float, default=None, help='seconds (step 5, or the source length)')
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--frozen-plan', type=Path, default=None,
                         help='Reuse this scene plan and replace only background retrieval')
@@ -133,6 +133,8 @@ def main():
         plan = director_v14.apply_semantic_motion(plan, transcript, locale=args.language)
         from backend import director_v15
         plan = director_v15.apply_semantic_motion_v15(plan, transcript, locale=args.language)
+        from backend import semantic_numeric_range
+        plan = semantic_numeric_range.apply_numeric_range(plan, transcript, locale=args.language)
     store_plan(settings.data_dir, args.project_id, plan)
 
     from backend import scene_composer_v16

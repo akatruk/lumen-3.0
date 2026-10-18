@@ -9,6 +9,8 @@ import subprocess
 import wave
 from pathlib import Path
 
+from .asr_memory import assert_can_load, available_mb
+
 SOCKET_PATH = os.environ.get(
     "QWEN_ASR_SOCKET",
     "/mnt/volume_nyc1_1791446889637/qwen3-asr/asr.sock",
@@ -39,7 +41,7 @@ def _send(conn: socket.socket, payload: dict) -> None:
     conn.sendall((json.dumps(payload, ensure_ascii=False) + "\n").encode())
 
 
-def _wav(source: Path, dest: Path) -> float:
+def _wav(source: Path, dest: Path) -> tuple[float, int]:
     dest.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
@@ -58,10 +60,29 @@ def _wav(source: Path, dest: Path) -> float:
     for index in range(0, len(samples) - 1, 2):
         value = int.from_bytes(samples[index:index + 2], "little", signed=True)
         peak = max(peak, abs(value))
-    return frames / rate if rate else 0.0, peak
+    return (frames / rate if rate else 0.0), peak
+
+
+def _model_child_running() -> bool:
+    proc = Path("/proc")
+    if not proc.is_dir():
+        return False
+    for child in proc.iterdir():
+        if not child.name.isdigit():
+            continue
+        try:
+            command = (child / "cmdline").read_bytes().replace(b"\x00", b" ").decode(errors="ignore")
+        except OSError:
+            continue
+        if "asr_qwen/recognize.py" in command or "asr_qwen/align.py" in command:
+            return True
+    return False
 
 
 def _run(script: str, args: list[str]) -> dict:
+    if _model_child_running():
+        raise RuntimeError("TRANSCRIPTION_BUSY")
+    assert_can_load(available_mb())
     completed = subprocess.run(
         [QWEN_PYTHON, str(HERE / script), *args],
         capture_output=True,

@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     asr_model: str = 'small'
     asr_model_cache: str = ''
     asr_config_version: str = 'cpu-int8-vad-1'
+    # When true, Create Video fails if semantic-plan.json is missing or invalid.
+    # It does not substitute HeuristicDirectorProvider and call that success.
+    semantic_planner_required: bool = False
+    semantic_planner_command: str = ''
+    # Used only when semantic_planner_required is explicitly on. Does not replace analysis_model.
+    semantic_director_model: str = 'qwen/qwen3-30b-a3b-instruct-2507'
     # Persistent visual experience memory (pgvector). Default off so Director
     # generation stays unchanged until retrieval is validated.
     visual_experience_memory_enabled: bool = False

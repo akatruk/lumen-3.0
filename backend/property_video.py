@@ -5,6 +5,7 @@ module does not invent price, area, tenure, or a city.
 """
 import hashlib
 import json
+import logging
 import re
 import shutil
 import uuid
@@ -438,4 +439,9 @@ def approve_delivery(pid, render_id):
         'previous_render_id': previous.get('render_id') or '',
     }
     update(pid, result=selected, status='complete', stage='complete', progress=100, error=None)
+    try:
+        from .render_retention import prune_pictures
+        prune_pictures(pid, render_id)
+    except Exception:
+        logging.getLogger(__name__).exception('render retention failed for %s', pid)
     return selected

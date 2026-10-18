@@ -5,6 +5,7 @@ No connection URL or query parameters are logged here.
 """
 import sqlite3
 from contextlib import contextmanager
+from pathlib import Path
 from .config import settings
 
 WRITE_LOCK = 481920261
@@ -55,14 +56,37 @@ class Database:
             return {r[0] for r in self.execute("SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=?", (table,))}
         return {r[1] for r in self.execute('PRAGMA table_info(sessions)')}
 
+def sqlite_file(url: str | None = None) -> Path | None:
+    """Absolute sqlite file when DATABASE_URL is sqlite:///... Empty means the data-dir default."""
+    raw = (settings.database_url if url is None else url).strip()
+    if not raw:
+        return None
+    if not raw.lower().startswith('sqlite:'):
+        return None
+    rest = raw.split(':', 1)[1]
+    if not rest.startswith('////'):
+        raise ValueError('sqlite_url_must_be_absolute')
+    path = Path(rest[3:])
+    if not path.is_absolute():
+        raise ValueError('sqlite_url_must_be_absolute')
+    return path
+
+
+def uses_postgres(url: str | None = None) -> bool:
+    raw = (settings.database_url if url is None else url).strip()
+    return bool(raw) and sqlite_file(raw) is None
+
+
 @contextmanager
 def connect():
-    postgres = bool(settings.database_url)
+    postgres = uses_postgres()
     if postgres:
         import psycopg
         conn = psycopg.connect(settings.database_url, row_factory=row_factory, connect_timeout=10)
     else:
-        conn = sqlite3.connect(settings.data_dir / 'lumen.db', timeout=30)
+        target = sqlite_file() or (settings.data_dir / 'lumen.db')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(target, timeout=30)
         conn.row_factory = sqlite3.Row
         conn.execute('PRAGMA foreign_keys=ON')
     try:
@@ -77,7 +101,7 @@ def connect():
 @contextmanager
 def worker_guard():
     """One worker across hosts; paid calls are never automatically replayed."""
-    if not settings.database_url:
+    if not uses_postgres():
         yield None
         return
     import psycopg

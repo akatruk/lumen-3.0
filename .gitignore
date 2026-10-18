@@ -52,6 +52,12 @@ media/library/out/models/premium3d/
 media/library/out/thumbnails/premium3d/
 output/director-v10/*.mp4
 
+# Isolated family v4 plates. Not published, not production.
+motion/public/gold/family-v4/
+
+# Isolated storytelling proof still. Not a library change.
+motion/public/gold/story-proof/
+
 # Database dumps and embedding weights stay off Git.
 *.dump
 *.pgdump

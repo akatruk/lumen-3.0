@@ -402,8 +402,13 @@ def run_job(p, payload):
         visual_plan = director_v8.expand_plan_for_duration(
             visual_plan, duration_seconds=seconds, transcript=cleaned, locale=locale,
         )
-        from .editorial_decision import assign_passage_queries
-        visual_plan = assign_passage_queries(visual_plan, cleaned, locale)
+        from .passage_retrieval import apply_passage_media, apply_semantic_beats
+        from .semantic_planner import PlannerError
+        try:
+            visual_plan = apply_semantic_beats(visual_plan, p['id'], cleaned)
+            visual_plan = apply_passage_media(visual_plan, p['id'], cleaned)
+        except PlannerError as exc:
+            raise ValueError(exc.code) from exc
         visual_plan = director_v8.fill_media_for_scenes(visual_plan, seed=visual_plan.get('visualSeed'))
         from . import director_v9, director_v10, director_v11, director_v11_1, director_v11_2
         visual_plan = director_v9.apply_composition_intelligence(visual_plan)
@@ -419,6 +424,11 @@ def run_job(p, payload):
         visual_plan = director_v8.fill_media_for_scenes(
             visual_plan, seed=visual_plan.get('visualSeed'),
         )
+        from .passage_retrieval import revalidate_assets
+        try:
+            visual_plan = revalidate_assets(visual_plan, p['id'], cleaned)
+        except PlannerError as exc:
+            raise ValueError(exc.code) from exc
         visual_plan = director_v9.apply_composition_intelligence(visual_plan)
         visual_plan = director_v10.apply_premium_3d(visual_plan, seed=visual_plan.get('visualSeed'))
         from .semantic_motion_profile import selected as _motion_profile
@@ -472,15 +482,26 @@ def run_job(p, payload):
             source_seconds=float(raw_source or seconds),
             duration_mode=(contract or {}).get('mode') or 'target',
         )
-        public = _public_director()
-        from .visual_variation import stage_backgrounds
-        from pathlib import Path as _Path
-        library = _Path(__file__).resolve().parent.parent / 'media' / 'library' / 'out'
-        visual_plan = stage_backgrounds(visual_plan, public, library)
-        visual_plan = director_v8.stage_semantic_motion(visual_plan, public, library)
-        visual_plan = director_v9.stage_float_objects(visual_plan, public, library)
-        visual_plan = director_v10.stage_premium_3d(visual_plan, public, library)
+        try:
+            visual_plan = revalidate_assets(visual_plan, p['id'], cleaned)
+        except PlannerError as exc:
+            raise ValueError(exc.code) from exc
+        if (payload or {}).get('plan_only'):
+            visual_plan = {**visual_plan, 'planOnly': True, 'staging': 'skipped'}
+        else:
+            public = _public_director()
+            from .visual_variation import stage_backgrounds
+            from pathlib import Path as _Path
+            library = _Path(__file__).resolve().parent.parent / 'media' / 'library' / 'out'
+            visual_plan = stage_backgrounds(visual_plan, public, library)
+            visual_plan = director_v8.stage_semantic_motion(visual_plan, public, library)
+            visual_plan = director_v9.stage_float_objects(visual_plan, public, library)
+            visual_plan = director_v10.stage_premium_3d(visual_plan, public, library)
         transcript_early = cleaned
+        if visual_plan.get('form') == 'semantic':
+            ends = [float(scene.get('end') or 0) for scene in visual_plan.get('scenes') or []]
+            if ends and max(ends) > 0:
+                seconds = frame_seconds(max(ends), max(ends))
     render_plan = remotion_engine.resolve_scene_plan(
         visual_plan=visual_plan,
         locale=target_locale,
@@ -499,6 +520,21 @@ def run_job(p, payload):
         render_plan, transcript, locale=target_locale, dubbed=dubbed,
     )
     remotion_engine.store_render_plan(settings.data_dir, p['id'], render_plan)
+    if (payload or {}).get('plan_only'):
+        marker = folder / '.rendering'
+        marker.unlink(missing_ok=True)
+        return {
+            'plan_only': True,
+            'rendered': False,
+            'render_id': render_id,
+            'director': (visual_plan or {}).get('director'),
+            'directorMode': render_plan.get('directorMode'),
+            'form': (visual_plan or {}).get('form'),
+            'beatWeights': (visual_plan or {}).get('beatWeights'),
+            'scenes': (visual_plan or {}).get('scenes') or [],
+            'render_scenes': render_plan.get('scenes') or [],
+            'generationId': render_plan.get('generationId'),
+        }
     from .director_quality_shadow import diagnose
     import json as _json
     shadow = diagnose(render_plan, transcript)

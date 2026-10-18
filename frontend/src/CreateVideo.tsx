@@ -200,7 +200,7 @@ export function CreateVideo({
 }) {
   const w = (ru: string, en: string, zh: string) => workspaceText(lang, ru, en, zh);
   const limit = durationLimit(sourceSeconds);
-  const [durationMode, setDurationMode] = useState<"full" | "custom">("custom");
+  const [durationMode, setDurationMode] = useState<"full" | "custom">("full");
   const [customLength, setCustomLength] = useState(limit.max >= 20 ? 20 : limit.max);
   const length = durationMode === "full" && sourceSeconds > 0 ? sourceSeconds : customLength;
   const [variation, setVariation] = useState<"automatic" | "keep" | "remix">("automatic");
@@ -587,7 +587,7 @@ export function CreateVideo({
           onChange={(event) => {
             const next = event.target.checked;
             setMotionProfile(next);
-            if (hydrated) persistEditing(levels, energy, variation, next);
+            if (hydrated) persistEditing(levels, energy, variation, durationMode, length, next);
           }}
         />{" "}
         {w(

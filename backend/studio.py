@@ -118,6 +118,10 @@ class CreateVideo(Strict):
 class VideoLanguage(Strict):
     language: str = Field(min_length=2, max_length=16)
 
+class TranscriptCorrection(Strict):
+    segment_id: str = Field(min_length=3, max_length=64)
+    text: str = Field(min_length=1, max_length=2000)
+
 class EditingControlsBody(Strict):
     """Persist Calm/Balanced/Dynamic + sliders. Never enqueues render or TTS."""
     animation_percent: int = Field(default=60, ge=0, le=100)
@@ -458,6 +462,84 @@ def rendition_board(pid: str, user=Depends(current_user)):
             'duration': (saved.get('timeline') or {}).get('duration'),
         })
     return {'sourceLanguage': source.get('sourceLanguage'), 'renditions': board}
+
+
+def _mark_transcript_edit(pid: str, version: int) -> None:
+    """Future plans must be rebuilt. Existing result files stay where they are."""
+    current = project(pid) or {}
+    meta = dict(current.get("metadata") or {})
+    meta["transcript_edit_version"] = version
+    meta["analysis_stale"] = True
+    update(pid, metadata=meta)
+
+
+@router.get('/projects/{pid}/source-transcript')
+def read_source_transcript(pid: str, user=Depends(current_user)):
+    owned(pid, user)
+    path = settings.data_dir / pid / 'localization' / 'source-transcript.json'
+    if not path.is_file():
+        return {'status': 'missing', 'segments': []}
+    record = json.loads(path.read_text(encoding='utf-8'))
+    return {
+        'status': record.get('status') or record.get('validationStatus'),
+        'sourceLanguage': record.get('sourceLanguage'),
+        'languageStatus': record.get('languageStatus'),
+        'version': record.get('version') or 1,
+        'reviewStatus': record.get('reviewStatus'),
+        'modelId': record.get('modelId'),
+        'alignmentModel': record.get('alignmentModel') or (record.get('alignment') or {}).get('model'),
+        'uncertain': record.get('uncertain') or [],
+        'segments': [
+            {
+                'id': row.get('id'),
+                'start': row.get('start'),
+                'end': row.get('end'),
+                'text': row.get('text'),
+                'words': row.get('words') or [],
+            }
+            for row in record.get('segments') or []
+        ],
+        'rawSegments': [
+            {'id': row.get('id'), 'text': row.get('text')}
+            for row in record.get('rawSegments') or []
+        ],
+    }
+
+
+@router.put('/projects/{pid}/source-transcript')
+def correct_source_transcript(pid: str, body: TranscriptCorrection, user=Depends(current_user)):
+    owned(pid, user)
+    from .source_transcript import TranscriptError, apply_correction
+    source = settings.data_dir / pid / 'source'
+    try:
+        updated = apply_correction(pid, source, body.segment_id, body.text)
+    except TranscriptError as exc:
+        raise HTTPException(422, exc.code) from None
+    _mark_transcript_edit(pid, int(updated.get('version') or 1))
+    return {'version': updated.get('version'), 'reviewStatus': updated.get('reviewStatus')}
+
+
+@router.post('/projects/{pid}/transcription/retry')
+def retry_transcription(pid: str, user=Depends(current_user)):
+    """Queue ASR again only when there is no verified transcript. Corrections are kept."""
+    owned(pid, user)
+    from .source_analysis import source_checksum
+    from .source_transcript import load_verified
+    from .transcription import enqueue_transcription, mark_transcription
+    source = settings.data_dir / pid / 'source'
+    if not source.is_file():
+        raise HTTPException(422, 'SOURCE_TRANSCRIPT_UNAVAILABLE')
+    existing = load_verified(pid, source)
+    if existing and existing.get('corrections'):
+        return {'kept': True, 'version': existing.get('version')}
+    if existing and existing.get('status') == 'verified' and not existing.get('corrections'):
+        return {'kept': True, 'version': existing.get('version'), 'reason': 'verified'}
+    checksum = source_checksum(source)
+    with connect() as db:
+        db.lock()
+        job = enqueue_transcription(db, pid, checksum)
+    mark_transcription(pid, 'transcription_pending', transcription_error=None)
+    return {'queued': bool(job), 'job': job}
 
 
 @router.post('/projects/{pid}/voice-preview')

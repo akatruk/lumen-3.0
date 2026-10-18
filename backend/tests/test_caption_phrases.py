@@ -6,6 +6,36 @@ from backend.caption_phrases import (
 )
 
 
+def test_finished_sentence_does_not_swallow_the_next_line():
+    rows = phrases_from_transcript([
+        {"start": 4.0, "end": 8.5, "text": "Which documents does a second passport actually require?"},
+        {"start": 8.5, "end": 12.0, "text": "The filing fee is 500 dollars."},
+    ], locale="en-US", duration_s=16)
+    texts = [row["text"] for row in rows]
+    assert not any("require" in text and "500" in text for text in texts)
+    assert any(text.startswith("The filing fee") for text in texts)
+    fee = next(text for text in texts if text.startswith("The filing fee"))
+    assert fee.rstrip().endswith(".")
+    assert "afraid" not in fee
+
+
+def test_abutting_finished_sentences_stay_separate():
+    en = phrases_from_transcript([
+        {"start": 8.5, "end": 12.0, "text": "The filing fee is 500 dollars."},
+        {"start": 12.0, "end": 16.0, "text": "I was afraid we would miss the deadline."},
+    ], locale="en-US", duration_s=16)
+    en_texts = [row["text"] for row in en]
+    assert any(text.startswith("The filing fee") and "afraid" not in text for text in en_texts)
+    assert any("afraid" in text and "500" not in text for text in en_texts)
+    ru = phrases_from_transcript([
+        {"start": 9.0, "end": 13.0, "text": "Срок проверки — шесть месяцев."},
+        {"start": 13.0, "end": 17.0, "text": "Это риск, если пропустить срок."},
+    ], locale="ru-RU", duration_s=17)
+    ru_texts = [row["text"] for row in ru]
+    assert any("месяцев" in text and "риск" not in text for text in ru_texts)
+    assert any("риск" in text and "месяцев" not in text for text in ru_texts)
+
+
 def test_english_groups_readable_mobile_phrases():
     parts = group_phrase_texts(
         'Many people think that foreign investment companies only change the language',

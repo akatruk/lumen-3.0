@@ -125,7 +125,7 @@ def _lock_for(checksum: str):
 def persist_source_transcript(pid: str) -> dict:
     """Transcribe once and store a verified project transcript. Cache hits skip the model."""
     from .source_analysis import _transcribe_source
-    from .source_transcript import TranscriptError, save_silence, save_verified
+    from .source_transcript import TranscriptError, load_silence, save_silence, save_verified
     from .whisperx_local import transcribe_segments
 
     current = project(pid)
@@ -143,7 +143,6 @@ def persist_source_transcript(pid: str) -> dict:
     try:
         duration = float(meta.get("duration") or 0) or None
         from .language import explicit_user_source_language
-        from .source_transcript import load_silence
         from .studio import state
 
         silence = load_silence(pid, source)
@@ -185,13 +184,13 @@ def persist_source_transcript(pid: str) -> dict:
             info = dict(getattr(qwen_transcribe, "last_info", {}) or {})
         else:
             info = dict(getattr(transcribe_segments, "last_info", {}) or {})
-        if info.get("speech") == "silence":
+        if info.get("speech") == "silence" or (provider == "qwen3-asr" and not segments):
             saved = save_silence(
                 pid,
                 source,
                 provenance={
                     "provider": provider,
-                    "modelId": (info.get("recognition") or {}).get("model") or "Qwen/Qwen3-ASR-1.7B",
+                    "modelId": (info.get("recognition") or {}).get("model") or info.get("modelId"),
                     "modelVersion": (info.get("recognition") or {}).get("revision"),
                     "speech": "silence",
                 },

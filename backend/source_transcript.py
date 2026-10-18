@@ -152,17 +152,23 @@ def build_record(
         "segments": stored,
         "text": " ".join(row["text"] for row in stored),
         "status": "verified",
+        "validationStatus": "verified",
+        "reviewStatus": "unreviewed",
+        "version": 1,
         "createdAt": time.time(),
+        "updatedAt": time.time(),
         "rawText": provenance.get("rawText") or "",
+        "rawSegments": [dict(row) for row in stored],
         "uncertain": list(provenance.get("uncertain") or []),
         "alignment": provenance.get("alignment") or {},
+        "alignmentModel": (provenance.get("alignment") or {}).get("model"),
         "corrections": [],
         "provenance": provenance,
     }
 
 
 def cache_matches_model(record: dict) -> bool:
-    """Legacy small-model files stay valid. A different model version does not."""
+    """Legacy small-model files stay valid. A corrected file is not replaced by a retry."""
     if record.get("corrections"):
         return True
     wanted = (getattr(settings, "asr_model", "small") or "small").strip()
@@ -246,17 +252,20 @@ def save_verified(
 
 
 def save_silence(pid: str, source: Path, *, provenance: dict, duration: float | None) -> dict:
-    """A file with no speech. This is not a transcript and not a success."""
+    """A file with no speech. This is not a verified transcript."""
     record = {
         "projectId": pid,
         "sourceChecksum": source_checksum(source),
         "transcriptVersion": TRANSCRIPT_VERSION,
         "status": "silence",
+        "validationStatus": "silence",
         "speech": "silence",
         "segments": [],
+        "rawSegments": [],
         "text": "",
         "duration": duration,
         "modelId": provenance.get("modelId"),
+        "version": 1,
         "modelVersion": provenance.get("modelVersion"),
         "createdAt": time.time(),
         "provenance": provenance,
@@ -282,30 +291,36 @@ def load_silence(pid: str, source: Path) -> dict | None:
         return None
     if record.get("sourceChecksum") != source_checksum(source):
         return None
-    if not cache_matches_model(record):
-        return None
     return record
 
 
 def apply_correction(pid: str, source: Path, segment_id: str, text: str) -> dict:
-    """Keep the raw recognition and append an auditable correction. Retries must not replace it."""
+    """Correct one segment. Raw recognition stays. The version increments."""
     record = load_verified(pid, source)
     if not record:
         raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
+    cleaned = " ".join(str(text or "").split())
+    if not cleaned:
+        raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
     updated = json.loads(json.dumps(record))
+    if not updated.get("rawSegments"):
+        updated["rawSegments"] = json.loads(json.dumps(record.get("segments") or []))
     found = False
     for row in updated["segments"]:
         if row["id"] == segment_id:
-            row["text"] = text
+            row["text"] = cleaned
             found = True
     if not found:
         raise TranscriptError("SOURCE_TRANSCRIPT_UNAVAILABLE")
     updated["corrections"] = list(updated.get("corrections") or [])
     updated["corrections"].append({
         "segmentId": segment_id,
-        "text": text,
+        "text": cleaned,
         "at": time.time(),
     })
+    updated["version"] = int(updated.get("version") or 1) + 1
+    updated["reviewStatus"] = "corrected"
+    updated["updatedAt"] = time.time()
     updated["text"] = " ".join(row["text"] for row in updated["segments"])
     path = transcript_path(pid)
     _archive_current(path)
@@ -322,6 +337,7 @@ def as_ranged_rows(record: dict) -> list[dict]:
             "start": row["start"],
             "end": row["end"],
             "text": row["text"],
+            **({"words": row["words"]} if row.get("words") else {}),
         }
         for index, row in enumerate(record.get("segments") or [], start=1)
     ]

@@ -26,6 +26,7 @@ import type { Project, Lang } from "./types";
 import { contentLanguage, translate } from "./locale";
 import { AnalysisActivity, activityTitle } from "./AnalysisActivity";
 import { ProjectJobStatus, projectIsBusy } from "./ProjectJobStatus";
+import { TranscriptPanel } from "./TranscriptPanel";
 import { StatusBadge } from "./TaskStatus";
 export type WorkspaceTask =
   "edit" | "subtitles" | "audio" | "effects" | "materials" | "review";
@@ -517,6 +518,7 @@ export function ProjectWorkspace({
             </div>
             {playNotice && !draftActive && <p role="status">{playNotice}</p>}
             <ProjectJobStatus p={p} lang={lang} compact />
+            <TranscriptPanel pid={p.id} lang={lang} onSeek={seekSource} />
             {mediaError && !draftActive && (
               <p role="alert">
                 {working

@@ -76,6 +76,18 @@ def test_unspoken_local_ratio_is_removed(monkeypatch):
     assert all((scene.get("businessMotion") or {}).get("localRatio") != 51 for scene in out["scenes"])
 
 
+def test_chinese_layers_stay_a_timeline_not_documents():
+    quote = "第一层叫使用场景 第二层叫家庭结构 第三层叫代价"
+    found = classify_v15(quote, {"id": "layers", "start": 45.2, "end": 75.0}, locale="zh-CN")
+    assert all(p["visualIntent"] != "document_workflow" for p in found)
+    from backend.director_v14 import classify_quote
+    from backend.director_v15 import _upgrade_documents
+
+    timeline = next(p for p in classify_quote(quote, {"id": "layers", "start": 45.2, "end": 75.0}, locale="zh-CN") if p["visualIntent"] == "process_timeline")
+    assert _upgrade_documents(timeline)["visualIntent"] == "process_timeline"
+    assert _upgrade_documents(timeline)["componentId"] == "motion.process_timeline.v1"
+
+
 def test_v14_alone_keeps_timeline(monkeypatch):
     monkeypatch.delenv("SEMANTIC_MOTION_V15_ENABLED", raising=False)
     monkeypatch.setenv("SEMANTIC_MOTION_V14_ENABLED", "1")

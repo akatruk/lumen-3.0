@@ -259,7 +259,12 @@ def apply_motion_design(
             _talking_head(scene, "speech does not support a diagram on this beat")
             _retarget_media(scene, quote)
         family = _family(scene)
-        if family and len(recent) >= 1 and recent[-1] and recent[-1][1] == family[1]:
+        quote_now = str(((scene.get("semanticMotionV14") or {}).get("evidence") or {}).get("sourceQuote") or "")
+        previous_quote = ""
+        if scenes:
+            previous_quote = str((((scenes[-1].get("semanticMotionV14") or {}).get("evidence") or {}).get("sourceQuote")) or "")
+        distinct_thought = bool(quote_now and previous_quote and quote_now != previous_quote)
+        if family and not distinct_thought and len(recent) >= 1 and recent[-1] and recent[-1][1] == family[1]:
             if not equity:
                 _talking_head(scene, "adjacent beat already used this diagram")
                 family = None
@@ -269,7 +274,7 @@ def apply_motion_design(
                 payload["layout"] = "speaker_visual" if payload.get("layout") == "overlay" else "overlay"
                 scene["semanticMotionV14"] = payload
                 family = _family(scene)
-        if family and len(recent) >= 2 and recent[-1] == family and recent[-2] == family:
+        if family and not distinct_thought and len(recent) >= 2 and recent[-1] == family and recent[-2] == family:
             _talking_head(scene, "three identical compositions are refused")
             family = None
         recent.append(family)

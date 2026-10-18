@@ -215,6 +215,18 @@ def resolve_scene_plan(
             'emphasisRange': list(raw.get('emphasisRange') or []),
             'editorial': dict(raw.get('editorial') or {}),
             'semanticConcepts': list(raw.get('semanticConcepts') or []),
+            'start': raw.get('start'),
+            'end': raw.get('end'),
+            'quote': raw.get('quote'),
+            'kind': raw.get('kind'),
+            'intent': raw.get('intent'),
+            'mediaDecision': raw.get('mediaDecision'),
+            'visualTreatment': raw.get('visualTreatment'),
+            'narrativeRole': raw.get('narrativeRole'),
+            'semanticReason': raw.get('semanticReason'),
+            'rendererCapability': raw.get('rendererCapability'),
+            'fallbackTreatment': raw.get('fallbackTreatment'),
+            'assetId': raw.get('assetId') or (raw.get('background') or {}).get('assetId'),
         }
         # Strip director-illegal keys if a buggy planner leaked them.
         for bucket in ('speaker', 'background', 'foreground', 'typography'):
@@ -249,7 +261,8 @@ def resolve_scene_plan(
         'executionCompliance': plan.get('executionCompliance') or {},
         'renderer': 'remotion',
         'directorMode': plan.get('directorMode') or (
-            'runpod_llm' if str(getattr(settings, 'llm_provider', None) or 'none').lower() == 'runpod'
+            'semantic_openrouter' if plan.get('director') == 'semantic_openrouter'
+            else 'runpod_llm' if str(getattr(settings, 'llm_provider', None) or 'none').lower() == 'runpod'
             else 'heuristic'
         ),
         'keywords': list(plan.get('keywords') or []),

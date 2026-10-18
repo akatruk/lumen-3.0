@@ -11,7 +11,7 @@ import os
 import re
 from typing import Any
 
-from .director_v14 import _choose_layout, _steps_from_quote, _suppress_text_cards, _windows, apply_semantic_motion
+from .director_v14 import _steps_from_quote, add_semantic_events, apply_semantic_motion, row_texts
 from .locale_consistency import locale_bucket
 
 _DOC = re.compile(
@@ -324,66 +324,47 @@ def apply_semantic_motion_v15(plan: dict, transcript: list | None = None, *, loc
     for scene in scenes:
         payload = scene.get("semanticMotionV14")
         if isinstance(payload, dict):
-            scene["semanticMotionV14"] = _upgrade_documents(payload)
-    used = {
-        (scene.get("semanticMotionV14") or {}).get("visualIntent")
-        for scene in scenes
-        if isinstance(scene.get("semanticMotionV14"), dict)
-    }
+            upgraded = _upgrade_documents(dict(payload))
+            scene["semanticMotionV14"] = upgraded
+            if upgraded.get("visualIntent") != payload.get("visualIntent"):
+                for row in out.get("semanticEventAudit") or []:
+                    if row.get("status") == "accepted" and row.get("eventId") == upgraded.get("eventId"):
+                        row["visualIntent"] = upgraded.get("visualIntent")
+                        row["componentId"] = upgraded.get("componentId")
+    out["scenes"] = scenes
     rows = []
     for row in transcript or out.get("transcript") or []:
         if hasattr(row, "model_dump"):
             row = row.model_dump()
         if isinstance(row, dict):
             rows.append(row)
-    spans = _windows(out, rows)
-    occupied = {index for index, scene in enumerate(scenes) if scene.get("semanticMotionV14")}
+    fresh: list[dict[str, Any]] = []
     for row in rows:
-        blob = " ".join(str(row.get(key) or "") for key in ("original", "text", "en", "zh", "ru"))
-        found = classify_v15(blob, row, locale=locale)
-        if not found:
-            continue
-        try:
-            mid = (float(row.get("start") or 0) + float(row.get("end") or 0)) / 2
-        except (TypeError, ValueError):
-            continue
-        target = 0
-        for index, (start, end) in enumerate(spans):
-            if start <= mid < end or index == len(spans) - 1:
-                target = index
-                if start <= mid < end:
-                    break
-        if target in occupied or target >= len(scenes):
-            continue
-        payload = next((item for item in found if item["visualIntent"] not in used), None)
-        if not payload:
-            continue
-        layout, side = _choose_layout(scenes[target])
-        payload = dict(payload)
-        payload["layout"] = layout
-        payload["mediaSide"] = side
-        quote = str(row.get("original") or row.get("text") or "")
-        payload["evidence"] = {**payload["evidence"], "sourceQuote": quote or payload["evidence"].get("sourceQuote")}
-        scenes[target] = _suppress_text_cards(scenes[target])
-        scenes[target]["semanticMotionV14"] = payload
-        occupied.add(target)
-        used.add(payload["visualIntent"])
+        texts = row_texts(row, locale)
+        found = []
+        for text in texts:
+            found.extend(classify_v15(text, row, locale=locale))
+        for payload in found:
+            fresh.append(dict(payload))
+    out = add_semantic_events(out, fresh, rows)
     usage = []
-    for scene in scenes:
+    for scene in out.get("scenes") or []:
         payload = scene.get("semanticMotionV14")
         if not isinstance(payload, dict):
             continue
         usage.append({
             "sceneId": scene.get("sceneId"),
+            "eventId": payload.get("eventId"),
             "componentId": payload.get("componentId"),
             "visualIntent": payload.get("visualIntent"),
             "layout": payload.get("layout"),
             "segmentId": (payload.get("evidence") or {}).get("segmentId"),
             "sourceQuote": (payload.get("evidence") or {}).get("sourceQuote"),
+            "sourceTime": (payload.get("evidence") or {}).get("sourceTimestamp"),
+            "outputTime": payload.get("outputTime"),
             "factClass": "source_stated",
         })
-    out["scenes"] = scenes
     out["semanticMotionV15Enabled"] = True
     out["semanticMotionV15Usage"] = usage
-    out["semanticMotionV15Version"] = "v15.0"
+    out["semanticMotionV15Version"] = "v15.1"
     return out

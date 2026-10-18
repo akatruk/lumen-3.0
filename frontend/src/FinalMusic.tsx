@@ -12,12 +12,18 @@ export const FinalMusic=forwardRef<FinalMusicHandle,{pid:string;lang:Lang;music:
  const refresh=useRef(workspace?.refreshFinal);refresh.current=workspace?.refreshFinal;
  async function read(){const r=await fetch(url);if(!r.ok)throw Error('load_failed');const value=await r.json();if(typeof value.master_id!=='string'||!Array.isArray(value.jobs))throw Error('load_failed');return value as State}
  useEffect(()=>{let alive=true;async function poll(){try{const next=await read();if(!alive)return;const key=next.master_id+':'+next.final_id;if(identity.current!==null&&identity.current!==key)refresh.current?.();identity.current=key;setData(next);setLoadError(false)}catch{if(alive)setLoadError(true)}}void poll();const timer=setInterval(poll,2500);return()=>{alive=false;clearInterval(timer)}},[url]);
- async function apply(revision?:number){
+  async function apply(revision?:number){
   if(applying.current)return;applying.current=true;setBusy(true);setError('');
   try{
-   const saved=revision??await save();if(saved===null)return;
+   let saved=revision??null;
+   if(saved==null){try{saved=await save()}catch{saved=null}}
+   if(saved==null){
+    const manual=await fetch(`/api/studio/projects/${pid}/manual`);
+    if(!manual.ok)throw Error('save_manual_first');
+    saved=(await manual.json()).revision;
+   }
    const current=await read();if(!current.master_id)throw Error('render_first');
-   const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:crypto.randomUUID().replaceAll('-',''),revision:saved,master_id:current.master_id,final_id:current.final_id})});
+   const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:crypto.randomUUID().replaceAll('-',''),revision:saved,master_id:current.master_id,final_id:current.final_id,music,use_request_music:true})});
    if(!r.ok){const e=await r.json();throw Error(typeof e.detail==='string'?e.detail:'mix_failed')}
    setData(await read());
   }catch(e){setError(e instanceof Error?e.message:'mix_failed')}finally{applying.current=false;setBusy(false)}

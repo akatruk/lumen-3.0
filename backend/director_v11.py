@@ -358,7 +358,10 @@ def _query_is_immigration(query: Any) -> bool:
 
 
 def _card_is_immigration(card: dict) -> bool:
-    blob = f"{card.get('title', '')} {card.get('explanation', '')}".lower()
+    if isinstance(card, str):
+        blob = card.lower()
+    else:
+        blob = f"{card.get('title', '')} {card.get('explanation', '')}".lower()
     return any(m in blob for m in _IMMIGRATION_CARD_MARKERS)
 
 
