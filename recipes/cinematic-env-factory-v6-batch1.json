@@ -1,0 +1,96 @@
+{
+  "version": "cinematic-env-factory-v6-batch1",
+  "date": "2026-10-14",
+  "policy": {
+    "directorBaseline": "v11.2",
+    "premium3dMode": "off",
+    "replaceV5AbstractBackgrounds": true,
+    "v5AbstractIdsKeepButDoNotPromote": [
+      "pmv5_bg_ink_lift",
+      "pmv5_bg_paper_grain",
+      "pmv5_bg_navy_grid",
+      "pmv5_bg_gold_veil",
+      "pmv5_bg_mist_paper",
+      "pmv5_bg_teal_depth",
+      "pmv5_bg_midnight_ridge",
+      "pmv5_bg_graphite_drift"
+    ],
+    "gpu": {
+      "podId": "dznvwn90el5au4",
+      "name": "lumen-hypit-4090",
+      "gpu": "RTX PRO 4500",
+      "forbiddenPod": "hufsgfs9f7gpga",
+      "balanceFloorUsd": 3.0,
+      "spendCapUsd": 5.0
+    },
+    "providersForbidden": ["openrouter", "paid_cloud_image_apis"],
+    "generativePath": "/workspace/lumen-media-v1",
+    "stillModel": "sd_xl_base_1.0.safetensors",
+    "i2vModelPreferred": "stabilityai/stable-video-diffusion-img2vid-xt",
+    "i2vFallback": "BLOCKED if weights absent and download would breach spend/balance floor",
+    "mediaMix": {
+      "envVideo": 0.7,
+      "premiumPhotoI2vReady": 0.2,
+      "detailInserts": 0.1
+    },
+    "clipSpec": {
+      "count": 16,
+      "seconds": "4-6",
+      "resolution": "1080x1920 preferred / 768x1344 gen masters upscale optional",
+      "fps": 30,
+      "textFree": true,
+      "speakerSafe": true
+    }
+  },
+  "batch": {
+    "stillsPlan": "media/library/plans/cinematic-env-v6-batch1.jsonl",
+    "i2vPlan": "media/library/plans/cinematic-env-v6-i2v-batch1.jsonl",
+    "targets": {
+      "business": 4,
+      "real_estate": 4,
+      "family_relocation_immigration": 3,
+      "city_international": 3,
+      "investment": 2
+    },
+    "clips": [
+      {"id": "cev6_i2v_biz_boardroom_001", "domain": "BUSINESS", "still": "cev6_biz_boardroom_001", "origin1_fit": true},
+      {"id": "cev6_i2v_biz_meeting_002", "domain": "BUSINESS", "still": "cev6_biz_meeting_002", "origin1_fit": true},
+      {"id": "cev6_i2v_biz_corridor_003", "domain": "BUSINESS", "still": "cev6_biz_corridor_003", "origin1_fit": true},
+      {"id": "cev6_i2v_biz_lobby_004", "domain": "BUSINESS", "still": "cev6_biz_lobby_004", "origin1_fit": true},
+      {"id": "cev6_i2v_re_condo_001", "domain": "REAL_ESTATE", "still": "cev6_re_condo_001", "origin1_fit": false},
+      {"id": "cev6_i2v_re_kitchen_002", "domain": "REAL_ESTATE", "still": "cev6_re_kitchen_002", "origin1_fit": false},
+      {"id": "cev6_i2v_re_balcony_003", "domain": "REAL_ESTATE", "still": "cev6_re_balcony_003", "origin1_fit": false},
+      {"id": "cev6_i2v_re_facade_004", "domain": "REAL_ESTATE", "still": "cev6_re_facade_004", "origin1_fit": true},
+      {"id": "cev6_i2v_fam_living_001", "domain": "FAMILY", "still": "cev6_fam_living_001", "origin1_fit": false},
+      {"id": "cev6_i2v_fam_arrival_002", "domain": "RELOCATION", "still": "cev6_fam_arrival_002", "origin1_fit": false},
+      {"id": "cev6_i2v_fam_consult_003", "domain": "IMMIGRATION", "still": "cev6_fam_consult_003", "origin1_fit": false},
+      {"id": "cev6_i2v_city_skyline_001", "domain": "INTERNATIONAL", "still": "cev6_city_skyline_001", "origin1_fit": true},
+      {"id": "cev6_i2v_city_street_002", "domain": "INTERNATIONAL", "still": "cev6_city_street_002", "origin1_fit": true},
+      {"id": "cev6_i2v_city_harbor_003", "domain": "GLOBAL_MOBILITY", "still": "cev6_city_harbor_003", "origin1_fit": true},
+      {"id": "cev6_i2v_inv_desk_001", "domain": "INVESTMENT", "still": "cev6_inv_desk_001", "origin1_fit": true},
+      {"id": "cev6_i2v_inv_glass_002", "domain": "INVESTMENT", "still": "cev6_inv_glass_002", "origin1_fit": true}
+    ]
+  },
+  "qualityGateRejects": [
+    "abstract_gradient",
+    "ink_paper_grid_texture",
+    "teal_flat_plate",
+    "broken_anatomy",
+    "text_in_image",
+    "logo_watermark",
+    "fake_video_renamed_still",
+    "family_packing_on_investment_speech"
+  ],
+  "storage": {
+    "doVolume": "/mnt/volume_nyc1_1791446889637/app-library",
+    "stillsRel": "motion/cinematic-env-v6/stills",
+    "clipsRel": "motion/cinematic-env-v6/clips",
+    "manifest": "media/library/out/manifest.json"
+  },
+  "origin1": {
+    "projectId": "director_v5_original1",
+    "allowedDomains": ["BUSINESS", "INVESTMENT", "INTERNATIONAL", "GLOBAL_MOBILITY", "REAL_ESTATE_facade_only"],
+    "forbiddenContamination": ["FAMILY packing", "IMMIGRATION default cards", "passport FG"],
+    "previewOut": "output/cinematic-env-v6/director-cinematic-origin1-60s.mp4"
+  }
+}

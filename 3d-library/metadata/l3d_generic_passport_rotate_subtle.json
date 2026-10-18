@@ -1,0 +1,15 @@
+{
+  "assetId": "l3d_generic_passport",
+  "motion": "rotate_subtle",
+  "frames": 90,
+  "fps": 30,
+  "resolution": [
+    1080,
+    1080
+  ],
+  "blend": "blender/l3d_generic_passport_rotate_subtle.blend",
+  "glb": "models/l3d_generic_passport_rotate_subtle.glb",
+  "pngDir": "alpha_png/l3d_generic_passport/rotate_subtle",
+  "engine": "BLENDER_EEVEE",
+  "filmTransparent": true
+}

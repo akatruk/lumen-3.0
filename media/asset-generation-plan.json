@@ -1,0 +1,146 @@
+{
+  "status": "style_test",
+  "stopAfter": 8,
+  "reference": {
+    "file": "Hayek-Law-English.mp4",
+    "durationSeconds": 58.1,
+    "frame": "1080x1920",
+    "fps": 30,
+    "sampledEverySeconds": 5
+  },
+  "provider": {
+    "chosen": "google/gemini-2.5-flash-image",
+    "via": "OpenRouter chat completions, backend/style_pictures.py fetch()",
+    "why": "This is the still-image model already set as image_model. RunPod on this project captures Hypit in Chrome. It is not an image model. No second still provider is connected.",
+    "notUsed": ["video models", "RunPod generative video"]
+  },
+  "store": "/media",
+  "style": {
+    "field": "deep navy #0E1A2B",
+    "accents": ["#E0B15A warm gold", "#7EB6C9 cool blue", "#2F6B4F check green"],
+    "ink": "#F4EFE6",
+    "foreground": "transparent PNG except lifestyle photographs",
+    "banned": ["readable text", "logos", "watermarks", "Hayek name", "cartoon", "glossy 3D", "clipart"]
+  },
+  "templates": {
+    "icon": "Premium minimal line icon of {concept}, one consistent thin stroke, geometric, gold #E0B15A on a fully transparent background, centered, lots of padding, editorial not cute, no fill clutter, no text, no letters, no numbers, no logo, no watermark, no mockup frame.",
+    "concept": "Premium editorial object illustrating {concept}, single subject, thin gold and cool-blue lines, subtle depth, isolated on a fully transparent background, enough padding to animate, no scenery, no text, no letters, no numbers, no logo, no watermark.",
+    "lifestyle": "Premium cinematic photograph of {scene}, natural faces and hands, soft window light, modern and quiet, subject placed {placement}, empty space for later typography, no text, no logo, no watermark, no captions.",
+    "document": "A small stack of blank off-white cards, slight fan, soft shadow, abstract gray horizontal rules where text would be, one simple green check mark, no letters, no words, no numbers, no logo, transparent background.",
+    "globe": "Minimal wireframe globe, cool blue latitude lines on transparent background, four small gold dots connected by one dashed route, no country names, no labels, no text, no watermark."
+  },
+  "styleTest": [
+    {
+      "id": "icon_goal_001",
+      "category": "concept_icon",
+      "template": "icon",
+      "concept": "a target of three rings and one arrow arriving at the center",
+      "file": "assets/icons/goals/goal-target-001.png",
+      "background": "transparent",
+      "aspectRatio": "1:1",
+      "tags": ["goal", "planning", "target", "priority"],
+      "recommendedScenes": ["kinetic_hook", "progress_steps", "big_number"]
+    },
+    {
+      "id": "icon_family_001",
+      "category": "concept_icon",
+      "template": "icon",
+      "concept": "three standing people, two adults and one shorter figure, simple line group",
+      "file": "assets/icons/family/family-group-001.png",
+      "background": "transparent",
+      "aspectRatio": "1:1",
+      "tags": ["family", "people", "together", "priorities"],
+      "recommendedScenes": ["progress_steps", "checklist"]
+    },
+    {
+      "id": "concept_target_001",
+      "category": "concept_illustration",
+      "template": "concept",
+      "concept": "a large target with a single arrow in the bullseye, faint outer ring",
+      "file": "assets/concepts/planning/target-arrow-001.png",
+      "background": "transparent",
+      "aspectRatio": "1:1",
+      "tags": ["goal", "planning", "focus", "success"],
+      "recommendedScenes": ["kinetic_hook", "big_number", "stat_reveal"]
+    },
+    {
+      "id": "concept_documents_001",
+      "category": "concept_illustration",
+      "template": "document",
+      "concept": "fanned stack of three blank plan cards",
+      "file": "assets/concepts/application/document-stack-001.png",
+      "background": "transparent",
+      "aspectRatio": "1:1",
+      "tags": ["documents", "plan", "application", "clarity", "approval"],
+      "recommendedScenes": ["broll_caption", "checklist", "image_focus"]
+    },
+    {
+      "id": "people_consultation_001",
+      "category": "lifestyle",
+      "template": "lifestyle",
+      "scene": "an advisor and a client talking across a bright table, only the advisor sharp",
+      "placement": "on the right third, empty room on the left",
+      "file": "assets/people/consultation/consultation-001.png",
+      "background": "photographic",
+      "aspectRatio": "16:9",
+      "composition": "subject_right",
+      "tags": ["consultation", "advice", "guidance", "trust", "planning"],
+      "recommendedScenes": ["split_screen", "broll_caption", "speaker_focus"]
+    },
+    {
+      "id": "people_family_001",
+      "category": "lifestyle",
+      "template": "lifestyle",
+      "scene": "a family of four standing together outside a modern house at warm dusk",
+      "placement": "grouped on the left, open sky and house on the right",
+      "file": "assets/people/family/family-home-001.png",
+      "background": "photographic",
+      "aspectRatio": "16:9",
+      "composition": "subject_left",
+      "tags": ["family", "home", "relocation", "residence", "future"],
+      "recommendedScenes": ["broll_caption", "split_screen"]
+    },
+    {
+      "id": "document_approved_001",
+      "category": "document",
+      "template": "document",
+      "concept": "one blank sheet with abstract rules and a green check",
+      "file": "assets/documents/approved-plan-001.png",
+      "background": "transparent",
+      "aspectRatio": "1:1",
+      "tags": ["approval", "document", "plan", "checklist", "clarity"],
+      "recommendedScenes": ["checklist", "image_focus", "stat_reveal"]
+    },
+    {
+      "id": "global_routes_001",
+      "category": "global",
+      "template": "globe",
+      "concept": "wireframe globe with one dashed route and four destination dots",
+      "file": "assets/global/globe-routes-001.png",
+      "background": "transparent",
+      "aspectRatio": "1:1",
+      "tags": ["global", "route", "relocation", "international", "destination"],
+      "recommendedScenes": ["kinetic_hook", "broll_caption", "comparison"]
+    }
+  ],
+  "styleTestResult": {
+    "generated": 8,
+    "model": "google/gemini-2.5-flash-image",
+    "notes": [
+      "The word watermark in a prompt makes this model refuse the picture. Lifestyle prompts omit it.",
+      "The model paints a checkerboard into RGB instead of returning alpha. Five foregrounds were keyed to real PNG alpha. The glossy target was left as generated because keying left a dirty halo.",
+      "Do not scale the library until the target illustration is redrawn in the same line language as the goal icon, and the two icons move to SVG."
+    ]
+  },
+  "laterLibrary": {
+    "generateWhen": "after the 8-asset contact sheet is accepted",
+    "counts": {
+      "concept_icons": "20-30",
+      "concept_illustrations": "15-20",
+      "lifestyle": "10-15",
+      "documents": "10-15",
+      "global": "8-12",
+      "decorative_svg": "10-15"
+    }
+  }
+}

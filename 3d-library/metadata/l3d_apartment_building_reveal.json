@@ -1,0 +1,15 @@
+{
+  "assetId": "l3d_apartment_building",
+  "motion": "reveal",
+  "frames": 90,
+  "fps": 30,
+  "resolution": [
+    1080,
+    1080
+  ],
+  "blend": "blender/l3d_apartment_building_reveal.blend",
+  "glb": "models/l3d_apartment_building_reveal.glb",
+  "pngDir": "alpha_png/l3d_apartment_building/reveal",
+  "engine": "BLENDER_EEVEE",
+  "filmTransparent": true
+}

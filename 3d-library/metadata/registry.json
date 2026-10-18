@@ -1,0 +1,102 @@
+{
+  "version": "v1",
+  "generatedAt": "2026-10-12T19:11:06.898816+00:00",
+  "objectCount": 1,
+  "animationCount": 1,
+  "passCount": 1,
+  "assets": [
+    {
+      "assetId": "l3d_premium_suitcase",
+      "conceptId": "relocation",
+      "category": "relocation",
+      "semanticTags": [
+        "suitcase",
+        "luggage",
+        "relocation",
+        "travel",
+        "packing",
+        "move"
+      ],
+      "tags_ru": [
+        "чемодан",
+        "переезд",
+        "багаж",
+        "путешествие",
+        "упаковка"
+      ],
+      "tags_zh": [
+        "行李箱",
+        "搬家",
+        "旅行",
+        "打包"
+      ],
+      "motions": [
+        "reveal",
+        "slide_in",
+        "floating_hold"
+      ],
+      "preferredPlacement": "speaker_left_lower",
+      "materials": "hard_shell_mint_metal",
+      "motion": "floating_hold",
+      "variantId": "l3d_premium_suitcase__floating_hold",
+      "modelFile": "models/l3d_premium_suitcase_floating_hold.glb",
+      "sourceBlend": "blender/l3d_premium_suitcase_floating_hold.blend",
+      "alphaVideoFile": "alpha/l3d_premium_suitcase_floating_hold.webm",
+      "previewFile": "previews/l3d_premium_suitcase_floating_hold.png",
+      "duration": 3.0,
+      "fps": 30,
+      "resolution": [
+        1080,
+        1080
+      ],
+      "supportedLocales": [
+        "ru-RU",
+        "en-US",
+        "zh-CN"
+      ],
+      "qualityStatus": "approved",
+      "alphaVerified": true,
+      "sha256": "2d58e3f8b727b986ba47fb01c673cbc5dd8a70434fb45374c151514a24cbe5b9",
+      "version": "v1",
+      "createdAt": "2026-10-12T19:11:06.898480+00:00",
+      "generationSource": "blender_procedural_eevee",
+      "license": "lumen-internal-procedural",
+      "textSafeAreas": [
+        "upper",
+        "center_object"
+      ],
+      "motionBounds": {
+        "normalized": true,
+        "faceSafeDefault": true
+      },
+      "family": "premium_3d",
+      "visualFamily": "premium_3d",
+      "kind": "3d_motion"
+    }
+  ],
+  "results": [
+    {
+      "assetId": "l3d_premium_suitcase",
+      "motion": "floating_hold",
+      "pngQa": {
+        "ok": true,
+        "frame": "frame_0031.png",
+        "minAlpha": 0,
+        "maxAlpha": 255,
+        "frameCount": 90
+      },
+      "alphaVideo": {
+        "file": "/Users/akatruk_macbook/Documents/github/lumen-3.0/3d-library/alpha/l3d_premium_suitcase_floating_hold.webm",
+        "sha256": "2d58e3f8b727b986ba47fb01c673cbc5dd8a70434fb45374c151514a24cbe5b9",
+        "bytes": 204775,
+        "alphaOk": true,
+        "pixFmt": "yuva420p"
+      },
+      "preview": "previews/l3d_premium_suitcase_floating_hold.png",
+      "glb": "models/l3d_premium_suitcase_floating_hold.glb",
+      "glbBytes": 141216,
+      "blend": "blender/l3d_premium_suitcase_floating_hold.blend",
+      "pass": true
+    }
+  ]
+}

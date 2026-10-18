@@ -1,0 +1,15 @@
+{
+  "assetId": "l3d_generic_passport",
+  "motion": "reveal",
+  "frames": 90,
+  "fps": 30,
+  "resolution": [
+    1080,
+    1080
+  ],
+  "blend": "blender/l3d_generic_passport_reveal.blend",
+  "glb": "models/l3d_generic_passport_reveal.glb",
+  "pngDir": "alpha_png/l3d_generic_passport/reveal",
+  "engine": "BLENDER_EEVEE",
+  "filmTransparent": true
+}

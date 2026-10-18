@@ -1,0 +1,15 @@
+{
+  "assetId": "l3d_apartment_building",
+  "motion": "camera_push",
+  "frames": 90,
+  "fps": 30,
+  "resolution": [
+    1080,
+    1080
+  ],
+  "blend": "blender/l3d_apartment_building_camera_push.blend",
+  "glb": "models/l3d_apartment_building_camera_push.glb",
+  "pngDir": "alpha_png/l3d_apartment_building/camera_push",
+  "engine": "BLENDER_EEVEE",
+  "filmTransparent": true
+}

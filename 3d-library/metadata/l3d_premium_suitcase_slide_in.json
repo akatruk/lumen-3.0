@@ -1,0 +1,15 @@
+{
+  "assetId": "l3d_premium_suitcase",
+  "motion": "slide_in",
+  "frames": 90,
+  "fps": 30,
+  "resolution": [
+    1080,
+    1080
+  ],
+  "blend": "blender/l3d_premium_suitcase_slide_in.blend",
+  "glb": "models/l3d_premium_suitcase_slide_in.glb",
+  "pngDir": "alpha_png/l3d_premium_suitcase/slide_in",
+  "engine": "BLENDER_EEVEE",
+  "filmTransparent": true
+}

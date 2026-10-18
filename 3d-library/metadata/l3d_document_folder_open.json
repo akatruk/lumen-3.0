@@ -1,0 +1,15 @@
+{
+  "assetId": "l3d_document_folder",
+  "motion": "open",
+  "frames": 90,
+  "fps": 30,
+  "resolution": [
+    1080,
+    1080
+  ],
+  "blend": "blender/l3d_document_folder_open.blend",
+  "glb": "models/l3d_document_folder_open.glb",
+  "pngDir": "alpha_png/l3d_document_folder/open",
+  "engine": "BLENDER_EEVEE",
+  "filmTransparent": true
+}

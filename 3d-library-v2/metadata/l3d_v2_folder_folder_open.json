@@ -1,0 +1,17 @@
+{
+  "assetId": "l3d_v2_folder",
+  "motion": "folder_open",
+  "frames": 120,
+  "fps": 30,
+  "resolution": [
+    1080,
+    1920
+  ],
+  "blend": "blender/l3d_v2_folder_folder_open.blend",
+  "glb": "models/l3d_v2_folder_folder_open.glb",
+  "pngDir": "alpha_png/l3d_v2_folder/folder_open",
+  "engine": "BLENDER_EEVEE",
+  "filmTransparent": true,
+  "factory": "v2",
+  "qualityStatus": "NEEDS_REWORK"
+}

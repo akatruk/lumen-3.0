@@ -1,0 +1,15 @@
+{
+  "assetId": "l3d_premium_suitcase",
+  "motion": "floating_hold",
+  "frames": 90,
+  "fps": 30,
+  "resolution": [
+    1080,
+    1080
+  ],
+  "blend": "blender/l3d_premium_suitcase_floating_hold.blend",
+  "glb": "models/l3d_premium_suitcase_floating_hold.glb",
+  "pngDir": "alpha_png/l3d_premium_suitcase/floating_hold",
+  "engine": "BLENDER_EEVEE",
+  "filmTransparent": true
+}

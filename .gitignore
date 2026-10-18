@@ -62,3 +62,20 @@ motion/public/gold/story-proof/
 *.dump
 *.pgdump
 embedding-models/
+
+# Local generated artifacts; source recipes and metadata stay versioned.
+.cache/
+**/node_modules
+/output/
+/reports/
+/media/library/out/
+/3d-library-v2/alpha_png/
+/3d-library-v2/blender/
+/3d-library-v2/models/
+/3d-library-v2/previews/
+/3d-library-v2/prores/
+/3d-library-v2/build-summary-v2.json
+/3d-library-v2/3d-asset-registry-v2.json
+/motion/public/
+/onboarding-video/public/style-guide/*.wav
+/onboarding-video/public/style-guide/*.aiff
