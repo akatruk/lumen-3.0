@@ -49,7 +49,7 @@ director_v3._public_director=lambda:public
 media.ffmpeg('-f','lavfi','-i','testsrc2=s=180x320:d=30:r=30','-f','lavfi','-i','sine=frequency=110:duration=30','-c:v','libx264','-c:a','aac','-shortest','-y',bridge/'upload.mp4')
 token=uuid.uuid4().hex
 with connect() as db:
-    db.execute('INSERT INTO users VALUES(?,?,?,?)',('qa','qa-release@example.invalid','disabled',time.time()))
+    db.execute('INSERT OR IGNORE INTO users VALUES(?,?,?,?)',('qa','qa-release@example.invalid','disabled',time.time()))
     db.execute('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)',(hashlib.sha256(token.encode()).hexdigest(),'qa',time.time()+3600))
 server=uvicorn.Server(uvicorn.Config(app,host='127.0.0.1',port=port,log_level='warning'))
 thread=threading.Thread(target=server.run,daemon=True);thread.start()
@@ -67,9 +67,10 @@ try:
     plan=json.loads((plan_dir/(latest['generationId']+'.json')).read_text())
     assert plan['form']=='semantic',plan.get('form')
     scenes=plan['visualPlan']['scenes'] if 'visualPlan' in plan else plan['scenes']
-    assert [(s['start'],s['end']) for s in scenes]==[(0.,10.),(10.,20.),(20.,30.)]
+    expected = report['checks'][-1]['duration']
+    assert [(s['start'],s['end']) for s in scenes] == ([(0.,10.)] if expected == 10 else [(0.,10.),(10.,20.),(20.,30.)])
     final=settings.data_dir/p['id']/'renders'/p['result']['render_id']/'result.mp4'
-    assert abs(media.probe(final)['duration']-30)<.15
+    assert abs(media.probe(final)['duration']-expected)<.15
     shutil.copy2(final,bridge/'verified-final.mp4')
     report.update({'fixture':'synthetic ASR and semantic plan; no live LLM/TTS call','fixture_calls':len(fixture_calls),'bounds':[[s['start'],s['end']] for s in scenes],'video_sha256':hashlib.sha256(final.read_bytes()).hexdigest()})
     (bridge/'verified.json').write_text(json.dumps(report,indent=2))

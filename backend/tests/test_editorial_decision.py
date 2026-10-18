@@ -330,7 +330,8 @@ def test_a_beat_is_searched_with_its_own_sentence_not_the_office_template():
     assert scene["background"].get("assetId") is None
 
 
-def test_query_inside_the_quote_does_not_accept_a_blank_laptop():
+def test_query_inside_the_quote_does_not_accept_a_blank_laptop(tmp_path, monkeypatch):
+    _yield_library_fixture(tmp_path, monkeypatch)
     quote = "海报上的租金回报率是毛收益还是净收益"
     assert relevance(quote, "回报率", "re_inv_laptop") == 0
     out = apply_editorial_decision(
@@ -345,7 +346,8 @@ def test_query_inside_the_quote_does_not_accept_a_blank_laptop():
     assert scene["editorial"]["purpose"] == "supporting-visual"
 
 
-def test_the_same_graphic_matches_english_and_russian_paraphrases():
+def test_the_same_graphic_matches_english_and_russian_paraphrases(tmp_path, monkeypatch):
+    _yield_library_fixture(tmp_path, monkeypatch)
     for quote, concept in (
         ("is the advertised rental yield gross or net", "gross_vs_net_en"),
         ("валовая доходность или чистая доходность", "gross_vs_net_ru"),
@@ -365,3 +367,11 @@ def test_a_rising_arrow_and_a_boardroom_stay_out_of_the_yield_question():
     assert picture_supports("re_obj_yield", quote) is False
     assert picture_supports("re_inv_laptop", quote) is False
     assert picture_supports("people_consult_001", quote) is False
+
+
+def _yield_library_fixture(tmp_path, monkeypatch):
+    # Selection unit tests must not depend on which assets exist on a host volume.
+    target = tmp_path / "static/real-estate/explanatory/gross-vs-net.svg"
+    target.parent.mkdir(parents=True)
+    target.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+    monkeypatch.setattr("backend.library_clips.library_root", lambda: tmp_path)
