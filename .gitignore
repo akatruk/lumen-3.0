@@ -79,3 +79,8 @@ embedding-models/
 /motion/public/
 /onboarding-video/public/style-guide/*.wav
 /onboarding-video/public/style-guide/*.aiff
+
+# Local QA exports and screenshots; retained on disk.
+/docs/qa/*.pdf
+/docs/spec/voice-video/screenshots/
+/data
