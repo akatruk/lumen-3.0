@@ -240,6 +240,8 @@ def _merge_visual_index(assets, manifest_path):
         row = dict(asset)
         if extra.get("frameReviewed") and extra.get("visible"):
             row["reviewedVisible"] = extra["visible"]
+        if extra.get("admits"):
+            row["visualAdmits"] = list(extra["admits"])
         retrieval = extra.get("retrieval")
         if retrieval:
             row["visualRetrieval"] = retrieval
@@ -487,6 +489,33 @@ def _eligible_for_auto(asset, *, include_hidden=False) -> bool:
     return True
 
 
+# A named instrument is not admitted by a nearby theme. The asset must
+# carry that ask in visualAdmits, which is set only after a frame review.
+_SPECIFIC_ASKS = (
+    ("property_sale_contract", ("房产买卖合同", "договор купли-продажи", "property sale contract")),
+    ("equity_transfer_agreement", ("股权转让协议", "соглашение о передаче доли", "equity transfer agreement")),
+    ("bank_ledger_document", ("银行完税流水", "банковская выписка", "bank ledger")),
+    ("legal_agreement_document", ("证据协议", "правовое соглашение", "legal agreement")),
+)
+
+
+def specific_asks(query):
+    folded = (query or "").casefold()
+    return [ask for ask, needles in _SPECIFIC_ASKS if any(needle.casefold() in folded for needle in needles)]
+
+
+def specific_block(query, asset):
+    """Return a NO_MATCH reason when the picture was not reviewed for this ask."""
+    asks = specific_asks(query)
+    if not asks:
+        return None
+    admits = set(asset.get("visualAdmits") or [])
+    missing = [ask for ask in asks if ask not in admits]
+    if not missing:
+        return None
+    return "NO_MATCH:" + ",".join(missing)
+
+
 def _unapproved_3d(asset) -> bool:
     if (asset.get("visualFamily") or "") == "premium_3d":
         return True
@@ -562,6 +591,8 @@ def search_assets(
         if composition and asset.get("composition") != composition:
             continue
         if domain and not _same_domain(asset, domain):
+            continue
+        if specific_block(query, asset):
             continue
         bonus = float(bonuses.get(asset.get("id")) or 0)
         if intelligence:
