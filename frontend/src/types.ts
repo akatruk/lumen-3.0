@@ -85,6 +85,7 @@ export type Project = {
     aweme_id: string;
   } | null;
   id: string;
+  coder_scene_pilot?: boolean;
   title: string;
   brief: string;
   language: ContentLang;

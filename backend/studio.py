@@ -1263,3 +1263,19 @@ def render_job(p,payload):
                 result['quality_revision_id']=ident
             else:result['quality_revision_blocked']='locked_or_changed'
         update(p['id'],result=result)
+
+
+@router.post('/projects/{pid}/coder-scene')
+def start_coder_scene(pid: str, user=Depends(current_user)):
+    """Queue the experimental coder scene. Does not start Director or Hypit."""
+    owned(pid, user)
+    from .coder_scene import enabled, queue
+    if not enabled(pid):
+        raise HTTPException(404, 'not_found')
+    with connect() as db:
+        db.lock()
+        if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
+            raise HTTPException(409, 'job_already_running')
+        queue(db, pid)
+    update(pid, status='rendering', stage='rendering', progress=5, error=None)
+    return {'status': 'queued', 'engine': 'coder_scene'}

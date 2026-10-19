@@ -342,7 +342,7 @@ def safe_error(exc):
     'analysis_duplicate_ids','analysis_multiple_hooks','hook_overlaps_cut','too_much_removed','generation_submission_uncertain',
     'generation_request_failed','generation_poll_failed','generation_failed','generation_timed_out','generation_not_enabled',
     'media_processing_failed','ffmpeg_ass_unavailable','output_audio_missing','output_duration_mismatch','too_many_generated_clips','hypit_unavailable','target_voice_not_ready','VOICE_SETUP_REQUIRED','MISSING_TARGET_LANGUAGE_VOICE','VOICE_PROVIDER_NOT_CONFIGURED','TRANSCRIPTION_PROVIDER_UNAVAILABLE','SOURCE_TRANSCRIPT_UNAVAILABLE','SOURCE_LANGUAGE_UNVERIFIED','TRANSCRIPTION_FAILED','TRANSCRIPTION_TIMEOUT','localized_script_missing','director_v3_required','director_v3_renderer_missing','director_v3_render_failed','duration_step','visual_energy','visual_variation',
-    'unverified_claim','property_not_approved','property_plan_changed','property_workflow','property_too_short','property_delivery_missing','reference_media_blocked','invalid_media_path','asset_not_found','PLANNER_UNAVAILABLE','PLANNER_INVALID','TRANSCRIPTION_MEMORY','TRANSCRIPTION_BUSY'}
+    'unverified_claim','property_not_approved','property_plan_changed','property_workflow','property_too_short','property_delivery_missing','reference_media_blocked','invalid_media_path','asset_not_found','PLANNER_UNAVAILABLE','PLANNER_INVALID','TRANSCRIPTION_MEMORY','TRANSCRIPTION_BUSY','coder_scene_disabled','coder_scene_failed'}
     return str(exc) if str(exc) in allowed else 'processing_failed'
 
 def failure_detail(exc):
@@ -403,6 +403,9 @@ def run_once():
         elif job['kind']=='property_render':
             from .property_video import render_job as property_render_job
             property_render_job(p,json.loads(job['payload']))
+        elif job['kind']=='coder_scene':
+            from .coder_scene import run_job as coder_scene_job
+            coder_scene_job(p,json.loads(job['payload'] or '{}'))
         else: raise ValueError('unknown_job')
         state='complete'
     except Exception as exc:
