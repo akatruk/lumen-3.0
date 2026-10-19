@@ -419,12 +419,12 @@ export function ProjectWorkspace({
                 type="button"
                 className="secondary"
                 disabled={working}
-                title={w("Принятая локальная сцена, без новой генерации", "Accepted local scene, no new generation", "已接受的本地场景，不再生成")}
+                title={w("Вставки только для этого проекта, без новой генерации", "Inserts for this project only, no new generation", "仅此项目的插图，不再生成")}
                 onClick={() => {
                   void fetch("/api/studio/projects/" + p.id + "/coder-scene", { method: "POST" });
                 }}
               >
-                {w("Сцена Qwen", "Qwen scene", "Qwen 场景")}
+                {w("Вставки", "Inserts", "插图")}
               </button>
             )}
             <button className="secondary" onClick={openVersions}>

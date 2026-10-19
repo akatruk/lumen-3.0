@@ -26,7 +26,11 @@ def test_render_command_does_not_rent_or_call_a_model():
     command = coder_scene.local_render_command("remotion", Path("out.mp4"), Path("public"))
     text = " ".join(command)
     assert "src/coder-scene/index.ts" in command
-    assert "QwenScene" in command
+    assert "EvidenceCut" in command
+    spec = coder_scene.fragment()
+    assert spec["origin_seconds"] == 57.36
+    assert spec["duration_seconds"] == 20.733
+    assert (coder_scene.motion_root() / "src" / "coder-scene" / "LibraryCut.tsx").is_file()
     assert "runpod" not in text.lower()
     assert "orchestrate" not in text
     source = Path(coder_scene.__file__).read_text(encoding="utf-8")

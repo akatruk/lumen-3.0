@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import shutil
 import signal
 import subprocess
 import uuid
@@ -22,7 +23,12 @@ from .media import ffmpeg, probe
 ALLOW_ERROR = "coder_scene_disabled"
 FAIL_ERROR = "coder_scene_failed"
 ENTRY = "src/coder-scene/index.ts"
-COMPOSITION = "QwenScene"
+COMPOSITION = "EvidenceCut"
+PLATES = (
+    "ev_property_sale_contract.png",
+    "ev_equity_transfer_agreement.png",
+    "ev_bank_ledger.png",
+)
 SECRET_ENV = ("RUNPOD_API_KEY", "OPENROUTER_API_KEY", "MODEL_ACCESS_KEY", "GRADIENT_MODEL_ACCESS_KEY")
 
 
@@ -76,6 +82,20 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else ""
 
 
+def _stage_inserts(public: Path) -> None:
+    root = motion_root().parent
+    plates = root / "media" / "library" / "evidence"
+    route = root / "media" / "library" / "out" / "motion" / "global" / "global_route_001.webm"
+    for name in PLATES:
+        src = plates / name
+        if not src.is_file():
+            raise ValueError(FAIL_ERROR)
+        shutil.copyfile(src, public / name)
+    if not route.is_file():
+        raise ValueError(FAIL_ERROR)
+    shutil.copyfile(route, public / "global_route_001.webm")
+
+
 def _trim_speaker(source: Path, dest: Path, origin: float, duration: float) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     ffmpeg(
@@ -121,7 +141,7 @@ def run_job(p, payload):
     if payload.get("plan_hash") not in (None, spec["plan_hash"]):
         raise ValueError(FAIL_ERROR)
     from .worker import progress
-    progress(pid, "rendering", 8, note="Accepted local scene. No new model call.")
+    progress(pid, "rendering", 8, note="Library inserts for this project. No new model call.")
     previous = project(pid) or {}
     previous_result = previous.get("result") or {}
     source = settings.data_dir / pid / "source"
@@ -132,6 +152,7 @@ def run_job(p, payload):
     public = work / "public"
     speaker = public / "speaker.mp4"
     _trim_speaker(source, speaker, float(spec["origin_seconds"]), float(spec["duration_seconds"]))
+    _stage_inserts(public)
     video = work / "scene.mp4"
     _render(video, public)
     try:
@@ -140,7 +161,7 @@ def run_job(p, payload):
         raise ValueError(FAIL_ERROR) from exc
     if (meta.get("width"), meta.get("height")) != (1080, 1920) or not meta.get("has_audio"):
         raise ValueError(FAIL_ERROR)
-    if abs(float(meta.get("duration") or 0) - 16.9) > 0.2:
+    if abs(float(meta.get("duration") or 0) - float(spec["duration_seconds"])) > 0.35:
         raise ValueError(FAIL_ERROR)
     folder = settings.data_dir / pid / "renders" / render_id
     folder.mkdir(parents=True)
@@ -151,16 +172,17 @@ def run_job(p, payload):
         "render_id": render_id,
         "metadata": meta,
         "timeline": [[spec["origin_seconds"], round(spec["origin_seconds"] + spec["duration_seconds"], 2)]],
-        "applied": ["coder_scene_accepted"],
+        "applied": ["library_inserts"],
         "picture_engine": "coder_scene",
-        "renderer": "remotion_local_accepted",
-        "directorMode": "coder_scene",
+        "renderer": "remotion_library_inserts",
+        "directorMode": "library_inserts",
         "semanticPlanner": "cached",
         "editorialPlanHash": spec["plan_hash"],
-        "graphics_component": "GraphicsBoard",
-        "graphics_sha256": _sha(root / "src" / "coder-scene" / "GraphicsBoard.tsx"),
-        "qwen_response_sha256": _sha(root.parent / "scripts" / "coder_scene_pilot" / "provenance" / "GraphicsBoard.qwen.tsx"),
-        "composition": "TrustedScene",
+        "graphics_component": "LibraryCut",
+        "graphics_sha256": _sha(root / "src" / "coder-scene" / "LibraryCut.tsx"),
+        "composition": "EvidenceCut",
+        "inserts": list(PLATES) + ["global_route_001.webm"],
+        "insert_review": "held_needs_review",
         "paid_calls": False,
         "previous_render_id": previous_result.get("render_id"),
         "previous_delivery_sha256": previous_result.get("delivery_sha256"),
@@ -177,6 +199,6 @@ def run_job(p, payload):
         "visual_review": None,
     }
     update(pid, result=result, status="complete", stage="complete", progress=100, error=None)
-    event(pid, "render_complete", '{"applied":["coder_scene_accepted"],"engine":"coder_scene","paid":false}')
-    progress(pid, "complete", 100, note="Accepted local scene is the selected picture.")
+    event(pid, "render_complete", '{"applied":["library_inserts"],"engine":"coder_scene","paid":false}')
+    progress(pid, "complete", 100, note="Library inserts are the selected picture.")
     return result
