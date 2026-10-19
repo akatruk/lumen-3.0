@@ -649,7 +649,8 @@ def create_video(pid:str, body:CreateVideo, request:Request, user=Depends(curren
     with connect() as db:
         s_pre = state(pid, db)
     from .source_analysis import plan_cache_hit
-    needs_semantic_analysis = settings.semantic_planner_required and not plan_cache_hit(pid)
+    from .semantic_planner import planner_required
+    needs_semantic_analysis = planner_required() and not plan_cache_hit(pid)
     if not s_pre or not s_pre.get('plan') or needs_semantic_analysis:
         from . import remotion_engine
         transcription_job = None
@@ -1262,3 +1263,19 @@ def render_job(p,payload):
                 result['quality_revision_id']=ident
             else:result['quality_revision_blocked']='locked_or_changed'
         update(p['id'],result=result)
+
+
+@router.post('/projects/{pid}/coder-scene')
+def start_coder_scene(pid: str, user=Depends(current_user)):
+    """Queue the experimental coder scene. Does not start Director or Hypit."""
+    owned(pid, user)
+    from .coder_scene import enabled, queue
+    if not enabled(pid):
+        raise HTTPException(404, 'not_found')
+    with connect() as db:
+        db.lock()
+        if db.execute("SELECT 1 FROM jobs WHERE project_id=? AND status IN ('queued','running')", (pid,)).fetchone():
+            raise HTTPException(409, 'job_already_running')
+        queue(db, pid)
+    update(pid, status='rendering', stage='rendering', progress=5, error=None)
+    return {'status': 'queued', 'engine': 'coder_scene'}

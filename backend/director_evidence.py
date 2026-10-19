@@ -45,6 +45,20 @@ def rows_in_window(rows: list[dict], win: tuple[float, float], pad: float = 0.4)
             continue
         if end <= start:
             continue
+        words = [
+            token for token in (row.get("words") or [])
+            if isinstance(token, dict)
+            and _overlaps(float(token.get("start") or 0), float(token.get("end") or 0), win, pad)
+        ]
+        if words:
+            kept.append({
+                **row,
+                "text": "".join(str(token.get("text") or "") for token in words),
+                "start": float(words[0].get("start") or start),
+                "end": float(words[-1].get("end") or end),
+                "words": words,
+            })
+            continue
         if _overlaps(start, end, win, pad):
             kept.append(row)
     return kept
@@ -244,8 +258,9 @@ def _stamp_spoken(plan: dict, rows: list[dict], locale: str | None) -> dict:
     return _merge_ordinal_list(out, rows, locale)
 
 
-def _drop_unsupported_claims(plan: dict, rows: list[dict]) -> dict:
-    windows = scene_windows(plan, rows)
+def _drop_unsupported_claims(plan: dict, rows: list[dict], windows: list[tuple[float, float]] | None = None) -> dict:
+    if windows is None:
+        windows = scene_windows(plan, rows)
     scenes = []
     for index, scene in enumerate(plan.get('scenes') or []):
         scene = dict(scene)
@@ -327,6 +342,16 @@ def drop_repeated_assets(plan: dict) -> dict:
     out = dict(plan)
     out['scenes'] = scenes
     return out
+
+
+def apply_claim_check(plan: dict, transcript: list | None = None) -> dict:
+    """Drop labels the scene interval does not speak. Do not invent a new layout."""
+    rows = _rows(transcript if transcript is not None else plan.get('transcript'))
+    windows = [
+        (float(scene.get('start') or 0), float(scene.get('end') or scene.get('start') or 0))
+        for scene in plan.get('scenes') or []
+    ]
+    return drop_repeated_assets(_drop_unsupported_claims(plan, rows, windows))
 
 
 def apply_evidence_gate(plan: dict, transcript: list | None = None, *, locale: str | None = None) -> dict:

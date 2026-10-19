@@ -354,6 +354,8 @@ def detail(pid:str,user=Depends(current_user)):
     p=project(pid,user['id'])
     if not p: raise HTTPException(404,'not_found')
     p['pictures']=finished_pictures(pid,(p.get('result') or {}).get('render_id',''))
+    from .coder_scene import enabled as coder_scene_enabled
+    p['coder_scene_pilot']=coder_scene_enabled(pid)
     from .project_status import attach_job_status
     return attach_job_status(p)
 

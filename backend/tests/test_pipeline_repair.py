@@ -143,6 +143,79 @@ def test_semantic_beats_follow_segment_time(tmp_path, monkeypatch):
     assert "hook" not in [scene["sceneId"] for scene in out["scenes"]]
 
 
+def test_shared_segment_uses_quote_word_times_and_splits_ordinals(tmp_path, monkeypatch):
+    from backend.config import settings
+    from backend.director_evidence import apply_evidence_gate
+    from backend.passage_retrieval import apply_semantic_beats, revalidate_assets
+    from backend.semantic_planner import plan_path
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    speech = (
+        "现在办移民最难的是证明钱从哪来"
+        "背景调查会查反洗钱记录解释不清就被拒签"
+        "必须准备四种证据链"
+        "第一叫原始积累证明包括工资完税单"
+        "第二叫资产变现链条房产买卖合同"
+        "第三叫合法的证据协议资金来源"
+        "第四叫跨境路径合规性资金打入监管账户"
+    )
+    words = []
+    cursor = 0.0
+    for char in speech:
+        words.append({"text": char, "start": round(cursor, 3), "end": round(cursor + 0.3, 3)})
+        cursor += 0.3
+    path = plan_path("pid")
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({
+        "planner": "openrouter",
+        "language": "zh",
+        "topic": "source of funds",
+        "passages": [
+            {"segment_ids": ["segment_001"], "intent": "conflict", "narrative_role": "conflict",
+             "visual_treatment": "talking_head", "quote": "现在办移民最难的是证明钱从哪来"},
+            {"segment_ids": ["segment_001"], "intent": "chains", "narrative_role": "resolution",
+             "visual_treatment": "supporting_broll", "visual_concept": "四种证据链",
+             "quote": "必须准备四种证据链第一叫原始积累证明包括工资完税单第二叫资产变现链条"},
+            {"segment_ids": ["segment_001"], "intent": "rest", "narrative_role": "evidence",
+             "visual_treatment": "supporting_broll", "visual_concept": "房产买卖合同",
+             "quote": "房产买卖合同第三叫合法的证据协议资金来源第四叫跨境路径合规性"},
+        ],
+    }), encoding="utf-8")
+    transcript = [{"id": "segment_001", "start": 0, "end": cursor, "text": speech, "words": words}]
+    out = apply_semantic_beats({"scenes": [{"sceneId": "hook"}]}, "pid", transcript)
+    spans = [(scene["start"], scene["end"]) for scene in out["scenes"]]
+    for (a0, a1), (b0, b1) in zip(spans, spans[1:]):
+        assert a1 <= b0 + 0.02
+        assert b0 - a0 < cursor
+    labels = [((scene.get("steps") or [None])[0]) for scene in out["scenes"]]
+    assert labels.count("原始积累证明") == 1
+    assert labels.count("资产变现链条") == 1
+    assert labels.count("合法的证据") == 1
+    assert labels.count("跨境路径合规性") == 1
+    chain = [scene for scene in out["scenes"] if (scene.get("steps") or [None])[0] == "资产变现链条"][0]
+    assert "房产买卖合同" in chain["quote"]
+    assert chain["background"] == {}
+    cues = chain["typography"]["stepCues"]
+    assert [cue["text"] for cue in cues] == ["资产变现链条", "房产买卖合同"]
+    assert cues[1]["start"] > cues[0]["start"]
+    third = [scene for scene in out["scenes"] if (scene.get("steps") or [None])[0] == "合法的证据"][0]
+    assert "证依据" not in third["steps"]
+    assert "资金来源" in third["steps"]
+    from backend.passage_retrieval import bound_semantic_duration
+    bounded = bound_semantic_duration(out, cursor + 0.04)
+    assert bounded["scenes"][-1]["end"] == cursor + 0.04
+    gated = apply_evidence_gate(out, transcript, locale="zh-CN")
+    kept = [scene.get("steps") for scene in gated["scenes"]]
+    assert ["反洗钱"] in kept
+    assert ["四种证据链"] in kept
+    assert all("证依据" not in (step or "") for steps in kept for step in (steps or []))
+    checked = revalidate_assets(gated, "pid", transcript, catalog=[{
+        "id": "building", "file": "missing.png", "title": "office tower", "tags": "property",
+        "status": "reviewed",
+    }])
+    assert all(not (scene.get("background") or {}).get("assetId") for scene in checked["scenes"] if scene.get("steps"))
+
+
 def test_semantic_bounds_stay_within_one_frame():
     from backend.passage_retrieval import absolute_bounds
 
@@ -190,6 +263,17 @@ def test_question_and_number_cannot_stay_talking_head():
                 "quote": "第二个护照需要哪些文件？",
             }],
         }, {"segment_001"})
+
+
+def test_none_provider_ignores_semantic_required_flag(monkeypatch):
+    from backend.config import settings
+    from backend.providers.director import HeuristicDirectorProvider, get_director_provider
+    from backend.semantic_planner import planner_required
+
+    monkeypatch.setattr(settings, "llm_provider", "none")
+    monkeypatch.setattr(settings, "semantic_planner_required", True)
+    assert planner_required() is False
+    assert isinstance(get_director_provider(None), HeuristicDirectorProvider)
 
 
 def test_semantic_provider_does_not_fall_back_to_heuristic(monkeypatch):

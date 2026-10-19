@@ -414,6 +414,19 @@ export function ProjectWorkspace({
                 {w("Удалить проект", "Delete project", "删除项目")}
               </button>
             )}
+            {p.coder_scene_pilot && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={working}
+                title={w("Принятая локальная сцена, без новой генерации", "Accepted local scene, no new generation", "已接受的本地场景，不再生成")}
+                onClick={() => {
+                  void fetch("/api/studio/projects/" + p.id + "/coder-scene", { method: "POST" });
+                }}
+              >
+                {w("Сцена Qwen", "Qwen scene", "Qwen 场景")}
+              </button>
+            )}
             <button className="secondary" onClick={openVersions}>
               <History size={16} />
               {w("Версии", "Versions", "版本")} <span>{versions.length}</span>

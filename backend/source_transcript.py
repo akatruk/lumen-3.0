@@ -330,6 +330,29 @@ def apply_correction(pid: str, source: Path, segment_id: str, text: str) -> dict
     return updated
 
 
+def rows_with_aligner_words(pid: str, rows: list | None) -> list:
+    """Studio plan rows keep segment text only. The verified file still has token times."""
+    rows = list(rows or [])
+    if any(isinstance(row, dict) and row.get("words") for row in rows):
+        return rows
+    source = settings.data_dir / pid / "source"
+    record = load_verified(pid, source)
+    if not record:
+        return rows
+    saved = as_ranged_rows(record)
+    by_id = {str(row.get("id")): row for row in saved if row.get("id")}
+    by_start = {round(float(row.get("start") or 0), 2): row for row in saved}
+    out = []
+    for row in rows:
+        if not isinstance(row, dict):
+            out.append(row)
+            continue
+        hit = by_id.get(str(row.get("id") or "")) or by_start.get(round(float(row.get("start") or 0), 2))
+        words = (hit or {}).get("words")
+        out.append({**row, "words": words} if words else row)
+    return out
+
+
 def as_ranged_rows(record: dict) -> list[dict]:
     return [
         {

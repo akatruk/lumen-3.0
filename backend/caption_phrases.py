@@ -12,6 +12,9 @@ _CJK = re.compile(r'[\u4e00-\u9fff]')
 _WORD = re.compile(r"[\w%'’.-]+", re.UNICODE)
 # Chinese phrase breaks after these punctuation marks / particles.
 _ZH_BREAK = re.compile(r'([，。！？；、：]|呢|吗|吧|啊)(?!\s*$)')
+# Phone caption: two lines, not a shrunk paragraph. 12 CJK at 48px fits the pill.
+_ZH_MAX = 12
+_ORDINAL_NUM = set('一二三四五六七八九十')
 
 
 def _locale_bucket(locale: str | None) -> str:
@@ -95,24 +98,55 @@ def _split_en_ru(text: str, *, lo: int, hi: int) -> list[str]:
     return merged or [text]
 
 
+def _wrap_cjk(text: str, limit: int = _ZH_MAX) -> list[str]:
+    """Cut an unpunctuated CJK run on a character bound. Never split 第N."""
+    chars = list(text)
+    chunks: list[str] = []
+    buf = ''
+    index = 0
+    while index < len(chars):
+        if len(buf) >= limit:
+            if buf.endswith('第') and chars[index] in _ORDINAL_NUM:
+                buf += chars[index]
+                index += 1
+            chunks.append(buf)
+            buf = ''
+            continue
+        buf += chars[index]
+        index += 1
+    if buf:
+        chunks.append(buf)
+    if len(chunks) >= 2 and len(chunks[-1]) == 1:
+        chunks[-2] += chunks[-1]
+        chunks.pop()
+    return chunks
+
+
 def _split_zh(text: str) -> list[str]:
     text = ''.join(str(text or '').split())
     if not text:
         return []
     parts = _ZH_BREAK.split(text)
-    # re.split with capture keeps delimiters in odd slots when pattern has groups
+    # re.split with capture keeps delimiters in odd slots when pattern has groups.
+    # A run with no punctuation is one part: wrap it, do not emit the whole segment.
     chunks: list[str] = []
     buf = ''
     for part in parts:
         if not part:
             continue
-        buf += part
-        if _ZH_BREAK.fullmatch(part) or len(buf) >= 8:
+        if len(part) > _ZH_MAX and not _ZH_BREAK.fullmatch(part):
             if buf.strip():
                 chunks.append(buf.strip())
+                buf = ''
+            chunks.extend(_wrap_cjk(part))
+            continue
+        buf += part
+        if _ZH_BREAK.fullmatch(part) or len(buf) >= _ZH_MAX:
+            if buf.strip():
+                chunks.extend(_wrap_cjk(buf.strip()) if len(buf.strip()) > _ZH_MAX else [buf.strip()])
             buf = ''
     if buf.strip():
-        chunks.append(buf.strip())
+        chunks.extend(_wrap_cjk(buf.strip()) if len(buf.strip()) > _ZH_MAX else [buf.strip()])
     # Merge tiny leftovers into previous
     merged: list[str] = []
     for chunk in chunks:
@@ -142,6 +176,117 @@ def group_phrase_texts(text: str, locale: str | None = None) -> list[str]:
     return _split_en_ru(text, lo=3, hi=8)
 
 
+def _timed_words(transcript: list[dict] | None) -> list[dict]:
+    words: list[dict] = []
+    for row in transcript or []:
+        if hasattr(row, 'model_dump'):
+            row = row.model_dump()
+        if not isinstance(row, dict):
+            continue
+        for token in row.get('words') or []:
+            if not isinstance(token, dict):
+                continue
+            text = str(token.get('text') or '')
+            if not text:
+                continue
+            try:
+                start = float(token.get('start') or 0)
+                end = float(token.get('end') or 0)
+            except (TypeError, ValueError):
+                continue
+            if end <= start:
+                continue
+            words.append({'text': text, 'start': start, 'end': end})
+    return words
+
+
+def _phrases_from_words(words: list[dict], *, duration_s: float | None) -> list[dict[str, Any]]:
+    """Group aligner tokens. Bounds are the tokens' own times, not a character share of the segment."""
+    phrases: list[dict[str, Any]] = []
+    buf: list[dict] = []
+
+    def flush() -> None:
+        if not buf:
+            return
+        text = _normalize_caption_text(''.join(item['text'] for item in buf))
+        start = float(buf[0]['start'])
+        end = float(buf[-1]['end'])
+        buf.clear()
+        if not text or end <= start:
+            return
+        if duration_s is not None and start >= float(duration_s):
+            return
+        if duration_s is not None:
+            end = min(end, float(duration_s))
+        if end <= start:
+            return
+        phrases.append({
+            'start': round(start, 3),
+            'end': round(end, 3),
+            'text': text,
+            'source': 'source_transcript',
+        })
+
+    index = 0
+    while index < len(words):
+        token = words[index]
+        nxt = words[index + 1]['text'] if index + 1 < len(words) else ''
+        ordinal = token['text'] == '第' and nxt in _ORDINAL_NUM
+        if buf and ordinal:
+            flush()
+        if buf and token['start'] - buf[-1]['end'] >= 0.28 and len(''.join(item['text'] for item in buf)) >= 4:
+            flush()
+        buf.append(token)
+        if ordinal:
+            index += 1
+            buf.append(words[index])
+        joined = ''.join(item['text'] for item in buf)
+        if len(joined) >= _ZH_MAX and not _cjk_continuation(words, index):
+            flush()
+        elif len(joined) >= _ZH_MAX + 4:
+            flush()
+        index += 1
+    flush()
+    return _merge_cjk_tails(phrases)
+
+
+def _cjk_continuation(words: list[dict], index: int) -> bool:
+    """True when the next 1–4 tokens are the rest of the same breath (证据链, 协议, 合法渠道)."""
+    if index + 1 >= len(words):
+        return False
+    prev_end = float(words[index]['end'])
+    extra = 0
+    cursor = index + 1
+    while cursor < len(words) and extra < 4:
+        token = words[cursor]
+        if token['text'] == '第' and cursor + 1 < len(words) and words[cursor + 1]['text'] in _ORDINAL_NUM:
+            break
+        if float(token['start']) - prev_end >= 0.2:
+            break
+        extra += len(token['text'])
+        prev_end = float(token['end'])
+        cursor += 1
+    return extra > 0
+
+
+def _merge_cjk_tails(phrases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    for row in phrases:
+        text = str(row.get('text') or '')
+        if (
+            merged
+            and len(text) <= 3
+            and not text.startswith('第')
+            and float(row['start']) - float(merged[-1]['end']) <= 0.35
+            and len(merged[-1]['text']) + len(text) <= _ZH_MAX + 8
+        ):
+            merged[-1]['text'] = merged[-1]['text'] + text
+            merged[-1]['end'] = row['end']
+            continue
+        merged.append(row)
+    return merged
+
+
 def phrases_from_transcript(
     transcript: list[dict] | None,
     *,
@@ -149,6 +294,11 @@ def phrases_from_transcript(
     duration_s: float | None = None,
 ) -> list[dict[str, Any]]:
     """Return [{start, end, text, source}] in seconds for Remotion props."""
+    timed = _timed_words(transcript)
+    if timed and any(_CJK.search(item['text']) for item in timed):
+        # Aligner already timed each character. Do not stretch one ASR segment
+        # across the whole caption by character share.
+        return _phrases_from_words(timed, duration_s=duration_s)
     rows = []
     for row in transcript or []:
         if hasattr(row, 'model_dump'):

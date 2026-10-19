@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     fast_project_creation_enabled: bool = True
     # LLM for Director/DNA. Default none — OpenRouter/RunPod optional at generation only.
     # Values: none | openrouter | runpod. runpod is fail-closed (RUNPOD_LLM_UNAVAILABLE).
+    # One project id. Empty disables the coder-scene pilot for every project.
+    coder_scene_pilot_project: str = ''
+    # Accepted local Remotion render of the checked-in scene. Off refuses the button.
+    coder_scene_accepted: bool = False
+    # Historical GPU-attempt counter. The accepted path does not rent a pod.
+    coder_scene_extra_attempts: int = 0
     llm_provider: str = 'none'
     runpod_llm_model: str = 'qwen2.5:7b-instruct'
     runpod_llm_base_url: str = ''

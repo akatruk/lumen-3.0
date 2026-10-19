@@ -286,6 +286,19 @@ def _accept(path, seconds):
     return meta
 
 
+def stamp_editorial_authority(render_plan: dict, visual_plan: dict | None) -> dict:
+    if (visual_plan or {}).get('editorialAuthority') != 'openrouter':
+        return render_plan
+    semantic = (visual_plan or {}).get('semanticPlan') or {}
+    return {
+        **render_plan,
+        'editorialAuthority': 'openrouter',
+        'editorialModel': semantic.get('model'),
+        'editorialPlanHash': semantic.get('planHash'),
+        'editorialTranscriptVersion': semantic.get('transcriptVersion'),
+    }
+
+
 def run_job(p, payload):
     """Assemble picture via Director V4 + Remotion. Never calls Hypit."""
     if (payload or {}).get("await_transcript"):
@@ -397,7 +410,8 @@ def run_job(p, payload):
         locale = target_locale or visual_plan.get('language')
         cleaned = director_v8.filter_locale_transcript(transcript_early, locale)
         from .passage_experiment import correct_transcript
-        cleaned = correct_transcript(cleaned, p['id'])
+        from .source_transcript import rows_with_aligner_words
+        cleaned = rows_with_aligner_words(p['id'], correct_transcript(cleaned, p['id']))
         visual_plan = enrich_plan_from_transcript(visual_plan, cleaned, locale=locale)
         visual_plan = director_v8.expand_plan_for_duration(
             visual_plan, duration_seconds=seconds, transcript=cleaned, locale=locale,
@@ -406,86 +420,97 @@ def run_job(p, payload):
         from .semantic_planner import PlannerError
         try:
             visual_plan = apply_semantic_beats(visual_plan, p['id'], cleaned)
-            visual_plan = apply_passage_media(visual_plan, p['id'], cleaned)
+            if visual_plan.get('editorialAuthority') != 'openrouter':
+                visual_plan = apply_passage_media(visual_plan, p['id'], cleaned)
         except PlannerError as exc:
             raise ValueError(exc.code) from exc
-        visual_plan = director_v8.fill_media_for_scenes(visual_plan, seed=visual_plan.get('visualSeed'))
-        from . import director_v9, director_v10, director_v11, director_v11_1, director_v11_2
-        visual_plan = director_v9.apply_composition_intelligence(visual_plan)
-        visual_plan = director_v11.apply_semantic_intelligence(
-            visual_plan, cleaned, locale=locale,
-        )
-        visual_plan = director_v11_1.apply_factual_business_motion(
-            visual_plan, cleaned, locale=locale,
-        )
-        visual_plan = director_v11_2.apply_composition_repair(
-            visual_plan, cleaned, locale=locale,
-        )
-        visual_plan = director_v8.fill_media_for_scenes(
-            visual_plan, seed=visual_plan.get('visualSeed'),
-        )
-        from .passage_retrieval import revalidate_assets
-        try:
-            visual_plan = revalidate_assets(visual_plan, p['id'], cleaned)
-        except PlannerError as exc:
-            raise ValueError(exc.code) from exc
-        visual_plan = director_v9.apply_composition_intelligence(visual_plan)
-        visual_plan = director_v10.apply_premium_3d(visual_plan, seed=visual_plan.get('visualSeed'))
-        from .semantic_motion_profile import selected as _motion_profile
-        motion_profile = (payload or {}).get('semantic_motion_profile')
-        if not _motion_profile(motion_profile):
-            from . import director_v14
-            visual_plan = director_v14.apply_semantic_motion(
+        locked = visual_plan.get('editorialAuthority') == 'openrouter'
+        if locked:
+            from .passage_retrieval import revalidate_assets
+            from .director_evidence import apply_claim_check
+            try:
+                visual_plan = revalidate_assets(visual_plan, p['id'], cleaned)
+            except PlannerError as exc:
+                raise ValueError(exc.code) from exc
+            visual_plan = apply_claim_check(visual_plan, cleaned)
+        if not locked:
+            visual_plan = director_v8.fill_media_for_scenes(visual_plan, seed=visual_plan.get('visualSeed'))
+            from . import director_v9, director_v10, director_v11, director_v11_1, director_v11_2
+            visual_plan = director_v9.apply_composition_intelligence(visual_plan)
+            visual_plan = director_v11.apply_semantic_intelligence(
+                visual_plan, cleaned, locale=locale,
+            )
+            visual_plan = director_v11_1.apply_factual_business_motion(
+                visual_plan, cleaned, locale=locale,
+            )
+            visual_plan = director_v11_2.apply_composition_repair(
+                visual_plan, cleaned, locale=locale,
+            )
+            visual_plan = director_v8.fill_media_for_scenes(
+                visual_plan, seed=visual_plan.get('visualSeed'),
+            )
+            from .passage_retrieval import revalidate_assets
+            try:
+                visual_plan = revalidate_assets(visual_plan, p['id'], cleaned)
+            except PlannerError as exc:
+                raise ValueError(exc.code) from exc
+            visual_plan = director_v9.apply_composition_intelligence(visual_plan)
+            visual_plan = director_v10.apply_premium_3d(visual_plan, seed=visual_plan.get('visualSeed'))
+            from .semantic_motion_profile import selected as _motion_profile
+            motion_profile = (payload or {}).get('semantic_motion_profile')
+            if not _motion_profile(motion_profile):
+                from . import director_v14
+                visual_plan = director_v14.apply_semantic_motion(
+                    visual_plan, transcript_early, locale=locale,
+                )
+            from . import director_v15
+            visual_plan = director_v15.apply_semantic_motion_v15(
                 visual_plan, transcript_early, locale=locale,
             )
-        from . import director_v15
-        visual_plan = director_v15.apply_semantic_motion_v15(
-            visual_plan, transcript_early, locale=locale,
-        )
-        from . import scene_composer_v16
-        visual_plan = scene_composer_v16.apply_scene_composer(
-            visual_plan, transcript_early, locale=locale,
-            source=settings.data_dir / p['id'] / 'source',
-        )
-        from . import motion_design_v18
-        visual_plan = motion_design_v18.apply_motion_design(
-            visual_plan, transcript_early, locale=locale,
-            source=settings.data_dir / p['id'] / 'source',
-        )
-        if _motion_profile(motion_profile):
-            from .semantic_motion_profile import apply_profile
-            visual_plan = apply_profile(visual_plan, transcript_early, locale=locale)
-        else:
-            from . import semantic_numeric_range
-            visual_plan = semantic_numeric_range.apply_numeric_range(
+            from . import scene_composer_v16
+            visual_plan = scene_composer_v16.apply_scene_composer(
                 visual_plan, transcript_early, locale=locale,
+                source=settings.data_dir / p['id'] / 'source',
             )
-            from .director_evidence import apply_evidence_gate
-            visual_plan = apply_evidence_gate(visual_plan, transcript_early, locale=locale)
-        from .visual_quality_optimizer import apply as apply_visual_optimizer
-        visual_plan = apply_visual_optimizer(
-            visual_plan,
-            transcript_early,
-            mode=(payload or {}).get('visual_optimizer_mode'),
-        )
-        from .visual_treatment_ranking import apply as apply_treatment_ranking
-        visual_plan = apply_treatment_ranking(
-            visual_plan,
-            mode=(payload or {}).get('visual_treatment_mode'),
-        )
-        from .editorial_decision import apply_editorial_decision
-        visual_plan = apply_editorial_decision(
-            visual_plan,
-            cleaned,
-            locale=locale,
-            target_seconds=seconds,
-            source_seconds=float(raw_source or seconds),
-            duration_mode=(contract or {}).get('mode') or 'target',
-        )
-        try:
-            visual_plan = revalidate_assets(visual_plan, p['id'], cleaned)
-        except PlannerError as exc:
-            raise ValueError(exc.code) from exc
+            from . import motion_design_v18
+            visual_plan = motion_design_v18.apply_motion_design(
+                visual_plan, transcript_early, locale=locale,
+                source=settings.data_dir / p['id'] / 'source',
+            )
+            if _motion_profile(motion_profile):
+                from .semantic_motion_profile import apply_profile
+                visual_plan = apply_profile(visual_plan, transcript_early, locale=locale)
+            else:
+                from . import semantic_numeric_range
+                visual_plan = semantic_numeric_range.apply_numeric_range(
+                    visual_plan, transcript_early, locale=locale,
+                )
+                from .director_evidence import apply_evidence_gate
+                visual_plan = apply_evidence_gate(visual_plan, transcript_early, locale=locale)
+            from .visual_quality_optimizer import apply as apply_visual_optimizer
+            visual_plan = apply_visual_optimizer(
+                visual_plan,
+                transcript_early,
+                mode=(payload or {}).get('visual_optimizer_mode'),
+            )
+            from .visual_treatment_ranking import apply as apply_treatment_ranking
+            visual_plan = apply_treatment_ranking(
+                visual_plan,
+                mode=(payload or {}).get('visual_treatment_mode'),
+            )
+            from .editorial_decision import apply_editorial_decision
+            visual_plan = apply_editorial_decision(
+                visual_plan,
+                cleaned,
+                locale=locale,
+                target_seconds=seconds,
+                source_seconds=float(raw_source or seconds),
+                duration_mode=(contract or {}).get('mode') or 'target',
+            )
+            try:
+                visual_plan = revalidate_assets(visual_plan, p['id'], cleaned)
+            except PlannerError as exc:
+                raise ValueError(exc.code) from exc
         if (payload or {}).get('plan_only'):
             visual_plan = {**visual_plan, 'planOnly': True, 'staging': 'skipped'}
         else:
@@ -494,9 +519,10 @@ def run_job(p, payload):
             from pathlib import Path as _Path
             library = _Path(__file__).resolve().parent.parent / 'media' / 'library' / 'out'
             visual_plan = stage_backgrounds(visual_plan, public, library)
-            visual_plan = director_v8.stage_semantic_motion(visual_plan, public, library)
-            visual_plan = director_v9.stage_float_objects(visual_plan, public, library)
-            visual_plan = director_v10.stage_premium_3d(visual_plan, public, library)
+            if not locked:
+                visual_plan = director_v8.stage_semantic_motion(visual_plan, public, library)
+                visual_plan = director_v9.stage_float_objects(visual_plan, public, library)
+                visual_plan = director_v10.stage_premium_3d(visual_plan, public, library)
         transcript_early = cleaned
         if visual_plan.get('form') == 'semantic':
             from .passage_retrieval import bound_semantic_duration
@@ -509,6 +535,7 @@ def run_job(p, payload):
         source_ref=str(settings.data_dir / p['id'] / 'source'),
         generation_id=(visual_plan or {}).get('generationId'),
     )
+    render_plan = stamp_editorial_authority(render_plan, visual_plan)
     transcript = (
         (payload or {}).get('transcript')
         or ((payload or {}).get('plan') or {}).get('transcript')
@@ -516,7 +543,8 @@ def run_job(p, payload):
         or []
     )
     from .passage_experiment import correct_transcript
-    transcript = correct_transcript(transcript, p['id'])
+    from .source_transcript import rows_with_aligner_words
+    transcript = rows_with_aligner_words(p['id'], correct_transcript(transcript, p['id']))
     render_plan = remotion_engine.attach_transcript_captions(
         render_plan, transcript, locale=target_locale, dubbed=dubbed,
     )

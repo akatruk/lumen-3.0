@@ -1,0 +1,43 @@
+{
+  "status": "held_needs_review",
+  "defaultSearch": false,
+  "license": "Original drawing for this library. No third-party image model. Not a copy of a real instrument.",
+  "origin": "Local SVG drawn for the three gaps, rasterized with the already installed @resvg/resvg-js. Not Qwen output.",
+  "assets": [
+    {
+      "id": "ev_property_sale_contract",
+      "path": "media/library/out/static/evidence/ev_property_sale_contract.png",
+      "svg": "media/library/out/static/evidence/ev_property_sale_contract.svg",
+      "visible": "A paper sheet with a house silhouette and blank lines. No words, amounts, seal, or signature.",
+      "allowed": ["illustration beside the host while 房产买卖合同 is spoken"],
+      "limits": ["not a real deed", "not a photograph of a building", "not proof a sale happened"],
+      "review": "phone-width and full plate inspected in this session"
+    },
+    {
+      "id": "ev_equity_transfer_agreement",
+      "path": "media/library/out/static/evidence/ev_equity_transfer_agreement.png",
+      "svg": "media/library/out/static/evidence/ev_equity_transfer_agreement.svg",
+      "visible": "A paper sheet, two figures, a circle with one wedge, an arrow toward the right figure. No names or percentages.",
+      "allowed": ["illustration beside the host while 股权转让协议 is spoken"],
+      "limits": ["not a real agreement", "not proof of a transfer"],
+      "review": "phone-width and full plate inspected in this session"
+    },
+    {
+      "id": "ev_bank_ledger",
+      "path": "media/library/out/static/evidence/ev_bank_ledger.png",
+      "svg": "media/library/out/static/evidence/ev_bank_ledger.svg",
+      "visible": "A paper sheet, a generic columned building, a table of blank bars. No digits, account numbers, dates, or tax marks.",
+      "allowed": ["illustration beside the host while the transcript phrase 银行完税流水 is spoken"],
+      "limits": ["ASR phrase is ambiguous between a tax-payment record and a bank ledger", "the picture does not assert tax payment", "not a real bank document"],
+      "review": "phone-width and full plate inspected in this session"
+    },
+    {
+      "id": "global_route_001",
+      "path": "media/library/out/motion/global/global_route_001.webm",
+      "visible": "Globe and one gold route arc on black. yuv420p, no alpha.",
+      "allowed": ["beside the host while 跨境路径 is spoken"],
+      "limits": ["does not show compliance, a bank account, or a lawful transfer"],
+      "review": "frame inspected in the previous cut"
+    }
+  ]
+}

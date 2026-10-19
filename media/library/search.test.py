@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from search import normalize_query, search_assets
+from search import normalize_query, search_assets, specific_asks, specific_block
 
 MANIFEST = Path(__file__).resolve().parent / "out" / "manifest.json"
 
@@ -134,6 +134,28 @@ class SearchTest(unittest.TestCase):
             ):
                 hits = search_assets(query, type="image", limit=3, path=path)
                 self.assertEqual([hit["id"] for hit in hits], ["rp_photo_001"], query)
+
+
+class SpecificInstrumentTest(unittest.TestCase):
+    def test_a_building_is_not_a_sale_contract(self):
+        house = {"id": "l3d_apartment_building__reveal", "visualFamily": "premium_3d", "tags": ["property"]}
+        sheet = {"id": "ev_property_sale_contract", "visualAdmits": ["property_sale_contract"]}
+        self.assertEqual(specific_block("房产买卖合同", house), "NO_MATCH:property_sale_contract")
+        self.assertIsNone(specific_block("房产买卖合同", sheet))
+        self.assertIsNone(specific_block("family relocation", house))
+
+    def test_real_library_does_not_substitute_these_instruments(self):
+        forbidden = ("l3d_", "re_ext_", "re_int_", "people_", "cev6_", "icon_coins", "pm_hero_", "document_approval", "pm_concept_check", "pm_scene_approval", "re_agent")
+        queries = ("房产买卖合同", "股权转让协议", "银行完税流水", "证据协议", "property sale contract", "equity transfer agreement", "bank ledger")
+        for query in queries:
+            hits = search_assets(query, limit=8, path=MANIFEST)
+            ids = [hit["id"] for hit in hits]
+            for asset_id in ids:
+                self.assertFalse(any(asset_id.startswith(prefix) or prefix in asset_id for prefix in forbidden), query + " -> " + asset_id)
+            for hit in hits:
+                admits = set(hit.get("visualAdmits") or [])
+                for ask in specific_asks(query):
+                    self.assertIn(ask, admits, query + " -> " + hit["id"])
 
 
 if __name__ == "__main__":

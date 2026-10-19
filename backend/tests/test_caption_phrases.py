@@ -79,6 +79,46 @@ def test_russian_groups_readable_phrases():
     assert not any(p.rstrip().endswith(' с') for p in parts)
 
 
+def test_unpunctuated_chinese_segment_does_not_become_one_caption():
+    text = "现在办移民最难的早就不是你手头有没有钱而是你怎么向官方及其严苛的证明这笔钱究竟是从哪来的"
+    words = []
+    cursor = 0.0
+    for char in text:
+        words.append({"text": char, "start": round(cursor, 3), "end": round(cursor + 0.24, 3)})
+        cursor += 0.24
+    rows = phrases_from_transcript([
+        {"id": "segment_001", "start": 0, "end": cursor, "text": text, "words": words},
+    ], locale="zh-CN", duration_s=cursor)
+    assert rows
+    assert rows[0]["end"] < 5
+    assert abs(rows[0]["end"] - words[len(rows[0]["text"]) - 1]["end"]) < 0.05
+    assert rows[-1]["end"] < cursor
+    assert all(len(row["text"]) <= 16 for row in rows)
+
+
+def test_chinese_evidence_phrases_are_not_split_into_orphans():
+    text = "调必须准备好合规的四种证据链第一叫原始积累证明第三叫证依据合法的证据协议资金来源资金打入官方监管账户的合法渠道"
+    words = []
+    cursor = 0.0
+    gaps = {"第": 0.32, "资": 0.24}
+    prev = 0.0
+    for char in text:
+        gap = gaps.get(char, 0.0)
+        start = round(prev + gap, 3)
+        end = round(start + 0.24, 3)
+        words.append({"text": char, "start": start, "end": end})
+        prev = end
+    rows = phrases_from_transcript([
+        {"start": 0, "end": prev, "text": text, "words": words},
+    ], locale="zh-CN", duration_s=prev + 1)
+    texts = [row["text"] for row in rows]
+    assert "据链" not in texts
+    assert any("四种证据链" in text for text in texts)
+    assert not any(text.endswith("证据协") for text in texts)
+    assert not any(text == "法渠道" for text in texts)
+    assert all(len(text) <= 20 for text in texts)
+
+
 def test_chinese_does_not_leave_a_one_character_line():
     parts = group_phrase_texts('买房送身份听起来是不是特别诱人', 'zh-CN')
     assert parts
@@ -134,3 +174,35 @@ def test_attach_on_resolve_plan():
     assert plan['captionSource'] == 'source_transcript'
     assert plan['captions']
     assert plan['executionValidation'] in ('passed', 'repaired')
+
+
+def test_plan_rows_without_words_reuse_saved_aligner_tokens(monkeypatch):
+    from backend.source_transcript import rows_with_aligner_words
+
+    saved = {
+        "segments": [{
+            "id": "segment_001",
+            "start": 0,
+            "end": 2,
+            "text": "四种证据链",
+            "words": [
+                {"text": "四", "start": 0.0, "end": 0.2},
+                {"text": "种", "start": 0.2, "end": 0.4},
+                {"text": "证", "start": 0.4, "end": 0.6},
+                {"text": "据", "start": 0.6, "end": 0.8},
+                {"text": "链", "start": 0.8, "end": 1.0},
+            ],
+        }],
+    }
+    monkeypatch.setattr(
+        "backend.source_transcript.load_verified",
+        lambda pid, source: saved,
+    )
+    rows = rows_with_aligner_words("pid", [
+        {"id": "segment_001", "start": 0, "end": 2, "text": "四种证据链"},
+    ])
+    phrases = phrases_from_transcript(rows, locale="zh-CN", duration_s=2)
+    assert rows[0]["words"][0]["start"] == 0.0
+    assert phrases[0]["text"] == "四种证据链"
+    assert phrases[0]["end"] == 1.0
+    assert "据链" not in [row["text"] for row in phrases]
